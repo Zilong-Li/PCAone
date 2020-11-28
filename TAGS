@@ -1,0 +1,61 @@
+
+Data.cpp,134
+void Data::read_bed_whole_genomat()read_bed_whole_genomat3,21
+void Data::read_bed_whole_genomat()Data::read_bed_whole_genomat3,21
+
+work.sh,0
+
+a.out,0
+
+Utils.hpp,226
+#define __EMU_UTILES____EMU_UTILES__2,23
+typedef unsigned char uchar;uchar7,87
+typedef unsigned int uint;uint8,116
+typedef unsigned long long uint64;uint649,143
+size_t count_lines(std::string fpath)count_lines12,180
+
+Makefile,29
+CXX           = g++CXX4,10
+
+EMU.cpp,43
+int main(int argc, char *argv[])main4,40
+
+Data.hpp,708
+#define __DATA_H____DATA_H__2,19
+#define MASK0 MASK016,340
+#define MASK1 MASK117,375
+#define MASK2 MASK218,410
+#define MASK3 MASK319,445
+class DataData21,481
+    Data(string f): bed_prefix(f) {}Data24,502
+    Data(string f): bed_prefix(f) {}Data::Data24,502
+    ~Data() {}~Data26,540
+    ~Data() {}Data::~Data26,540
+    void read_bed_whole_genomat();read_bed_whole_genomat28,556
+    void read_bed_whole_genomat();Data::read_bed_whole_genomat28,556
+    std::string bed_prefix;bed_prefix30,592
+    std::string bed_prefix;Data::bed_prefix30,592
+    MatrixXd G;G31,620
+    MatrixXd G;Data::G31,620
+    vector<uchar> inbed;inbed34,646
+    vector<uchar> inbed;Data::inbed34,646
+
+EMU.hpp,956
+#define __EMU____EMU__2,16
+class MeasureTime {MeasureTime6,52
+    std::chrono::steady_clock::time_point begin;begin9,83
+    std::chrono::steady_clock::time_point begin;MeasureTime::begin9,83
+    std::chrono::steady_clock::time_point end;end10,132
+    std::chrono::steady_clock::time_point end;MeasureTime::end10,132
+    time_t start_time_info, end_time_info;start_time_info11,179
+    time_t start_time_info, end_time_info;MeasureTime::start_time_info11,179
+    time_t start_time_info, end_time_info;end_time_info11,179
+    time_t start_time_info, end_time_info;MeasureTime::end_time_info11,179
+    void init() {init13,223
+    void init() {MeasureTime::init13,223
+    void stop(){stop19,461
+    void stop(){MeasureTime::stop19,461
+    MeasureTime(void);MeasureTime25,657
+    MeasureTime(void);MeasureTime::MeasureTime25,657
+    ~MeasureTime(void);~MeasureTime26,680
+    ~MeasureTime(void);MeasureTime::~MeasureTime26,680
