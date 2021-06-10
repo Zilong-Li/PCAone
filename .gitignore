@@ -1,0 +1,10 @@
+t.*
+test*
+*TAGS
+GRTAGS
+GPATH
+*.sh
+.RData
+.Rhistory
+*.pdf
+*.o

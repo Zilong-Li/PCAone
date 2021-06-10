@@ -1,0 +1,61 @@
+#+TITLE: PCAone - Principal Component Analysis All in One
+
+#+OPTIONS: ^:nil
+
+*Current Version: v0.1.0*
+
+PCAone is fast and memory efficient PCA tool implemented in C++ aiming at providing comprehensive features and algorithms for different scenarios.
+
+* Features
+
+- Has both Arnoldi and Halko methods with *out-of-core* implementation.
+- Quite Fast and memory efficient with multithreading support and using external MKL or OpenBlas library.
+- Supports the [[https://www.well.ox.ac.uk/~gav/bgen_format][BGEN]], [[https://www.cog-genomics.org/plink/1.9/formats#bed][PLINK]] bed/bim/fam and [[https://www.cog-genomics.org/plink/2.0/formats#pgen][PLINK2]] pgen/pvar/psam genetic data formats. Also the zstd/zlib compressed csv format for scRNAs data. 
+- Supports [[https://github.com/Rosemeis/emu][EMU]] algorithm for scenario with large proportion of missingness.
+- Supports [[https://github.com/Rosemeis/pcangsd][PCAngsd]] algorithm for low coverage sequencing scenario with genotype probability as input.
+- Supports normalization and log-transformation for scRNAs data.
+
+* Build from source
+
+Default is without external mkl or openblas support. With external mkl or openblas support, change the =MKLROOT= or =OPENBLAS_ROOT= to your own path. If it complains that there is no =lapack= or =iomp5= lib for Mac users, set the =LIBIOMP5= or =LAPACK_ROOT= to the correct path as well. Also, if you need to work with bgen file, please download and install the [[https://enkre.net/cgi-bin/code/bgen/dir?ci=trunk][bgen]] library first and then set =BGEN_PATH= to the path of your downlanded bgen.
+
+#+begin_src sh
+git clone https://github.com/Zilong-Li/PCAone.git
+cd PCAone
+make
+#+end_src
+
+* Command-Line
+
+#+begin_src plain
+PCA+ All In One.
+Usage:
+  ./PCAone [OPTION...]
+
+  -h, --help     print list of main options.
+      --helpall  print list of all options.
+
+ Main options:
+  -k, --eigs INT       top k components to be calculated.
+      --bfile PREFIX   prefix to PLINK .bed/.bim/.fam files.
+      --pfile PREFIX   prefix to PLINK2 .pgen/.pvar/.psam files.
+      --bgen FILE      BGEN file.
+      --beagle FILE    beagle file.
+  -b, --blocksize INT  size of block and in number of SNPs.[0]
+      --emu            using EMU algorithm for data with missingness.
+      --pcangsd        using PCAngsd algorithm for data with genotype
+                       probability.
+  -n, --threads INT    number of threads. [1]
+  -p, --power INT      number of power iterations for Halko method.[2]
+  -A, --arnoldi        using implicit restarted Arnoldi method instead of
+                       default Randomized SVD (Halko)
+  -o, --out PREFIX     prefix for output files.
+  -v, --verbose        verbose message output.
+
+#+end_src
+
+* Credits
+
+
+* Citation
+
