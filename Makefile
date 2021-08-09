@@ -14,9 +14,9 @@ STATIC       := 1
 
 #######
 program       = PCAone
-# for mac user, make sure CXX is openmp supported
+# for mac user, please change this to gnu gcc instead of the default clang version
 CXX           = g++
-CXXFLAGS	  = -O3 -Wall -std=c++11 -ftree-vectorize -ffast-math -fPIC
+CXXFLAGS	  = -O3 -Wall -std=c++11 -ftree-vectorize -ffast-math -fPIC -fopenmp
 MYFLAGS       = -DVERSION=\"$(VERSION)\" -DNDEBUG
 INC           = -I./external
 #######
@@ -50,7 +50,6 @@ ifeq ($(Platform),Linux)
 		LPATHS  += -L${OPENBLAS_ROOT}/lib -L${LAPACK_ROOT}/lib
 
 	endif
-    CXXFLAGS    += -fopenmp
 
 else ifeq ($(Platform),Darwin)
 ###### for mac
@@ -73,8 +72,7 @@ else ifeq ($(Platform),Darwin)
 		LPATHS  += -L${OPENBLAS_ROOT}/lib -L${LAPACK_ROOT}/lib
 
 	endif
-    CXXFLAGS    += -Xpreprocessor -fopenmp -stdlib=libc++
-    LIBS        += -lomp
+    CXXFLAGS    += -static-libstdc++
 
 endif
 

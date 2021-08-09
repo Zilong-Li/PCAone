@@ -7,60 +7,51 @@ void NormalRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
         cerr << "Error: the size of G or H doesn't match.\n";
         exit(EXIT_FAILURE);
     }
-    if (batch)
+    if (data->params.batch)
     {
+        cout << timestamp() << "running in batch mode.\n";
         if (update)
         {
             data->update_batch_E(U, S, V.transpose());
         }
         if (standardize)
         {
-            if (pcangsd) {
+            if (data->params.pcangsd) {
                 data->pcangsd_standardize_E(U, S, V.transpose());
             } else {
                 data->standardize_E();
             }
         }
-        G.noalias() = data->G.transpose() * Omg;
-        H.noalias() = data->G * G;
-        if (p > 0) {
-            for (int i=0; i<p; ++i) {
-                // Eigen::ColPivHouseholderQR<Eigen::Ref<MatrixXf>> qr(H);
-                Eigen::HouseholderQR<Eigen::Ref<MatrixXf>> qr(H);
-                H.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
-                G.noalias() = data->G.transpose() * H;
+        if (data->snpmajor || true) {
+            for (int pi = 0; pi <= p; ++pi) {
+                if (pi > 0) {
+                    Eigen::HouseholderQR<Eigen::Ref<MatrixXf>> qr(H);
+                    Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
+                }
+                G.noalias() = data->G.transpose() * Omg;
                 H.noalias() = data->G * G;
+                stop = check_if_halko_converge(pi, data->params.tol_halko, Upre, Ucur, G, H, nk, rows(), cols(), size);
+                if (stop || pi == p) {
+                    cout << timestamp() << "stop at epoch=" << pi << ".\n";
+                    print_summary_table(Upre, Ucur, data->params.outfile);
+                    break;
+                }
+                Upre = Ucur;
             }
         }
     } else {
-        // the bigger size of block is, the faster program is
+        // for block version
+        // the bigger the size of block is, the faster the program is
+        cout << timestamp() << "running in block mode.\n";
         uint actual_block_size, start_idx, stop_idx;
-        H = MatrixXf::Zero(cols(), size);
-        data->open_check_file();
-        for (uint i = 0 ; i < data->nblocks ; ++i)
-        {
-            start_idx = data->start[i];
-            stop_idx = data->stop[i];
-            actual_block_size = stop_idx - start_idx + 1;
-            if (update)
-            {
-                data->read_snp_block_update(start_idx, stop_idx, U, S, V.transpose(), standardize);
-            } else {
-                data->read_snp_block_initial(start_idx, stop_idx, standardize);
-            }
-            G.block(start_idx, 0, actual_block_size, size) = data->G.transpose() * Omg;
-            H.noalias() = H +  data->G * G.block(start_idx, 0, actual_block_size, size);
-        }
-        data->close_check_file();
-        if (p > 0)
-        {
-            MatrixXf Hpi;
-            for (int pi=0; pi < p; ++pi)
-            {
-                Hpi = H;
-                // Eigen::ColPivHouseholderQR<Eigen::Ref<MatrixXf>> qr(Hpi);
-                Eigen::HouseholderQR<Eigen::Ref<MatrixXf>> qr(Hpi);
-                Hpi.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
+        // data->G is always nsamples x nsnps;
+        if (data->snpmajor || true) {
+            // for nsnps > nsamples
+            for (int pi = 0; pi <= p ; ++pi) {
+                if (pi >= 1) {
+                    Eigen::HouseholderQR<Eigen::Ref<MatrixXf>> qr(H);
+                    Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
+                }
                 H = MatrixXf::Zero(cols(), size);
                 data->open_check_file();
                 for (uint i = 0 ; i < data->nblocks ; ++i)
@@ -74,70 +65,298 @@ void NormalRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
                     } else {
                         data->read_snp_block_initial(start_idx, stop_idx, standardize);
                     }
-                    G.block(start_idx, 0, actual_block_size, size) = data->G.transpose() * Hpi;
+                    G.block(start_idx, 0, actual_block_size, size) = data->G.transpose() * Omg;
                     H.noalias() = H +  data->G * G.block(start_idx, 0, actual_block_size, size);
                 }
                 data->close_check_file();
+                stop = check_if_halko_converge(pi, data->params.tol_halko, Upre, Ucur, G, H, nk, rows(), cols(), size);
+                if (stop || pi == p) {
+                    cout << timestamp() << "stop at epoch=" << pi << ".\n";
+                    print_summary_table(Upre, Ucur, data->params.outfile);
+                    break;
+                }
+                Upre = Ucur;
             }
         }
     }
 }
 
+void FancyRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
+{
+    // check size of G and H first;
+    if (H.cols() != size || H.rows() != cols() || G.cols() != size || G.rows() != rows()) {
+        cerr << "Error: the size of G or H doesn't match.\n";
+        exit(EXIT_FAILURE);
+    }
+    if (data->params.batch)
+    {
+        cout << timestamp() << "running in batch mode.\n";
+        if (update)
+        {
+            data->update_batch_E(U, S, V.transpose());
+        }
+        if (standardize)
+        {
+            if (data->params.pcangsd) {
+                data->pcangsd_standardize_E(U, S, V.transpose());
+            } else {
+                data->standardize_E();
+            }
+        }
+        // permute snps of G, see https://stackoverflow.com/questions/15858569/randomly-permute-rows-columns-of-a-matrix-with-eigen
+        PermutationMatrix<Dynamic,Dynamic> perm(data->G.cols());
+        perm.setIdentity();
+        // std::random_shuffle(perm.indices().data(), perm.indices().data()+perm.indices().size());
+        auto rng = std::default_random_engine {};
+        std::shuffle(perm.indices().data(), perm.indices().data()+perm.indices().size(), rng);
+        data->G = data->G * perm; // permute columns in-place
+
+        uint B=data->params.nblocks;
+        uint band=4;
+        uint blocksize = ceil(data->nsnps / B);
+        uint actual_block_size, start_idx, stop_idx;
+        MatrixXf H1, H2, H3, H4;
+        for (int pi=0; pi <= p; ++pi)
+        {
+            band = fmin(band * pow(2, pi), B);
+            H1 = MatrixXf::Zero(cols(), size);
+            H2 = MatrixXf::Zero(cols(), size);
+            H3 = MatrixXf::Zero(cols(), size);
+            H4 = MatrixXf::Zero(cols(), size);
+            for (uint b = 0, i = 1; b < B; ++b, ++i) {
+                start_idx = b * blocksize;
+                stop_idx = (b + 1) * blocksize >= data->nsnps ? data->nsnps - 1 : (b + 1) * blocksize - 1 ;
+                actual_block_size = stop_idx - start_idx + 1;
+                G.block(start_idx, 0, actual_block_size, size) = data->G.block(start_idx, 0, data->G.rows(), actual_block_size).transpose() * Omg;
+                if (i <= band / 4) {
+                    H1.noalias() = H1 +  data->G.block(start_idx, 0, data->G.rows(), actual_block_size) * G.block(start_idx, 0, actual_block_size, size);
+                }else if (i > band / 4 && i <= band / 2) {
+                    H2.noalias() = H2 +  data->G.block(start_idx, 0, data->G.rows(), actual_block_size) * G.block(start_idx, 0, actual_block_size, size);
+                }else if (i > band / 2 && i <= 3 * band / 4) {
+                    H3.noalias() = H3 +  data->G.block(start_idx, 0, data->G.rows(), actual_block_size) * G.block(start_idx, 0, actual_block_size, size);
+                }else if (i > 3 * band / 4 && i <= band) {
+                    H4.noalias() = H4 +  data->G.block(start_idx, 0, data->G.rows(), actual_block_size) * G.block(start_idx, 0, actual_block_size, size);
+                }
+                if( (b+1) >= band ) {
+                    if (i == band) {
+                        H.noalias() = H1 + H2 + H3 + H4;
+                        Eigen::HouseholderQR<MatrixXf> qr(H);
+                        Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
+                        H1 = MatrixXf::Zero(cols(), size);
+                        i = 0;
+                    }else if (i == band / 4) {
+                        H.noalias() = H1 + H2 + H3 + H4;
+                        Eigen::HouseholderQR<MatrixXf> qr(H);
+                        Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
+                        H2 = MatrixXf::Zero(cols(), size);
+                    }else if (i == band * 2 / 4) {
+                        H.noalias() = H1 + H2 + H3 + H4;
+                        Eigen::HouseholderQR<MatrixXf> qr(H);
+                        Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
+                        H3 = MatrixXf::Zero(cols(), size);
+                    }else if (i == band * 3 / 4) {
+                        H.noalias() = H1 + H2 + H3 + H4;
+                        Eigen::HouseholderQR<MatrixXf> qr(H);
+                        Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
+                        H4 = MatrixXf::Zero(cols(), size);
+                    }else if( (b+1) == data->nblocks) {
+                        H.noalias() = H1 + H2 + H3 + H4;
+                        Eigen::HouseholderQR<MatrixXf> qr(H);
+                        Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
+                    }
+                } else if (band * pow(2, pi) <= data->nblocks) {
+                    H.noalias() = H1 + H2 + H3 + H4;
+                    Eigen::HouseholderQR<MatrixXf> qr(H);
+                    Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
+                }
+            }
+            stop = check_if_halko_converge(pi, data->params.tol_halko, Upre, Ucur, G, H, nk, rows(), cols(), size);
+            if (stop || pi == p) {
+                cout << timestamp() << "stop at epoch=" << pi << ".\n";
+                print_summary_table(Upre, Ucur, data->params.outfile);
+                break;
+            }
+            Upre = Ucur;
+        }
+    } else {
+        uint actual_block_size, start_idx, stop_idx;
+        uint band = 4;
+        MatrixXf H1, H2, H3, H4;
+        for (int pi=0; pi <= p; ++pi)
+        {
+            band = fmin(band * pow(2, pi), data->nblocks);
+            H1 = MatrixXf::Zero(cols(), size);
+            H2 = MatrixXf::Zero(cols(), size);
+            H3 = MatrixXf::Zero(cols(), size);
+            H4 = MatrixXf::Zero(cols(), size);
+            data->open_check_file();
+            for (uint b = 0, i = 1 ; b < data->nblocks ; ++b, ++i)
+            {
+                start_idx = data->start[b];
+                stop_idx = data->stop[b];
+                actual_block_size = stop_idx - start_idx + 1;
+                if (update)
+                {
+                    data->read_snp_block_update(start_idx, stop_idx, U, S, V.transpose(), standardize);
+                } else {
+                    data->read_snp_block_initial(start_idx, stop_idx, standardize);
+                }
+                G.block(start_idx, 0, actual_block_size, size) = data->G.transpose() * Omg;
+                if (i <= band / 4) {
+                    H1.noalias() = H1 +  data->G * G.block(start_idx, 0, actual_block_size, size);
+                }else if (i > band / 4 && i <= band / 2) {
+                    H2.noalias() = H2 +  data->G * G.block(start_idx, 0, actual_block_size, size);
+                }else if (i > band / 2 && i <= 3 * band / 4) {
+                    H3.noalias() = H3 +  data->G * G.block(start_idx, 0, actual_block_size, size);
+                }else if (i > 3 * band / 4 && i <= band) {
+                    H4.noalias() = H4 +  data->G * G.block(start_idx, 0, actual_block_size, size);
+                }
+                if( (b+1) >= band ) {
+                    if (i == band) {
+                        H.noalias() = H1 + H2 + H3 + H4;
+                        Eigen::HouseholderQR<MatrixXf> qr(H);
+                        Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
+                        H1 = MatrixXf::Zero(cols(), size);
+                        i = 0;
+                    }else if (i == band / 4) {
+                        H.noalias() = H1 + H2 + H3 + H4;
+                        Eigen::HouseholderQR<MatrixXf> qr(H);
+                        Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
+                        H2 = MatrixXf::Zero(cols(), size);
+                    }else if (i == band * 2 / 4) {
+                        H.noalias() = H1 + H2 + H3 + H4;
+                        Eigen::HouseholderQR<MatrixXf> qr(H);
+                        Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
+                        H3 = MatrixXf::Zero(cols(), size);
+                    }else if (i == band * 3 / 4) {
+                        H.noalias() = H1 + H2 + H3 + H4;
+                        Eigen::HouseholderQR<MatrixXf> qr(H);
+                        Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
+                        H4 = MatrixXf::Zero(cols(), size);
+                    }else if( (b+1) == data->nblocks) {
+                        H.noalias() = H1 + H2 + H3 + H4;
+                        Eigen::HouseholderQR<MatrixXf> qr(H);
+                        Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
+                    }
+                } else if (band * pow(2, pi) <= data->nblocks) {
+                    H.noalias() = H1 + H2 + H3 + H4;
+                    Eigen::HouseholderQR<MatrixXf> qr(H);
+                    Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
+                }
+            }
+            data->close_check_file();
+            stop = check_if_halko_converge(pi, data->params.tol_halko, Upre, Ucur, G, H, nk, rows(), cols(), size);
+            if (stop || pi == p) {
+                cout << timestamp() << "stop at epoch=" << pi << ".\n";
+                print_summary_table(Upre, Ucur, data->params.outfile);
+                break;
+            }
+            Upre = Ucur;
+        }
+    }
+}
+
+bool check_if_halko_converge(int pi, double tol, MatrixXf& Upre, MatrixXf& Ucur, const MatrixXf& G, const MatrixXf& H, int k, int nrow, int ncol, int size){
+    MatrixXf Q(nrow, size), B(size, ncol), R(size, size), Rt(size, size);
+    Eigen::HouseholderQR<MatrixXf> qr(G);
+    Q.noalias() = qr.householderQ() * MatrixXf::Identity(nrow, size);
+    R.noalias() = MatrixXf::Identity(size, nrow) * qr.matrixQR().triangularView<Eigen::Upper>();
+    Eigen::HouseholderQR<MatrixXf> qr2(Q);
+    Q.noalias() = qr2.householderQ() * MatrixXf::Identity(nrow, size);
+    Rt.noalias() = MatrixXf::Identity(size, nrow) * qr2.matrixQR().triangularView<Eigen::Upper>();
+    R = Rt * R;
+    // R.T * B = H.T
+    B.noalias() = R.transpose().householderQr().solve(H.transpose());
+    Eigen::JacobiSVD<MatrixXf> svd(B, Eigen::ComputeThinU | Eigen::ComputeThinV);
+    Ucur = svd.matrixV().leftCols(k);
+    if (pi == 0) {
+        return false;
+    } else {
+        double diff_rmse, diff_mev;
+        diff_mev = 1 - mev(Upre, Ucur);
+        diff_rmse = rmse(Upre, Ucur);
+        cout << timestamp() << "running of epoch=" << pi << ", RMSE=" << diff_rmse << ", 1-MEV=" << diff_mev << ".\n";
+        if (diff_rmse <= tol || diff_mev <= tol) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+}
+
+void print_summary_table(const MatrixXf& Upre, const MatrixXf& Ucur, const string& outfile)
+{
+    VectorXd rmse = rmse_byk(Upre, Ucur);
+    VectorXd mev  = mev_byk(Upre, Ucur);
+    std::ofstream outlog(outfile + ".log");
+    string out = "summary:";
+    for (int i=0; i < Ucur.cols(); i++) {
+        out += " PC1-" + std::to_string(i+1);
+    }
+    outlog << "=========================>\n" << out << "\n"
+           << "RMSE: " << rmse.transpose() << ".\n"
+           << "1-MEV : " << mev.transpose() << ".\n"
+           << "=========================>\n";
+}
+
 void run_pca_with_halko(Data* data, const Param& params)
 {
-    cerr << timestamp() << "begin to run_pca_with_halko\n";
+    cout << timestamp() << "begin to run_pca_with_halko\n";
     MatrixXf Vpre;
     VectorXf S;
-    NormalRsvdOpData op(data, params.batch, params.k);
-    RsvdOnePass< MatrixXf, NormalRsvdOpData > rsvd(op);
-    // if (!params.truefile.empty()) {
-    //     TM = load_csv<MatrixXf>(params.truefile);
-    // }
+    RsvdOpData* op;
+    if (params.fancy) {
+        op = new FancyRsvdOpData(data, params.k);
+    } else {
+        op = new NormalRsvdOpData(data, params.k);
+    }
+    RsvdOnePass< MatrixXf, RsvdOpData >* rsvd = new RsvdOnePass< MatrixXf, RsvdOpData >(*op);
     if (params.maxiter == 0)
     {
-        cerr << timestamp() << "begin to do non-em PCA.\n";
-        op.setFlags(false, true, false);
-        rsvd.computeUSV(params.p);
-        op.V = rsvd.matrixU();
-        op.U = rsvd.matrixV();
+        cout << timestamp() << "begin to do non-em PCA.\n";
+        op->setFlags(false, true);
+        rsvd->computeUSV(params.p);
+        op->U = rsvd->matrixU(data->snpmajor);
+        op->V = rsvd->matrixV(data->snpmajor);
         // flip_UV(U, V, false);
-        op.S = rsvd.singularValues().array().square() / data->nsnps;
-        cerr << timestamp() << "begin to save eigenvecs and eigenvals.\n";
-        data->write_eigs_files(op.S, op.U);
+        op->S = rsvd->singularValues().array().square() / data->nsnps;
+        cout << timestamp() << "eigenvecs and eigenvals are saved. have a nice day. bye!\n";
+        data->write_eigs_files(op->S, op->U);
     } else {
-        rsvd.computeUSV(params.p);
-        op.V = rsvd.matrixU();
-        op.U = rsvd.matrixV();
-        op.S = rsvd.singularValues();
+        // for EM iteration
+        op->setFlags(false, false);
+        rsvd->computeUSV(params.p);
+        op->U = rsvd->matrixU(data->snpmajor);
+        op->V = rsvd->matrixV(data->snpmajor);
+        op->S = rsvd->singularValues();
         // flip_UV(Upre, V, false);
-        cerr << timestamp() << "begin to do EM\n";
+        cout << timestamp() << "begin to do EM\n";
         double diff;
-        // std::ofstream out_vecs(params.outfile + ".eigvecs.alliters");
-        op.setFlags(true, false, params.pcangsd);
+        op->setFlags(true, false);
         for (uint i = 0; i < params.maxiter; ++i)
         {
-            Vpre = op.V;
-            rsvd.computeUSV(params.p);
-            op.V = rsvd.matrixU();
-            op.U = rsvd.matrixV();
-            op.S = rsvd.singularValues();
+            Vpre = op->V;
+            rsvd->computeUSV(params.p);
+            op->U = rsvd->matrixU(data->snpmajor);
+            op->V = rsvd->matrixV(data->snpmajor);
+            op->S = rsvd->singularValues();
             // flip_UV(U, V, false);
-            diff = rmse(op.V, Vpre);
-            cerr << timestamp() << "Individual allele frequencies estimated (iter=" << i+1 << "), RMSE=" << diff <<".\n";
+            diff = rmse(op->V, Vpre);
+            cout << timestamp() << "Individual allele frequencies estimated (iter=" << i+1 << "), RMSE=" << diff <<".\n";
             if (diff < params.tol)
             {
-                cerr << timestamp() << "Come to convergence!\n";
+                cout << timestamp() << "Come to convergence!\n";
                 break;
             }
         }
-        cerr << timestamp() << "Begin to standardize the matrix\n";
-        op.setFlags(true, true, params.pcangsd);
-        rsvd.computeUSV(params.p);
-        op.U = rsvd.matrixV();
-        op.S = rsvd.singularValues().array().square() / data->nsnps;
+        cout << timestamp() << "Begin to standardize the matrix\n";
+        op->setFlags(true, true);
+        rsvd->computeUSV(params.p);
+        op->U = rsvd->matrixU(data->snpmajor);
+        op->S = rsvd->singularValues().array().square() / data->nsnps;
         // flip_UV(U, V, false);
-        cerr << timestamp() << "begin to save eigenvecs and eigenvals.\n";
-        data->write_eigs_files(op.S, op.U);
+        cout << timestamp() << "eigenvecs and eigenvals are saved. have a nice day. bye!\n";
+        data->write_eigs_files(op->S, op->U);
 
         // if pcangsd, estimate GRM.
         if (params.pcangsd) {
@@ -150,5 +369,8 @@ void run_pca_with_halko(Data* data, const Param& params)
             }
         }
     }
+
+    delete op;
+    delete rsvd;
 
 }

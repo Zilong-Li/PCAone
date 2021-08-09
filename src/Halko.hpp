@@ -4,43 +4,89 @@
 #include "Data.hpp"
 #include "RSVD.hpp"
 
-// note:for blockwise algorithm, nsnps must be larger than nsamples, ie. matrix should be tall or it may lose some accuracy
-class NormalRsvdOpData : public RsvdOpOnePass<MatrixXf>
+class RsvdOpData
+{
+public:
+    using Index = Eigen::Index;
+    bool update = false, standardize = false;
+    MatrixXf U, V;
+    VectorXf S;
+
+public:
+    virtual ~RsvdOpData() {}
+
+    virtual Index rows() const = 0;
+    virtual Index cols() const = 0;
+    virtual Index ranks() const = 0;
+    virtual Index oversamples() const = 0;
+
+    virtual void computeGandH(MatrixXf& G, MatrixXf& H, int p) = 0;
+    inline void setFlags(bool is_update, bool is_standardize)
+        {update = is_update; standardize = is_standardize;}
+
+};
+
+// halko should work on tall matrix otherwise it may lose accuracy.
+// for normal halko we always make the matrix tall, ie. nrow > ncol
+class NormalRsvdOpData : public RsvdOpData
 {
 private:
-    using Index = Eigen::Index;
-
     Data* data;
-    bool batch = false, update = false, standardize = false, pcangsd = false;
-    const Index nsnps, nsamples, nk, os, size;
-    MatrixXf Omg;
+    const Index nk, os, size;
+    MatrixXf Omg, Upre, Ucur;
+    bool stop = false;
 
 public:
 
-    NormalRsvdOpData(Data* data_, bool batch_, int k_, int os_ = 10) :
-        data(data_), batch(batch_), nsnps(data_->nsnps), nsamples(data_->nsamples), nk(k_), os(os_), size(k_ + os_)
+    NormalRsvdOpData(Data* data_, int k_, int os_ = 10) :
+        data(data_), nk(k_), os(os_), size(k_ + os_)
         {
             std::mt19937_64 randomEngine{};
             randomEngine.seed(111);
-            Omg = StandardNormalRandom<MatrixXf, std::mt19937_64>(nsamples, size, randomEngine);
+            Omg = StandardNormalRandom<MatrixXf, std::mt19937_64>(data->nsamples, size, randomEngine);
         }
 
     ~NormalRsvdOpData() {}
 
-    Index rows() const { return nsnps; }
-    Index cols() const { return nsamples; }
+    Index rows() const { return data->nsnps; } // for snpmajor input
+    Index cols() const { return data->nsamples; }
     Index ranks() const { return nk; }
     Index oversamples() const { return os; }
 
-    inline void setFlags(bool is_update, bool is_standardize, bool is_pcangsd) {update = is_update; standardize = is_standardize; pcangsd = is_pcangsd;}
-
     void computeGandH(MatrixXf& G, MatrixXf& H, int p);
 
-    MatrixXf U, V;
-    VectorXf S;
 };
 
+class FancyRsvdOpData : public RsvdOpData
+{
+private:
+    Data* data;
+    const Index nk, os, size;
+    MatrixXf Omg, Upre, Ucur;
+    bool stop = false;
 
+public:
+
+    FancyRsvdOpData(Data* data_, int k_, int os_ = 10) :
+        data(data_), nk(k_), os(os_), size(k_ + os_)
+        {
+            std::mt19937_64 randomEngine{};
+            randomEngine.seed(111);
+            Omg = StandardNormalRandom<MatrixXf, std::mt19937_64>(data->nsamples, size, randomEngine);
+        }
+
+    ~FancyRsvdOpData() {}
+
+    Index rows() const { return data->nsnps; }
+    Index cols() const { return data->nsamples; }
+    Index ranks() const { return nk; }
+    Index oversamples() const { return os; }
+
+    void computeGandH(MatrixXf& G, MatrixXf& H, int p);
+};
+
+bool check_if_halko_converge(int pi, double tol, MatrixXf& Upre, MatrixXf& Ucur, const MatrixXf& G, const MatrixXf& H, int k, int nrow, int ncol, int size);
+void print_summary_table(const MatrixXf& Upre, const MatrixXf& Ucur, const string& outfile);
 void run_pca_with_halko(Data* data, const Param& params);
 
 #endif

@@ -4,6 +4,8 @@ void Data::prepare()
 {
     get_matrix_dimensions();
 
+    if (nsamples > nsnps) nsamples_ge_nsnps = true;
+
     if (params.batch)
     {
         read_all_and_centering();

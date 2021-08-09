@@ -47,13 +47,13 @@ void FileBeagle::get_matrix_dimensions()
     gzclose(fp);
 
     P = MatrixXf(nsnps, nsamples * 3);
-    cerr << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << endl;
+    cout << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << endl;
 }
 
 // read all data and estimate F
 void FileBeagle::read_all_and_centering()
 {
-    cerr << timestamp() << "begin to read whole data" << endl;
+    cout << timestamp() << "begin to read whole data" << endl;
     fp = gzopen(params.beagle.c_str(), "r");
     tgets(fp, &buffer, &bufsize);
     char *tok;
@@ -77,7 +77,7 @@ void FileBeagle::read_all_and_centering()
     gzclose(fp);
     assert(j==nsnps);
 
-    cerr << timestamp() << "begin to estimate allele frequencies" << endl;
+    cout << timestamp() << "begin to estimate allele frequencies" << endl;
     VectorXf Ft(nsnps);
     F = VectorXf::Constant(nsnps, 0.25);
     // run EM to estimate allele frequencies
@@ -100,7 +100,7 @@ void FileBeagle::read_all_and_centering()
         diff = sqrt((F - Ft).array().square().sum() / nsnps);
         // Check for convergence
         if (diff < params.tolmaf) {
-            cerr << "EM (MAF) converged at iteration: " << it+1 << endl;
+            cout << "EM (MAF) converged at iteration: " << it+1 << endl;
             break;
         } else if (it == (params.maxiter-1)) {
             cerr << "EM (MAF) did not converge.\n";

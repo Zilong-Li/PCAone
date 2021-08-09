@@ -5,11 +5,11 @@ void FileBgen::get_matrix_dimensions()
 {
     // open file and print file info
     bgen.open( params.bgen );
-    params.verbose && bgen.summarise( cerr );
+    params.verbose && bgen.summarise( cout );
     // get nsamples and nsnps;
     nsamples = bgen.number_of_samples();
     nsnps = bgen.number_of_variants();
-    cerr << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << endl;
+    cout << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << endl;
 }
 
 void FileBgen::read_all_and_centering()
@@ -19,7 +19,7 @@ void FileBgen::read_all_and_centering()
     std::string chromosome, rsid;
     std::vector< std::string > alleles ;
     std::vector< std::vector< double > > probs ;
-    cerr << timestamp() << "begin to parse the bgen file.\n";
+    cout << timestamp() << "begin to parse the bgen file.\n";
     if (!params.pcangsd)
     {
         F = VectorXf::Zero(nsnps);
@@ -92,7 +92,7 @@ void FileBgen::read_all_and_centering()
             m++;
         }
         assert( m == nsnps );
-        cerr << timestamp() << "begin to estimate allele frequencies using GP" << endl;
+        cout << timestamp() << "begin to estimate allele frequencies using GP" << endl;
         VectorXf Ft(nsnps);
         F = VectorXf::Constant(nsnps, 0.25);
         // run EM to estimate allele frequencies
@@ -115,7 +115,7 @@ void FileBgen::read_all_and_centering()
             diff = sqrt((F - Ft).array().square().sum() / nsnps);
             // Check for convergence
             if (diff < params.tolmaf) {
-                cerr << "EM (MAF) converged at iteration: " << it+1 << endl;
+                cout << "EM (MAF) converged at iteration: " << it+1 << endl;
                 break;
             } else if (it == (params.maxiter-1)) {
                 cerr << "EM (MAF) did not converge.\n";

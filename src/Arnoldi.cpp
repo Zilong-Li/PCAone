@@ -29,12 +29,13 @@ void ArnoldiOpData::perform_op(const float *x_in, float* y_out)
    // close bed
    data->close_check_file();
    nops++;
+   data->params.verbose && cerr << "Arnoldi Op=" << nops << ".\n";
 }
 
 
 void run_pca_with_arnoldi(Data* data, const Param& params)
 {
-    cerr << timestamp() << "begin to do svds\n";
+    cout << timestamp() << "begin to do svds\n";
     VectorXf svals, evals;
     uint nconv, nu;
     double diff;
@@ -57,14 +58,14 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
         svals = svds.singular_values();
         if (params.maxiter == 0)
         {
-            cerr << timestamp() << "Final SVD done!\n";
+            cout << timestamp() << "Final SVD done!\n";
             evals = svals.array().square() / data->nsnps;
             data->write_eigs_files(evals, U);
             return;
         }
         V = svds.matrix_V(params.k);
         flip_UV(U, V);
-        cerr << timestamp() << "begin to do EM iteration.\n";
+        cout << timestamp() << "begin to do EM iteration.\n";
         for (uint i = 1; i <= params.maxiter; ++i)
         {
             data->update_batch_E(U, svals, V.transpose());
@@ -74,16 +75,16 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
             V2 = svds.matrix_V(params.k);
             flip_UV(U, V2);
             diff = rmse(V2, V);
-            params.verbose && cerr << timestamp() << "Individual allele frequencies estimated (iter=" << i << "), RMSE=" << diff <<".\n";
+            params.verbose && cout << timestamp() << "Individual allele frequencies estimated (iter=" << i << "), RMSE=" << diff <<".\n";
             V = V2;
             if (diff < params.tol)
             {
-                cerr << timestamp() << "Come to convergence!\n";
+                cout << timestamp() << "Come to convergence!\n";
                 break;
             }
         }
 
-        cerr << timestamp() << "begin to standardize the matrix\n";
+        cout << timestamp() << "begin to standardize the matrix\n";
         if (params.pcangsd)
         {
             data->pcangsd_standardize_E(U, svals, V.transpose());
@@ -103,7 +104,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
         U = svds.matrix_U(params.k);
         V = svds.matrix_V(params.k);
         flip_UV(U, V);
-        cerr << timestamp() << "Final SVD done!\n";
+        cout << timestamp() << "Final SVD done!\n";
         evals = svals.array().square() / data->nsnps;
         // write to files;
         data->write_eigs_files(evals, U);
@@ -161,10 +162,10 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
                     op->U = eigs->eigenvectors().leftCols(nu);
                     flip_UV(op->U, op->VT);
                     diff = rmse(op->VT, VT);
-                    cerr << timestamp() << "Individual allele frequencies estimated (iter=" << i << "), RMSE=" << diff <<".\n";
+                    params.verbose && cout << timestamp() << "Individual allele frequencies estimated (iter=" << i << "), RMSE=" << diff <<".\n";
                     if (diff < params.tol)
                     {
-                        cerr << timestamp() << "Come to convergence!\n";
+                        cout << timestamp() << "Come to convergence!\n";
                         break;
                     }
 
@@ -174,7 +175,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
                 }
             }
 
-            cerr << timestamp() << "Begin to standardize the matrix\n";
+            cout << timestamp() << "Begin to standardize the matrix\n";
             op->setFlags(true, true, params.pcangsd);
             eigs->init();
             nconv = eigs->compute(params.imaxiter, params.itol);
@@ -203,4 +204,5 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
         delete op;
         delete eigs;
     }
+    cout << timestamp() << "eigenvecs and eigenvals are saved. have a nice day. bye!\n";
 }

@@ -170,9 +170,9 @@ public:
 
     inline MatrixType singularValues() const { return b_singularValues; }
 
-    inline MatrixType matrixU() const { return b_leftSingularVectors; }
+    inline MatrixType matrixU(bool trans = false) const { if (trans) {return b_rightSingularVectors;} else {return b_leftSingularVectors;} }
 
-    inline MatrixType matrixV() const { return b_rightSingularVectors; }
+    inline MatrixType matrixV(bool trans = false) const { if (trans) {return b_leftSingularVectors;} else {return b_rightSingularVectors;} }
 
     // G = D * Omega; H = D.transpose() * G;
     void computeUSV(int p = 1)
@@ -200,30 +200,30 @@ public:
         }
 
     // for fancy in future
-    void computeUSV(MatrixType& G, MatrixType& H, int p = 1)
-        {
-            b_op.computeGandH(G, H, p);
+    // void computeUSV(MatrixType& G, MatrixType& H, int p = 1)
+    //     {
+    //         b_op.computeGandH(G, H, p);
 
-            const Eigen::Index nrow{G.rows()};
-            const Eigen::Index ncol{H.cols()};
-            const Eigen::Index size{b_op.ranks() + b_op.oversamples()};
-            const Eigen::Index k{b_op.ranks()};
-            MatrixType Q(nrow, size), B(size, ncol), R(size, size), Rt(size, size);
+    //         const Eigen::Index nrow{G.rows()};
+    //         const Eigen::Index ncol{H.cols()};
+    //         const Eigen::Index size{b_op.ranks() + b_op.oversamples()};
+    //         const Eigen::Index k{b_op.ranks()};
+    //         MatrixType Q(nrow, size), B(size, ncol), R(size, size), Rt(size, size);
 
-            Eigen::HouseholderQR<MatrixType> qr(G);  // shouldn't use in place qr
-            Q.noalias() = qr.householderQ() * MatrixType::Identity(nrow, size);
-            R.noalias() = MatrixType::Identity(size, nrow) * qr.matrixQR().template triangularView<Eigen::Upper>();
-            Eigen::HouseholderQR<MatrixType> qr2(Q);
-            Q.noalias() = qr2.householderQ() * MatrixType::Identity(nrow, size);
-            Rt.noalias() = MatrixType::Identity(size, nrow) * qr2.matrixQR().template triangularView<Eigen::Upper>();
-            R = Rt * R;
+    //         Eigen::HouseholderQR<MatrixType> qr(G);  // shouldn't use in place qr
+    //         Q.noalias() = qr.householderQ() * MatrixType::Identity(nrow, size);
+    //         R.noalias() = MatrixType::Identity(size, nrow) * qr.matrixQR().template triangularView<Eigen::Upper>();
+    //         Eigen::HouseholderQR<MatrixType> qr2(Q);
+    //         Q.noalias() = qr2.householderQ() * MatrixType::Identity(nrow, size);
+    //         Rt.noalias() = MatrixType::Identity(size, nrow) * qr2.matrixQR().template triangularView<Eigen::Upper>();
+    //         R = Rt * R;
 
-            B.noalias() = R.transpose().householderQr().solve(H.transpose());
-            Eigen::JacobiSVD<MatrixType> svd(B, Eigen::ComputeThinU | Eigen::ComputeThinV);
-            b_leftSingularVectors.noalias() = Q * svd.matrixU().leftCols(k);
-            b_rightSingularVectors = svd.matrixV().leftCols(k);
-            b_singularValues = svd.singularValues().head(k);
-        }
+    //         B.noalias() = R.transpose().householderQr().solve(H.transpose());
+    //         Eigen::JacobiSVD<MatrixType> svd(B, Eigen::ComputeThinU | Eigen::ComputeThinV);
+    //         b_leftSingularVectors.noalias() = Q * svd.matrixU().leftCols(k);
+    //         b_rightSingularVectors = svd.matrixV().leftCols(k);
+    //         b_singularValues = svd.singularValues().head(k);
+    //     }
 
 private:
 
@@ -241,7 +241,7 @@ private:
 
     ConstGenericMatrix mat;
     int  k, p, os;
-    bool flip = false;
+    bool trans = false;
 
     RsvdOpOnePass<MatrixType>* op;
     RsvdOnePass<MatrixType, RsvdOpOnePass<MatrixType>>* rsvd;
@@ -255,7 +255,7 @@ public:
                 op = new RsvdOpTallMat<MatrixType>(mat, k, os);
             } else {
                 op = new RsvdOpWideMat<MatrixType>(mat, k, os);
-                flip = true;
+                trans = true;
             }
             rsvd = new RsvdOnePass<MatrixType, RsvdOpOnePass<MatrixType>>(*op);
             rsvd->computeUSV(p);
@@ -267,9 +267,9 @@ public:
             delete rsvd;
         }
 
-    inline MatrixType matrixU() const { if (flip) { return rsvd->matrixV();} else {return rsvd->matrixU();} }
+    inline MatrixType matrixU() const { return rsvd->matrixU(trans); }
 
-    inline MatrixType matrixV() const { if (flip) { return rsvd->matrixU();} else {return rsvd->matrixV();} }
+    inline MatrixType matrixV() const { return rsvd->matrixV(trans); }
 
     inline MatrixType singularValues() const { return rsvd->singularValues(); }
 };

@@ -23,7 +23,7 @@ string timestamp()
 
 void permute_plink(string& fin)
 {
-    cerr << timestamp() << "begin to permute plink data.\n";
+    cout << timestamp() << "begin to permute plink data.\n";
     uint nsnps = count_lines(fin + ".bim");
     uint nsamples = count_lines(fin + ".fam");
     uint bed_bytes_per_snp = (nsamples+3)>>2;
@@ -126,11 +126,10 @@ void flip_UV(MatrixXf& U, MatrixXf& V, bool ubase)
 
 void flip_Y(const MatrixXf& X, MatrixXf& Y)
 {
-    VectorXf a = (X.array().sign() - Y.array().sign()).abs().colwise().sum().matrix();
     for (Eigen::Index i = 0; i < X.cols(); ++i)
     {
         // if signs of half of values are flipped then correct signs.
-        if (a(i) > X.rows())
+        if ((X.col(i) - Y.col(i)).array().abs().sum() > 2 * (X.col(i) + Y.col(i)).array().abs().sum())
         {
             Y.col(i) *= -1;
         }
@@ -141,6 +140,35 @@ double rmse(const MatrixXf& X, const MatrixXf& Y)
 {
     MatrixXf Z = Y;
     flip_Y(X, Z);
-    double diff = sqrt((X - Z).array().square().sum() / (X.cols() * X.rows()));
-    return diff;
+    return sqrt( (X - Z).array().square().sum() / (X.cols() * X.rows()) );
+}
+
+VectorXd rmse_byk(const MatrixXf& X, const MatrixXf& Y)
+{
+    VectorXd out = VectorXd::Zero(X.cols());
+    for (Eigen::Index i = 0; i < X.cols(); ++i)
+    {
+        out(i) = rmse(X.leftCols(i+1), Y.leftCols(i+1));
+    }
+    return out;
+}
+
+double mev(const MatrixXf& X, const MatrixXf& Y)
+{
+    double res = 0;
+    for (Eigen::Index i = 0; i < X.cols(); ++i)
+    {
+        res += (X.transpose() * Y.col(i)).norm();
+    }
+    return res / X.cols();
+}
+
+VectorXd mev_byk(const MatrixXf& X, const MatrixXf& Y)
+{
+    VectorXd out = VectorXd::Zero(X.cols());
+    for (Eigen::Index i = 0; i < X.cols(); ++i)
+    {
+        out(i) = 1 - mev(X.leftCols(i+1), Y.leftCols(i+1));
+    }
+    return out;
 }

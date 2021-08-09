@@ -7,7 +7,8 @@ void FileBed::get_matrix_dimensions()
     string ffam = params.bed_prefix + ".fam";
     nsamples = count_lines(ffam);
     nsnps = count_lines(fbim);
-    cerr << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << endl;
+    snpmajor = true;
+    cout << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << endl;
     bed_bytes_per_snp = (nsamples+3)>>2; // get ceiling(nsamples/4)
     if (params.blocksize > 0)
     {
@@ -17,6 +18,8 @@ void FileBed::get_matrix_dimensions()
     }
 }
 
+// https://github.com/OpenGene/fastp/blame/master/src/fastareader.cpp#L11
+// https://stackoverflow.com/questions/5166263/how-to-get-iostream-to-perform-better
 void FileBed::open_check_file()
 {
     // bed_ifstream open fbed
@@ -58,7 +61,7 @@ void FileBed::read_all_and_centering()
     bed_ifstream.read(reinterpret_cast<char *> (&inbed[0]), bed_bytes_per_snp * nsnps);
     // C.reserve(nsnps * nsamples);
     if (params.maxiter > 0) C.resize(nsnps * nsamples);
-    cerr << timestamp() << "begin to decode the plink bed.\n";
+    cout << timestamp() << "begin to decode the plink bed.\n";
     uint c, i, j, b;
     #pragma omp parallel for private(i,j,b,c)
     for(i = 0; i < nsnps; ++i)
@@ -231,7 +234,6 @@ void FileBed::read_snp_block_initial(uint start_idx, uint stop_idx, bool standar
 void FileBed::read_snp_block_update(uint start_idx, uint stop_idx, const MatrixXf& U, const VectorXf& svals, const MatrixXf& VT, bool standardize)
 {
     uint actual_block_size = stop_idx - start_idx + 1;
-    // cerr << "reading block (" << start_idx << ", " << stop_idx << ")\n";
     if (G.cols() < params.blocksize || (actual_block_size < params.blocksize))
     {
         G = MatrixXf::Zero(nsamples, actual_block_size);

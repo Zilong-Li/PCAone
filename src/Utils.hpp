@@ -47,17 +47,18 @@ struct Param {
     string bgen;
     string beagle;
     string outfile;
-    string truefile;
     uint k;
-    uint p = 2;
+    uint p = 20;  // maximum number of power iterations
     uint threads = 1;
     uint blocksize = 0;
+    uint nblocks = 128;
+    double tol;         // can be tol_emu or tol_pcangsd
     // for emu iteration
     uint maxiter = 100;
     double alpha = 0.001;
-    double tol = 5e-7;
+    double tol_emu = 5e-7;
     // for pcangsd
-    double tol2 = 1e-4;
+    double tol_pcangsd = 1e-4;
     double tolmaf = 1e-5;
     // for arnoldi
     uint ncv = 20;   // max(20, 2*k + 1)
@@ -65,13 +66,16 @@ struct Param {
     double itol = 1e-6;
     // for halko
     uint oversamples = 10;
+    double tol_halko = 1e-4;
 
     bool batch = true; // if load all matrix into RAM.
+    bool fancy = false;
     bool emu = false;
     bool pcangsd  = false; // read GP field for PCAngsd instead of GT.
     bool halko = true;
     bool arnoldi = false;
     bool verbose = false;
+    bool test = false;
 };
 
 class MeasureTime {
@@ -107,15 +111,13 @@ struct Line
 };
 
 size_t count_lines(const string& fpath);
-
 string timestamp();
-
 void permute_plink(string& fin);
-
 void flip_UV(MatrixXf& U, MatrixXf& V, bool ubase = true);
-
 void flip_Y(const MatrixXf& X, MatrixXf& Y);
-
 double rmse(const MatrixXf& X, const MatrixXf& Y);
+double mev(const MatrixXf& X, const MatrixXf& Y);
+VectorXd rmse_byk(const MatrixXf& X, const MatrixXf& Y);
+VectorXd mev_byk(const MatrixXf& X, const MatrixXf& Y);
 
 #endif
