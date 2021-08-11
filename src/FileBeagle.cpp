@@ -46,8 +46,8 @@ void FileBeagle::get_matrix_dimensions()
     nsnps = nSites;
     gzclose(fp);
 
-    P = MatrixXf(nsnps, nsamples * 3);
     cout << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << endl;
+    P = MatrixXf(nsnps, nsamples * 3);
 }
 
 // read all data and estimate F

@@ -10,12 +10,6 @@ void FileBed::get_matrix_dimensions()
     snpmajor = true;
     cout << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << endl;
     bed_bytes_per_snp = (nsamples+3)>>2; // get ceiling(nsamples/4)
-    if (params.blocksize > 0)
-    {
-        // initial some variables for blockwise here.
-        F = VectorXf::Zero(nsnps);
-        centered_geno_lookup = ArrayXXf::Zero(4, nsnps);
-    }
 }
 
 // https://github.com/OpenGene/fastp/blame/master/src/fastareader.cpp#L11

@@ -45,7 +45,6 @@ private:
     uint64 bed_bytes_per_snp;
     bool frequency_was_estimated = false;
     vector<uchar> inbed;
-    ArrayXXf centered_geno_lookup;
 };
 
 // bgen repo: https://enkre.net/cgi-bin/code/bgen/dir?ci=trunk

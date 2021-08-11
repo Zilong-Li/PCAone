@@ -1,6 +1,6 @@
 #include "Data.hpp"
 
-void Data::prepare()
+void Data::prepare(uint& blocksize)
 {
     get_matrix_dimensions();
 
@@ -10,24 +10,36 @@ void Data::prepare()
     {
         read_all_and_centering();
     } else {
-        if (params.blocksize > 0) {
-            nblocks = (unsigned int)ceil((double)nsnps / params.blocksize);
-            if (nblocks == 1) {
-                cerr << "Warning: only one block exists. please use --batch mode instead.\n";
-                exit(EXIT_FAILURE);
-            }
-            start.resize(nblocks);
-            stop.resize(nblocks);
-            for(uint i = 0 ; i < nblocks ; i++)
-            {
-                start[i] = i * params.blocksize;
-                stop[i] = start[i] + params.blocksize - 1;
-                stop[i] = stop[i] >= nsnps ? nsnps - 1 : stop[i];
-            }
-        } else {
-            cerr << "ERROR: --blocksize must be greater than 0.\n";
+        blocksize = (unsigned int)ceil((double)params.memory * 1000000000 / nsamples);
+        nblocks = (unsigned int)ceil((double)nsnps / blocksize);
+        params.verbose && cout << timestamp() << "initial setting by -m/--memory: blocksize=" << blocksize << ", nblocks=" << nblocks << ", bandFactor=" << bandFactor << ".\n";
+        if (nblocks == 1) {
+            cerr << "Warning: only one block exists. please remove -m / --memory option instead.\n";
             exit(EXIT_FAILURE);
         }
+        if (params.fast) {
+            params.verbose && cout << timestamp() << "try to adjust blocksize for block mode of fast halko.\n";
+            // decrease blocksize to fit the fancy halko
+            if (nblocks < params.bands) {
+                blocksize = (unsigned int)ceil((double)nsnps / params.bands);
+            } else {
+                bandFactor = (unsigned int)ceil((double)nblocks / params.bands);
+                blocksize = (unsigned int)ceil((double)nsnps / (params.bands * bandFactor));
+            }
+            nblocks = (unsigned int)ceil((double)nsnps / blocksize);
+            params.verbose && cout << timestamp() << "after adjustment by -f/--fast: blocksize=" << blocksize << ", nblocks=" << nblocks << ", bandFactor=" << bandFactor << ".\n";
+        }
+        start.resize(nblocks);
+        stop.resize(nblocks);
+        for(uint i = 0 ; i < nblocks ; i++)
+        {
+            start[i] = i * blocksize;
+            stop[i] = start[i] + blocksize - 1;
+            stop[i] = stop[i] >= nsnps ? nsnps - 1 : stop[i];
+        }
+        // initial some variables for blockwise here.
+        F = VectorXf::Zero(nsnps);
+        centered_geno_lookup = ArrayXXf::Zero(4, nsnps); // for plink input
     }
 
 }

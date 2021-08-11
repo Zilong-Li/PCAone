@@ -41,18 +41,18 @@ M load_csv (const std::string & path) {
 }
 
 struct Param {
-    string intype = ""; // beagle, bfile, pfile, bgen
+    string intype = ""; // bfile, bgen, beagle, csv
     string bed_prefix;
     string pgen_prefix;
     string bgen;
     string beagle;
+    string csvfile;
     string outfile;
-    uint k;
+    uint k = 10;
     uint p = 20;  // maximum number of power iterations
     uint threads = 1;
     uint blocksize = 0;
-    uint nblocks = 128;
-    double tol;         // can be tol_emu or tol_pcangsd
+    uint bands = 128;
     // for emu iteration
     uint maxiter = 100;
     double alpha = 0.001;
@@ -60,6 +60,8 @@ struct Param {
     // for pcangsd
     double tol_pcangsd = 1e-4;
     double tolmaf = 1e-5;
+    // can be tol_emu or tol_pcangsd
+    double tol;
     // for arnoldi
     uint ncv = 20;   // max(20, 2*k + 1)
     uint imaxiter = 500;
@@ -68,37 +70,14 @@ struct Param {
     uint oversamples = 10;
     double tol_halko = 1e-4;
 
+    double memory = 2; // 2 G
     bool batch = true; // if load all matrix into RAM.
-    bool fancy = false;
+    bool fast = false;
     bool emu = false;
     bool pcangsd  = false; // read GP field for PCAngsd instead of GT.
     bool halko = true;
     bool arnoldi = false;
     bool verbose = false;
-    bool test = false;
-};
-
-class MeasureTime {
-
-  public:
-    std::chrono::steady_clock::time_point begin;
-    std::chrono::steady_clock::time_point end;
-    time_t start_time_info, end_time_info;
-
-    void init() {
-      auto start = std::chrono::system_clock::now(); // wall clock
-      start_time_info = std::chrono::system_clock::to_time_t( start );
-      begin = std::chrono::steady_clock::now(); // to measure elapsed time
-    }
-
-    void stop(){
-      auto endtime = std::chrono::system_clock::now();
-      end_time_info = std::chrono::system_clock::to_time_t( endtime );
-      end = std::chrono::steady_clock::now();
-    }
-
-    MeasureTime(void);
-    ~MeasureTime(void);
 };
 
 struct Line

@@ -9,7 +9,7 @@ void NormalRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
     }
     if (data->params.batch)
     {
-        cout << timestamp() << "running in batch mode.\n";
+        cout << timestamp() << "running in batch mode with one-pass halko.\n";
         if (update)
         {
             data->update_batch_E(U, S, V.transpose());
@@ -32,7 +32,7 @@ void NormalRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
                 H.noalias() = data->G * G;
                 stop = check_if_halko_converge(pi, data->params.tol_halko, Upre, Ucur, G, H, nk, rows(), cols(), size);
                 if (stop || pi == p) {
-                    cout << timestamp() << "stop at epoch=" << pi << ".\n";
+                    cout << timestamp() << "stops at epoch=" << pi + 1 << ".\n";
                     print_summary_table(Upre, Ucur, data->params.outfile);
                     break;
                 }
@@ -41,8 +41,7 @@ void NormalRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
         }
     } else {
         // for block version
-        // the bigger the size of block is, the faster the program is
-        cout << timestamp() << "running in block mode.\n";
+        cout << timestamp() << "running in block mode with one-pass halko.\n";
         uint actual_block_size, start_idx, stop_idx;
         // data->G is always nsamples x nsnps;
         if (data->snpmajor || true) {
@@ -71,7 +70,7 @@ void NormalRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
                 data->close_check_file();
                 stop = check_if_halko_converge(pi, data->params.tol_halko, Upre, Ucur, G, H, nk, rows(), cols(), size);
                 if (stop || pi == p) {
-                    cout << timestamp() << "stop at epoch=" << pi << ".\n";
+                    cout << timestamp() << "stops at epoch=" << pi + 1 << ".\n";
                     print_summary_table(Upre, Ucur, data->params.outfile);
                     break;
                 }
@@ -90,7 +89,7 @@ void FancyRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
     }
     if (data->params.batch)
     {
-        cout << timestamp() << "running in batch mode.\n";
+        cout << timestamp() << "running in batch mode with fancy halko.\n";
         if (update)
         {
             data->update_batch_E(U, S, V.transpose());
@@ -111,7 +110,7 @@ void FancyRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
         std::shuffle(perm.indices().data(), perm.indices().data()+perm.indices().size(), rng);
         data->G = data->G * perm; // permute columns in-place
 
-        uint B=data->params.nblocks;
+        uint B=data->params.bands;
         uint band=4;
         uint blocksize = ceil(data->nsnps / B);
         uint actual_block_size, start_idx, stop_idx;
@@ -129,13 +128,13 @@ void FancyRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
                 actual_block_size = stop_idx - start_idx + 1;
                 G.block(start_idx, 0, actual_block_size, size) = data->G.block(start_idx, 0, data->G.rows(), actual_block_size).transpose() * Omg;
                 if (i <= band / 4) {
-                    H1.noalias() = H1 +  data->G.block(start_idx, 0, data->G.rows(), actual_block_size) * G.block(start_idx, 0, actual_block_size, size);
+                    H1 = H1 +  data->G.block(start_idx, 0, data->G.rows(), actual_block_size) * G.block(start_idx, 0, actual_block_size, size);
                 }else if (i > band / 4 && i <= band / 2) {
-                    H2.noalias() = H2 +  data->G.block(start_idx, 0, data->G.rows(), actual_block_size) * G.block(start_idx, 0, actual_block_size, size);
+                    H2 = H2 +  data->G.block(start_idx, 0, data->G.rows(), actual_block_size) * G.block(start_idx, 0, actual_block_size, size);
                 }else if (i > band / 2 && i <= 3 * band / 4) {
-                    H3.noalias() = H3 +  data->G.block(start_idx, 0, data->G.rows(), actual_block_size) * G.block(start_idx, 0, actual_block_size, size);
+                    H3 = H3 +  data->G.block(start_idx, 0, data->G.rows(), actual_block_size) * G.block(start_idx, 0, actual_block_size, size);
                 }else if (i > 3 * band / 4 && i <= band) {
-                    H4.noalias() = H4 +  data->G.block(start_idx, 0, data->G.rows(), actual_block_size) * G.block(start_idx, 0, actual_block_size, size);
+                    H4 = H4 +  data->G.block(start_idx, 0, data->G.rows(), actual_block_size) * G.block(start_idx, 0, actual_block_size, size);
                 }
                 if( (b+1) >= band ) {
                     if (i == band) {
@@ -164,15 +163,11 @@ void FancyRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
                         Eigen::HouseholderQR<MatrixXf> qr(H);
                         Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
                     }
-                } else if (band * pow(2, pi) <= data->nblocks) {
-                    H.noalias() = H1 + H2 + H3 + H4;
-                    Eigen::HouseholderQR<MatrixXf> qr(H);
-                    Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
                 }
             }
             stop = check_if_halko_converge(pi, data->params.tol_halko, Upre, Ucur, G, H, nk, rows(), cols(), size);
             if (stop || pi == p) {
-                cout << timestamp() << "stop at epoch=" << pi << ".\n";
+                cout << timestamp() << "stops at epoch=" << pi + 1 << ".\n";
                 print_summary_table(Upre, Ucur, data->params.outfile);
                 break;
             }
@@ -180,8 +175,9 @@ void FancyRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
         }
     } else {
         uint actual_block_size, start_idx, stop_idx;
-        uint band = 4;
+        uint band = 4 * data->bandFactor;
         MatrixXf H1, H2, H3, H4;
+        cout << timestamp() << "running in block mode with fancy halko.\n";
         for (int pi=0; pi <= p; ++pi)
         {
             band = fmin(band * pow(2, pi), data->nblocks);
@@ -203,13 +199,13 @@ void FancyRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
                 }
                 G.block(start_idx, 0, actual_block_size, size) = data->G.transpose() * Omg;
                 if (i <= band / 4) {
-                    H1.noalias() = H1 +  data->G * G.block(start_idx, 0, actual_block_size, size);
+                    H1 = H1 +  data->G * G.block(start_idx, 0, actual_block_size, size);
                 }else if (i > band / 4 && i <= band / 2) {
-                    H2.noalias() = H2 +  data->G * G.block(start_idx, 0, actual_block_size, size);
+                    H2 = H2 +  data->G * G.block(start_idx, 0, actual_block_size, size);
                 }else if (i > band / 2 && i <= 3 * band / 4) {
-                    H3.noalias() = H3 +  data->G * G.block(start_idx, 0, actual_block_size, size);
+                    H3 = H3 +  data->G * G.block(start_idx, 0, actual_block_size, size);
                 }else if (i > 3 * band / 4 && i <= band) {
-                    H4.noalias() = H4 +  data->G * G.block(start_idx, 0, actual_block_size, size);
+                    H4 = H4 +  data->G * G.block(start_idx, 0, actual_block_size, size);
                 }
                 if( (b+1) >= band ) {
                     if (i == band) {
@@ -238,16 +234,12 @@ void FancyRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
                         Eigen::HouseholderQR<MatrixXf> qr(H);
                         Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
                     }
-                } else if (band * pow(2, pi) <= data->nblocks) {
-                    H.noalias() = H1 + H2 + H3 + H4;
-                    Eigen::HouseholderQR<MatrixXf> qr(H);
-                    Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
                 }
             }
             data->close_check_file();
             stop = check_if_halko_converge(pi, data->params.tol_halko, Upre, Ucur, G, H, nk, rows(), cols(), size);
             if (stop || pi == p) {
-                cout << timestamp() << "stop at epoch=" << pi << ".\n";
+                cout << timestamp() << "stops at epoch=" << pi + 1 << ".\n";
                 print_summary_table(Upre, Ucur, data->params.outfile);
                 break;
             }
@@ -293,10 +285,9 @@ void print_summary_table(const MatrixXf& Upre, const MatrixXf& Ucur, const strin
     for (int i=0; i < Ucur.cols(); i++) {
         out += " PC1-" + std::to_string(i+1);
     }
-    outlog << "=========================>\n" << out << "\n"
-           << "RMSE: " << rmse.transpose() << ".\n"
-           << "1-MEV : " << mev.transpose() << ".\n"
-           << "=========================>\n";
+    outlog << out << "\n"
+           << "RMSE:" << rmse.transpose() << ".\n"
+           << "1-MEV:" << mev.transpose() << ".\n";
 }
 
 void run_pca_with_halko(Data* data, const Param& params)
@@ -305,7 +296,7 @@ void run_pca_with_halko(Data* data, const Param& params)
     MatrixXf Vpre;
     VectorXf S;
     RsvdOpData* op;
-    if (params.fancy) {
+    if (params.fast) {
         op = new FancyRsvdOpData(data, params.k);
     } else {
         op = new NormalRsvdOpData(data, params.k);
@@ -313,7 +304,7 @@ void run_pca_with_halko(Data* data, const Param& params)
     RsvdOnePass< MatrixXf, RsvdOpData >* rsvd = new RsvdOnePass< MatrixXf, RsvdOpData >(*op);
     if (params.maxiter == 0)
     {
-        cout << timestamp() << "begin to do non-em PCA.\n";
+        cout << timestamp() << "begin to do non-EM PCA.\n";
         op->setFlags(false, true);
         rsvd->computeUSV(params.p);
         op->U = rsvd->matrixU(data->snpmajor);
@@ -330,7 +321,7 @@ void run_pca_with_halko(Data* data, const Param& params)
         op->V = rsvd->matrixV(data->snpmajor);
         op->S = rsvd->singularValues();
         // flip_UV(Upre, V, false);
-        cout << timestamp() << "begin to do EM\n";
+        cout << timestamp() << "begin to do EM PCA.\n";
         double diff;
         op->setFlags(true, false);
         for (uint i = 0; i < params.maxiter; ++i)

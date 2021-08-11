@@ -23,13 +23,15 @@ public:
     bool initialFonly = false;
     uint nsamples, nsnps;
     uint nblocks = 1;
+    uint bandFactor = 1;
     vector<uint> start, stop;
     MatrixXf G;  // genotype matrix, can be initial E or centered E, which is nsamples x nsnps;
     MatrixXf P;  // genotype probability, nsnps x nsamples x 3.
     VectorXf F;  // observed or estimated population allele frequency
     VectorXf Dc; // diagnal vector of covariance matrix
+    ArrayXXf centered_geno_lookup;
 
-    void prepare();
+    void prepare(uint& blocksize);
     void read_bed_batch();
     void standardize_E();
     void pcangsd_standardize_E(const MatrixXf& U, const VectorXf& svals, const MatrixXf& VT);
