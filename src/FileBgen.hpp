@@ -2,14 +2,14 @@
 #define __FileBgen__
 
 #include "Data.hpp"
-#include "bgen_to_vcf.hpp"
+#include "bgen/bgen.h"
 
-const double GENOTYPE_THRESHOLD = 0.9;
-const float BGEN_MISSING_VALUE = -9;
-const float BGEN2GENO[4] = {0, 0.5, 1, BGEN_MISSING_VALUE};
+// const double GENOTYPE_THRESHOLD = 0.9;
+// const float BGEN_MISSING_VALUE = -9;
+// const float BGEN2GENO[4] = {0, 0.5, 1, BGEN_MISSING_VALUE};
 
-// naive bgen parser, only support haploidy now.
-// @todo: use different modes (fast/regular) for different bits mode.
+using namespace bgen;
+
 class FileBgen : public Data
 {
 public:
@@ -30,7 +30,7 @@ public:
     virtual void close_check_file() {}
 
 private:
-    BgenParser bgen;
+    Bgen* bg;
 
 };
 

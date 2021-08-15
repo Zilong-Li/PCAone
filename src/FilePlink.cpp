@@ -89,17 +89,8 @@ void FileBed::read_all_and_centering()
                 }
             }
         }
-        if (c == 0)
-        {
-            F(i) = 0.0;
-        } else {
-            F(i) /= c;
-        }
-        if (F(i) == 0)
-        {
-            cerr << "Warning: the allele frequency should not be 0. should do filtering first.\n";
-            exit(EXIT_FAILURE);
-        }
+        if (c==0) throw std::runtime_error("Error: the allele frequency should not be 0. should do filtering first.");
+        F(i) /= c;
         // do centering and initialing
         for(j=0; j<nsamples; ++j)
         {
@@ -132,7 +123,6 @@ void FileBed::read_snp_block_initial(uint start_idx, uint stop_idx, bool standar
         cerr << "Error: something wrong with read_snp_block!\n";
         exit(EXIT_FAILURE);
     }
-    // uchar buf;
     uint bi, ki, i, j;
     inbed.resize(bed_bytes_per_snp * actual_block_size);
     bed_ifstream.read( reinterpret_cast<char *> (&inbed[0]), bed_bytes_per_snp * actual_block_size);
@@ -187,17 +177,8 @@ void FileBed::read_snp_block_initial(uint start_idx, uint stop_idx, bool standar
                 }
             }
             // calculate F and centered_geno_lookup
-            if (c == 0)
-            {
-                F(snp_idx) = 0.0;
-            } else {
-                F(snp_idx) /= c;
-            }
-            if (F(snp_idx) == 0)
-            {
-                cerr << "Warning: the allele frequency can not be 0. should do filtering first.\n";
-                exit(EXIT_FAILURE);
-            }
+            if (c==0) throw std::runtime_error("Error: the allele frequency should not be 0. should do filtering first.");
+            F(snp_idx) /= c;
             // do centering and initialing
             centered_geno_lookup(1, snp_idx) = 0.0; // missing
             centered_geno_lookup(0, snp_idx) = BED2GENO[0] - F(snp_idx); // minor hom

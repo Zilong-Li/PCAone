@@ -14,13 +14,6 @@
 */
 const float BED_MISSING_VALUE = -9;
 const float BED2GENO[4] = {1, BED_MISSING_VALUE, 0.5, 0};
-// const int MAP2GENO[4] = {2, MISS_INTEGER, 1, 0};
-
-/* 3 is 11 in binary, we need a 2 bit mask for each of the 4 positions */
-#define MASK0 3	  /* 3 << 2 * 0 */
-#define MASK1 12  /* 3 << 2 * 1 */
-#define MASK2 48  /* 3 << 2 * 2 */
-#define MASK3 192 /* 3 << 2 * 3 */
 
 class FileBed : public Data
 {
