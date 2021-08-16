@@ -1,46 +1,34 @@
 #include "FileBgen.hpp"
 
-
-void FileBgen::get_matrix_dimensions()
-{
-    // open file and print file info
-    bg = new Bgen(params.bgen, "", true);
-    // get nsamples and nsnps;
-    nsamples = bg->header.nsamples;
-    nsnps = bg->header.nvariants;
-    cout << timestamp() << "the layout of bgen file is " << bg->header.layout << ". N samples is " << nsamples << ". M snps is " << nsnps << endl;
-}
-
 void FileBgen::read_all_and_centering()
 {
-    uint c, i, j;
-    Variant var;
+    uint i, j, gc;
+    double gs;
     cout << timestamp() << "begin to parse the bgen file.\n";
     if (!params.pcangsd)
     {
         F = VectorXf::Zero(nsnps);
         G = MatrixXf(nsamples, nsnps);
         if (params.maxiter > 0) C.resize(nsnps * nsamples);
-        float* dosages;
         for (j = 0; j < nsnps; j++) {
             try {
                 var = bg->next_var();
                 dosages = var.minor_allele_dosage();
-                c = 0;
+                gc = 0; gs = 0.0;
                 // calculate allele frequency
-// #pragma omp parallel for private(i) reduction(+:c) reduction(+:VectorXf)
+                #pragma omp parallel for reduction(+:gc) reduction(+:gs)
                 for (i = 0; i < nsamples; i++) {
                     if (std::isnan(dosages[i])) {
                         if (params.maxiter > 0) C[j * nsamples + i] = 1;
                     } else {
                         if (params.maxiter > 0) C[j * nsamples + i] = 0;
                         G(i, j) = dosages[i] / 2.0; // map to [0, 1];
-                        F(j) += G(i, j);
-                        c += 1;
+                        gs += G(i, j);
+                        gc += 1;
                     }
                 }
-                if (c==0) throw std::runtime_error("Error: the allele frequency should not be 0. should do filtering first.");
-                F(j) /= c;
+                if (gc==0) throw std::runtime_error("Error: the allele frequency should not be 0. should do filtering first.");
+                F(j) = (double) gs / gc;
                 // do centering and initialing
                 #pragma omp parallel for
                 for (i = 0; i < nsamples; i++) {
@@ -56,7 +44,6 @@ void FileBgen::read_all_and_centering()
         }
     } else {
         // read all GP data into P;
-        float* probs1d;
         for (j = 0; j < nsnps; j++) {
             try {
                 var = bg->next_var();
@@ -113,5 +100,66 @@ void FileBgen::read_all_and_centering()
                 G(i, j) = (p1 + 2 * p2)/(p0 + p1 + p2) - 2.0 * F(j);
             }
         }
+    }
+}
+
+void FileBgen::read_snp_block_initial(uint start_idx, uint stop_idx, bool standardize)
+{
+    uint actual_block_size = stop_idx - start_idx + 1;
+    uint i, j, snp_idx;
+    if (G.cols() < params.blocksize || (actual_block_size < params.blocksize))
+    {
+        G = MatrixXf::Zero(nsamples, actual_block_size);
+    }
+    if (frequency_was_estimated)
+    {
+        for (i = 0; i < actual_block_size; ++i)
+        {
+            snp_idx = start_idx + i;
+            var = bg->next_var();
+            dosages = var.minor_allele_dosage();
+            #pragma omp parallel for
+            for (j = 0; j < nsamples; j++) {
+                if (std::isnan(dosages[j])) {
+                    G(j, i) = 0;
+                } else {
+                    G(j, i) = dosages[j]/2.0 - F(snp_idx);
+                }
+                if (standardize) G(j, i) /= sqrt(F(snp_idx) * (1 - F(snp_idx)));
+            }
+        }
+    } else {
+        uint gc;
+        double gs;
+        for (i = 0; i < actual_block_size; ++i)
+        {
+            snp_idx = start_idx + i;
+            var = bg->next_var();
+            dosages = var.minor_allele_dosage();
+            gc = 0; gs = 0.0;
+            #pragma omp parallel for reduction(+:gc) reduction(+:gs)
+            for (j = 0; j < nsamples; j++) {
+                if (std::isnan(dosages[j])) {
+                    G(j, i) = 0;
+                } else {
+                    G(j, i) = dosages[j]/2.0;
+                    gs += G(j, i);
+                    gc += 1;
+                }
+            }
+            if (gc==0) throw std::runtime_error("Error: the allele frequency should not be 0. should do filtering first.");
+            F(snp_idx) = (double) gs / gc;
+            // do centering
+            #pragma omp parallel for
+            for (j = 0; j < nsamples; j++) {
+                if (std::isnan(dosages[j])) {
+                    G(j, i) = 0;
+                } else {
+                    G(j, i) -= F(snp_idx);
+                }
+                if (standardize) G(j, i) /= sqrt(F(snp_idx) * (1 - F(snp_idx)));
+            }
+        }
+        if (stop_idx + 1 == nsnps) frequency_was_estimated = true;
     }
 }

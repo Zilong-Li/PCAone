@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 
+// inspired by Angsd
 int tgets(gzFile gz,char**buf,int *l)
 {
     int rlen = 0;
@@ -20,35 +21,6 @@ neverUseGoto:
     return rlen;
 }
 
-
-void FileBeagle::get_matrix_dimensions()
-{
-    fp = gzopen(params.beagle.c_str(), "r");
-    original = buffer =(char *) calloc(bufsize, sizeof(char));
-    tgets(fp, &buffer, &bufsize);
-    int nCol = 1;
-    if(buffer!=original) original=buffer;
-    strtok_r(buffer,delims,&buffer);
-    while(strtok_r(NULL,delims,&buffer))
-        nCol++;
-    if(nCol % 3 ){
-        cerr << "Number of columns should be a multiple of 3, nCol=" << nCol << endl;
-        exit(EXIT_FAILURE);
-    }
-    nsamples = nCol/3-1;
-    // continue getting the number of sites
-    // assume the number of columns of each line is the same. should check it first.
-    buffer = original;
-    int nSites = 0;
-    while(tgets(fp, &buffer, &bufsize)) {
-        nSites++;
-    }
-    nsnps = nSites;
-    gzclose(fp);
-
-    cout << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << endl;
-    P = MatrixXf(nsnps, nsamples * 3);
-}
 
 // read all data and estimate F
 void FileBeagle::read_all_and_centering()

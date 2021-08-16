@@ -52,7 +52,7 @@ void NormalRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
                     Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
                 }
                 H = MatrixXf::Zero(cols(), size);
-                data->open_check_file();
+                data->check_file_offset_first_var();
                 for (uint i = 0 ; i < data->nblocks ; ++i)
                 {
                     start_idx = data->start[i];
@@ -67,7 +67,6 @@ void NormalRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
                     G.block(start_idx, 0, actual_block_size, size) = data->G.transpose() * Omg;
                     H.noalias() = H +  data->G * G.block(start_idx, 0, actual_block_size, size);
                 }
-                data->close_check_file();
                 stop = check_if_halko_converge(pi, data->params.tol_halko, Upre, Ucur, G, H, nk, rows(), cols(), size);
                 if (stop || pi == p) {
                     cout << timestamp() << "stops at epoch=" << pi + 1 << ".\n";
@@ -185,7 +184,7 @@ void FancyRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
             H2 = MatrixXf::Zero(cols(), size);
             H3 = MatrixXf::Zero(cols(), size);
             H4 = MatrixXf::Zero(cols(), size);
-            data->open_check_file();
+            data->check_file_offset_first_var();
             for (uint b = 0, i = 1 ; b < data->nblocks ; ++b, ++i)
             {
                 start_idx = data->start[b];
@@ -236,7 +235,6 @@ void FancyRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
                     }
                 }
             }
-            data->close_check_file();
             stop = check_if_halko_converge(pi, data->params.tol_halko, Upre, Ucur, G, H, nk, rows(), cols(), size);
             if (stop || pi == p) {
                 cout << timestamp() << "stops at epoch=" << pi + 1 << ".\n";

@@ -17,6 +17,8 @@ class Bgen {
   std::uint64_t offset;
 public:
   Bgen(std::string path, std::string sample_path="", bool delay_parsing=false);
+  inline void set_offset_first_var() { offset = header.offset + 4;}
+
   void parse_all_variants();
   Variant next_var();
   void drop_variants(std::vector<int> indices);

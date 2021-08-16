@@ -10,11 +10,9 @@ public:
 
     virtual ~Data() {}
 
-    virtual void open_check_file() = 0;
-    virtual void close_check_file() = 0;
-    virtual void get_matrix_dimensions() = 0;
     virtual void read_all_and_centering() = 0;
     // for blockwise
+    virtual void check_file_offset_first_var() = 0;
     virtual void read_snp_block_initial(uint start_idx, uint stop_idx, bool standardize = false) = 0;
     virtual void read_snp_block_update(uint start_idx, uint stop_idx, const MatrixXf& U, const VectorXf& svals, const MatrixXf& VT, bool standardize = false) = 0;
 
@@ -30,6 +28,9 @@ public:
     VectorXf F;  // observed or estimated population allele frequency
     VectorXf Dc; // diagnal vector of covariance matrix
     ArrayXXf centered_geno_lookup;
+    vector<bool> C; // 1 or true indicates a ind's snp is missing and need to be predicted.
+    const Param& params;
+
 
     void prepare(uint& blocksize);
     void read_bed_batch();
@@ -53,10 +54,6 @@ public:
     // MatrixXf calcu_block_matmul_trans(const MatrixXf& X, bool rightside);
 
     // MatrixXf calcu_block_matmul_trans(const MatrixXf& X, bool rightside, const MatrixXf& U, const VectorXf& S, const MatrixXf& V, bool standardize = false);
-
-// protected:
-    const Param& params;
-    vector<bool> C; // 1 or true indicates a ind's snp is missing and need to be predicted.
 
 };
 

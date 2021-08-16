@@ -1,54 +1,25 @@
 #include "FilePlink.hpp"
 
-
-void FileBed::get_matrix_dimensions()
-{
-    string fbim = params.bed_prefix + ".bim";
-    string ffam = params.bed_prefix + ".fam";
-    nsamples = count_lines(ffam);
-    nsnps = count_lines(fbim);
-    snpmajor = true;
-    cout << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << endl;
-    bed_bytes_per_snp = (nsamples+3)>>2; // get ceiling(nsamples/4)
-}
-
 // https://github.com/OpenGene/fastp/blame/master/src/fastareader.cpp#L11
 // https://stackoverflow.com/questions/5166263/how-to-get-iostream-to-perform-better
-void FileBed::open_check_file()
-{
-    // bed_ifstream open fbed
-    string fbed = params.bed_prefix + ".bed";
-    bed_ifstream.open(fbed, std::ios::in | std::ios::binary);
-    if (!bed_ifstream.is_open())
-    {
-        cerr << "ERROR: Cannot open bed file.\n";
-        exit(EXIT_FAILURE);
-    }
-    // check magic number of bed file
-    uchar header[3];
-    bed_ifstream.read( reinterpret_cast<char *> (&header[0]), 3);
-    if ( (header[0] != 0x6c) || (header[1] != 0x1b) || (header[2] != 0x01) ) {
-        cerr << "ERROR: Incorrect magic number in bed file.\n";
-        exit(EXIT_FAILURE);
-    }
-}
-
-void FileBed::close_check_file()
+void FileBed::check_file_offset_first_var()
 {
     long long offset = 3 + nsnps * bed_bytes_per_snp;
     if (bed_ifstream.tellg() == offset) {
-        // cerr << "reading bed ifstream done. close it!\n";
-        bed_ifstream.close();
+        // reach the end of bed, reset the position to the first variant;
+        bed_ifstream.seekg(3, std::ios_base::beg);
+    } else if (bed_ifstream.tellg() == 3) {
+        ;
     } else {
-        cerr << "ERROR: the bed ifstream didn't come to eof flag. Shouldn't close it!\n";
-        exit(EXIT_FAILURE);
+        cout << bed_ifstream.tellg() << ".\n";
+        throw std::runtime_error("Warning: the bed_ifstream is pointing an unexpected position.\n");
     }
 }
 
 void FileBed::read_all_and_centering()
 {
     F = VectorXf::Zero(nsnps);
-    open_check_file();
+    check_file_offset_first_var();
     G = MatrixXf(nsamples, nsnps);
     inbed.resize(bed_bytes_per_snp * nsnps); // use resize to initial size of vector
     // Begin to decode the plink bed
@@ -104,7 +75,6 @@ void FileBed::read_all_and_centering()
     // read bed to matrix G done and close bed_ifstream
     inbed.clear();
     inbed.shrink_to_fit();
-    close_check_file();
 }
 
 void FileBed::read_snp_block_initial(uint start_idx, uint stop_idx, bool standardize)

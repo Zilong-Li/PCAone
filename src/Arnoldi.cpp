@@ -8,8 +8,7 @@ void ArnoldiOpData::perform_op(const float *x_in, float* y_out)
 {
    Map<const VectorXf> x(x_in, n);
    Map<VectorXf> y(y_out, n);
-   // open bed
-   data->open_check_file();
+   data->check_file_offset_first_var();
    if (update) {
        data->read_snp_block_update(data->start[0], data->stop[0], U, S, VT, standardize);
    } else {
@@ -26,8 +25,6 @@ void ArnoldiOpData::perform_op(const float *x_in, float* y_out)
        //TODO: Kahan summation
        y.noalias() = y + data->G * (data->G.transpose() * x);
    }
-   // close bed
-   data->close_check_file();
    nops++;
    data->params.verbose && cerr << "Arnoldi Op=" << nops << ".\n";
 }

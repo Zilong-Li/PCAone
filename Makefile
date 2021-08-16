@@ -2,25 +2,30 @@
 
 VERSION=0.1.0
 
-BGEN_PATH     =
 # for mkl on mac
 # make sure libiomp5 can be found on your computer
-MKLROOT       = /opt/intel/oneapi/mkl/latest
-LIBIOMP5      = /usr/local/lib
+# MKLROOT       = /opt/intel/oneapi/mkl/latest
+# LIBIOMP5      = /opt/intel/oneapi/compiler/latest/mac/compiler/lib
+MKLROOT       =
+LIBIOMP5      =
 
+# for openblas on mac
+# brew install openblas lapack
+# OPENBLAS_ROOT = /usr/local/opt/openblas
+# LAPACK_ROOT   = /usr/local/opt/lapack
 OPENBLAS_ROOT =
 LAPACK_ROOT   =
-STATIC       := 1
+STATIC       := 0
 
-#######
+####### INC, LPATHS, LIBS, MYFLAGS
 program       = PCAone
 # for mac user, please change this to gnu gcc instead of the default clang version
-CXX           = g++
-CXXFLAGS	  = -O3 -Wall -std=c++11 -ftree-vectorize -ffast-math -fPIC -fopenmp
-MYFLAGS       = -DVERSION=\"$(VERSION)\" -DNDEBUG
-INC           = -I./external
+CXX           = g++-11
+CXXFLAGS	  = -O3 -Wall -std=c++11 -mavx -mavx2 -ffast-math -fopenmp
+MYFLAGS       = -DVERSION=\"$(VERSION)\" -DNDEBUG -DWITH_BGEN
+INC           = -I./external -I/usr/include -I/usr/local/include
+LPATHS        = -L/usr/lib -L/usr/local/lib
 #######
-# INC, LPATHS, LIBS, MYFLAGS
 
 # detect OS architecture and add flags
 Platform      := $(shell uname -s)
@@ -28,8 +33,10 @@ ifeq ($(Platform),Linux)
 ###### for linux
 	ifeq ($(strip $(STATIC)),1)
 		CXXFLAGS += -Wl,-Bdynamic -static-libgcc -static-libstdc++
+        LIBS     += /usr/lib/x86_64-linux-gnu/libz.a /usr/lib/x86_64-linux-gnu/libzstd.a
 	else
 		CXXFLAGS += -march=native
+        LIBS     += -lz -lzstd
 	endif
 
 	ifneq ($(strip $(MKLROOT)),)
@@ -45,7 +52,7 @@ ifeq ($(Platform),Linux)
 
 	else ifneq ($(strip $(OPENBLAS_ROOT)),)
 		MYFLAGS += -DWITH_OPENBLAS -DEIGEN_USE_BLAS -DEIGEN_USE_LAPACKE
-		INC      += -I${OPENBLAS_ROOT}/include/
+		INC     += -I${OPENBLAS_ROOT}/include -I${LAPACK_ROOT}/include
 		LIBS    += -Wl,-rpath=${OPENBLAS_ROOT}/lib/ -llapack -llapacke -lopenblas -lgfortran
 		LPATHS  += -L${OPENBLAS_ROOT}/lib -L${LAPACK_ROOT}/lib
 
@@ -53,6 +60,12 @@ ifeq ($(Platform),Linux)
 
 else ifeq ($(Platform),Darwin)
 ###### for mac
+	ifeq ($(strip $(STATIC)),1)
+		LIBS += /usr/local/opt/zlib/lib/libz.a /usr/local/lib/libzstd.a  # path to static lib
+	else
+        LIBS += -lz -lzstd
+	endif
+
 	ifneq ($(strip $(MKLROOT)),)
 		MYFLAGS += -DWITH_MKL -DEIGEN_USE_MKL_ALL
 		INC     += -I${MKLROOT}/include/
@@ -67,7 +80,7 @@ else ifeq ($(Platform),Darwin)
 
 	else ifneq ($(strip $(OPENBLAS_ROOT)),)
 		MYFLAGS += -DWITH_OPENBLAS -DEIGEN_USE_BLAS -DEIGEN_USE_LAPACKE
-		INC     += -I${OPENBLAS_ROOT}/include/
+		INC     += -I${OPENBLAS_ROOT}/include -I${LAPACK_ROOT}/include
 		LIBS    += -llapack -llapacke -lopenblas
 		LPATHS  += -L${OPENBLAS_ROOT}/lib -L${LAPACK_ROOT}/lib
 
@@ -76,39 +89,25 @@ else ifeq ($(Platform),Darwin)
 
 endif
 
-# OBJ = $(patsubst %.cpp, %.o, $(wildcard ./src/*.cpp))
-OBJ = \
-	src/Main.o \
-	src/Data.o \
-	src/Utils.o \
-	src/Arnoldi.o \
-	src/Halko.o \
-	src/FilePlink.o \
-	src/FileBeagle.o \
+OBJ = $(patsubst %.cpp, %.o, $(wildcard ./src/*.cpp))
 
-ifneq ($(strip $(BGEN_PATH)), )
-    MYFLAGS += -DWITH_BGEN
-    INC     += -I${BGEN_PATH}/genfile/include -I${BGEN_PATH}/3rd_party/zstd-1.1.0 -I${BGEN_PATH}/3rd_party/zstd-1.1.0/lib
-    LPATHS  += -L${BGEN_PATH}/build/ -L${BGEN_PATH}/build/3rd_party/zstd-1.1.0/
-    LIBS    += -lbgen -lzstd
-	OBJ     += src/FileBgen.o
-endif
 
-LIBS        += -lz
-
-PGEN_PATH     = ./external/pgenlib/
-PGEN_OBJECTS  = $(patsubst %.cc,%.o,$(wildcard ${PGEN_PATH}include/*.cc)) $(patsubst %.cpp,%.o,$(wildcard ${PGEN_PATH}*.cpp))
-OBJECTS       = $(patsubst %.cpp,%.o,$(wildcard ./src/*.cpp)) ${PGEN_OBJECTS}
+# PGEN_PATH     = ./external/pgenlib/
+# PGEN_OBJECTS  = $(patsubst %.cc,%.o,$(wildcard ${PGEN_PATH}include/*.cc)) $(patsubst %.cpp,%.o,$(wildcard ${PGEN_PATH}*.cpp))
+# OBJ       = $(patsubst %.cpp,%.o,$(wildcard ./src/*.cpp)) ${PGEN_OBJECTS}
 
 .PHONY: clean
 
 all: ${program}
 
-${program}: ${OBJ}
-	$(CXX) $(CXXFLAGS) ${MYFLAGS} -o $(program) ${OBJ} ${LPATHS} ${LIBS}
+${program}: bgenlib ${OBJ}
+	$(CXX) $(CXXFLAGS) ${MYFLAGS} -o $(program) ${OBJ} ./external/bgen/bgenlib.a ${LPATHS} ${LIBS}
 
 %.o: %.cpp
 	${CXX} ${CXXFLAGS} ${MYFLAGS} -o $@ -c $< ${INC}
+
+bgenlib:
+	(cd ./external/bgen/; $(MAKE) clean && $(MAKE))
 
 clean:
 	rm -f $(OBJ) $(program)

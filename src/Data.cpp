@@ -2,8 +2,6 @@
 
 void Data::prepare(uint& blocksize)
 {
-    get_matrix_dimensions();
-
     if (nsamples > nsnps) nsamples_ge_nsnps = true;
 
     if (params.batch)
@@ -58,7 +56,7 @@ void Data::calcu_vt_initial(const MatrixXf& T, MatrixXf& VT)
         exit(EXIT_SUCCESS);
     }
     uint actual_block_size;
-    open_check_file();
+    check_file_offset_first_var();
     for(uint i = 0 ; i < nblocks ; ++i)
     {
         actual_block_size = stop[i] - start[i] + 1;
@@ -66,7 +64,6 @@ void Data::calcu_vt_initial(const MatrixXf& T, MatrixXf& VT)
         read_snp_block_initial(start[i], stop[i]);
         VT.block(0, start[i], T.rows(), actual_block_size) = T * G.leftCols(actual_block_size);
     }
-    close_check_file();
 
     return;
 }
@@ -78,7 +75,7 @@ void Data::calcu_vt_update(const MatrixXf& T, const MatrixXf& U, const VectorXf&
         exit(EXIT_SUCCESS);
     }
     uint actual_block_size;
-    open_check_file();
+    check_file_offset_first_var();
     for(uint i = 0 ; i < nblocks ; ++i)
     {
         actual_block_size = stop[i] - start[i] + 1;
@@ -86,7 +83,6 @@ void Data::calcu_vt_update(const MatrixXf& T, const MatrixXf& U, const VectorXf&
         read_snp_block_update(start[i], stop[i], U, svals, VT, standardize);
         VT.block(0, start[i], T.rows(), actual_block_size) = T * G.leftCols(actual_block_size);
     }
-    close_check_file();
 
     return;
 }
@@ -100,7 +96,7 @@ void Data::calcu_vt_update(const MatrixXf& T, const MatrixXf& U, const VectorXf&
 //     uint nrow = T.rows();
 //     MatrixXf VT(nrow, nsnps);
 //     uint actual_block_size;
-//     open_check_file();
+//     check_file_offset_first_var();
 //     for(uint i = 0 ; i < nblocks ; ++i)
 //     {
 //         actual_block_size = stop[i] - start[i] + 1;
@@ -108,7 +104,6 @@ void Data::calcu_vt_update(const MatrixXf& T, const MatrixXf& U, const VectorXf&
 //         update_block_E(start[i], stop[i], U, standardize);
 //         VT.block(0, start[i], nrow, actual_block_size) = T * G.leftCols(actual_block_size);
 //     }
-//     close_check_file();
 
 //     return VT;
 // }
@@ -233,7 +228,7 @@ MatrixXf Data::calcu_block_matmul(const MatrixXf& X, bool rightside)
         m = nsnps;
         MatrixXf Y = MatrixXf::Zero(n, m);
 
-        open_check_file();
+        check_file_offset_first_var();
         for(uint i = 0 ; i < nblocks ; ++i)
         {
             actual_block_size = stop[i] - start[i] + 1;
@@ -241,7 +236,6 @@ MatrixXf Data::calcu_block_matmul(const MatrixXf& X, bool rightside)
             read_snp_block_initial(start[i], stop[i]);
             Y.block(0, start[i], n, actual_block_size).noalias() = X * G.leftCols(actual_block_size);
         }
-        close_check_file();
 
         return Y;
 
@@ -253,7 +247,7 @@ MatrixXf Data::calcu_block_matmul(const MatrixXf& X, bool rightside)
         m = X.cols();
         MatrixXf Y = MatrixXf::Zero(n, m);
 
-        open_check_file();
+        check_file_offset_first_var();
         for(uint i = 0 ; i < nblocks ; ++i)
         {
             actual_block_size = stop[i] - start[i] + 1;
@@ -261,7 +255,6 @@ MatrixXf Data::calcu_block_matmul(const MatrixXf& X, bool rightside)
             read_snp_block_initial(start[i], stop[i]);
             Y.noalias() = Y + G.leftCols(actual_block_size) * X.block(start[i], 0, actual_block_size, m);
         }
-        close_check_file();
 
         return Y;
     }
@@ -278,7 +271,7 @@ MatrixXf Data::calcu_block_matmul(const MatrixXf& X, bool rightside, const Matri
         m = nsnps;
         MatrixXf Y = MatrixXf::Zero(n, m);
 
-        open_check_file();
+        check_file_offset_first_var();
         for(uint i = 0 ; i < nblocks ; ++i)
         {
             actual_block_size = stop[i] - start[i] + 1;
@@ -286,7 +279,6 @@ MatrixXf Data::calcu_block_matmul(const MatrixXf& X, bool rightside, const Matri
             read_snp_block_update(start[i], stop[i], U, S, V.transpose(), standardize);
             Y.block(0, start[i], n, actual_block_size).noalias() = X * G.leftCols(actual_block_size);
         }
-        close_check_file();
 
         return Y;
 
@@ -298,7 +290,7 @@ MatrixXf Data::calcu_block_matmul(const MatrixXf& X, bool rightside, const Matri
         m = X.cols();
         MatrixXf Y = MatrixXf::Zero(n, m);
 
-        open_check_file();
+        check_file_offset_first_var();
         for(uint i = 0 ; i < nblocks ; ++i)
         {
             actual_block_size = stop[i] - start[i] + 1;
@@ -306,7 +298,6 @@ MatrixXf Data::calcu_block_matmul(const MatrixXf& X, bool rightside, const Matri
             read_snp_block_update(start[i], stop[i], U, S, V.transpose(), standardize);
             Y.noalias() = Y + G.leftCols(actual_block_size) * X.block(start[i], 0, actual_block_size, m);
         }
-        close_check_file();
 
         return Y;
     }
@@ -328,7 +319,7 @@ MatrixXf Data::calcu_block_matmul_trans(const MatrixXf& X, bool rightside)
         m = X.cols();
         MatrixXf Y = MatrixXf::Zero(n, m);
 
-        open_check_file();
+        check_file_offset_first_var();
         for(uint i = 0 ; i < nblocks ; ++i)
         {
             actual_block_size = stop[i] - start[i] + 1;
@@ -336,7 +327,6 @@ MatrixXf Data::calcu_block_matmul_trans(const MatrixXf& X, bool rightside)
             read_snp_block_initial(start[i], stop[i]);
             Y.block(start[i], 0, actual_block_size, m).noalias() = G.leftCols(actual_block_size).transpose() * X ;
         }
-        close_check_file();
 
         return Y;
     }
@@ -357,7 +347,7 @@ MatrixXf Data::calcu_block_matmul_trans(const MatrixXf& X, bool rightside, const
         m = X.cols();
         MatrixXf Y = MatrixXf::Zero(n, m);
 
-        open_check_file();
+        check_file_offset_first_var();
         for(uint i = 0 ; i < nblocks ; ++i)
         {
             actual_block_size = stop[i] - start[i] + 1;
@@ -365,7 +355,6 @@ MatrixXf Data::calcu_block_matmul_trans(const MatrixXf& X, bool rightside, const
             read_snp_block_update(start[i], stop[i], U, S, V.transpose(), standardize);
             Y.block(start[i], 0, actual_block_size, m).noalias() = G.leftCols(actual_block_size).transpose() * X ;
         }
-        close_check_file();
 
         return Y;
     }

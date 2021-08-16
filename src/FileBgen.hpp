@@ -13,24 +13,32 @@ using namespace bgen;
 class FileBgen : public Data
 {
 public:
-    // use Data default constructor;
-    using Data::Data;
+    // using Data::Data;
+    FileBgen(const Param& params_) : Data(params_)
+        {
+            bg = new Bgen(params.bgen, "", true);
+            nsamples = bg->header.nsamples;
+            nsnps = bg->header.nvariants;
+            cout << timestamp() << "the layout of bgen file is " << bg->header.layout << ". N samples is " << nsamples << ". M snps is " << nsnps << endl;
+        }
 
-    ~FileBgen() {}
+    ~FileBgen() { delete bg; }
 
-    virtual void get_matrix_dimensions();
     virtual void read_all_and_centering();
     // for blockwise
     // virtual void estimate_F() {}
-    virtual void read_snp_block_initial(uint start_idx, uint stop_idx, bool standardize = false) {}
+    virtual void read_snp_block_initial(uint start_idx, uint stop_idx, bool standardize = false);
     virtual void read_snp_block_update(uint start_idx, uint stop_idx, const MatrixXf& U, const VectorXf& svals, const MatrixXf& VT, bool standardize = false) {}
 
 
-    virtual void open_check_file() {}
-    virtual void close_check_file() {}
+    virtual void check_file_offset_first_var() { bg->set_offset_first_var(); }
 
 private:
     Bgen* bg;
+    Variant var;
+    float* dosages;
+    float* probs1d;
+    bool frequency_was_estimated = false;
 
 };
 
