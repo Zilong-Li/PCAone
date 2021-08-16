@@ -4,6 +4,7 @@ VERSION=0.1.0
 
 # for mkl on mac
 # make sure libiomp5 can be found on your computer
+# MKLROOT       = /home/zilong/intel/oneapi/mkl/latest
 # MKLROOT       = /opt/intel/oneapi/mkl/latest
 # LIBIOMP5      = /opt/intel/oneapi/compiler/latest/mac/compiler/lib
 MKLROOT       =
@@ -20,7 +21,8 @@ STATIC       := 0
 ####### INC, LPATHS, LIBS, MYFLAGS
 program       = PCAone
 # for mac user, please change this to gnu gcc instead of the default clang version
-CXX           = g++-11
+# brew install gcc && ln -s $(which g++-11) /usr/local/bin/g++
+CXX           = g++
 CXXFLAGS	  = -O3 -Wall -std=c++11 -mavx -mavx2 -ffast-math -fopenmp
 MYFLAGS       = -DVERSION=\"$(VERSION)\" -DNDEBUG -DWITH_BGEN
 INC           = -I./external -I/usr/include -I/usr/local/include
@@ -44,7 +46,7 @@ ifeq ($(Platform),Linux)
 		INC     += -I${MKLROOT}/include/
 		CXXFLAGS += -m64
 		ifeq ($(strip $(STATIC)),1)
-			LIBS += -Wl,--start-group ${MKLROOT}/lib/libmkl_intel_lp64.a ${MKLROOT}/lib/libmkl_gnu_thread.a ${MKLROOT}/lib/libmkl_core.a -Wl,--end-group -lpthread -ldl -lm -lgomp
+			LIBS += -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_gnu_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread -ldl -lm -lgomp
 		else
 			LIBS    += -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lgomp -lpthread
 			LPATHS  += -L${MKLROOT}/lib

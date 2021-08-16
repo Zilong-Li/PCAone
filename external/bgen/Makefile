@@ -1,7 +1,7 @@
 #
 # Makefile to compile bgen library
 #
-CXX          = g++-11
+CXX          = g++
 CXXFLAGS     = -O3 -Wall -std=c++11 -mavx -mavx2
 
 OBJECTS      = $(patsubst %.cpp,%.o,$(wildcard *.cpp))

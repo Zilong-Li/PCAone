@@ -1,15 +1,15 @@
 
 - v0.1.0
 
-  - supports bfile as input for both batch and blockwise mode
-
-  - supports bgen as input for batch mode
-
   - supports both EMU and PCAngsd algorithm
+
+  - supports automatically permute plink bed file for fast halko 
+
+  - supports bfile, bgen as input for both batch and blockwise mode
 
   - supports beagle as input for PCAngsd
 
-  - external dependecy: Eigen v3.3.8, Spectra v0.9.0, BGEN v1.3
+  - external libs: Eigen v3.3.8, Spectra v0.9.0
 
   - release two pre-compiled binary for Linux and Mac OSX (libiomp5 required).
 

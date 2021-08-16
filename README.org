@@ -9,11 +9,14 @@ PCAone is fast and memory efficient PCA tool implemented in C++ aiming at provid
 * Features
 
 - Has both Arnoldi and Halko methods with *out-of-core* implementation.
-- Quite Fast and memory efficient with multithreading support and using external MKL or OpenBlas library.
+- Implement our own Halko algorithm with super power iteration for tera-scale dataset.
+- Quite fast and memory efficient with multithreading support using high performance library [[https://software.intel.com/content/www/us/en/develop/tools/oneapi/components/onemkl.html#gs.8jsfgz][MKL]] or [[https://www.openblas.net/][OpenBLAS]] as backend.
 - Supports the [[https://www.cog-genomics.org/plink/1.9/formats#bed][PLINK]], [[https://www.well.ox.ac.uk/~gav/bgen_format][BGEN]], [[http://www.popgen.dk/angsd/index.php/Input#Beagle_format][Beagle]] genetic data formats.
 - Supports [[https://github.com/Rosemeis/emu][EMU]] algorithm for scenario with large proportion of missingness.
 - Supports [[https://github.com/Rosemeis/pcangsd][PCAngsd]] algorithm for low coverage sequencing scenario with genotype probability as input.
 - Supports zstd compressed CSV format for scRNAs data [In progress]
+
+See [[file:CHANGELOG.org][change log]] here.
 
 * Installation
 
@@ -22,13 +25,14 @@ PCAone is fast and memory efficient PCA tool implemented in C++ aiming at provid
 We provide pre-compiled program for both Mac and Linux platform. Please check the released packages.
 
 ** Build from source
-
-Default is without external mkl or openblas support. With external mkl or openblas support, change the =MKLROOT= or =OPENBLAS_ROOT= in *Makefile* to your own path. If it complains that there is no =lapack= or =iomp5= lib for Mac users, set the =LIBIOMP5= or =LAPACK_ROOT= to the correct path as well. Also, the other dependence is [[https://github.com/facebook/zstd][zstd]] library. 
+The system dependence is just [[https://github.com/facebook/zstd][zstd]] library. Please make sure it is installed. If you don't want to use MKL of OpenBlas as backends, you can copy and run the following code without modifying anything.  
 #+begin_src sh
 git clone https://github.com/Zilong-Li/PCAone.git
+# modify variables in Makefile to use MKL or OpenBlas as backend
 cd PCAone
 make
 #+end_src
+Since the default is without external mkl or openblas support, you need to set the =MKLROOT= or =OPENBLAS_ROOT= in *Makefile* to your own path to use one of them as backend. If it complains that there is no =lapack= or =iomp5= lib for Mac users, set the =LIBIOMP5= or =LAPACK_ROOT= to the correct path as well. 
 
 * Usage
 
@@ -66,4 +70,4 @@ TBD
 
 * Acknowledgements
 
-The bgen lib is ported from [[https://github.com/jeremymcrae/bgen][jeremymcrae/bgen: fast bgen parser for python]].
+PCAone use [[https://eigen.tuxfamily.org/index.php?title=Main_Page][Eigen]] for linear algebra operation. The Arnoldi method is based on [[https://github.com/yixuan/spectra][yixuan/spectra]]. The bgen lib is ported from [[https://github.com/jeremymcrae/bgen][jeremymcrae/bgen]].
