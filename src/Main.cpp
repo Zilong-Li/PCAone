@@ -30,6 +30,7 @@ int main(int argc, char *argv[])
     omp_set_num_threads(params.threads);
     Data *data;
     if (params.intype == "bfile") {
+        if (!params.batch && params.fast) permute_plink(params.bed_prefix);
         data = new FileBed(params);
     #ifdef WITH_BGEN
     } else if( params.intype == "bgen" ) {

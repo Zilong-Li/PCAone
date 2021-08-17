@@ -30,24 +30,19 @@ void permute_plink(string& fin)
     vector<uint> seqs;
     seqs.reserve(nsnps);
     for(uint i = 0; i < nsnps; i++) { seqs.push_back(i); }
-    // std::random_device r;
-    // auto rng = std::default_random_engine {r()};
     auto rng = std::default_random_engine {};
     std::shuffle(std::begin(seqs), std::end(seqs), rng);
 
     string fout = fin + ".perm";
     std::ifstream in(fin + ".bed", std::ios::in | std::ios::binary);
     std::ofstream out(fout + ".bed", std::ios::out | std::ios::binary);
-    if (!in.is_open())
-    {
-        cerr << "ERROR: Cannot open bed file.\n";
-        exit(EXIT_FAILURE);
+    if (!in.is_open()) {
+        throw std::invalid_argument("ERROR: Cannot open bed file.\n");
     }
     uchar header[3];
     in.read(reinterpret_cast<char *> (&header[0]), 3);
     if ( (header[0] != 0x6c) || (header[1] != 0x1b) || (header[2] != 0x01) ) {
-        cerr << "ERROR: Incorrect magic number in bed file.\n";
-        exit(EXIT_FAILURE);
+        throw std::invalid_argument("ERROR: Incorrect magic number in bed file.\n");
     }
     out.write(reinterpret_cast<char *> (&header[0]), 3);
     vector<uchar> inbed;
@@ -62,15 +57,15 @@ void permute_plink(string& fin)
         in.read(reinterpret_cast<char *> (&inbed[0]), bed_bytes_per_snp);
         // get the position where to write
         idx = 3 + seqs[i] * bed_bytes_per_snp;
-        out.seekp(idx);
+        out.seekp(idx, std::ios_base::beg);
         out.write(reinterpret_cast<char *> (&inbed[0]), bed_bytes_per_snp);
         out_bim << bims[seqs[i]] + "\n";
     }
-    in.close(); out.close();
+    in.close(); out.close(); out_bim.close();
     std::ifstream in_fam(fin + ".fam");
     std::ofstream out_fam(fout + ".fam");
     out_fam << in_fam.rdbuf();
-    // set bed_prefix to the new;
+    // set bed_prefix to the permuted one;
     fin = fout;
 }
 
@@ -91,8 +86,7 @@ void flip_UV(MatrixXf& U, MatrixXf& V, bool ubase)
                 } else if (V.rows() == U.cols()) {
                     V.row(i) *= -1;
                 } else {
-                    cerr << "Error: the dimention of U and V have different k ranks.\n";
-                    exit(EXIT_FAILURE);
+                    throw std::runtime_error("Error: the dimention of U and V have different k ranks.\n");
                 }
             }
 
@@ -117,8 +111,7 @@ void flip_UV(MatrixXf& U, MatrixXf& V, bool ubase)
                     V.row(i) *= -1;
                 }
             } else {
-                cerr << "Error: the dimention of U and V have different k ranks.\n";
-                exit(EXIT_FAILURE);
+                throw std::runtime_error("Error: the dimention of U and V have different k ranks.\n");
             }
         }
     }

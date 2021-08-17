@@ -16,7 +16,6 @@ void Data::prepare(uint& blocksize)
             exit(EXIT_FAILURE);
         }
         if (params.fast) {
-            params.verbose && cout << timestamp() << "try to adjust blocksize for block mode of fast halko.\n";
             // decrease blocksize to fit the fancy halko
             if (nblocks < params.bands) {
                 blocksize = (unsigned int)ceil((double)nsnps / params.bands);
