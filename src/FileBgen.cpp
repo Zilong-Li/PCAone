@@ -9,7 +9,7 @@ void FileBgen::read_all_and_centering()
     {
         F = VectorXf::Zero(nsnps);
         G = MatrixXf(nsamples, nsnps);
-        if (params.maxiter > 0) C.resize(nsnps * nsamples);
+        if (params.runem) C.resize(nsnps * nsamples);
         for (j = 0; j < nsnps; j++) {
             try {
                 var = bg->next_var();
@@ -19,9 +19,9 @@ void FileBgen::read_all_and_centering()
                 #pragma omp parallel for reduction(+:gc) reduction(+:gs)
                 for (i = 0; i < nsamples; i++) {
                     if (std::isnan(dosages[i])) {
-                        if (params.maxiter > 0) C[j * nsamples + i] = 1;
+                        if (params.runem) C[j * nsamples + i] = 1;
                     } else {
-                        if (params.maxiter > 0) C[j * nsamples + i] = 0;
+                        if (params.runem) C[j * nsamples + i] = 0;
                         G(i, j) = dosages[i] / 2.0; // map to [0, 1];
                         gs += G(i, j);
                         gc += 1;

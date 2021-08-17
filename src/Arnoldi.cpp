@@ -42,7 +42,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
         // SpMatrix sG = data->G.sparseView();
         // PartialSVDSolver< float, SpMatrix > svds(sG, params.k, params.ncv);
         PartialSVDSolver< float, MatrixXf > svds(data->G, params.k, params.ncv);
-        if (params.maxiter == 0)
+        if (!params.runem)
         {
             data->standardize_E();
         }
@@ -53,7 +53,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
         }
         U = svds.matrix_U(params.k);
         svals = svds.singular_values();
-        if (params.maxiter == 0)
+        if (!params.runem)
         {
             cout << timestamp() << "Final SVD done!\n";
             evals = svals.array().square() / data->nsnps;
@@ -111,7 +111,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
         MatrixXf T, VT;
         ArnoldiOpData *op = new ArnoldiOpData(data);
         SymEigsSolver< float, LARGEST_ALGE, ArnoldiOpData > *eigs = new SymEigsSolver< float, LARGEST_ALGE, ArnoldiOpData >(op, params.k, params.ncv);
-        if (params.maxiter == 0) op->setFlags(false, true, false);
+        if (!params.runem) op->setFlags(false, true, false);
         eigs->init();
         nconv = eigs->compute(params.imaxiter, params.itol);
         if (nconv < params.k) {
@@ -122,7 +122,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
         if(eigs->info() == Spectra::SUCCESSFUL)
         {
             op->U = eigs->eigenvectors().leftCols(nu);
-            if (params.maxiter == 0)
+            if (!params.runem)
             {
                 evals = eigs->eigenvalues() / data->nsnps;
                 data->write_eigs_files(evals, op->U);

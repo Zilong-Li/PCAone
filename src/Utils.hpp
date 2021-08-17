@@ -71,6 +71,7 @@ struct Param {
     double tol_halko = 1e-4;
 
     double memory = 2; // 2 G
+    bool runem = false;
     bool batch = true; // if load all matrix into RAM.
     bool fast = false;
     bool emu = false;

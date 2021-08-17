@@ -30,7 +30,7 @@ void NormalRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
                 }
                 G.noalias() = data->G.transpose() * Omg;
                 H.noalias() = data->G * G;
-                stop = check_if_halko_converge(pi, data->params.tol_halko, Upre, Ucur, G, H, nk, rows(), cols(), size);
+                stop = check_if_halko_converge(pi, data->params.tol_halko, Upre, Ucur, G, H, nk, rows(), cols(), size, data->params.verbose);
                 if (stop || pi == p) {
                     cout << timestamp() << "stops at epoch=" << pi + 1 << ".\n";
                     print_summary_table(Upre, Ucur, data->params.outfile);
@@ -67,7 +67,7 @@ void NormalRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
                     G.block(start_idx, 0, actual_block_size, size) = data->G.transpose() * Omg;
                     H.noalias() = H +  data->G * G.block(start_idx, 0, actual_block_size, size);
                 }
-                stop = check_if_halko_converge(pi, data->params.tol_halko, Upre, Ucur, G, H, nk, rows(), cols(), size);
+                stop = check_if_halko_converge(pi, data->params.tol_halko, Upre, Ucur, G, H, nk, rows(), cols(), size, data->params.verbose);
                 if (stop || pi == p) {
                     cout << timestamp() << "stops at epoch=" << pi + 1 << ".\n";
                     print_summary_table(Upre, Ucur, data->params.outfile);
@@ -164,7 +164,7 @@ void FancyRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
                     }
                 }
             }
-            stop = check_if_halko_converge(pi, data->params.tol_halko, Upre, Ucur, G, H, nk, rows(), cols(), size);
+            stop = check_if_halko_converge(pi, data->params.tol_halko, Upre, Ucur, G, H, nk, rows(), cols(), size, data->params.verbose);
             if (stop || pi == p) {
                 cout << timestamp() << "stops at epoch=" << pi + 1 << ".\n";
                 print_summary_table(Upre, Ucur, data->params.outfile);
@@ -235,7 +235,7 @@ void FancyRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
                     }
                 }
             }
-            stop = check_if_halko_converge(pi, data->params.tol_halko, Upre, Ucur, G, H, nk, rows(), cols(), size);
+            stop = check_if_halko_converge(pi, data->params.tol_halko, Upre, Ucur, G, H, nk, rows(), cols(), size, data->params.verbose);
             if (stop || pi == p) {
                 cout << timestamp() << "stops at epoch=" << pi + 1 << ".\n";
                 print_summary_table(Upre, Ucur, data->params.outfile);
@@ -246,7 +246,8 @@ void FancyRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
     }
 }
 
-bool check_if_halko_converge(int pi, double tol, MatrixXf& Upre, MatrixXf& Ucur, const MatrixXf& G, const MatrixXf& H, int k, int nrow, int ncol, int size){
+bool check_if_halko_converge(int pi, double tol, MatrixXf& Upre, MatrixXf& Ucur, const MatrixXf& G, const MatrixXf& H, int k, int nrow, int ncol, int size, bool verbose = false)
+{
     MatrixXf Q(nrow, size), B(size, ncol), R(size, size), Rt(size, size);
     Eigen::HouseholderQR<MatrixXf> qr(G);
     Q.noalias() = qr.householderQ() * MatrixXf::Identity(nrow, size);
@@ -265,7 +266,7 @@ bool check_if_halko_converge(int pi, double tol, MatrixXf& Upre, MatrixXf& Ucur,
         double diff_rmse, diff_mev;
         diff_mev = 1 - mev(Upre, Ucur);
         diff_rmse = rmse(Upre, Ucur);
-        cout << timestamp() << "running of epoch=" << pi << ", RMSE=" << diff_rmse << ", 1-MEV=" << diff_mev << ".\n";
+        verbose && cout << timestamp() << "running of epoch=" << pi << ", RMSE=" << diff_rmse << ", 1-MEV=" << diff_mev << ".\n";
         if (diff_rmse <= tol || diff_mev <= tol) {
             return true;
         } else {
@@ -294,13 +295,13 @@ void run_pca_with_halko(Data* data, const Param& params)
     MatrixXf Vpre;
     VectorXf S;
     RsvdOpData* op;
-    if (params.fast) {
+    if (!params.runem && params.fast) {
         op = new FancyRsvdOpData(data, params.k);
     } else {
         op = new NormalRsvdOpData(data, params.k);
     }
     RsvdOnePass< MatrixXf, RsvdOpData >* rsvd = new RsvdOnePass< MatrixXf, RsvdOpData >(*op);
-    if (params.maxiter == 0)
+    if (!params.runem)
     {
         cout << timestamp() << "begin to do non-EM PCA.\n";
         op->setFlags(false, true);
@@ -313,13 +314,13 @@ void run_pca_with_halko(Data* data, const Param& params)
         data->write_eigs_files(op->S, op->U);
     } else {
         // for EM iteration
+        cout << timestamp() << "begin to do EM PCA.\n";
         op->setFlags(false, false);
         rsvd->computeUSV(params.p);
         op->U = rsvd->matrixU(data->snpmajor);
         op->V = rsvd->matrixV(data->snpmajor);
         op->S = rsvd->singularValues();
         // flip_UV(Upre, V, false);
-        cout << timestamp() << "begin to do EM PCA.\n";
         double diff;
         op->setFlags(true, false);
         for (uint i = 0; i < params.maxiter; ++i)
@@ -338,7 +339,7 @@ void run_pca_with_halko(Data* data, const Param& params)
                 break;
             }
         }
-        cout << timestamp() << "Begin to standardize the matrix\n";
+        cout << timestamp() << "Begin to standardize the matrix.\n";
         op->setFlags(true, true);
         rsvd->computeUSV(params.p);
         op->U = rsvd->matrixU(data->snpmajor);

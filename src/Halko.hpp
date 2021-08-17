@@ -85,7 +85,7 @@ public:
     void computeGandH(MatrixXf& G, MatrixXf& H, int p);
 };
 
-bool check_if_halko_converge(int pi, double tol, MatrixXf& Upre, MatrixXf& Ucur, const MatrixXf& G, const MatrixXf& H, int k, int nrow, int ncol, int size);
+bool check_if_halko_converge(int pi, double tol, MatrixXf& Upre, MatrixXf& Ucur, const MatrixXf& G, const MatrixXf& H, int k, int nrow, int ncol, int size, bool verbose);
 void print_summary_table(const MatrixXf& Upre, const MatrixXf& Ucur, const string& outfile);
 void run_pca_with_halko(Data* data, const Param& params);
 

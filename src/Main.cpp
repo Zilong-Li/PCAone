@@ -119,6 +119,7 @@ void parse_params(int argc, char* argv[], struct Param* params)
         if( vm.count("emu") ) params->emu = vm["emu"].as<bool>();
         if( vm.count("fast") ) params->fast = vm["fast"].as<bool>();
         if (params->emu || params->pcangsd) {
+            params->runem = true;
             if( vm.count("maxiter") ) params->maxiter = vm["maxiter"].as<int>();
             if( vm.count("tol_pcangsd") ) params->tol_pcangsd = vm["tol_pcangsd"].as<double>();
             if( vm.count("tolmaf") ) params->tolmaf = vm["tolmaf"].as<double>();

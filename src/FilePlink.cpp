@@ -25,7 +25,7 @@ void FileBed::read_all_and_centering()
     // Begin to decode the plink bed
     bed_ifstream.read(reinterpret_cast<char *> (&inbed[0]), bed_bytes_per_snp * nsnps);
     // C.reserve(nsnps * nsamples);
-    if (params.maxiter > 0) C.resize(nsnps * nsamples);
+    if (params.runem) C.resize(nsnps * nsamples);
     cout << timestamp() << "begin to decode the plink bed.\n";
     uint c, i, j, b;
     #pragma omp parallel for private(i,j,b,c)
@@ -41,12 +41,12 @@ void FileBed::read_all_and_centering()
                     G(j, i) = BED2GENO[buf & 3];
                     if (G(j, i) != BED_MISSING_VALUE) {
                         // 0 indicate G(i,j) don't need to be predicted.
-                        if (params.maxiter > 0) C[i * nsamples + j] = 0;
+                        if (params.runem) C[i * nsamples + j] = 0;
                         F(i) += G(j, i);
                         c++;
                     } else {
                         // 1 indicate G(i,j) need to be predicted and updated.
-                        if (params.maxiter > 0) C[i * nsamples + j] = 1;
+                        if (params.runem) C[i * nsamples + j] = 1;
                     }
                     buf = buf >> 2;  // shift packed data and throw away genotype just processed.
                 } else {
