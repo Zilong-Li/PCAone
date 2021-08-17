@@ -18,6 +18,11 @@ PCAone is fast and memory efficient PCA tool implemented in C++ aiming at provid
 
 See [[file:CHANGELOG.org][change log]] here.
 
+| Input  | Arnoldi | OnePass Halko | Super Halko | Out-Of-RAM | GT | GP/DS |
+| bfile  | +       | +             | +           | +          | +  | -     |
+| bgen   | +       | +             | -           | +          | -  | +     |
+| beagle | +       | +             | -           | -          | -  | +     |
+
 * Installation
 
 ** Download pre-compiled binary
