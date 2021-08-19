@@ -1,22 +1,20 @@
 ## R wrapper for PCAone
 PCAone <- function (
+    program = "PCAone"
     bfile = NULL,
     bgen  = NULL,
     beagle = NULL,
     k = 10,
     threads = 1,
-    blocksize = 0,
-    powers = 3,
-    band =  4,
+    memory = 0,
+    maxp = 20,
     arnoldi = FALSE,
     halko = TRUE,
-    fancy = FALSE,
+    fast = FALSE,
     emu = FALSE,
     pcangsd = FALSE,
     out = NULL,
-    verbose = FALSE,
-    test = FALSE,
-    program = "PCAone"
+    verbose = FALSE
     ) {
 
     infile <- NULL
@@ -27,12 +25,12 @@ PCAone <- function (
 
     if (is.null(out)) out = tempfile()
     callCmds <- paste(infile, "-k", k, "-n", threads, "-o", out)
-    if (blocksize > 0) callCmds <- paste(callCmds, "-b", blocksize)
+    if (memory > 0) callCmds <- paste(callCmds, "-m", memory)
     if (arnoldi) {
-        callCmds <- paste(callCmds, "-A")
+        callCmds <- paste(callCmds, "-a")
     } else if (halko) {
-        callCmds <- paste(callCmds, "-p", powers)
-        if (fancy) callCmds <- paste(callCmds, "--fancy", "--band", band)
+        callCmds <- paste(callCmds, "--maxp", maxp)
+        if (fancy) callCmds <- paste(callCmds, "-f")
     }
     if (emu) {
         callCmds <- paste(callCmds, "--emu")
@@ -40,9 +38,8 @@ PCAone <- function (
         callCmds <- paste(callCmds, "--pcangsd")
     }
     if (verbose) callCmds <- paste(callCmds, "-v")
-    if (test) callCmds <- paste(callCmds, "--test")
 
-    print(paste("Running:", program, callCmds))
+    print(paste("Calling:", program, callCmds))
     system2(program, callCmds, stdout = "", stderr = "")
 }
 
@@ -53,52 +50,5 @@ norm_vec <- function(x) {
 mev <- function(X, Y){
     o = mean(apply(Y, 2, function(x) { norm_vec(t(X) %*% x) }))
     o
-}
-
-
-test_halko_batch <- function() {
-    bfile <- "test.n10k.m10k"
-    out_arnoldi <- "out.A"
-    out_halko <- "out.H"
-    k <-  10
-    threads <- 6
-
-    system.time(PCAone(bfile = bfile, k = k, threads = threads, out = out_arnoldi, arnoldi = T))
-    evec_A <- "out.A.eigvecs"
-    A <- read.table(evec_A)
-
-    system.time(PCAone(bfile = bfile, k = k, threads = threads, out = out_halko, powers = 40))
-    evec_H <- "out.H.eigvecs"
-    H <- read.table(evec_H)
-    mev(A[1:2], H[1:2])
-}
-
-
-test_halko_block <- function() {
-    bfile <- "test.n10k.m10k"
-    out_arnoldi <- "out.A"
-    out_halko <- "out.H"
-    k <-  10
-    threads <- 6
-    powers <- 40
-
-    system.time(PCAone(bfile = bfile, k = k, threads = threads, out = out_arnoldi, arnoldi = T))
-    evec_A <- "out.A.eigvecs"
-    A <- read.table(evec_A)
-
-    system.time(PCAone(bfile = bfile, k = k, threads = threads, out = out_halko, powers = powers))
-    evec_H <- "out.H.eigvecs"
-    H1 <- read.table(evec_H)
-    print(mev(A[1:5], H1[1:5]))
-
-    system.time(PCAone(bfile = bfile, k = k, threads = threads, out = out_halko, powers = powers, blocksize = 5000))
-    evec_H <- "out.H.eigvecs"
-    H2 <- read.table(evec_H)
-    print(mev(H1[1:5], H2[1:5]))
-
-    system.time(PCAone(bfile = bfile, k = k, threads = threads, out = out_halko, powers = powers, fancy = TRUE, blocksize = 500))
-    evec_H <- "out.H.eigvecs"
-    H3 <- read.table(evec_H)
-    print(mev(A[1:5], H3[1:5]))
 }
 

@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
 
 void parse_params(int argc, char* argv[], struct Param* params)
 {
-    cxxopts::Options opts(argv[0], "PCA All In One.");
+    cxxopts::Options opts(argv[0], (string)"PCA All In One -- v" + VERSION);
     opts.add_options()
         ("h,help", "print list of main options.")
         ("H,helpall", "print list of all options.")
@@ -81,15 +81,15 @@ void parse_params(int argc, char* argv[], struct Param* params)
         ("v,verbose", "verbose message output.", cxxopts::value<bool>()->default_value("false"))
         ;
     opts.add_options("More")
-        ("bands", "number of bands to use for fast Halko.[128]", cxxopts::value<int>(),"INT")
-        ("maxp", "maximum number of power iteration for Halko.[20]", cxxopts::value<int>(),"INT")
+        ("B, bands", "number of bands to use for fast Halko.[128]", cxxopts::value<int>(),"INT")
+        ("P, maxp", "maximum number of power iteration for Halko.[20]", cxxopts::value<int>(),"INT")
         ("tol_halko", "tolerance for Halko algorithm. [1e-4]", cxxopts::value<double>(),"DOUBLE")
         ("tol_emu", "tolerance for EMU algorithm. [5e-7]", cxxopts::value<double>(),"DOUBLE")
         ("tol_pcangsd", "tolerance for PCAngsd algorithm. [1e-4]", cxxopts::value<double>(),"DOUBLE")
         ("maxiter", "maximum number of EMU/PCAngsd interations. [100]", cxxopts::value<int>(),"INT")
         ("imaxiter", "maximum number of Arnoldi interations. [500]", cxxopts::value<int>(),"INT")
         ("itol", "tolerance for Arnoldi algorithm. [1e-6]", cxxopts::value<double>(),"DOUBLE")
-        ("ncv", "number of Lanzcos basis vectors to use.[max(20, 2*k+1)]", cxxopts::value<int>(),"INT")
+        ("ncv", "number of Lanzcos basis vectors.[max(20, 2*k+1)]", cxxopts::value<int>(),"INT")
         // ("tolmaf", "MAF tolerance for PCAngsd algorithm. [1e-5]", cxxopts::value<double>(),"DOUBLE")
         ;
 

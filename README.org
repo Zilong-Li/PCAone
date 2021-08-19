@@ -2,42 +2,46 @@
 
 #+OPTIONS: ^:nil
 
-*Current Version: v0.1.0*
+*Current Version: v0.1.1*
 
 PCAone is fast and memory efficient PCA tool implemented in C++ aiming at providing comprehensive features and algorithms for different scenarios.
 
 * Features
 
+See [[file:CHANGELOG.org][change log]] here.
+
 - Has both Arnoldi and Halko methods with *out-of-core* implementation.
 - Implement our own Halko algorithm with super power iteration for tera-scale dataset.
-- Quite fast and memory efficient with multithreading support using high performance library [[https://software.intel.com/content/www/us/en/develop/tools/oneapi/components/onemkl.html#gs.8jsfgz][MKL]] or [[https://www.openblas.net/][OpenBLAS]] as backend.
+- Quite fast with multithreading support using high performance library [[https://software.intel.com/content/www/us/en/develop/tools/oneapi/components/onemkl.html#gs.8jsfgz][MKL]] or [[https://www.openblas.net/][OpenBLAS]] as backend.
 - Supports the [[https://www.cog-genomics.org/plink/1.9/formats#bed][PLINK]], [[https://www.well.ox.ac.uk/~gav/bgen_format][BGEN]], [[http://www.popgen.dk/angsd/index.php/Input#Beagle_format][Beagle]] genetic data formats.
 - Supports [[https://github.com/Rosemeis/emu][EMU]] algorithm for scenario with large proportion of missingness.
 - Supports [[https://github.com/Rosemeis/pcangsd][PCAngsd]] algorithm for low coverage sequencing scenario with genotype probability as input.
 - Supports zstd compressed CSV format for scRNAs data [In progress]
 
-See [[file:CHANGELOG.org][change log]] here.
+| Input Format               | bfile | bgen | beagle |
+| Arnoldi Method             | +     | +    | +      |
+| OnePass Halko              | +     | +    | +      |
+| Super Halko                | +     | -    | -      |
+| EMU algorithm              | +     | +    | -      |
+| PCAngsd algorithm          | -     | +    | +      |
+| Out-of-core implementation | +     | +    | -      |
 
-| Input  | Arnoldi | OnePass Halko | Super Halko | Out-Of-RAM | GT | GP/DS |
-| bfile  | +       | +             | +           | +          | +  | -     |
-| bgen   | +       | +             | -           | +          | -  | +     |
-| beagle | +       | +             | -           | -          | -  | +     |
 
 * Installation
 
 ** Download pre-compiled binary
 
-We provide pre-compiled program for both Mac and Linux platform. Please check the released packages.
+There are pre-compiled program provided for both Mac and Linux platform. For each platform, both PCAone with and without mkl threading support are provided. If you want to use PCAone with mkl threading, you need to make sure runtime library =libiomp5= can be found. Please check the releases page to download them.
 
 ** Build from source
-The system dependence is just [[https://github.com/facebook/zstd][zstd]] library. Please make sure it is installed. If you don't want to use MKL of OpenBlas as backends, you can copy and run the following code without modifying anything.  
+PCAone use [[https://github.com/facebook/zstd][zstd]] library to parse zstd compressed input format. Please make sure it is installed. If you don't want to use MKL of OpenBlas as backends, you can copy and run the following code without modifying anything.  
 #+begin_src sh
 git clone https://github.com/Zilong-Li/PCAone.git
 # modify variables in Makefile to use MKL or OpenBlas as backend
 cd PCAone
 make
 #+end_src
-Since the default is without external mkl or openblas support, you need to set the =MKLROOT= or =OPENBLAS_ROOT= in *Makefile* to your own path to use one of them as backend. If it complains that there is no =lapack= or =iomp5= lib for Mac users, set the =LIBIOMP5= or =LAPACK_ROOT= to the correct path as well. 
+Since the default is without external mkl or openblas support, you need to set the =MKLROOT= or =OPENBLAS_ROOT= in *Makefile* to your own path to use one of them as backend. If it complains that there is no =lapack= lib, install it and set the =LAPACK_ROOT= to the correct path as well. 
 
 * Usage
 
