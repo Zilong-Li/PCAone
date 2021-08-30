@@ -8,7 +8,7 @@ class RsvdOpData
 {
 public:
     using Index = Eigen::Index;
-    bool update = false, standardize = false;
+    bool update = false, standardize = false, verbose = false;
     MatrixXf U, V;
     VectorXf S;
 
@@ -21,8 +21,8 @@ public:
     virtual Index oversamples() const = 0;
 
     virtual void computeGandH(MatrixXf& G, MatrixXf& H, int p) = 0;
-    inline void setFlags(bool is_update, bool is_standardize)
-        {update = is_update; standardize = is_standardize;}
+    inline void setFlags(bool is_update, bool is_standardize, bool is_verbose)
+        {update = is_update; standardize = is_standardize; verbose = is_verbose;}
 
 };
 

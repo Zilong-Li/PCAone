@@ -56,7 +56,7 @@ struct Param {
     // for emu iteration
     uint maxiter = 100;
     double alpha = 0.001;
-    double tol_emu = 5e-7;
+    double tol_emu = 1e-4;
     // for pcangsd
     double tol_pcangsd = 1e-4;
     double tolmaf = 1e-5;
@@ -97,7 +97,6 @@ void flip_UV(MatrixXf& U, MatrixXf& V, bool ubase = true);
 void flip_Y(const MatrixXf& X, MatrixXf& Y);
 double rmse(const MatrixXf& X, const MatrixXf& Y);
 double mev(const MatrixXf& X, const MatrixXf& Y);
-VectorXd rmse_byk(const MatrixXf& X, const MatrixXf& Y);
-VectorXd mev_byk(const MatrixXf& X, const MatrixXf& Y);
+void mev_rmse_byk(const MatrixXf& X, const MatrixXf& Y, VectorXd& Vm, VectorXd& Vr);
 
 #endif

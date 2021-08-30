@@ -9,7 +9,7 @@ void NormalRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
     }
     if (data->params.batch)
     {
-        cout << timestamp() << "running in batch mode with one-pass halko.\n";
+        verbose && cout << timestamp() << "running in batch mode with one-pass halko.\n";
         if (update)
         {
             data->update_batch_E(U, S, V.transpose());
@@ -30,9 +30,9 @@ void NormalRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
                 }
                 G.noalias() = data->G.transpose() * Omg;
                 H.noalias() = data->G * G;
-                stop = check_if_halko_converge(pi, data->params.tol_halko, Upre, Ucur, G, H, nk, rows(), cols(), size, data->params.verbose);
+                stop = check_if_halko_converge(pi, data->params.tol_halko, Upre, Ucur, G, H, nk, rows(), cols(), size, verbose);
                 if (stop || pi == p) {
-                    cout << timestamp() << "stops at epoch=" << pi + 1 << ".\n";
+                    verbose && cout << timestamp() << "stops at epoch=" << pi + 1 << ".\n";
                     print_summary_table(Upre, Ucur, data->params.outfile);
                     break;
                 }
@@ -41,7 +41,7 @@ void NormalRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
         }
     } else {
         // for block version
-        cout << timestamp() << "running in block mode with one-pass halko.\n";
+        verbose && cout << timestamp() << "running in blockwise mode with one-pass halko.\n";
         uint actual_block_size, start_idx, stop_idx;
         // data->G is always nsamples x nsnps;
         if (data->snpmajor || true) {
@@ -67,9 +67,9 @@ void NormalRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
                     G.block(start_idx, 0, actual_block_size, size) = data->G.transpose() * Omg;
                     H.noalias() = H +  data->G * G.block(start_idx, 0, actual_block_size, size);
                 }
-                stop = check_if_halko_converge(pi, data->params.tol_halko, Upre, Ucur, G, H, nk, rows(), cols(), size, data->params.verbose);
+                stop = check_if_halko_converge(pi, data->params.tol_halko, Upre, Ucur, G, H, nk, rows(), cols(), size, verbose);
                 if (stop || pi == p) {
-                    cout << timestamp() << "stops at epoch=" << pi + 1 << ".\n";
+                    verbose && cout << timestamp() << "stops at epoch=" << pi + 1 << ".\n";
                     print_summary_table(Upre, Ucur, data->params.outfile);
                     break;
                 }
@@ -88,7 +88,7 @@ void FancyRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
     }
     if (data->params.batch)
     {
-        cout << timestamp() << "running in batch mode with fancy halko.\n";
+        verbose && cout << timestamp() << "running in batch mode with fancy halko.\n";
         if (update)
         {
             data->update_batch_E(U, S, V.transpose());
@@ -164,9 +164,9 @@ void FancyRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
                     }
                 }
             }
-            stop = check_if_halko_converge(pi, data->params.tol_halko, Upre, Ucur, G, H, nk, rows(), cols(), size, data->params.verbose);
+            stop = check_if_halko_converge(pi, data->params.tol_halko, Upre, Ucur, G, H, nk, rows(), cols(), size, verbose);
             if (stop || pi == p) {
-                cout << timestamp() << "stops at epoch=" << pi + 1 << ".\n";
+                verbose && cout << timestamp() << "stops at epoch=" << pi + 1 << ".\n";
                 print_summary_table(Upre, Ucur, data->params.outfile);
                 break;
             }
@@ -176,7 +176,7 @@ void FancyRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
         uint actual_block_size, start_idx, stop_idx;
         uint band = 4 * data->bandFactor;
         MatrixXf H1, H2, H3, H4;
-        cout << timestamp() << "running in block mode with fancy halko.\n";
+        verbose && cout << timestamp() << "running in blockwise mode with fancy halko.\n";
         for (int pi=0; pi <= p; ++pi)
         {
             band = fmin(band * pow(2, pi), data->nblocks);
@@ -235,9 +235,9 @@ void FancyRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
                     }
                 }
             }
-            stop = check_if_halko_converge(pi, data->params.tol_halko, Upre, Ucur, G, H, nk, rows(), cols(), size, data->params.verbose);
+            stop = check_if_halko_converge(pi, data->params.tol_halko, Upre, Ucur, G, H, nk, rows(), cols(), size, verbose);
             if (stop || pi == p) {
-                cout << timestamp() << "stops at epoch=" << pi + 1 << ".\n";
+                verbose && cout << timestamp() << "stops at epoch=" << pi + 1 << ".\n";
                 print_summary_table(Upre, Ucur, data->params.outfile);
                 break;
             }
@@ -277,16 +277,17 @@ bool check_if_halko_converge(int pi, double tol, MatrixXf& Upre, MatrixXf& Ucur,
 
 void print_summary_table(const MatrixXf& Upre, const MatrixXf& Ucur, const string& outfile)
 {
-    VectorXd rmse = rmse_byk(Upre, Ucur);
-    VectorXd mev  = mev_byk(Upre, Ucur);
     std::ofstream outlog(outfile + ".log");
     string out = "summary:";
     for (int i=0; i < Ucur.cols(); i++) {
         out += " PC1-" + std::to_string(i+1);
     }
+    VectorXd Vrmse = VectorXd::Zero(Ucur.cols());
+    VectorXd Vmev  = VectorXd::Zero(Ucur.cols());
+    mev_rmse_byk(Upre, Ucur, Vmev, Vrmse);
     outlog << out << "\n"
-           << "RMSE:" << rmse.transpose() << ".\n"
-           << "1-MEV:" << mev.transpose() << ".\n";
+           << "RMSE:" << Vrmse.transpose() << ".\n"
+           << "1-MEV:" << Vmev.transpose() << ".\n";
 }
 
 void run_pca_with_halko(Data* data, const Param& params)
@@ -304,7 +305,7 @@ void run_pca_with_halko(Data* data, const Param& params)
     if (!params.runem)
     {
         cout << timestamp() << "begin to do non-EM PCA.\n";
-        op->setFlags(false, true);
+        op->setFlags(false, true, params.verbose);
         rsvd->computeUSV(params.p);
         op->U = rsvd->matrixU(data->snpmajor);
         op->V = rsvd->matrixV(data->snpmajor);
@@ -314,15 +315,15 @@ void run_pca_with_halko(Data* data, const Param& params)
         data->write_eigs_files(op->S, op->U);
     } else {
         // for EM iteration
-        cout << timestamp() << "begin to do EM PCA.\n";
-        op->setFlags(false, false);
+        op->setFlags(false, false, false);
         rsvd->computeUSV(params.p);
         op->U = rsvd->matrixU(data->snpmajor);
         op->V = rsvd->matrixV(data->snpmajor);
         op->S = rsvd->singularValues();
         // flip_UV(Upre, V, false);
         double diff;
-        op->setFlags(true, false);
+        op->setFlags(true, false, false);
+        cout << timestamp() << "begin to do EM PCA.\n";
         for (uint i = 0; i < params.maxiter; ++i)
         {
             Vpre = op->V;
@@ -340,7 +341,7 @@ void run_pca_with_halko(Data* data, const Param& params)
             }
         }
         cout << timestamp() << "Begin to standardize the matrix.\n";
-        op->setFlags(true, true);
+        op->setFlags(true, true, false);
         rsvd->computeUSV(params.p);
         op->U = rsvd->matrixU(data->snpmajor);
         op->S = rsvd->singularValues().array().square() / data->nsnps;

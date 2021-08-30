@@ -26,18 +26,18 @@ void ArnoldiOpData::perform_op(const float *x_in, float* y_out)
        y.noalias() = y + data->G * (data->G.transpose() * x);
    }
    nops++;
-   data->params.verbose && cerr << "Arnoldi Op=" << nops << ".\n";
+   // data->params.verbose && cerr << "Arnoldi Op=" << nops << ".\n";
 }
 
 
 void run_pca_with_arnoldi(Data* data, const Param& params)
 {
-    cout << timestamp() << "begin to do svds\n";
     VectorXf svals, evals;
     uint nconv, nu;
     double diff;
     if (params.batch)
     {
+        cout << timestamp() << "begin to run_pca_with_arnoldi batch mode\n";
         MatrixXf U, V, V2;
         // SpMatrix sG = data->G.sparseView();
         // PartialSVDSolver< float, SpMatrix > svds(sG, params.k, params.ncv);
@@ -107,6 +107,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
         data->write_eigs_files(evals, U);
 
     } else {
+        cout << timestamp() << "begin to run_pca_with_arnoldi blockwise mode\n";
         // for blockwise
         MatrixXf T, VT;
         ArnoldiOpData *op = new ArnoldiOpData(data);
@@ -126,7 +127,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
             {
                 evals = eigs->eigenvalues() / data->nsnps;
                 data->write_eigs_files(evals, op->U);
-                cerr << timestamp() << "Final SVD done!\n";
+                cout << timestamp() << "Final SVD done!\n";
                 return;
             }
             op->S = eigs->eigenvalues().cwiseSqrt();
@@ -138,7 +139,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
             op->VT = MatrixXf::Zero(T.rows(), data->nsnps);
             data->calcu_vt_initial(T, op->VT);
             flip_UV(op->U, op->VT);
-            cerr << timestamp() << "Begin to do EM\n";
+            cout << timestamp() << "begin to do EM iteration.\n";
             op->setFlags(true, false, params.pcangsd);
             for (uint i = 1; i <= params.maxiter; ++i)
             {
@@ -150,7 +151,6 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
                 }
                 if(eigs->info() == Spectra::SUCCESSFUL)
                 {
-                    cout << op->S.transpose() << endl;
                     nu = min(params.k, nconv);
                     T = (eigs->eigenvectors().leftCols(nu).transpose().array().colwise() / eigs->eigenvalues().head(nu).array().sqrt()).matrix();
 
@@ -160,8 +160,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
                     flip_UV(op->U, op->VT);
                     diff = rmse(op->VT, VT);
                     params.verbose && cout << timestamp() << "Individual allele frequencies estimated (iter=" << i << "), RMSE=" << diff <<".\n";
-                    if (diff < params.tol)
-                    {
+                    if (diff < params.tol) {
                         cout << timestamp() << "Come to convergence!\n";
                         break;
                     }
@@ -172,7 +171,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
                 }
             }
 
-            cout << timestamp() << "Begin to standardize the matrix\n";
+            cout << timestamp() << "begin to standardize the matrix\n";
             op->setFlags(true, true, params.pcangsd);
             eigs->init();
             nconv = eigs->compute(params.imaxiter, params.itol);

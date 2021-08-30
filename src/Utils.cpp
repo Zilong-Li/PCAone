@@ -69,6 +69,8 @@ void permute_plink(string& fin)
     fin = fout;
 }
 
+// Sign correction to ensure deterministic output from SVD.
+// see https://www.kite.com/python/docs/sklearn.utils.extmath.svd_flip
 void flip_UV(MatrixXf& U, MatrixXf& V, bool ubase)
 {
     if (ubase)
@@ -136,16 +138,6 @@ double rmse(const MatrixXf& X, const MatrixXf& Y)
     return sqrt( (X - Z).array().square().sum() / (X.cols() * X.rows()) );
 }
 
-VectorXd rmse_byk(const MatrixXf& X, const MatrixXf& Y)
-{
-    VectorXd out = VectorXd::Zero(X.cols());
-    for (Eigen::Index i = 0; i < X.cols(); ++i)
-    {
-        out(i) = rmse(X.leftCols(i+1), Y.leftCols(i+1));
-    }
-    return out;
-}
-
 double mev(const MatrixXf& X, const MatrixXf& Y)
 {
     double res = 0;
@@ -156,12 +148,11 @@ double mev(const MatrixXf& X, const MatrixXf& Y)
     return res / X.cols();
 }
 
-VectorXd mev_byk(const MatrixXf& X, const MatrixXf& Y)
+void mev_rmse_byk(const MatrixXf& X, const MatrixXf& Y, VectorXd& Vm, VectorXd& Vr)
 {
-    VectorXd out = VectorXd::Zero(X.cols());
     for (Eigen::Index i = 0; i < X.cols(); ++i)
     {
-        out(i) = 1 - mev(X.leftCols(i+1), Y.leftCols(i+1));
+        Vm(i) = 1 - mev(X.leftCols(i+1), Y.leftCols(i+1));
+        Vr(i) = rmse(X.leftCols(i+1), Y.leftCols(i+1));
     }
-    return out;
 }
