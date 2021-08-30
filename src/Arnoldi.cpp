@@ -92,10 +92,23 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
             if (out_cov.is_open()) {
                 out_cov << C << "\n";
             }
-        } else {
-            data->standardize_E();
+            // calculate eigenvectors
+            DenseSymMatProd<float> op2(C);
+            // Construct eigen solver object, requesting the largest three eigenvalues
+            SymEigsSolver< float, LARGEST_ALGE, DenseSymMatProd<float> > eigs2(&op2, params.k, params.ncv);
+            eigs2.init();
+            nconv = eigs2.compute();
+            if(eigs2.info() == SUCCESSFUL) {
+                nu = min(params.k, nconv);
+                data->write_eigs_files(eigs2.eigenvalues(), eigs2.eigenvectors().leftCols(nu));
+                cout << timestamp() << "eigenvecs and eigenvals are saved. have a nice day. bye!\n";
+            } else {
+                throw std::runtime_error("something wrong with Spectra SymEigsSolver\n");
+            }
+            return;
         }
-        // PartialSVDSolver< float, MatrixXf > svd(data->G, params.k, params.ncv);
+
+        data->standardize_E();
         svds.compute(params.imaxiter, params.itol);
         svals = svds.singular_values();
         U = svds.matrix_U(params.k);
@@ -189,16 +202,15 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
                 evals = eigs->eigenvalues() / data->nsnps;
                 data->write_eigs_files(evals, op->U);
             } else {
-                cerr << "Error: something wrong with Spectra SymEigsSolver\n";
-                exit(EXIT_FAILURE);
+                throw std::runtime_error("something wrong with Spectra SymEigsSolver\n");
             }
 
         } else {
-            cerr << "Error: something wrong with Spectra SymEigsSolver\n";
-            exit(EXIT_FAILURE);
+            throw std::runtime_error("something wrong with Spectra SymEigsSolver\n");
         }
         delete op;
         delete eigs;
     }
     cout << timestamp() << "eigenvecs and eigenvals are saved. have a nice day. bye!\n";
+    return;
 }

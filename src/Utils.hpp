@@ -56,10 +56,10 @@ struct Param {
     // for emu iteration
     uint maxiter = 100;
     double alpha = 0.001;
-    double tol_emu = 1e-4;
+    double tol_emu = 1e-5;
     // for pcangsd
-    double tol_pcangsd = 1e-4;
-    double tolmaf = 1e-5;
+    double tol_pcangsd = 1e-5;
+    double tolmaf = 1e-4;
     // can be tol_emu or tol_pcangsd
     double tol;
     // for arnoldi

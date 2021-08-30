@@ -84,13 +84,13 @@ void parse_params(int argc, char* argv[], struct Param* params)
         ("B, bands", "number of bands to use for fast Halko.[128]", cxxopts::value<int>(),"INT")
         ("P, maxp", "maximum number of power iteration for Halko.[20]", cxxopts::value<int>(),"INT")
         ("tol_halko", "tolerance for Halko algorithm. [1e-4]", cxxopts::value<double>(),"DOUBLE")
-        ("tol_emu", "tolerance for EMU algorithm. [1e-4]", cxxopts::value<double>(),"DOUBLE")
-        ("tol_pcangsd", "tolerance for PCAngsd algorithm. [1e-4]", cxxopts::value<double>(),"DOUBLE")
+        ("tol_emu", "tolerance for EMU algorithm. [1e-5]", cxxopts::value<double>(),"DOUBLE")
+        ("tol_pcangsd", "tolerance for PCAngsd algorithm. [1e-5]", cxxopts::value<double>(),"DOUBLE")
         ("maxiter", "maximum number of EMU/PCAngsd interations. [100]", cxxopts::value<int>(),"INT")
         ("imaxiter", "maximum number of Arnoldi interations. [500]", cxxopts::value<int>(),"INT")
         ("itol", "tolerance for Arnoldi algorithm. [1e-6]", cxxopts::value<double>(),"DOUBLE")
         ("ncv", "number of Lanzcos basis vectors.[max(20, 2*k+1)]", cxxopts::value<int>(),"INT")
-        // ("tolmaf", "MAF tolerance for PCAngsd algorithm. [1e-5]", cxxopts::value<double>(),"DOUBLE")
+        ("tol_maf", "MAF tolerance for PCAngsd algorithm. [1e-4]", cxxopts::value<double>(),"DOUBLE")
         ;
 
     try {
@@ -123,7 +123,7 @@ void parse_params(int argc, char* argv[], struct Param* params)
             params->runem = true;
             if( vm.count("maxiter") ) params->maxiter = vm["maxiter"].as<int>();
             if( vm.count("tol_pcangsd") ) params->tol_pcangsd = vm["tol_pcangsd"].as<double>();
-            if( vm.count("tolmaf") ) params->tolmaf = vm["tolmaf"].as<double>();
+            if( vm.count("tol_maf") ) params->tolmaf = vm["tol_maf"].as<double>();
             if( vm.count("tol_emu") ) params->tol_emu = vm["tol_emu"].as<double>();
             if( params->pcangsd ) params->tol = params->tol_pcangsd;
             if( params->emu ) params->tol = params->tol_emu;

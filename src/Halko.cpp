@@ -341,16 +341,10 @@ void run_pca_with_halko(Data* data, const Param& params)
             }
         }
         cout << timestamp() << "Begin to standardize the matrix.\n";
-        op->setFlags(true, true, false);
-        rsvd->computeUSV(params.p);
-        op->U = rsvd->matrixU(data->snpmajor);
-        op->S = rsvd->singularValues().array().square() / data->nsnps;
-        // flip_UV(U, V, false);
-        cout << timestamp() << "eigenvecs and eigenvals are saved. have a nice day. bye!\n";
-        data->write_eigs_files(op->S, op->U);
 
         // if pcangsd, estimate GRM.
         if (params.pcangsd) {
+            data->pcangsd_standardize_E(op->U, op->S, op->V.transpose());
             MatrixXf C = data->G * data->G.transpose();
             C.array() /= (double) data->nsnps;
             C.diagonal() = data->Dc.array() / (double) data->nsnps;
@@ -358,7 +352,18 @@ void run_pca_with_halko(Data* data, const Param& params)
             if (out_cov.is_open()) {
                 out_cov << C << "\n";
             }
+            // use Eigen::JacobiSVD to get eigenvecs
+            Eigen::JacobiSVD< MatrixXf > svd(C, Eigen::ComputeThinU | Eigen::ComputeThinV);
+            data->write_eigs_files(svd.singularValues().head(params.k), svd.matrixU().leftCols(params.k));
+        } else {
+            op->setFlags(true, true, false);
+            rsvd->computeUSV(params.p);
+            op->U = rsvd->matrixU(data->snpmajor);
+            op->S = rsvd->singularValues().array().square() / data->nsnps;
+            // flip_UV(U, V, false);
+            data->write_eigs_files(op->S, op->U);
         }
+        cout << timestamp() << "eigenvecs and eigenvals are saved. have a nice day. bye!\n";
     }
 
     delete op;
