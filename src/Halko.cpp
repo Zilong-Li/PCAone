@@ -105,62 +105,46 @@ void FancyRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
         std::shuffle(perm.indices().data(), perm.indices().data()+perm.indices().size(), rng);
         data->G = data->G * perm; // permute columns in-place
 
-        uint band=data->params.band;  // use 4 as default
+        uint band=4;  // use 4 as default
         uint blocksize = (unsigned int)ceil((double)data->nsnps / data->params.bands);
-        MatrixXf H1, H2, H3, H4;
+        MatrixXf H1, H2;
         for (int pi=0; pi <= p; ++pi)
         {
-            // band : 4, 8, 32, 256
             band = fmin(band * pow(2, pi), data->params.bands);
             H1 = MatrixXf::Zero(cols(), size);
             H2 = MatrixXf::Zero(cols(), size);
-            H3 = MatrixXf::Zero(cols(), size);
-            H4 = MatrixXf::Zero(cols(), size);
             for (uint b = 0, i = 1; b < data->params.bands; ++b, ++i) {
                 start_idx = b * blocksize;
                 stop_idx = (b + 1) * blocksize >= data->nsnps ? data->nsnps - 1 : (b + 1) * blocksize - 1 ;
                 actual_block_size = stop_idx - start_idx + 1;
                 G.block(start_idx, 0, actual_block_size, size).noalias() = data->G.block(0, start_idx, data->G.rows(), actual_block_size).transpose() * Omg;
-                if (i <= band / 4) {
+                if (i <= band / 2) {
                     H1.noalias() += data->G.block(0, start_idx, data->G.rows(), actual_block_size) * G.block(start_idx, 0, actual_block_size, size);
-                }else if (i > band / 4 && i <= band / 2) {
+                }else if (i > band / 2 && i <= band) {
                     H2.noalias() += data->G.block(0, start_idx, data->G.rows(), actual_block_size) * G.block(start_idx, 0, actual_block_size, size);
-                }else if (i > band / 2 && i <= 3 * band / 4) {
-                    H3.noalias() += data->G.block(0, start_idx, data->G.rows(), actual_block_size) * G.block(start_idx, 0, actual_block_size, size);
-                }else if (i > 3 * band / 4 && i <= band) {
-                    H4.noalias() += data->G.block(0, start_idx, data->G.rows(), actual_block_size) * G.block(start_idx, 0, actual_block_size, size);
                 }
                 if( (b+1) >= band ) {
                     if (i == band) {
-                        H = H1 + H2 + H3 + H4;
+                        H = H1 + H2;
                         Eigen::HouseholderQR<MatrixXf> qr(H);
                         Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
                         H1 = MatrixXf::Zero(cols(), size);
                         i = 0;
-                    }else if (i == band / 4) {
-                        H = H1 + H2 + H3 + H4;
+                    }else if (i == band / 2) {
+                        H = H1 + H2;
                         Eigen::HouseholderQR<MatrixXf> qr(H);
                         Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
                         H2 = MatrixXf::Zero(cols(), size);
-                    }else if (i == band * 2 / 4) {
-                        H = H1 + H2 + H3 + H4;
-                        Eigen::HouseholderQR<MatrixXf> qr(H);
-                        Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
-                        H3 = MatrixXf::Zero(cols(), size);
-                    }else if (i == band * 3 / 4) {
-                        H = H1 + H2 + H3 + H4;
-                        Eigen::HouseholderQR<MatrixXf> qr(H);
-                        Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
-                        H4 = MatrixXf::Zero(cols(), size);
                     }else if( (b+1) == data->nblocks) {
-                        H = H1 + H2 + H3 + H4;
+                        // shouldn't go here if the bands is proper.
+                        H = H1 + H2;
                         Eigen::HouseholderQR<MatrixXf> qr(H);
                         Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
                     }
                 }
             }
-            // band setting is 4, 16, 64, min(256, data->params.bands);
-            // band = fmin(band * data->params.band, data->params.bands);
+            // band setting is 4, 8, 16, 32, 64, 128;
+            // band = fmin(band * 2, data->params.bands);
             stop = check_if_halko_converge(pi, data->params.tol_halko, Upre, Ucur, G, H, nk, rows(), cols(), size, verbose);
             if (stop || pi == p) {
                 verbose && cout << timestamp() << "stops at epoch=" << pi + 1 << ".\n";
@@ -171,7 +155,7 @@ void FancyRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
         }
     } else {
         uint band = 4 * data->bandFactor;
-        MatrixXf H1, H2, H3, H4;
+        MatrixXf H1, H2;
         verbose && cout << timestamp() << "running in blockwise mode with fancy halko.\n";
         for (int pi=0; pi <= p; ++pi)
         {
@@ -179,8 +163,6 @@ void FancyRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
             band = fmin(band * pow(2, pi), data->nblocks);
             H1 = MatrixXf::Zero(cols(), size);
             H2 = MatrixXf::Zero(cols(), size);
-            H3 = MatrixXf::Zero(cols(), size);
-            H4 = MatrixXf::Zero(cols(), size);
             data->check_file_offset_first_var();
             for (uint b = 0, i = 1 ; b < data->nblocks ; ++b, ++i)
             {
@@ -194,39 +176,25 @@ void FancyRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
                     data->read_snp_block_initial(start_idx, stop_idx, standardize);
                 }
                 G.block(start_idx, 0, actual_block_size, size).noalias() = data->G.transpose() * Omg;
-                if (i <= band / 4) {
+                if (i <= band / 2) {
                     H1.noalias() += data->G * G.block(start_idx, 0, actual_block_size, size);
-                }else if (i > band / 4 && i <= band / 2) {
+                }else if (i > band / 2 && i <= band) {
                     H2.noalias() += data->G * G.block(start_idx, 0, actual_block_size, size);
-                }else if (i > band / 2 && i <= 3 * band / 4) {
-                    H3.noalias() += data->G * G.block(start_idx, 0, actual_block_size, size);
-                }else if (i > 3 * band / 4 && i <= band) {
-                    H4.noalias() += data->G * G.block(start_idx, 0, actual_block_size, size);
                 }
                 if( (b+1) >= band ) {
                     if (i == band) {
-                        H = H1 + H2 + H3 + H4;
+                        H = H1 + H2;
                         Eigen::HouseholderQR<MatrixXf> qr(H);
                         Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
                         H1 = MatrixXf::Zero(cols(), size);
                         i = 0;
-                    }else if (i == band / 4) {
-                        H = H1 + H2 + H3 + H4;
+                    }else if (i == band / 2) {
+                        H = H1 + H2;
                         Eigen::HouseholderQR<MatrixXf> qr(H);
                         Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
                         H2 = MatrixXf::Zero(cols(), size);
-                    }else if (i == band * 2 / 4) {
-                        H = H1 + H2 + H3 + H4;
-                        Eigen::HouseholderQR<MatrixXf> qr(H);
-                        Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
-                        H3 = MatrixXf::Zero(cols(), size);
-                    }else if (i == band * 3 / 4) {
-                        H = H1 + H2 + H3 + H4;
-                        Eigen::HouseholderQR<MatrixXf> qr(H);
-                        Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
-                        H4 = MatrixXf::Zero(cols(), size);
                     }else if( (b+1) == data->nblocks) {
-                        H = H1 + H2 + H3 + H4;
+                        H = H1 + H2;
                         Eigen::HouseholderQR<MatrixXf> qr(H);
                         Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
                     }
