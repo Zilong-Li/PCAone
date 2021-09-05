@@ -15,6 +15,13 @@ struct StandardNormalRandomHelper {
 };
 
 template <typename MatrixType, typename RandomEngineType>
+inline MatrixType UniformRandom(const Eigen::Index numRows, const Eigen::Index numCols, RandomEngineType &engine) {
+    std::uniform_real_distribution<typename MatrixType::Scalar> uniform_real_distribution;
+    const auto uniform{[&](typename MatrixType::Scalar) { return uniform_real_distribution(engine); }};
+    return MatrixType::NullaryExpr(numRows, numCols, uniform);
+};
+
+template <typename MatrixType, typename RandomEngineType>
 struct StandardNormalRandomHelper<MatrixType, RealType<MatrixType>, RandomEngineType> {
   static inline MatrixType generate(const Eigen::Index numRows, const Eigen::Index numCols,
                                     RandomEngineType &engine) {

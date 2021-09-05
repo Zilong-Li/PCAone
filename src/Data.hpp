@@ -13,13 +13,13 @@ public:
     virtual void read_all_and_centering() = 0;
     // for blockwise
     virtual void check_file_offset_first_var() = 0;
-    virtual void read_snp_block_initial(uint start_idx, uint stop_idx, bool standardize = false) = 0;
-    virtual void read_snp_block_update(uint start_idx, uint stop_idx, const MatrixXf& U, const VectorXf& svals, const MatrixXf& VT, bool standardize = false) = 0;
+    virtual void read_snp_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize = false) = 0;
+    virtual void read_snp_block_update(uint64 start_idx, uint64 stop_idx, const MatrixXf& U, const VectorXf& svals, const MatrixXf& VT, bool standardize = false) = 0;
 
     bool snpmajor = true;
     bool nsamples_ge_nsnps = false;  // if nsamples greater than or equal to nsnps
     bool initialFonly = false;
-    uint nsamples, nsnps;
+    uint64 nsamples, nsnps;  // prevent from potential integer overflow
     uint nblocks = 1;
     uint bandFactor = 1;
     vector<uint> start, stop;

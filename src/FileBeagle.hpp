@@ -19,9 +19,8 @@ public:
             strtok_r(buffer,delims,&buffer);
             while(strtok_r(NULL,delims,&buffer))
                 nCol++;
-            if(nCol % 3 ){
-                cerr << "Number of columns should be a multiple of 3, nCol=" << nCol << endl;
-                exit(EXIT_FAILURE);
+            if(nCol % 3){
+                throw std::runtime_error("Number of columns should be a multiple of 3.\n");
             }
             nsamples = nCol/3-1;
             // continue getting the number of sites
@@ -42,8 +41,8 @@ public:
 
     virtual void read_all_and_centering();
     // below are for blockwise, remain for future.
-    virtual void read_snp_block_initial(uint start_idx, uint stop_idx, bool standardize = false) {}
-    virtual void read_snp_block_update(uint start_idx, uint stop_idx, const MatrixXf& U, const VectorXf& svals, const MatrixXf& VT, bool standardize = false) {}
+    virtual void read_snp_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize = false) {}
+    virtual void read_snp_block_update(uint64 start_idx, uint64 stop_idx, const MatrixXf& U, const VectorXf& svals, const MatrixXf& VT, bool standardize = false) {}
 
 
     virtual void check_file_offset_first_var() {}

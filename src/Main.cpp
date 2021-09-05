@@ -50,6 +50,8 @@ int main(int argc, char *argv[])
     } else {
         run_pca_with_halko(data, params);
     }
+    cout << timestamp() << "eigenvecs and eigenvals are saved. have a nice day. bye!\n";
+
     delete data;
 
     return 0;
@@ -57,40 +59,39 @@ int main(int argc, char *argv[])
 
 void parse_params(int argc, char* argv[], struct Param* params)
 {
-    cxxopts::Options opts(argv[0], (string)"PCA All In One -- v" + VERSION);
+    cxxopts::Options opts(argv[0], (string)"PCA All In One (v" + VERSION + ")");
     opts.add_options()
         ("h,help", "print list of main options.")
-        ("H,helpall", "print list of all options.")
+        ("H", "print list of all options.")
         ;
 
     opts.add_options("Main")
-        ("k,eigs", "top k components to be calculated.[10]", cxxopts::value<int>(),"INT")
-        ("bfile", "prefix to PLINK .bed/.bim/.fam files.", cxxopts::value<std::string>(), "PREFIX")
+        ("a, arnoldi", "use Implicit Restarted Arnoldi method instead of default Randomized SVD(Halko).", cxxopts::value<bool>()->default_value("false"))
+        ("bfile", "prefix of PLINK .bed/.bim/.fam files.", cxxopts::value<std::string>(), "PREFIX")
         // ("pfile", "prefix to PLINK2 .pgen/.pvar/.psam files.", cxxopts::value<std::string>(), "PREFIX")
         #ifdef WITH_BGEN
         ("bgen", "BGEN file.", cxxopts::value<std::string>(), "FILE")
         #endif
         ("beagle", "beagle file.", cxxopts::value<std::string>(), "FILE")
-        ("a, arnoldi", "use implicit restarted Arnoldi method instead of default Randomized SVD (Halko).", cxxopts::value<bool>()->default_value("false"))
+        ("e,emu", "use EMU algorithm for data with large proportion of missingness.", cxxopts::value<bool>()->default_value("false"))
         ("f, fast", "force to use fast super power iterations for Halko.", cxxopts::value<bool>()->default_value("false"))
-        ("emu", "use EMU algorithm for data with large proportion of missingness.", cxxopts::value<bool>()->default_value("false"))
-        ("pcangsd", "use PCAngsd algorithm for data with genotype probability.", cxxopts::value<bool>()->default_value("false"))
+        ("k,eigs", "top k components to be calculated.[10]", cxxopts::value<int>(),"INT")
         ("m,memory", "specify the RAM usage in GB unit instead of exploiting the RAM of the server.", cxxopts::value<double>(),"DOUBLE")
-        ("n,threads", "number of threads. [1]", cxxopts::value<int>(),"INT")
-        ("o,out", "prefix for output files.", cxxopts::value<string>(),"PREFIX")
+        ("n,threads", "number of threads.[1]", cxxopts::value<int>(),"INT")
+        ("o,out", "prefix of output files.", cxxopts::value<string>(),"PREFIX")
+        ("p,pcangsd", "use PCAngsd algorithm for data with genotype probability.", cxxopts::value<bool>()->default_value("false"))
         ("v,verbose", "verbose message output.", cxxopts::value<bool>()->default_value("false"))
         ;
     opts.add_options("More")
-        ("B, bands", "number of bands to use for fast Halko.[128]", cxxopts::value<int>(),"INT")
-        ("P, maxp", "maximum number of power iteration for Halko.[20]", cxxopts::value<int>(),"INT")
-        ("tol_halko", "tolerance for Halko algorithm. [1e-4]", cxxopts::value<double>(),"DOUBLE")
-        ("tol_emu", "tolerance for EMU algorithm. [1e-5]", cxxopts::value<double>(),"DOUBLE")
-        ("tol_pcangsd", "tolerance for PCAngsd algorithm. [1e-5]", cxxopts::value<double>(),"DOUBLE")
-        ("maxiter", "maximum number of EMU/PCAngsd interations. [100]", cxxopts::value<int>(),"INT")
-        ("imaxiter", "maximum number of Arnoldi interations. [500]", cxxopts::value<int>(),"INT")
-        ("itol", "tolerance for Arnoldi algorithm. [1e-6]", cxxopts::value<double>(),"DOUBLE")
+        ("tol_em", "tolerance for EMU/PCAngsd algorithm.[1e-5]", cxxopts::value<double>(),"DOUBLE")
+        ("tol_maf", "MAF tolerance for PCAngsd algorithm.[1e-4]", cxxopts::value<double>(),"DOUBLE")
+        ("tol_halko", "tolerance for Halko algorithm.[1e-4]", cxxopts::value<double>(),"DOUBLE")
+        ("maxiter", "maximum number of EMU/PCAngsd interations.[100]", cxxopts::value<int>(),"INT")
+        ("imaxiter", "maximum number of Arnoldi interations.[500]", cxxopts::value<int>(),"INT")
+        ("itol", "tolerance for Arnoldi algorithm.[1e-6]", cxxopts::value<double>(),"DOUBLE")
         ("ncv", "number of Lanzcos basis vectors.[max(20, 2*k+1)]", cxxopts::value<int>(),"INT")
-        ("tol_maf", "MAF tolerance for PCAngsd algorithm. [1e-4]", cxxopts::value<double>(),"DOUBLE")
+        ("bands", "number of bands to use for fast Halko.[128]", cxxopts::value<int>(),"INT")
+        ("maxp", "maximum number of power iteration for Halko.[20]", cxxopts::value<int>(),"INT")
         ;
 
     try {
@@ -101,7 +102,7 @@ void parse_params(int argc, char* argv[], struct Param* params)
             cout << opts.help({"", "Main"}) << "\n\n";
             exit(EXIT_SUCCESS);
         }
-        if (vm.count("helpall")){
+        if (vm.count("H")){
             cout << opts.help({"", "Main", "More"}) << "\n";
             exit(EXIT_SUCCESS);
         }
@@ -122,11 +123,8 @@ void parse_params(int argc, char* argv[], struct Param* params)
         if (params->emu || params->pcangsd) {
             params->runem = true;
             if( vm.count("maxiter") ) params->maxiter = vm["maxiter"].as<int>();
-            if( vm.count("tol_pcangsd") ) params->tol_pcangsd = vm["tol_pcangsd"].as<double>();
             if( vm.count("tol_maf") ) params->tolmaf = vm["tol_maf"].as<double>();
-            if( vm.count("tol_emu") ) params->tol_emu = vm["tol_emu"].as<double>();
-            if( params->pcangsd ) params->tol = params->tol_pcangsd;
-            if( params->emu ) params->tol = params->tol_emu;
+            if( vm.count("tol_em") ) params->tol = vm["tol_em"].as<double>();
         } else {
             params->maxiter = 0;
         }
@@ -152,22 +150,16 @@ void parse_params(int argc, char* argv[], struct Param* params)
             params->beagle = vm["beagle"].as<string>();
             params->pcangsd = true;
         } else {
-            cerr << "ERROR: please check the options using -h.\n";
+            cout << opts.help({"", "Main"}) << "\n\n";
             exit(EXIT_SUCCESS);
         }
 
         if (vm.count("out") != 1) {
-            cerr << "ERROR: You must specify the output prefix.\n";
-            exit(EXIT_SUCCESS);
-        }
-        if (vm.count("eigs") != 1) {
-            cerr << "ERROR: You must specify the number of top eigs to be calculated.\n";
-            exit(EXIT_SUCCESS);
+            throw std::invalid_argument("ERROR: You must specify the output prefix.\n");
         }
 
     } catch (const cxxopts::OptionException& e) {
-        cerr << "ERROR: " << e.what() << endl;
-        exit(EXIT_FAILURE);
+        throw e.what();
     }
 
     return;

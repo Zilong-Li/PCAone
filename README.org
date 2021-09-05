@@ -4,7 +4,7 @@
 
 *Current Version: v0.1.1*
 
-PCAone is fast and memory efficient PCA tool implemented in C++ aiming at providing comprehensive features and algorithms for different scenarios.
+PCAone is a fast and memory efficient PCA tool implemented in C++ aiming at providing comprehensive features and algorithms for different scenarios.
 
 * Features
 
@@ -12,16 +12,16 @@ See [[file:CHANGELOG.org][change log]] here.
 
 - Has both Arnoldi and Halko methods with *out-of-core* implementation.
 - Implement our own Halko algorithm with super power iteration for tera-scale dataset.
-- Quite fast with multithreading support using high performance library [[https://software.intel.com/content/www/us/en/develop/tools/oneapi/components/onemkl.html#gs.8jsfgz][MKL]] or [[https://www.openblas.net/][OpenBLAS]] as backend.
+- Quite fast with multi-threading support using high performance library [[https://software.intel.com/content/www/us/en/develop/tools/oneapi/components/onemkl.html#gs.8jsfgz][MKL]] or [[https://www.openblas.net/][OpenBLAS]] as back-end.
 - Supports the [[https://www.cog-genomics.org/plink/1.9/formats#bed][PLINK]], [[https://www.well.ox.ac.uk/~gav/bgen_format][BGEN]], [[http://www.popgen.dk/angsd/index.php/Input#Beagle_format][Beagle]] genetic data formats.
 - Supports [[https://github.com/Rosemeis/emu][EMU]] algorithm for scenario with large proportion of missingness.
 - Supports [[https://github.com/Rosemeis/pcangsd][PCAngsd]] algorithm for low coverage sequencing scenario with genotype probability as input.
 - Supports zstd compressed CSV format for scRNAs data [In progress]
 
-| Input Format               | bfile | bgen | beagle |
-| Arnoldi Method             | +     | +    | +      |
+| Input format               | bfile | bgen | beagle |
+| Arnoldi method             | +     | +    | +      |
 | OnePass Halko              | +     | +    | +      |
-| Super Halko                | +     | -    | -      |
+| Super fast Halko           | +     | -    | -      |
 | EMU algorithm              | +     | +    | -      |
 | PCAngsd algorithm          | -     | +    | +      |
 | Out-of-core implementation | +     | +    | -      |
@@ -31,7 +31,7 @@ See [[file:CHANGELOG.org][change log]] here.
 
 ** Download pre-compiled binary
 
-There are pre-compiled program provided for both Mac and Linux platform. For each platform, both PCAone with and without mkl threading support are provided. If you want to use PCAone with mkl threading, you need to make sure runtime library =libiomp5= can be found. Please check the releases page to download them.
+There are pre-compiled program provided for both Mac and Linux platform.  If you want to use PCAone with MKL threading, you need to make sure runtime library =libiomp5= can be found. Please check the releases page to download them.
 
 ** Build from source
 PCAone use [[https://github.com/facebook/zstd][zstd]] library to parse zstd compressed input format. Please make sure it is installed. If you don't want to use MKL of OpenBlas as backends, you can copy and run the following code without modifying anything.  
@@ -41,37 +41,37 @@ git clone https://github.com/Zilong-Li/PCAone.git
 cd PCAone
 make
 #+end_src
-Since the default is without external mkl or openblas support, you need to set the =MKLROOT= or =OPENBLAS_ROOT= in *Makefile* to your own path to use one of them as backend. If it complains that there is no =lapack= lib, install it and set the =LAPACK_ROOT= to the correct path as well. 
+Since the default is without external MKL or OpenBLAS support, you need to set the =MKLROOT= or =OPENBLAS_ROOT= in *Makefile* to your own path to use one of them as back-end. If it complains that there is no =lapack= lib, please install it and set the =LAPACK_ROOT= to the correct path as well. 
 
 * Usage
 
 #+begin_src plain
-PCA All In One.
 Usage:
   ./PCAone [OPTION...]
 
-  -h, --help     print list of main options.
-  -H, --helpall  print list of all options.
+  -h, --help  print list of main options.
+  -H,         print list of all options.
 
  Main options:
-  -k, --eigs INT       top k components to be calculated.[10]
-      --bfile PREFIX   prefix to PLINK .bed/.bim/.fam files.
+  -a, --arnoldi        use Implicit Restarted Arnoldi method instead of
+                       default Randomized SVD(Halko).
+      --bfile PREFIX   prefix of PLINK .bed/.bim/.fam files.
       --bgen FILE      BGEN file.
       --beagle FILE    beagle file.
-  -a, --arnoldi        use implicit restarted Arnoldi method instead of
-                       default Randomized SVD (Halko).
-  -f, --fast           force to use fast super power iterations for Halko.
-      --emu            use EMU algorithm for data with large proportion of
+  -e, --emu            use EMU algorithm for data with large proportion of
                        missingness.
-      --pcangsd        use PCAngsd algorithm for data with genotype
-                       probability.
+  -f, --fast           force to use fast super power iterations for Halko.
+  -k, --eigs INT       top k components to be calculated.[10]
   -m, --memory DOUBLE  specify the RAM usage in GB unit instead of exploiting
                        the RAM of the server.
-  -n, --threads INT    number of threads. [1]
-  -o, --out PREFIX     prefix for output files.
+  -n, --threads INT    number of threads.[1]
+  -o, --out PREFIX     prefix of output files.
+  -p, --pcangsd        use PCAngsd algorithm for data with genotype
+                       probability.
   -v, --verbose        verbose message output.
-
 #+end_src
+
+*Warning*: On most OS it is very *important* to limit the number of threads to the number of physical cores. 
 
 * Citation
 
@@ -79,4 +79,4 @@ TBD
 
 * Acknowledgements
 
-PCAone use [[https://eigen.tuxfamily.org/index.php?title=Main_Page][Eigen]] for linear algebra operation. The Arnoldi method is based on [[https://github.com/yixuan/spectra][yixuan/spectra]]. The bgen lib is ported from [[https://github.com/jeremymcrae/bgen][jeremymcrae/bgen]].
+PCAone use [[https://eigen.tuxfamily.org/index.php?title=Main_Page][Eigen]] for linear algebra operation. The Arnoldi method is based on [[https://github.com/yixuan/spectra][yixuan/spectra]]. The bgen lib is ported from [[https://github.com/jeremymcrae/bgen][jeremymcrae/bgen]]. The EMU and PCAngsd algorithms are modified from [[https://github.com/Rosemeis][@Jonas]] packages.

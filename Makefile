@@ -20,7 +20,7 @@ program       = PCAone
 # for mac user, please change this to gnu gcc instead of the default clang version
 # brew install gcc && ln -s $(which g++-11) /usr/local/bin/g++
 CXX           = g++
-CXXFLAGS	  = -O3 -Wall -std=c++11 -mavx -mavx2 -ffast-math -fopenmp -m64
+CXXFLAGS	  = -O3 -Wall -std=c++11 -mavx -mavx2 -ffast-math -m64
 MYFLAGS       = -DVERSION=\"$(VERSION)\" -DNDEBUG -DWITH_BGEN
 INC           = -I./external -I/usr/include -I/usr/local/include
 LPATHS        = -L/usr/lib -L/usr/local/lib
@@ -31,10 +31,10 @@ Platform      := $(shell uname -s)
 ifeq ($(Platform),Linux)
 ###### for linux
 	ifeq ($(strip $(STATIC)),1)
-		CXXFLAGS += -static-libstdc++
+		CXXFLAGS += -static-libstdc++ -fopenmp
         SLIBS    += /usr/lib/x86_64-linux-gnu/libz.a /usr/lib/x86_64-linux-gnu/libzstd.a
 	else
-		CXXFLAGS += -march=native
+		CXXFLAGS += -march=native -fopenmp
         DLIBS    += -lz -lzstd
 	endif
 
@@ -60,11 +60,11 @@ ifeq ($(Platform),Linux)
 else ifeq ($(Platform),Darwin)
 ###### for mac
 	ifeq ($(strip $(STATIC)),1)
-		SLIBS += /usr/local/opt/zlib/lib/libz.a /usr/local/lib/libzstd.a  # path to static lib
-		CXXFLAGS += -static-libstdc++
+		SLIBS += /usr/local/opt/zlib/lib/libz.a /usr/local/lib/libzstd.a /usr/local/lib/libomp.a  # clang needs libomp.a
+		CXXFLAGS += -stdlib=libc++ -Xpreprocessor -fopenmp 
 	else
         DLIBS += -lz -lzstd
-		CXXFLAGS += -march=native
+		CXXFLAGS += -march=native -fopenmp
 	endif
 
 	ifneq ($(strip $(MKLROOT)),)
@@ -72,8 +72,8 @@ else ifeq ($(Platform),Darwin)
 		INC     += -I${MKLROOT}/include/
 		LPATHS  += -L${MKLROOT}/lib
 		ifeq ($(strip $(STATIC)),1)
-			SLIBS += ${MKLROOT}/lib/libmkl_intel_lp64.a ${MKLROOT}/lib/libmkl_intel_thread.a ${MKLROOT}/lib/libmkl_core.a -liomp5 -lpthread
-			# SLIBS += ${MKLROOT}/lib/libmkl_intel_lp64.a ${MKLROOT}/lib/libmkl_sequential.a ${MKLROOT}/lib/libmkl_core.a -lpthread
+			# SLIBS += ${MKLROOT}/lib/libmkl_intel_lp64.a ${MKLROOT}/lib/libmkl_intel_thread.a ${MKLROOT}/lib/libmkl_core.a -liomp5 -lpthread
+			SLIBS += ${MKLROOT}/lib/libmkl_intel_lp64.a ${MKLROOT}/lib/libmkl_sequential.a ${MKLROOT}/lib/libmkl_core.a -lpthread
 		else
 			DLIBS += -Wl,-rpath,${MKLROOT}/lib -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread
 		endif

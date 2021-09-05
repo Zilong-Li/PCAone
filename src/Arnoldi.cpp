@@ -23,7 +23,8 @@ void ArnoldiOpData::perform_op(const float *x_in, float* y_out)
            data->read_snp_block_initial(data->start[k], data->stop[k], standardize);
        }
        //TODO: Kahan summation
-       y.noalias() = y + data->G * (data->G.transpose() * x);
+       // optimal evaluation see https://eigen.tuxfamily.org/dox/TopicWritingEfficientProductExpression.html
+       y.noalias() += data->G * (data->G.transpose() * x);
    }
    nops++;
    // data->params.verbose && cerr << "Arnoldi Op=" << nops << ".\n";
@@ -32,12 +33,16 @@ void ArnoldiOpData::perform_op(const float *x_in, float* y_out)
 
 void run_pca_with_arnoldi(Data* data, const Param& params)
 {
+    if (params.batch) {
+        cout << timestamp() << "begin to run_pca_with_arnoldi batch mode\n";
+    } else {
+        cout << timestamp() << "begin to run_pca_with_arnoldi blockwise mode\n";
+    }
     VectorXf svals, evals;
     uint nconv, nu;
     double diff;
     if (params.batch)
     {
-        cout << timestamp() << "begin to run_pca_with_arnoldi batch mode\n";
         MatrixXf U, V, V2;
         // SpMatrix sG = data->G.sparseView();
         // PartialSVDSolver< float, SpMatrix > svds(sG, params.k, params.ncv);
@@ -101,7 +106,6 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
             if(eigs2.info() == SUCCESSFUL) {
                 nu = min(params.k, nconv);
                 data->write_eigs_files(eigs2.eigenvalues(), eigs2.eigenvectors().leftCols(nu));
-                cout << timestamp() << "eigenvecs and eigenvals are saved. have a nice day. bye!\n";
             } else {
                 throw std::runtime_error("something wrong with Spectra SymEigsSolver\n");
             }
@@ -120,7 +124,6 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
         data->write_eigs_files(evals, U);
 
     } else {
-        cout << timestamp() << "begin to run_pca_with_arnoldi blockwise mode\n";
         // for blockwise
         MatrixXf T, VT;
         ArnoldiOpData *op = new ArnoldiOpData(data);
@@ -138,9 +141,9 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
             op->U = eigs->eigenvectors().leftCols(nu);
             if (!params.runem)
             {
+                cout << timestamp() << "Final SVD done!\n";
                 evals = eigs->eigenvalues() / data->nsnps;
                 data->write_eigs_files(evals, op->U);
-                cout << timestamp() << "Final SVD done!\n";
                 return;
             }
             op->S = eigs->eigenvalues().cwiseSqrt();
@@ -211,6 +214,5 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
         delete op;
         delete eigs;
     }
-    cout << timestamp() << "eigenvecs and eigenvals are saved. have a nice day. bye!\n";
     return;
 }

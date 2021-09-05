@@ -72,10 +72,10 @@ void FileBeagle::read_all_and_centering()
         diff = sqrt((F - Ft).array().square().sum() / nsnps);
         // Check for convergence
         if (diff < params.tolmaf) {
-            cout << "EM (MAF) converged at iteration: " << it+1 << endl;
+            cout << timestamp() << "EM (MAF) converged at iteration: " << it+1 << endl;
             break;
         } else if (it == (params.maxiter-1)) {
-            cerr << "EM (MAF) did not converge.\n";
+            cout << timestamp() << "EM (MAF) did not converge.\n";
         }
     }
     // initial E which is G

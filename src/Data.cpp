@@ -8,7 +8,7 @@ void Data::prepare(uint& blocksize)
     {
         read_all_and_centering();
     } else {
-        blocksize = (unsigned int)ceil((double)params.memory * 1000000000 / nsamples);
+        blocksize = (unsigned int)ceil((double)params.memory * 250000000 / nsamples);
         nblocks = (unsigned int)ceil((double)nsnps / blocksize);
         params.verbose && cout << timestamp() << "initial setting by -m/--memory: blocksize=" << blocksize << ", nblocks=" << nblocks << ", bandFactor=" << bandFactor << ".\n";
         if (nblocks == 1) {

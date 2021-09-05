@@ -24,18 +24,18 @@ string timestamp()
 void permute_plink(string& fin)
 {
     cout << timestamp() << "begin to permute plink data.\n";
-    uint nsnps = count_lines(fin + ".bim");
-    uint nsamples = count_lines(fin + ".fam");
-    uint bed_bytes_per_snp = (nsamples+3)>>2;
-    vector<uint> seqs;
+    uint64 nsnps = count_lines(fin + ".bim");
+    uint64 nsamples = count_lines(fin + ".fam");
+    uint64 bed_bytes_per_snp = (nsamples+3)>>2;
+    vector<uint64> seqs;
     seqs.reserve(nsnps);
-    for(uint i = 0; i < nsnps; i++) { seqs.push_back(i); }
+    for(uint64 i = 0; i < nsnps; i++) { seqs.push_back(i); }
     auto rng = std::default_random_engine {};
     std::shuffle(std::begin(seqs), std::end(seqs), rng);
 
     string fout = fin + ".perm";
-    std::ifstream in(fin + ".bed", std::ios::in | std::ios::binary);
-    std::ofstream out(fout + ".bed", std::ios::out | std::ios::binary);
+    std::ifstream in(fin + ".bed", std::ios::binary);
+    std::ofstream out(fout + ".bed", std::ios::binary);
     if (!in.is_open()) {
         throw std::invalid_argument("ERROR: Cannot open bed file.\n");
     }
@@ -51,13 +51,12 @@ void permute_plink(string& fin)
     std::ofstream out_bim(fout + ".bim", std::ios::out);
     vector<string> bims(std::istream_iterator<Line>{in_bim},
                         std::istream_iterator<Line>{});
-    uint idx;
-    for(uint i = 0; i < nsnps; i++)
+    uint64 idx;
+    for(uint64 i = 0; i < nsnps; i++)
     {
-        in.read(reinterpret_cast<char *> (&inbed[0]), bed_bytes_per_snp);
-        // get the position where to write
         idx = 3 + seqs[i] * bed_bytes_per_snp;
-        out.seekp(idx, std::ios_base::beg);
+        in.seekg(idx, std::ios_base::beg);
+        in.read(reinterpret_cast<char *> (&inbed[0]), bed_bytes_per_snp);
         out.write(reinterpret_cast<char *> (&inbed[0]), bed_bytes_per_snp);
         out_bim << bims[seqs[i]] + "\n";
     }

@@ -13,6 +13,8 @@
 
   - use libiomp5 instead of libgomp as multithreading RTL
 
+  - fix bugs for PCAngsd algorithm 
+
 - v0.1.0
 
   - supports bfile as input for both batch and blockwise mode

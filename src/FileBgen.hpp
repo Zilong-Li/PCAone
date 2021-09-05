@@ -27,8 +27,8 @@ public:
     virtual void read_all_and_centering();
     // for blockwise
     // virtual void estimate_F() {}
-    virtual void read_snp_block_initial(uint start_idx, uint stop_idx, bool standardize = false);
-    virtual void read_snp_block_update(uint start_idx, uint stop_idx, const MatrixXf& U, const VectorXf& svals, const MatrixXf& VT, bool standardize = false) {}
+    virtual void read_snp_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize = false);
+    virtual void read_snp_block_update(uint64 start_idx, uint64 stop_idx, const MatrixXf& U, const VectorXf& svals, const MatrixXf& VT, bool standardize = false) {}
 
 
     virtual void check_file_offset_first_var() { bg->set_offset_first_var(); }

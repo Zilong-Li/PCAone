@@ -26,8 +26,6 @@ public:
 
 };
 
-// halko should work on tall matrix otherwise it may lose accuracy.
-// for normal halko we always make the matrix tall, ie. nrow > ncol
 class NormalRsvdOpData : public RsvdOpData
 {
 private:
@@ -35,15 +33,15 @@ private:
     const Index nk, os, size;
     MatrixXf Omg, Upre, Ucur;
     bool stop = false;
+    uint64 actual_block_size, start_idx, stop_idx;
 
 public:
 
     NormalRsvdOpData(Data* data_, int k_, int os_ = 10) :
         data(data_), nk(k_), os(os_), size(k_ + os_)
         {
-            std::mt19937_64 randomEngine{};
-            randomEngine.seed(111);
-            Omg = StandardNormalRandom<MatrixXf, std::mt19937_64>(data->nsamples, size, randomEngine);
+            auto rng = std::default_random_engine {};
+            Omg = StandardNormalRandom<MatrixXf, std::default_random_engine>(data->nsamples, size, rng);
         }
 
     ~NormalRsvdOpData() {}
@@ -64,15 +62,15 @@ private:
     const Index nk, os, size;
     MatrixXf Omg, Upre, Ucur;
     bool stop = false;
+    uint64 actual_block_size, start_idx, stop_idx;
 
 public:
 
     FancyRsvdOpData(Data* data_, int k_, int os_ = 10) :
         data(data_), nk(k_), os(os_), size(k_ + os_)
         {
-            std::mt19937_64 randomEngine{};
-            randomEngine.seed(111);
-            Omg = StandardNormalRandom<MatrixXf, std::mt19937_64>(data->nsamples, size, randomEngine);
+            auto rng = std::default_random_engine {};
+            Omg = UniformRandom<MatrixXf, std::default_random_engine>(data->nsamples, size, rng);
         }
 
     ~FancyRsvdOpData() {}

@@ -35,12 +35,12 @@ size_t count_lines(const string& fpath)
 
 void permute_plink(const string& fin, const string& fout)
 {
-    uint nsnps = count_lines(fin + ".bim");
-    uint nsamples = count_lines(fin + ".fam");
-    uint bed_bytes_per_snp = (nsamples+3)>>2;
-    vector<uint> seqs;
+    uint64 nsnps = count_lines(fin + ".bim");
+    uint64 nsamples = count_lines(fin + ".fam");
+    uint64 bed_bytes_per_snp = (nsamples+3)>>2;
+    vector<uint64> seqs;
     seqs.reserve(nsnps);
-    for(uint i = 0; i < nsnps; i++) { seqs.push_back(i); }
+    for(uint64 i = 0; i < nsnps; i++) { seqs.push_back(i); }
     // std::random_device r;
     // auto rng = std::default_random_engine {r()};
     auto rng = std::default_random_engine {};
@@ -67,11 +67,11 @@ void permute_plink(const string& fin, const string& fout)
     vector<string> bims(std::istream_iterator<Line>{in_bim},
                         std::istream_iterator<Line>{});
     uint64 idx;
-    for(uint i = 0; i < nsnps; i++)
+    for(uint64 i = 0; i < nsnps; i++)
     {
-        in.read(reinterpret_cast<char *> (&inbed[0]), bed_bytes_per_snp);
         idx = 3 + seqs[i] * bed_bytes_per_snp;
-        out.seekp(idx, ios_base::beg);
+        in.seekg(idx, std::ios_base::beg);
+        in.read(reinterpret_cast<char *> (&inbed[0]), bed_bytes_per_snp);
         out.write(reinterpret_cast<char *> (&inbed[0]), bed_bytes_per_snp);
         out_bim << bims[seqs[i]] + "\n";
     }

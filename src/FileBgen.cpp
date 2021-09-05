@@ -103,7 +103,7 @@ void FileBgen::read_all_and_centering()
     }
 }
 
-void FileBgen::read_snp_block_initial(uint start_idx, uint stop_idx, bool standardize)
+void FileBgen::read_snp_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize)
 {
     uint actual_block_size = stop_idx - start_idx + 1;
     uint i, j, snp_idx;
