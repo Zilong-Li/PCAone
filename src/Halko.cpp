@@ -105,11 +105,11 @@ void FancyRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
         std::shuffle(perm.indices().data(), perm.indices().data()+perm.indices().size(), rng);
         data->G = data->G * perm; // permute columns in-place
 
-        uint band=4;  // use 4 as default
+        uint band=4;  // maybe 2
         uint blocksize = (unsigned int)ceil((double)data->nsnps / data->params.bands);
-        MatrixXf H1, H2;
         for (int pi=0; pi <= p; ++pi)
         {
+            // 4, 8, 32, 256
             band = fmin(band * pow(2, pi), data->params.bands);
             H1 = MatrixXf::Zero(cols(), size);
             H2 = MatrixXf::Zero(cols(), size);
@@ -128,22 +128,27 @@ void FancyRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
                         H = H1 + H2;
                         Eigen::HouseholderQR<MatrixXf> qr(H);
                         Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
+                        flip_Y(Omg2, Omg);
+                        Omg2 = Omg;
                         H1 = MatrixXf::Zero(cols(), size);
                         i = 0;
                     }else if (i == band / 2) {
                         H = H1 + H2;
                         Eigen::HouseholderQR<MatrixXf> qr(H);
                         Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
+                        flip_Y(Omg2, Omg);
+                        Omg2 = Omg;
                         H2 = MatrixXf::Zero(cols(), size);
                     }else if( (b+1) == data->nblocks) {
                         // shouldn't go here if the bands is proper.
                         H = H1 + H2;
                         Eigen::HouseholderQR<MatrixXf> qr(H);
                         Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
+                        flip_Y(Omg2, Omg);
+                        Omg2 = Omg;
                     }
                 }
             }
-            // band setting is 4, 8, 16, 32, 64, 128;
             // band = fmin(band * 2, data->params.bands);
             stop = check_if_halko_converge(pi, data->params.tol_halko, Upre, Ucur, G, H, nk, rows(), cols(), size, verbose);
             if (stop || pi == p) {
@@ -155,7 +160,6 @@ void FancyRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
         }
     } else {
         uint band = 4 * data->bandFactor;
-        MatrixXf H1, H2;
         verbose && cout << timestamp() << "running in blockwise mode with fancy halko.\n";
         for (int pi=0; pi <= p; ++pi)
         {
@@ -186,17 +190,23 @@ void FancyRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
                         H = H1 + H2;
                         Eigen::HouseholderQR<MatrixXf> qr(H);
                         Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
+                        flip_Y(Omg2, Omg);
+                        Omg2 = Omg;
                         H1 = MatrixXf::Zero(cols(), size);
                         i = 0;
                     }else if (i == band / 2) {
                         H = H1 + H2;
                         Eigen::HouseholderQR<MatrixXf> qr(H);
                         Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
+                        flip_Y(Omg2, Omg);
+                        Omg2 = Omg;
                         H2 = MatrixXf::Zero(cols(), size);
                     }else if( (b+1) == data->nblocks) {
                         H = H1 + H2;
                         Eigen::HouseholderQR<MatrixXf> qr(H);
                         Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
+                        flip_Y(Omg2, Omg);
+                        Omg2 = Omg;
                     }
                 }
             }

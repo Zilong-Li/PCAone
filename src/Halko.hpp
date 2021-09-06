@@ -60,7 +60,7 @@ class FancyRsvdOpData : public RsvdOpData
 private:
     Data* data;
     const Index nk, os, size;
-    MatrixXf Omg, Upre, Ucur;
+    MatrixXf Omg, Omg2, H1, H2, Upre, Ucur;
     bool stop = false;
     uint64 actual_block_size, start_idx, stop_idx;
 
@@ -71,6 +71,7 @@ public:
         {
             auto rng = std::default_random_engine {};
             Omg = UniformRandom<MatrixXf, std::default_random_engine>(data->nsamples, size, rng);
+            Omg2 = Omg;
         }
 
     ~FancyRsvdOpData() {}
