@@ -1,6 +1,6 @@
 #include "Halko.hpp"
 
-void NormalRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
+void NormalRsvdOpData::computeGandH(MatrixXd& G, MatrixXd& H, int p)
 {
     // check size of G and H first;
     if (H.cols() != size || H.rows() != cols() || G.cols() != size || G.rows() != rows()) {
@@ -24,8 +24,8 @@ void NormalRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
         if (data->snpmajor || true) {
             for (int pi = 0; pi <= p; ++pi) {
                 if (pi > 0) {
-                    Eigen::HouseholderQR<Eigen::Ref<MatrixXf>> qr(H);
-                    Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
+                    Eigen::HouseholderQR<Eigen::Ref<MatrixXd>> qr(H);
+                    Omg.noalias() = qr.householderQ() * MatrixXd::Identity(cols(), size);
                 }
                 G.noalias() = data->G.transpose() * Omg;
                 H.noalias() = data->G * G;
@@ -46,10 +46,10 @@ void NormalRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
             // for nsnps > nsamples
             for (int pi = 0; pi <= p ; ++pi) {
                 if (pi >= 1) {
-                    Eigen::HouseholderQR<Eigen::Ref<MatrixXf>> qr(H);
-                    Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
+                    Eigen::HouseholderQR<Eigen::Ref<MatrixXd>> qr(H);
+                    Omg.noalias() = qr.householderQ() * MatrixXd::Identity(cols(), size);
                 }
-                H = MatrixXf::Zero(cols(), size);
+                H = MatrixXd::Zero(cols(), size);
                 data->check_file_offset_first_var();
                 for (uint i = 0 ; i < data->nblocks ; ++i)
                 {
@@ -77,7 +77,7 @@ void NormalRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
     }
 }
 
-void FancyRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
+void FancyRsvdOpData::computeGandH(MatrixXd& G, MatrixXd& H, int p)
 {
     // check size of G and H first;
     if (H.cols() != size || H.rows() != cols() || G.cols() != size || G.rows() != rows()) {
@@ -111,8 +111,8 @@ void FancyRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
         {
             // 4, 8, 32, 256
             band = fmin(band * pow(2, pi), data->params.bands);
-            H1 = MatrixXf::Zero(cols(), size);
-            H2 = MatrixXf::Zero(cols(), size);
+            H1 = MatrixXd::Zero(cols(), size);
+            H2 = MatrixXd::Zero(cols(), size);
             for (uint b = 0, i = 1; b < data->params.bands; ++b, ++i) {
                 start_idx = b * blocksize;
                 stop_idx = (b + 1) * blocksize >= data->nsnps ? data->nsnps - 1 : (b + 1) * blocksize - 1 ;
@@ -126,24 +126,24 @@ void FancyRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
                 if( (b+1) >= band ) {
                     if (i == band) {
                         H = H1 + H2;
-                        Eigen::HouseholderQR<MatrixXf> qr(H);
-                        Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
+                        Eigen::HouseholderQR<MatrixXd> qr(H);
+                        Omg.noalias() = qr.householderQ() * MatrixXd::Identity(cols(), size);
                         flip_Y(Omg2, Omg);
                         Omg2 = Omg;
-                        H1 = MatrixXf::Zero(cols(), size);
+                        H1 = MatrixXd::Zero(cols(), size);
                         i = 0;
                     }else if (i == band / 2) {
                         H = H1 + H2;
-                        Eigen::HouseholderQR<MatrixXf> qr(H);
-                        Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
+                        Eigen::HouseholderQR<MatrixXd> qr(H);
+                        Omg.noalias() = qr.householderQ() * MatrixXd::Identity(cols(), size);
                         flip_Y(Omg2, Omg);
                         Omg2 = Omg;
-                        H2 = MatrixXf::Zero(cols(), size);
+                        H2 = MatrixXd::Zero(cols(), size);
                     }else if( (b+1) == data->nblocks) {
                         // shouldn't go here if the bands is proper.
                         H = H1 + H2;
-                        Eigen::HouseholderQR<MatrixXf> qr(H);
-                        Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
+                        Eigen::HouseholderQR<MatrixXd> qr(H);
+                        Omg.noalias() = qr.householderQ() * MatrixXd::Identity(cols(), size);
                         flip_Y(Omg2, Omg);
                         Omg2 = Omg;
                     }
@@ -165,8 +165,8 @@ void FancyRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
         {
             // band : 4, 8, 32, 256
             band = fmin(band * pow(2, pi), data->nblocks);
-            H1 = MatrixXf::Zero(cols(), size);
-            H2 = MatrixXf::Zero(cols(), size);
+            H1 = MatrixXd::Zero(cols(), size);
+            H2 = MatrixXd::Zero(cols(), size);
             data->check_file_offset_first_var();
             for (uint b = 0, i = 1 ; b < data->nblocks ; ++b, ++i)
             {
@@ -188,23 +188,23 @@ void FancyRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
                 if( (b+1) >= band ) {
                     if (i == band) {
                         H = H1 + H2;
-                        Eigen::HouseholderQR<MatrixXf> qr(H);
-                        Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
+                        Eigen::HouseholderQR<MatrixXd> qr(H);
+                        Omg.noalias() = qr.householderQ() * MatrixXd::Identity(cols(), size);
                         flip_Y(Omg2, Omg);
                         Omg2 = Omg;
-                        H1 = MatrixXf::Zero(cols(), size);
+                        H1 = MatrixXd::Zero(cols(), size);
                         i = 0;
                     }else if (i == band / 2) {
                         H = H1 + H2;
-                        Eigen::HouseholderQR<MatrixXf> qr(H);
-                        Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
+                        Eigen::HouseholderQR<MatrixXd> qr(H);
+                        Omg.noalias() = qr.householderQ() * MatrixXd::Identity(cols(), size);
                         flip_Y(Omg2, Omg);
                         Omg2 = Omg;
-                        H2 = MatrixXf::Zero(cols(), size);
+                        H2 = MatrixXd::Zero(cols(), size);
                     }else if( (b+1) == data->nblocks) {
                         H = H1 + H2;
-                        Eigen::HouseholderQR<MatrixXf> qr(H);
-                        Omg.noalias() = qr.householderQ() * MatrixXf::Identity(cols(), size);
+                        Eigen::HouseholderQR<MatrixXd> qr(H);
+                        Omg.noalias() = qr.householderQ() * MatrixXd::Identity(cols(), size);
                         flip_Y(Omg2, Omg);
                         Omg2 = Omg;
                     }
@@ -221,19 +221,19 @@ void FancyRsvdOpData::computeGandH(MatrixXf& G, MatrixXf& H, int p)
     }
 }
 
-bool check_if_halko_converge(int pi, double tol, MatrixXf& Upre, MatrixXf& Ucur, const MatrixXf& G, const MatrixXf& H, int k, int nrow, int ncol, int size, bool verbose = false)
+bool check_if_halko_converge(int pi, double tol, MatrixXd& Upre, MatrixXd& Ucur, const MatrixXd& G, const MatrixXd& H, int k, int nrow, int ncol, int size, bool verbose = false)
 {
-    MatrixXf Q(nrow, size), B(size, ncol), R(size, size), Rt(size, size);
-    Eigen::HouseholderQR<MatrixXf> qr(G);
-    Q.noalias() = qr.householderQ() * MatrixXf::Identity(nrow, size);
-    R.noalias() = MatrixXf::Identity(size, nrow) * qr.matrixQR().triangularView<Eigen::Upper>();
-    Eigen::HouseholderQR<MatrixXf> qr2(Q);
-    Q.noalias() = qr2.householderQ() * MatrixXf::Identity(nrow, size);
-    Rt.noalias() = MatrixXf::Identity(size, nrow) * qr2.matrixQR().triangularView<Eigen::Upper>();
+    MatrixXd Q(nrow, size), B(size, ncol), R(size, size), Rt(size, size);
+    Eigen::HouseholderQR<MatrixXd> qr(G);
+    Q.noalias() = qr.householderQ() * MatrixXd::Identity(nrow, size);
+    R.noalias() = MatrixXd::Identity(size, nrow) * qr.matrixQR().triangularView<Eigen::Upper>();
+    Eigen::HouseholderQR<MatrixXd> qr2(Q);
+    Q.noalias() = qr2.householderQ() * MatrixXd::Identity(nrow, size);
+    Rt.noalias() = MatrixXd::Identity(size, nrow) * qr2.matrixQR().triangularView<Eigen::Upper>();
     R = Rt * R;
     // R.T * B = H.T
     B.noalias() = R.transpose().householderQr().solve(H.transpose());
-    Eigen::JacobiSVD<MatrixXf> svd(B, Eigen::ComputeThinU | Eigen::ComputeThinV);
+    Eigen::JacobiSVD<MatrixXd> svd(B, Eigen::ComputeThinU | Eigen::ComputeThinV);
     Ucur = svd.matrixV().leftCols(k);
     if (pi == 0) {
         return false;
@@ -250,7 +250,7 @@ bool check_if_halko_converge(int pi, double tol, MatrixXf& Upre, MatrixXf& Ucur,
     }
 }
 
-void print_summary_table(const MatrixXf& Upre, const MatrixXf& Ucur, const string& outfile)
+void print_summary_table(const MatrixXd& Upre, const MatrixXd& Ucur, const string& outfile)
 {
     std::ofstream outlog(outfile + ".log");
     string out = "summary:";
@@ -272,15 +272,15 @@ void run_pca_with_halko(Data* data, const Param& params)
     } else {
         cout << timestamp() << "begin to run_pca_with_halko blockwise mode\n";
     }
-    MatrixXf Vpre;
-    VectorXf S;
+    MatrixXd Vpre;
+    VectorXd S;
     RsvdOpData* op;
     if (!params.runem && params.fast) {
         op = new FancyRsvdOpData(data, params.k);
     } else {
         op = new NormalRsvdOpData(data, params.k);
     }
-    RsvdOnePass< MatrixXf, RsvdOpData >* rsvd = new RsvdOnePass< MatrixXf, RsvdOpData >(*op);
+    RsvdOnePass< MatrixXd, RsvdOpData >* rsvd = new RsvdOnePass< MatrixXd, RsvdOpData >(*op);
     if (!params.runem)
     {
         cout << timestamp() << "begin to do non-EM PCA.\n";
@@ -323,7 +323,7 @@ void run_pca_with_halko(Data* data, const Param& params)
         // if pcangsd, estimate GRM.
         if (params.pcangsd) {
             data->pcangsd_standardize_E(op->U, op->S, op->V.transpose());
-            MatrixXf C = data->G * data->G.transpose();
+            MatrixXd C = data->G * data->G.transpose();
             C.array() /= (double) data->nsnps;
             C.diagonal() = data->Dc.array() / (double) data->nsnps;
             std::ofstream out_cov(params.outfile + ".cov");
@@ -331,7 +331,7 @@ void run_pca_with_halko(Data* data, const Param& params)
                 out_cov << C << "\n";
             }
             // use Eigen::JacobiSVD to get eigenvecs
-            Eigen::JacobiSVD< MatrixXf > svd(C, Eigen::ComputeThinU | Eigen::ComputeThinV);
+            Eigen::JacobiSVD< MatrixXd > svd(C, Eigen::ComputeThinU | Eigen::ComputeThinV);
             data->write_eigs_files(svd.singularValues().head(params.k), svd.matrixU().leftCols(params.k));
         } else {
             op->setFlags(true, true, false);

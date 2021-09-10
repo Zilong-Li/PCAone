@@ -18,9 +18,9 @@ void FileBed::check_file_offset_first_var()
 
 void FileBed::read_all_and_centering()
 {
-    F = VectorXf::Zero(nsnps);
+    F = VectorXd::Zero(nsnps);
     check_file_offset_first_var();
-    G = MatrixXf(nsamples, nsnps);
+    G = MatrixXd(nsamples, nsnps);
     inbed.resize(bed_bytes_per_snp * nsnps); // use resize to initial size of vector
     // Begin to decode the plink bed
     bed_ifstream.read(reinterpret_cast<char *> (&inbed[0]), bed_bytes_per_snp * nsnps);
@@ -84,7 +84,7 @@ void FileBed::read_snp_block_initial(uint64 start_idx, uint64 stop_idx, bool sta
     // if actual_block_size is smaller than blocksize, don't resize G;
     if (G.cols() < params.blocksize || (actual_block_size < params.blocksize))
     {
-        G = MatrixXf::Zero(nsamples, actual_block_size);
+        G = MatrixXd::Zero(nsamples, actual_block_size);
     }
     // check where we are
     long long offset = 3 + start_idx * bed_bytes_per_snp;
@@ -176,12 +176,12 @@ void FileBed::read_snp_block_initial(uint64 start_idx, uint64 stop_idx, bool sta
 
 }
 
-void FileBed::read_snp_block_update(uint64 start_idx, uint64 stop_idx, const MatrixXf& U, const VectorXf& svals, const MatrixXf& VT, bool standardize)
+void FileBed::read_snp_block_update(uint64 start_idx, uint64 stop_idx, const MatrixXd& U, const VectorXd& svals, const MatrixXd& VT, bool standardize)
 {
     uint actual_block_size = stop_idx - start_idx + 1;
     if (G.cols() < params.blocksize || (actual_block_size < params.blocksize))
     {
-        G = MatrixXf::Zero(nsamples, actual_block_size);
+        G = MatrixXd::Zero(nsamples, actual_block_size);
     }
     // check where we are
     long long offset = 3 + start_idx * bed_bytes_per_snp;

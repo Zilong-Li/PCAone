@@ -34,7 +34,7 @@ public:
             gzclose(fp);
 
             cout << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << endl;
-            P = MatrixXf(nsnps, nsamples * 3);
+            P = MatrixXd(nsnps, nsamples * 3);
         }
 
     ~FileBeagle() {}
@@ -42,7 +42,7 @@ public:
     virtual void read_all_and_centering();
     // below are for blockwise, remain for future.
     virtual void read_snp_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize = false) {}
-    virtual void read_snp_block_update(uint64 start_idx, uint64 stop_idx, const MatrixXf& U, const VectorXf& svals, const MatrixXf& VT, bool standardize = false) {}
+    virtual void read_snp_block_update(uint64 start_idx, uint64 stop_idx, const MatrixXd& U, const VectorXd& svals, const MatrixXd& VT, bool standardize = false) {}
 
 
     virtual void check_file_offset_first_var() {}

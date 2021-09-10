@@ -14,7 +14,7 @@ public:
     // for blockwise
     virtual void check_file_offset_first_var() = 0;
     virtual void read_snp_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize = false) = 0;
-    virtual void read_snp_block_update(uint64 start_idx, uint64 stop_idx, const MatrixXf& U, const VectorXf& svals, const MatrixXf& VT, bool standardize = false) = 0;
+    virtual void read_snp_block_update(uint64 start_idx, uint64 stop_idx, const MatrixXd& U, const VectorXd& svals, const MatrixXd& VT, bool standardize = false) = 0;
 
     bool snpmajor = true;
     bool nsamples_ge_nsnps = false;  // if nsamples greater than or equal to nsnps
@@ -23,11 +23,11 @@ public:
     uint nblocks = 1;
     uint bandFactor = 1;
     vector<uint> start, stop;
-    MatrixXf G;  // genotype matrix, can be initial E or centered E, which is nsamples x nsnps;
-    MatrixXf P;  // genotype probability, nsnps x nsamples x 3.
-    VectorXf F;  // observed or estimated population allele frequency
-    VectorXf Dc; // diagnal vector of covariance matrix
-    ArrayXXf centered_geno_lookup;
+    MatrixXd G;  // genotype matrix, can be initial E or centered E, which is nsamples x nsnps;
+    MatrixXd P;  // genotype probability, nsnps x nsamples x 3.
+    VectorXd F;  // observed or estimated population allele frequency
+    VectorXd Dc; // diagnal vector of covariance matrix
+    ArrayXXd centered_geno_lookup;
     vector<bool> C; // 1 or true indicates a ind's snp is missing and need to be predicted.
     const Param& params;
 
@@ -35,25 +35,25 @@ public:
     void prepare(uint& blocksize);
     void read_bed_batch();
     void standardize_E();
-    void pcangsd_standardize_E(const MatrixXf& U, const VectorXf& svals, const MatrixXf& VT);
-    void update_batch_E(const MatrixXf& U, const VectorXf& svals, const MatrixXf& VT);
-    void write_eigs_files(const VectorXf& vals, const MatrixXf& vecs);
+    void pcangsd_standardize_E(const MatrixXd& U, const VectorXd& svals, const MatrixXd& VT);
+    void update_batch_E(const MatrixXd& U, const VectorXd& svals, const MatrixXd& VT);
+    void write_eigs_files(const VectorXd& vals, const MatrixXd& vecs);
 
     // for blockwise
-    void calcu_vt_initial(const MatrixXf& T, MatrixXf& VT);
-    void calcu_vt_update(const MatrixXf& T, const MatrixXf& U, const VectorXf& svals, MatrixXf& VT, bool standardize);
+    void calcu_vt_initial(const MatrixXd& T, MatrixXd& VT);
+    void calcu_vt_update(const MatrixXd& T, const MatrixXd& U, const VectorXd& svals, MatrixXd& VT, bool standardize);
     // update Eb, using V as predictor and Db as input
-    // void update_block_E(uint start_idx, uint stop_idx, const MatrixXf& U, bool standardize = false);
-    // MatrixXf calcu_vt_from_Eb(const MatrixXf& T, const MatrixXf& U, bool standardize);
+    // void update_block_E(uint start_idx, uint stop_idx, const MatrixXd& U, bool standardize = false);
+    // MatrixXd calcu_vt_from_Eb(const MatrixXd& T, const MatrixXd& U, bool standardize);
 
     // calculate G * X or X * G by block
-    // MatrixXf calcu_block_matmul(const MatrixXf& X, bool rightside);
+    // MatrixXd calcu_block_matmul(const MatrixXd& X, bool rightside);
 
-    // MatrixXf calcu_block_matmul(const MatrixXf& X, bool rightside, const MatrixXf& U, const VectorXf& S, const MatrixXf& V, bool standardize = false);
+    // MatrixXd calcu_block_matmul(const MatrixXd& X, bool rightside, const MatrixXd& U, const VectorXd& S, const MatrixXd& V, bool standardize = false);
     // calculate G' * X or X * G' by block
-    // MatrixXf calcu_block_matmul_trans(const MatrixXf& X, bool rightside);
+    // MatrixXd calcu_block_matmul_trans(const MatrixXd& X, bool rightside);
 
-    // MatrixXf calcu_block_matmul_trans(const MatrixXf& X, bool rightside, const MatrixXf& U, const VectorXf& S, const MatrixXf& V, bool standardize = false);
+    // MatrixXd calcu_block_matmul_trans(const MatrixXd& X, bool rightside, const MatrixXd& U, const VectorXd& S, const MatrixXd& V, bool standardize = false);
 
 };
 

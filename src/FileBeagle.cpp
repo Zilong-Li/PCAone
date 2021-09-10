@@ -50,8 +50,8 @@ void FileBeagle::read_all_and_centering()
     assert(j==nsnps);
 
     cout << timestamp() << "begin to estimate allele frequencies" << endl;
-    VectorXf Ft(nsnps);
-    F = VectorXf::Constant(nsnps, 0.25);
+    VectorXd Ft(nsnps);
+    F = VectorXd::Constant(nsnps, 0.25);
     // run EM to estimate allele frequencies
     double diff;
     for (uint it = 0; it < params.maxiter; it++)
@@ -79,7 +79,7 @@ void FileBeagle::read_all_and_centering()
         }
     }
     // initial E which is G
-    G = MatrixXf(nsamples, nsnps);
+    G = MatrixXd(nsamples, nsnps);
     #pragma omp parallel for
     for (uint j = 0; j < nsnps; j++) {
         double p0, p1, p2;

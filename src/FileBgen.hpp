@@ -5,8 +5,8 @@
 #include "bgen/bgen.h"
 
 // const double GENOTYPE_THRESHOLD = 0.9;
-// const float BGEN_MISSING_VALUE = -9;
-// const float BGEN2GENO[4] = {0, 0.5, 1, BGEN_MISSING_VALUE};
+// const double BGEN_MISSING_VALUE = -9;
+// const double BGEN2GENO[4] = {0, 0.5, 1, BGEN_MISSING_VALUE};
 
 using namespace bgen;
 
@@ -28,7 +28,7 @@ public:
     // for blockwise
     // virtual void estimate_F() {}
     virtual void read_snp_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize = false);
-    virtual void read_snp_block_update(uint64 start_idx, uint64 stop_idx, const MatrixXf& U, const VectorXf& svals, const MatrixXf& VT, bool standardize = false) {}
+    virtual void read_snp_block_update(uint64 start_idx, uint64 stop_idx, const MatrixXd& U, const VectorXd& svals, const MatrixXd& VT, bool standardize = false) {}
 
 
     virtual void check_file_offset_first_var() { bg->set_offset_first_var(); }

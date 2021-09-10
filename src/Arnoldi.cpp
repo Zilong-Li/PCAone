@@ -4,10 +4,10 @@
 
 using namespace Spectra;
 
-void ArnoldiOpData::perform_op(const float *x_in, float* y_out)
+void ArnoldiOpData::perform_op(const double *x_in, double* y_out)
 {
-   Map<const VectorXf> x(x_in, n);
-   Map<VectorXf> y(y_out, n);
+   Map<const VectorXd> x(x_in, n);
+   Map<VectorXd> y(y_out, n);
    data->check_file_offset_first_var();
    if (update) {
        data->read_snp_block_update(data->start[0], data->stop[0], U, S, VT, standardize);
@@ -38,15 +38,15 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
     } else {
         cout << timestamp() << "begin to run_pca_with_arnoldi blockwise mode\n";
     }
-    VectorXf svals, evals;
+    VectorXd svals, evals;
     uint nconv, nu;
     double diff;
     if (params.batch)
     {
-        MatrixXf U, V, V2;
+        MatrixXd U, V, V2;
         // SpMatrix sG = data->G.sparseView();
-        // PartialSVDSolver< float, SpMatrix > svds(sG, params.k, params.ncv);
-        PartialSVDSolver< float, MatrixXf > svds(data->G, params.k, params.ncv);
+        // PartialSVDSolver< double, SpMatrix > svds(sG, params.k, params.ncv);
+        PartialSVDSolver< double, MatrixXd > svds(data->G, params.k, params.ncv);
         if (!params.runem)
         {
             data->standardize_E();
@@ -90,7 +90,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
         if (params.pcangsd)
         {
             data->pcangsd_standardize_E(U, svals, V.transpose());
-            MatrixXf C = data->G * data->G.transpose();
+            MatrixXd C = data->G * data->G.transpose();
             C.array() /= (double) data->nsnps;
             C.diagonal() = data->Dc.array() / (double) data->nsnps;
             std::ofstream out_cov(params.outfile + ".cov");
@@ -98,9 +98,9 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
                 out_cov << C << "\n";
             }
             // calculate eigenvectors
-            DenseSymMatProd<float> op2(C);
+            DenseSymMatProd<double> op2(C);
             // Construct eigen solver object, requesting the largest three eigenvalues
-            SymEigsSolver< float, LARGEST_ALGE, DenseSymMatProd<float> > eigs2(&op2, params.k, params.ncv);
+            SymEigsSolver< double, LARGEST_ALGE, DenseSymMatProd<double> > eigs2(&op2, params.k, params.ncv);
             eigs2.init();
             nconv = eigs2.compute();
             if(eigs2.info() == SUCCESSFUL) {
@@ -125,9 +125,9 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
 
     } else {
         // for blockwise
-        MatrixXf T, VT;
+        MatrixXd T, VT;
         ArnoldiOpData *op = new ArnoldiOpData(data);
-        SymEigsSolver< float, LARGEST_ALGE, ArnoldiOpData > *eigs = new SymEigsSolver< float, LARGEST_ALGE, ArnoldiOpData >(op, params.k, params.ncv);
+        SymEigsSolver< double, LARGEST_ALGE, ArnoldiOpData > *eigs = new SymEigsSolver< double, LARGEST_ALGE, ArnoldiOpData >(op, params.k, params.ncv);
         if (!params.runem) op->setFlags(false, true, false);
         eigs->init();
         nconv = eigs->compute(params.imaxiter, params.itol);
@@ -152,7 +152,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
             // T = U' / s
             // T' = (U.array().rowwise() / eigs.eigenvalues().head(nv).transpose().array().sqrt()).matrix();
             T = (eigs->eigenvectors().leftCols(nu).transpose().array().colwise() / eigs->eigenvalues().head(nu).array().sqrt()).matrix();
-            op->VT = MatrixXf::Zero(T.rows(), data->nsnps);
+            op->VT = MatrixXd::Zero(T.rows(), data->nsnps);
             data->calcu_vt_initial(T, op->VT);
             flip_UV(op->U, op->VT);
             cout << timestamp() << "begin to do EM iteration.\n";

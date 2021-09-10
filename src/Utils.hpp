@@ -27,7 +27,7 @@ M load_csv (const std::string & path) {
     std::ifstream indata;
     indata.open(path);
     std::string line;
-    std::vector<float> values;
+    std::vector<double> values;
     uint rows = 0;
     while (std::getline(indata, line)) {
         std::stringstream lineStream(line);
@@ -93,10 +93,10 @@ struct Line
 size_t count_lines(const string& fpath);
 string timestamp();
 void permute_plink(string& fin);
-void flip_UV(MatrixXf& U, MatrixXf& V, bool ubase = true);
-void flip_Y(const MatrixXf& X, MatrixXf& Y);
-double rmse(const MatrixXf& X, const MatrixXf& Y);
-double mev(const MatrixXf& X, const MatrixXf& Y);
-void mev_rmse_byk(const MatrixXf& X, const MatrixXf& Y, VectorXd& Vm, VectorXd& Vr);
+void flip_UV(MatrixXd& U, MatrixXd& V, bool ubase = true);
+void flip_Y(const MatrixXd& X, MatrixXd& Y);
+double rmse(const MatrixXd& X, const MatrixXd& Y);
+double mev(const MatrixXd& X, const MatrixXd& Y);
+void mev_rmse_byk(const MatrixXd& X, const MatrixXd& Y, VectorXd& Vm, VectorXd& Vr);
 
 #endif

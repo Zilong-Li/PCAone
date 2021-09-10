@@ -9,8 +9,8 @@ class RsvdOpData
 public:
     using Index = Eigen::Index;
     bool update = false, standardize = false, verbose = false;
-    MatrixXf U, V;
-    VectorXf S;
+    MatrixXd U, V;
+    VectorXd S;
 
 public:
     virtual ~RsvdOpData() {}
@@ -20,7 +20,7 @@ public:
     virtual Index ranks() const = 0;
     virtual Index oversamples() const = 0;
 
-    virtual void computeGandH(MatrixXf& G, MatrixXf& H, int p) = 0;
+    virtual void computeGandH(MatrixXd& G, MatrixXd& H, int p) = 0;
     inline void setFlags(bool is_update, bool is_standardize, bool is_verbose)
         {update = is_update; standardize = is_standardize; verbose = is_verbose;}
 
@@ -31,7 +31,7 @@ class NormalRsvdOpData : public RsvdOpData
 private:
     Data* data;
     const Index nk, os, size;
-    MatrixXf Omg, Upre, Ucur;
+    MatrixXd Omg, Upre, Ucur;
     bool stop = false;
     uint64 actual_block_size, start_idx, stop_idx;
 
@@ -41,7 +41,7 @@ public:
         data(data_), nk(k_), os(os_), size(k_ + os_)
         {
             auto rng = std::default_random_engine {};
-            Omg = StandardNormalRandom<MatrixXf, std::default_random_engine>(data->nsamples, size, rng);
+            Omg = StandardNormalRandom<MatrixXd, std::default_random_engine>(data->nsamples, size, rng);
         }
 
     ~NormalRsvdOpData() {}
@@ -51,7 +51,7 @@ public:
     Index ranks() const { return nk; }
     Index oversamples() const { return os; }
 
-    void computeGandH(MatrixXf& G, MatrixXf& H, int p);
+    void computeGandH(MatrixXd& G, MatrixXd& H, int p);
 
 };
 
@@ -60,7 +60,7 @@ class FancyRsvdOpData : public RsvdOpData
 private:
     Data* data;
     const Index nk, os, size;
-    MatrixXf Omg, Omg2, H1, H2, Upre, Ucur;
+    MatrixXd Omg, Omg2, H1, H2, Upre, Ucur;
     bool stop = false;
     uint64 actual_block_size, start_idx, stop_idx;
 
@@ -70,7 +70,7 @@ public:
         data(data_), nk(k_), os(os_), size(k_ + os_)
         {
             auto rng = std::default_random_engine {};
-            Omg = UniformRandom<MatrixXf, std::default_random_engine>(data->nsamples, size, rng);
+            Omg = UniformRandom<MatrixXd, std::default_random_engine>(data->nsamples, size, rng);
             Omg2 = Omg;
         }
 
@@ -81,11 +81,11 @@ public:
     Index ranks() const { return nk; }
     Index oversamples() const { return os; }
 
-    void computeGandH(MatrixXf& G, MatrixXf& H, int p);
+    void computeGandH(MatrixXd& G, MatrixXd& H, int p);
 };
 
-bool check_if_halko_converge(int pi, double tol, MatrixXf& Upre, MatrixXf& Ucur, const MatrixXf& G, const MatrixXf& H, int k, int nrow, int ncol, int size, bool verbose);
-void print_summary_table(const MatrixXf& Upre, const MatrixXf& Ucur, const string& outfile);
+bool check_if_halko_converge(int pi, double tol, MatrixXd& Upre, MatrixXd& Ucur, const MatrixXd& G, const MatrixXd& H, int k, int nrow, int ncol, int size, bool verbose);
+void print_summary_table(const MatrixXd& Upre, const MatrixXd& Ucur, const string& outfile);
 void run_pca_with_halko(Data* data, const Param& params);
 
 #endif
