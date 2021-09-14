@@ -92,6 +92,7 @@ void parse_params(int argc, char* argv[], struct Param* params)
         ("ncv", "number of Lanzcos basis vectors.[max(20, 2*k+1)]", cxxopts::value<int>(),"INT")
         ("bands", "number of bands to use for fast Halko.[128]", cxxopts::value<int>(),"INT")
         ("maxp", "maximum number of power iteration for Halko.[20]", cxxopts::value<int>(),"INT")
+        ("os", "the number of oversampling columns for Halko.[max(k,10)]", cxxopts::value<int>(),"INT")
         ;
 
     try {
@@ -112,6 +113,7 @@ void parse_params(int argc, char* argv[], struct Param* params)
         if( vm.count("tol_halko") ) params->tol_halko = vm["tol_halko"].as<double>();
         if( vm.count("imaxiter") ) params->imaxiter = vm["imaxiter"].as<int>();
         if( vm.count("maxp") ) params->p = vm["maxp"].as<int>();
+        if( vm.count("os") ) params->oversamples = vm["os"].as<int>();
         if( vm.count("bands") ) params->bands = vm["bands"].as<int>();
         if( vm.count("ncv") ) params->ncv = vm["ncv"].as<int>();
         if( vm.count("itol") ) params->itol = vm["itol"].as<double>();

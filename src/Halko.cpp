@@ -276,9 +276,9 @@ void run_pca_with_halko(Data* data, const Param& params)
     VectorXd S;
     RsvdOpData* op;
     if (!params.runem && params.fast) {
-        op = new FancyRsvdOpData(data, params.k);
+        op = new FancyRsvdOpData(data, params.k, fmax(params.k, params.oversamples));
     } else {
-        op = new NormalRsvdOpData(data, params.k);
+        op = new NormalRsvdOpData(data, params.k, fmax(params.k, params.oversamples));
     }
     RsvdOnePass< MatrixXd, RsvdOpData >* rsvd = new RsvdOnePass< MatrixXd, RsvdOpData >(*op);
     if (!params.runem)
