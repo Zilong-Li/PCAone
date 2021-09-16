@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
     omp_set_num_threads(params.threads);
     Data *data;
     if (params.intype == "bfile") {
-        if (!params.batch && params.fast) permute_plink(params.bed_prefix);
+        if (!params.batch && params.fast && !params.noshuffle) permute_plink(params.bed_prefix);
         data = new FileBed(params);
     #ifdef WITH_BGEN
     } else if( params.intype == "bgen" ) {
@@ -93,6 +93,7 @@ void parse_params(int argc, char* argv[], struct Param* params)
         ("bands", "number of bands to use for fast Halko.[128]", cxxopts::value<int>(),"INT")
         ("maxp", "maximum number of power iteration for Halko.[20]", cxxopts::value<int>(),"INT")
         ("os", "the number of oversampling columns for Halko.[max(k,10)]", cxxopts::value<int>(),"INT")
+        ("noshuffle", "do not shuffle the matrix for fast Halko blocksize mode.", cxxopts::value<bool>()->default_value("false"))
         ;
 
     try {
@@ -122,6 +123,7 @@ void parse_params(int argc, char* argv[], struct Param* params)
         if( vm.count("pcangsd") ) params->pcangsd = vm["pcangsd"].as<bool>();
         if( vm.count("emu") ) params->emu = vm["emu"].as<bool>();
         if( vm.count("fast") ) params->fast = vm["fast"].as<bool>();
+        if( vm.count("noshuffle") ) params->noshuffle = vm["noshuffle"].as<bool>();
         if (params->emu || params->pcangsd) {
             params->runem = true;
             if( vm.count("maxiter") ) params->maxiter = vm["maxiter"].as<int>();
