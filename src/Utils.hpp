@@ -54,8 +54,7 @@ struct Param {
     uint p = 20;  // maximum number of power iterations
     uint threads = 1;
     uint blocksize = 0;
-    uint bands = 128;
-    uint band = 4;  // keep it fixed when ready, just for testing
+    uint bands = 64;
     // for emu iteration
     uint maxiter = 100;
     double alpha = 0.001;

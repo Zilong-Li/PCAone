@@ -83,7 +83,7 @@ void parse_params(int argc, char* argv[], struct Param* params)
         ("v,verbose", "verbose message output.", cxxopts::value<bool>()->default_value("false"))
         ;
     opts.add_options("More")
-        ("bands", "number of bands to use for fast Halko.[128]", cxxopts::value<int>(),"INT")
+        ("bands", "number of bands to use for fast Halko.[64]", cxxopts::value<int>(),"INT")
         ("imaxiter", "maximum number of Arnoldi interations.[500]", cxxopts::value<int>(),"INT")
         ("itol", "tolerance for Arnoldi algorithm.[1e-6]", cxxopts::value<double>(),"DOUBLE")
         ("maxp", "maximum number of power iteration for Halko.[20]", cxxopts::value<int>(),"INT")

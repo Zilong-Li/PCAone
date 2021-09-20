@@ -109,12 +109,12 @@ void FancyRsvdOpData::computeGandH(MatrixXd& G, MatrixXd& H, int p)
         std::shuffle(perm.indices().data(), perm.indices().data()+perm.indices().size(), rng);
         data->G = data->G * perm; // permute columns in-place
 
-        uint band=4;  // maybe 2
+        uint band=2;  
         uint blocksize = (unsigned int)ceil((double)data->nsnps / data->params.bands);
         for (int pi=0; pi <= p; ++pi)
         {
-            // 4, 8, 32, 256
-            band = fmin(band * pow(2, pi), data->params.bands);
+            // band : 4, 8, 16, 32, 64, 128
+            band = fmin(band * 2, data->params.bands);
             H1 = MatrixXd::Zero(cols(), size);
             H2 = MatrixXd::Zero(cols(), size);
             for (uint b = 0, i = 1; b < data->params.bands; ++b, ++i) {
@@ -153,7 +153,6 @@ void FancyRsvdOpData::computeGandH(MatrixXd& G, MatrixXd& H, int p)
                     }
                 }
             }
-            // band = fmin(band * 2, data->params.bands);
             stop = check_if_halko_converge(pi, data->params.tol_halko, Upre, Ucur, G, H, nk, rows(), cols(), size, verbose);
             if (stop || pi == p) {
                 if (verbose) {
@@ -165,12 +164,12 @@ void FancyRsvdOpData::computeGandH(MatrixXd& G, MatrixXd& H, int p)
             Upre = Ucur;
         }
     } else {
-        uint band = 4 * data->bandFactor;
+        uint band = 2 * data->bandFactor;
         verbose && cout << timestamp() << "running in blockwise mode with fancy halko.\n";
         for (int pi=0; pi <= p; ++pi)
         {
-            // band : 4, 8, 32, 256
-            band = fmin(band * pow(2, pi), data->nblocks);
+            // band : 4, 8, 16, 32, 64, 128
+            band = fmin(band * 2, data->nblocks);
             H1 = MatrixXd::Zero(cols(), size);
             H2 = MatrixXd::Zero(cols(), size);
             data->check_file_offset_first_var();
@@ -246,11 +245,10 @@ bool check_if_halko_converge(int pi, double tol, MatrixXd& Upre, MatrixXd& Ucur,
     if (pi == 0) {
         return false;
     } else {
-        double diff_rmse, diff_mev;
+        double diff_mev;
         diff_mev = 1 - mev(Upre, Ucur);
-        diff_rmse = rmse(Upre, Ucur);
-        verbose && cout << timestamp() << "running of epoch=" << pi << ", RMSE=" << diff_rmse << ", 1-MEV=" << diff_mev << ".\n";
-        if (diff_rmse <= tol || diff_mev <= tol) {
+        verbose && cout << timestamp() << "running of epoch=" << pi << ", 1-MEV=" << diff_mev << ".\n";
+        if (diff_mev < tol) {
             return true;
         } else {
             return false;

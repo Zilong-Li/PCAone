@@ -3,13 +3,13 @@
 
   - use double instead of float to improve numerical accuracy
 
-  - add --noshuffle option
-
-  - expose over-sampling parameter to user
+  - add --no-shuffle, --oversamples options
 
   - disable checking padding region of plink bed
 
-  - fix bugs
+  - fix denominator too small
+
+  - set band range as 4,8,16,32,64
 
 - v0.1.1
 
