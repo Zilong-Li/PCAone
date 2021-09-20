@@ -85,7 +85,7 @@ public:
 };
 
 bool check_if_halko_converge(int pi, double tol, MatrixXd& Upre, MatrixXd& Ucur, const MatrixXd& G, const MatrixXd& H, int k, int nrow, int ncol, int size, bool verbose);
-void print_summary_table(const MatrixXd& Upre, const MatrixXd& Ucur, const string& outfile);
+void print_summary_table(const MatrixXd& Upre, const MatrixXd& Ucur);
 void run_pca_with_halko(Data* data, const Param& params);
 
 #endif

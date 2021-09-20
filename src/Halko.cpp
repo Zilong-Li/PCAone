@@ -31,8 +31,10 @@ void NormalRsvdOpData::computeGandH(MatrixXd& G, MatrixXd& H, int p)
                 H.noalias() = data->G * G;
                 stop = check_if_halko_converge(pi, data->params.tol_halko, Upre, Ucur, G, H, nk, rows(), cols(), size, verbose);
                 if (stop || pi == p) {
-                    verbose && cout << timestamp() << "stops at epoch=" << pi + 1 << ".\n";
-                    print_summary_table(Upre, Ucur, data->params.outfile);
+                    if (verbose) {
+                        cout << timestamp() << "stops at epoch=" << pi + 1 << ".\n";
+                        print_summary_table(Upre, Ucur);
+                    }
                     break;
                 }
                 Upre = Ucur;
@@ -67,8 +69,10 @@ void NormalRsvdOpData::computeGandH(MatrixXd& G, MatrixXd& H, int p)
                 }
                 stop = check_if_halko_converge(pi, data->params.tol_halko, Upre, Ucur, G, H, nk, rows(), cols(), size, verbose);
                 if (stop || pi == p) {
-                    verbose && cout << timestamp() << "stops at epoch=" << pi + 1 << ".\n";
-                    print_summary_table(Upre, Ucur, data->params.outfile);
+                    if (verbose) {
+                        cout << timestamp() << "stops at epoch=" << pi + 1 << ".\n";
+                        print_summary_table(Upre, Ucur);
+                    }
                     break;
                 }
                 Upre = Ucur;
@@ -152,8 +156,10 @@ void FancyRsvdOpData::computeGandH(MatrixXd& G, MatrixXd& H, int p)
             // band = fmin(band * 2, data->params.bands);
             stop = check_if_halko_converge(pi, data->params.tol_halko, Upre, Ucur, G, H, nk, rows(), cols(), size, verbose);
             if (stop || pi == p) {
-                verbose && cout << timestamp() << "stops at epoch=" << pi + 1 << ".\n";
-                print_summary_table(Upre, Ucur, data->params.outfile);
+                if (verbose) {
+                    cout << timestamp() << "stops at epoch=" << pi + 1 << ".\n";
+                    print_summary_table(Upre, Ucur);
+                }
                 break;
             }
             Upre = Ucur;
@@ -212,8 +218,10 @@ void FancyRsvdOpData::computeGandH(MatrixXd& G, MatrixXd& H, int p)
             }
             stop = check_if_halko_converge(pi, data->params.tol_halko, Upre, Ucur, G, H, nk, rows(), cols(), size, verbose);
             if (stop || pi == p) {
-                verbose && cout << timestamp() << "stops at epoch=" << pi + 1 << ".\n";
-                print_summary_table(Upre, Ucur, data->params.outfile);
+                if (verbose) {
+                    cout << timestamp() << "stops at epoch=" << pi + 1 << ".\n";
+                    print_summary_table(Upre, Ucur);
+                }
                 break;
             }
             Upre = Ucur;
@@ -250,9 +258,8 @@ bool check_if_halko_converge(int pi, double tol, MatrixXd& Upre, MatrixXd& Ucur,
     }
 }
 
-void print_summary_table(const MatrixXd& Upre, const MatrixXd& Ucur, const string& outfile)
+void print_summary_table(const MatrixXd& Upre, const MatrixXd& Ucur)
 {
-    std::ofstream outlog(outfile + ".log");
     string out = "summary:";
     for (int i=0; i < Ucur.cols(); i++) {
         out += " PC1-" + std::to_string(i+1);
@@ -260,7 +267,7 @@ void print_summary_table(const MatrixXd& Upre, const MatrixXd& Ucur, const strin
     VectorXd Vrmse = VectorXd::Zero(Ucur.cols());
     VectorXd Vmev  = VectorXd::Zero(Ucur.cols());
     mev_rmse_byk(Upre, Ucur, Vmev, Vrmse);
-    outlog << out << "\n"
+    cout   << out << "\n"
            << "RMSE:" << Vrmse.transpose() << ".\n"
            << "1-MEV:" << Vmev.transpose() << ".\n";
 }
