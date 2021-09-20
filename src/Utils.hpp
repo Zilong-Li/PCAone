@@ -15,6 +15,8 @@
 #include <algorithm>
 #include <iterator>
 
+const double VAR_TOL = 1e-9;
+
 using namespace std;
 using namespace Eigen;
 
@@ -57,14 +59,12 @@ struct Param {
     // for emu iteration
     uint maxiter = 100;
     double alpha = 0.001;
-    // double tol_emu = 1e-5;
-    // double tol_pcangsd = 1e-5;
     // can be tol_emu or tol_pcangsd
     double tol = 1e-5;
     double tolmaf = 1e-4;
     // for arnoldi
     uint ncv = 20;   // max(20, 2*k + 1)
-    uint imaxiter = 500;
+    uint imaxiter = 1000;
     double itol = 1e-6;
     // for halko
     uint oversamples = 10;

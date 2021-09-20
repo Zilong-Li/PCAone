@@ -6,6 +6,7 @@ using namespace Spectra;
 
 void ArnoldiOpData::perform_op(const double *x_in, double* y_out)
 {
+   data->params.verbose && cout << timestamp() << "Arnoldi Matrix Operation = " << nops << ".\n";
    Map<const VectorXd> x(x_in, n);
    Map<VectorXd> y(y_out, n);
    data->check_file_offset_first_var();
@@ -27,7 +28,6 @@ void ArnoldiOpData::perform_op(const double *x_in, double* y_out)
        y.noalias() += data->G * (data->G.transpose() * x);
    }
    nops++;
-   // data->params.verbose && cerr << "Arnoldi Op=" << nops << ".\n";
 }
 
 

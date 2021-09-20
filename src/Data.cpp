@@ -8,12 +8,11 @@ void Data::prepare(uint& blocksize)
     {
         read_all_and_centering();
     } else {
-        blocksize = (unsigned int)ceil((double)params.memory * 250000000 / nsamples);
+        blocksize = (unsigned int)ceil((double)params.memory * 125000000 / nsamples);
         nblocks = (unsigned int)ceil((double)nsnps / blocksize);
         params.verbose && cout << timestamp() << "initial setting by -m/--memory: blocksize=" << blocksize << ", nblocks=" << nblocks << ", bandFactor=" << bandFactor << ".\n";
         if (nblocks == 1) {
-            cerr << "Warning: only one block exists. please remove -m / --memory option instead.\n";
-            exit(EXIT_FAILURE);
+            throw std::invalid_argument("Warning: only one block exists. please remove -m / --memory option instead.\n");
         }
         if (params.fast) {
             // decrease blocksize to fit the fancy halko
@@ -166,7 +165,8 @@ void Data::standardize_E()
     #pragma omp parallel for
     for (uint i = 0; i < nsnps; ++i) {
         for (uint j = 0; j < nsamples; ++j) {
-            G(j, i) /= sqrt(F(i) * (1 - F(i)));
+            // in case denominator is too small.
+            if (sqrt(F(i) * (1 - F(i))) > VAR_TOL) G(j, i) /= sqrt(F(i) * (1 - F(i)));
         }
     }
 }
@@ -196,12 +196,12 @@ void Data::pcangsd_standardize_E(const MatrixXd& U, const VectorXd& svals, const
                 p2 = P(j, 3 * i + 2) * pt * pt;
                 pSum = p0 + p1 + p2;
                 G(i, j) = (p1 + 2*p2)/pSum - 2.0 * F(j);
-                G(i, j) = G(i, j) / norm;
+                if (norm > VAR_TOL) G(i, j) /= norm;
 
                 // Update diag
                 tmp = (0.0 - 2.0 * F(j)) * (0.0 - 2.0 * F(j)) * (p0 / pSum);
-                tmp = tmp + (1.0 - 2.0 * F(j)) * (1.0 - 2.0 * F(j)) * (p1 / pSum);
-                tmp = tmp + (2.0 - 2.0 * F(j)) * (2.0 - 2.0 * F(j)) * (p2 /pSum);
+                tmp += (1.0 - 2.0 * F(j)) * (1.0 - 2.0 * F(j)) * (p1 / pSum);
+                tmp += (2.0 - 2.0 * F(j)) * (2.0 - 2.0 * F(j)) * (p2 /pSum);
                 diag_private[i] += tmp/(2.0*F(j)*(1.0 - F(j)));
             }
         }

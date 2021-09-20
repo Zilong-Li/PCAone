@@ -1,4 +1,16 @@
 
+- v0.1.2
+
+  - use double instead of float to improve numerical accuracy
+
+  - add --noshuffle option
+
+  - expose over-sampling parameter to user
+
+  - disable checking padding region of plink bed
+
+  - fix bugs
+
 - v0.1.1
 
   - supports bfile, bgen as input for both batch and blockwise mode
@@ -28,4 +40,3 @@
   - external dependecy: Eigen v3.3.8, Spectra v0.9.0, BGEN v1.3
 
   - release two pre-compiled binary for Linux and Mac OSX (libiomp5 required).
-

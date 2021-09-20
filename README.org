@@ -2,7 +2,7 @@
 
 #+OPTIONS: ^:nil
 
-*Current Version: v0.1.1*
+*Current Version: v0.1.2*
 
 PCAone is a fast and memory efficient PCA tool implemented in C++ aiming at providing comprehensive features and algorithms for different scenarios.
 
@@ -12,7 +12,7 @@ See [[file:CHANGELOG.org][change log]] here.
 
 - Has both Arnoldi and Halko methods with *out-of-core* implementation.
 - Implement our own Halko algorithm with super power iteration for tera-scale dataset.
-- Quite fast with multi-threading support using high performance library [[https://software.intel.com/content/www/us/en/develop/tools/oneapi/components/onemkl.html#gs.8jsfgz][MKL]] or [[https://www.openblas.net/][OpenBLAS]] as back-end.
+- Quite fast with multi-threading support using high performance library [[https://software.intel.com/content/www/us/en/develop/tools/oneapi/components/onemkl.html#gs.8jsfgz][MKL]] or [[https://www.openblas.net/][OpenBLAS]] as backend.
 - Supports the [[https://www.cog-genomics.org/plink/1.9/formats#bed][PLINK]], [[https://www.well.ox.ac.uk/~gav/bgen_format][BGEN]], [[http://www.popgen.dk/angsd/index.php/Input#Beagle_format][Beagle]] genetic data formats.
 - Supports [[https://github.com/Rosemeis/emu][EMU]] algorithm for scenario with large proportion of missingness.
 - Supports [[https://github.com/Rosemeis/pcangsd][PCAngsd]] algorithm for low coverage sequencing scenario with genotype probability as input.
@@ -20,7 +20,7 @@ See [[file:CHANGELOG.org][change log]] here.
 
 | Input format               | bfile | bgen | beagle |
 | Arnoldi method             | +     | +    | +      |
-| OnePass Halko              | +     | +    | +      |
+| One-Pass Halko             | +     | +    | +      |
 | Super fast Halko           | +     | -    | -      |
 | EMU algorithm              | +     | +    | -      |
 | PCAngsd algorithm          | -     | +    | +      |
@@ -31,17 +31,17 @@ See [[file:CHANGELOG.org][change log]] here.
 
 ** Download pre-compiled binary
 
-There are pre-compiled program provided for both Mac and Linux platform.  If you want to use PCAone with MKL threading, you need to make sure runtime library =libiomp5= can be found. Please check the releases page to download them.
+There are pre-compiled program provided for both Mac and Linux platform. If you want to use PCAone with MKL threading, make sure the runtime library =libiomp5= is in your environment. Please check the releases page to download them.
 
 ** Build from source
-PCAone use [[https://github.com/facebook/zstd][zstd]] library to parse zstd compressed input format. Please make sure it is installed. If you don't want to use MKL of OpenBlas as backends, you can copy and run the following code without modifying anything.  
+PCAone use [[https://github.com/facebook/zstd][zstd]] library to parse zstd compressed input format. Please make sure it is installed. If you don't want to use MKL of OpenBlas as backends, you can just copy and run the following code without modifying anything.  
 #+begin_src sh
 git clone https://github.com/Zilong-Li/PCAone.git
 # modify variables in Makefile to use MKL or OpenBlas as backend
 cd PCAone
 make
 #+end_src
-Since the default is without external MKL or OpenBLAS support, you need to set the =MKLROOT= or =OPENBLAS_ROOT= in *Makefile* to your own path to use one of them as back-end. If it complains that there is no =lapack= lib, please install it and set the =LAPACK_ROOT= to the correct path as well. 
+Since the default compilation is without external MKL or OpenBLAS support, you need to set the =MKLROOT= or =OPENBLAS_ROOT= in *Makefile* to your own path to use one of them as backend. If it complains that there is no =lapack= lib, please install it and set the =LAPACK_ROOT= to the correct path as well. 
 
 * Usage
 
@@ -71,7 +71,7 @@ Usage:
   -v, --verbose        verbose message output.
 #+end_src
 
-*Warning*: On most OS it is very *important* to limit the number of threads to the number of physical cores. 
+*Warning*: On most OS it is recommended to limit the number of threads to the number of physical cores. 
 
 * Citation
 

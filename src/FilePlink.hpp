@@ -39,6 +39,7 @@ public:
             if ( (header[0] != 0x6c) || (header[1] != 0x1b) || (header[2] != 0x01) ) {
                 throw std::invalid_argument("ERROR: Incorrect magic number in plink bed file.\n");
             }
+            
         }
 
     ~FileBed() {}

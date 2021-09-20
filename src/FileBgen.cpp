@@ -125,7 +125,7 @@ void FileBgen::read_snp_block_initial(uint64 start_idx, uint64 stop_idx, bool st
                 } else {
                     G(j, i) = dosages[j]/2.0 - F(snp_idx);
                 }
-                if (standardize) G(j, i) /= sqrt(F(snp_idx) * (1 - F(snp_idx)));
+                if (standardize && sqrt(F(snp_idx) * (1 - F(snp_idx))) > VAR_TOL) G(j, i) /= sqrt(F(snp_idx) * (1 - F(snp_idx)));
             }
         }
     } else {
@@ -157,7 +157,7 @@ void FileBgen::read_snp_block_initial(uint64 start_idx, uint64 stop_idx, bool st
                 } else {
                     G(j, i) -= F(snp_idx);
                 }
-                if (standardize) G(j, i) /= sqrt(F(snp_idx) * (1 - F(snp_idx)));
+                if (standardize && sqrt(F(snp_idx) * (1 - F(snp_idx))) > VAR_TOL) G(j, i) /= sqrt(F(snp_idx) * (1 - F(snp_idx)));
             }
         }
         if (stop_idx + 1 == nsnps) frequency_was_estimated = true;

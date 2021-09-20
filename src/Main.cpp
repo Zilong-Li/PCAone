@@ -67,12 +67,12 @@ void parse_params(int argc, char* argv[], struct Param* params)
 
     opts.add_options("Main")
         ("a, arnoldi", "use Implicit Restarted Arnoldi method instead of default Randomized SVD(Halko).", cxxopts::value<bool>()->default_value("false"))
+        ("beagle", "beagle file.", cxxopts::value<std::string>(), "FILE")
         ("bfile", "prefix of PLINK .bed/.bim/.fam files.", cxxopts::value<std::string>(), "PREFIX")
         // ("pfile", "prefix to PLINK2 .pgen/.pvar/.psam files.", cxxopts::value<std::string>(), "PREFIX")
         #ifdef WITH_BGEN
         ("bgen", "BGEN file.", cxxopts::value<std::string>(), "FILE")
         #endif
-        ("beagle", "beagle file.", cxxopts::value<std::string>(), "FILE")
         ("e,emu", "use EMU algorithm for data with large proportion of missingness.", cxxopts::value<bool>()->default_value("false"))
         ("f, fast", "force to use fast super power iterations for Halko.", cxxopts::value<bool>()->default_value("false"))
         ("k,eigs", "top k components to be calculated.[10]", cxxopts::value<int>(),"INT")
@@ -83,17 +83,17 @@ void parse_params(int argc, char* argv[], struct Param* params)
         ("v,verbose", "verbose message output.", cxxopts::value<bool>()->default_value("false"))
         ;
     opts.add_options("More")
-        ("tol_em", "tolerance for EMU/PCAngsd algorithm.[1e-5]", cxxopts::value<double>(),"DOUBLE")
-        ("tol_maf", "MAF tolerance for PCAngsd algorithm.[1e-4]", cxxopts::value<double>(),"DOUBLE")
-        ("tol_halko", "tolerance for Halko algorithm.[1e-4]", cxxopts::value<double>(),"DOUBLE")
-        ("maxiter", "maximum number of EMU/PCAngsd interations.[100]", cxxopts::value<int>(),"INT")
+        ("bands", "number of bands to use for fast Halko.[128]", cxxopts::value<int>(),"INT")
         ("imaxiter", "maximum number of Arnoldi interations.[500]", cxxopts::value<int>(),"INT")
         ("itol", "tolerance for Arnoldi algorithm.[1e-6]", cxxopts::value<double>(),"DOUBLE")
-        ("ncv", "number of Lanzcos basis vectors.[max(20, 2*k+1)]", cxxopts::value<int>(),"INT")
-        ("bands", "number of bands to use for fast Halko.[128]", cxxopts::value<int>(),"INT")
         ("maxp", "maximum number of power iteration for Halko.[20]", cxxopts::value<int>(),"INT")
-        ("os", "the number of oversampling columns for Halko.[max(k,10)]", cxxopts::value<int>(),"INT")
-        ("noshuffle", "do not shuffle the matrix for fast Halko blocksize mode.", cxxopts::value<bool>()->default_value("false"))
+        ("maxiter", "maximum number of EMU/PCAngsd interations.[100]", cxxopts::value<int>(),"INT")
+        ("ncv", "number of Lanzcos basis vectors.[max(20, 2*k+1)]", cxxopts::value<int>(),"INT")
+        ("no-shuffle", "do not shuffle the matrix for fast Halko blocksize mode.", cxxopts::value<bool>()->default_value("false"))
+        ("oversamples", "the number of oversampling columns for Halko.[max(k,10)]", cxxopts::value<int>(),"INT")
+        ("tol-em", "tolerance for EMU/PCAngsd algorithm.[1e-5]", cxxopts::value<double>(),"DOUBLE")
+        ("tol-halko", "tolerance for Halko algorithm.[1e-4]", cxxopts::value<double>(),"DOUBLE")
+        ("tol-maf", "MAF tolerance for PCAngsd algorithm.[1e-4]", cxxopts::value<double>(),"DOUBLE")
         ;
 
     try {
@@ -111,10 +111,10 @@ void parse_params(int argc, char* argv[], struct Param* params)
         if( vm.count("out") ) params->outfile = vm["out"].as<string>();
         if( vm.count("eigs") ) {params->k = vm["eigs"].as<int>(); params->ncv = fmax(20, 2 * params->k + 1);}
         if( vm.count("threads") ) params->threads = vm["threads"].as<int>();
-        if( vm.count("tol_halko") ) params->tol_halko = vm["tol_halko"].as<double>();
+        if( vm.count("tol-halko") ) params->tol_halko = vm["tol-halko"].as<double>();
         if( vm.count("imaxiter") ) params->imaxiter = vm["imaxiter"].as<int>();
         if( vm.count("maxp") ) params->p = vm["maxp"].as<int>();
-        if( vm.count("os") ) params->oversamples = vm["os"].as<int>();
+        if( vm.count("oversamples") ) params->oversamples = vm["oversamples"].as<int>();
         if( vm.count("bands") ) params->bands = vm["bands"].as<int>();
         if( vm.count("ncv") ) params->ncv = vm["ncv"].as<int>();
         if( vm.count("itol") ) params->itol = vm["itol"].as<double>();
@@ -123,12 +123,12 @@ void parse_params(int argc, char* argv[], struct Param* params)
         if( vm.count("pcangsd") ) params->pcangsd = vm["pcangsd"].as<bool>();
         if( vm.count("emu") ) params->emu = vm["emu"].as<bool>();
         if( vm.count("fast") ) params->fast = vm["fast"].as<bool>();
-        if( vm.count("noshuffle") ) params->noshuffle = vm["noshuffle"].as<bool>();
+        if( vm.count("no-shuffle") ) params->noshuffle = vm["no-shuffle"].as<bool>();
         if (params->emu || params->pcangsd) {
             params->runem = true;
             if( vm.count("maxiter") ) params->maxiter = vm["maxiter"].as<int>();
-            if( vm.count("tol_maf") ) params->tolmaf = vm["tol_maf"].as<double>();
-            if( vm.count("tol_em") ) params->tol = vm["tol_em"].as<double>();
+            if( vm.count("tol-maf") ) params->tolmaf = vm["tol-maf"].as<double>();
+            if( vm.count("tol-em") ) params->tol = vm["tol-em"].as<double>();
         } else {
             params->maxiter = 0;
         }

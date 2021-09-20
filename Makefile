@@ -1,6 +1,6 @@
 ###########################
 
-VERSION=0.1.1
+VERSION=0.1.2
 
 # for mkl
 # make sure libiomp5 can be found
