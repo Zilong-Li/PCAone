@@ -30,7 +30,8 @@ int main(int argc, char *argv[])
     omp_set_num_threads(params.threads);
     Data *data;
     if (params.intype == "bfile") {
-        if (!params.batch && params.fast && !params.noshuffle) permute_plink(params.bed_prefix);
+        if (!params.batch && params.fast && !params.noshuffle)
+            permute_plink(params.bed_prefix, params.buffer);
         data = new FileBed(params);
     #ifdef WITH_BGEN
     } else if( params.intype == "bgen" ) {
@@ -84,6 +85,7 @@ void parse_params(int argc, char* argv[], struct Param* params)
         ;
     opts.add_options("More")
         ("bands", "number of bands to use for fast Halko.[64]", cxxopts::value<int>(),"INT")
+        ("buffer", "number of snps as a buffer for permuting the data.[1]", cxxopts::value<int>(),"INT")
         ("imaxiter", "maximum number of Arnoldi interations.[500]", cxxopts::value<int>(),"INT")
         ("itol", "tolerance for Arnoldi algorithm.[1e-6]", cxxopts::value<double>(),"DOUBLE")
         ("maxp", "maximum number of power iteration for Halko.[20]", cxxopts::value<int>(),"INT")
@@ -116,6 +118,7 @@ void parse_params(int argc, char* argv[], struct Param* params)
         if( vm.count("maxp") ) params->p = vm["maxp"].as<int>();
         if( vm.count("oversamples") ) params->oversamples = vm["oversamples"].as<int>();
         if( vm.count("bands") ) params->bands = vm["bands"].as<int>();
+        if( vm.count("buffer") ) params->buffer = vm["buffer"].as<int>();
         if( vm.count("ncv") ) params->ncv = vm["ncv"].as<int>();
         if( vm.count("itol") ) params->itol = vm["itol"].as<double>();
         if( vm.count("arnoldi") ) params->arnoldi = vm["arnoldi"].as<bool>();

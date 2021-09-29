@@ -26,12 +26,12 @@ typedef unsigned long long uint64;
 
 template<typename M>
 M load_csv (const std::string & path) {
-    std::ifstream indata;
-    indata.open(path);
+    std::ifstream in;
+    in.open(path);
     std::string line;
     std::vector<double> values;
     uint rows = 0;
-    while (std::getline(indata, line)) {
+    while (std::getline(in, line)) {
         std::stringstream lineStream(line);
         std::string cell;
         while (std::getline(lineStream, cell, ' ')) {
@@ -68,6 +68,7 @@ struct Param {
     // for halko
     uint oversamples = 10;
     double tol_halko = 1e-4;
+    uint buffer = 1;
 
     double memory = 2; // 2 G
     bool runem = false;
@@ -92,7 +93,7 @@ struct Line
 
 size_t count_lines(const string& fpath);
 string timestamp();
-void permute_plink(string& fin);
+void permute_plink(string& fin, uint blocksize=1);
 void flip_UV(MatrixXd& U, MatrixXd& V, bool ubase = true);
 void flip_Y(const MatrixXd& X, MatrixXd& Y);
 double rmse(const MatrixXd& X, const MatrixXd& Y);

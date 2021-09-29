@@ -3,7 +3,7 @@
 
   - use double instead of float to improve numerical accuracy
 
-  - add --no-shuffle, --oversamples options
+  - add --no-shuffle, --oversamples, --buffer options
 
   - disable checking padding region of plink bed
 
