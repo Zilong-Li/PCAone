@@ -6,6 +6,9 @@ void NormalRsvdOpData::computeGandH(MatrixXd& G, MatrixXd& H, int p)
     if (H.cols() != size || H.rows() != cols() || G.cols() != size || G.rows() != rows()) {
         throw std::runtime_error("Error: the size of G or H doesn't match.\n");
     }
+    MatrixXd Omg, Upre, Ucur;
+    auto rng = std::default_random_engine {};
+    Omg = StandardNormalRandom<MatrixXd, std::default_random_engine>(data->nsamples, size, rng);
     if (data->params.batch)
     {
         verbose && cout << timestamp() << "running in batch mode with one-pass halko.\n";
@@ -64,8 +67,8 @@ void NormalRsvdOpData::computeGandH(MatrixXd& G, MatrixXd& H, int p)
                     } else {
                         data->read_snp_block_initial(start_idx, stop_idx, standardize);
                     }
-                    G.block(start_idx, 0, actual_block_size, size).noalias() = data->G.transpose() * Omg;
-                    H.noalias() += data->G * G.block(start_idx, 0, actual_block_size, size);
+                    G.middleRows(start_idx, actual_block_size).noalias() = data->G.transpose() * Omg;
+                    H.noalias() += data->G * G.middleRows(start_idx, actual_block_size);
                 }
                 stop = check_if_halko_converge(pi, data->params.tol_halko, Upre, Ucur, G, H, nk, rows(), cols(), size, verbose);
                 if (stop || pi == p) {
@@ -87,6 +90,11 @@ void FancyRsvdOpData::computeGandH(MatrixXd& G, MatrixXd& H, int p)
     if (H.cols() != size || H.rows() != cols() || G.cols() != size || G.rows() != rows()) {
         throw std::runtime_error("Error: the size of G or H doesn't match.\n");
     }
+    MatrixXd Omg, Omg2, H1, H2, Upre, Ucur;
+    auto rng = std::default_random_engine {};
+    Omg = UniformRandom<MatrixXd, std::default_random_engine>(data->nsamples, size, rng);
+    Omg2 = Omg;
+
     if (data->params.batch)
     {
         verbose && cout << timestamp() << "running in batch mode with fancy halko.\n";
@@ -121,11 +129,11 @@ void FancyRsvdOpData::computeGandH(MatrixXd& G, MatrixXd& H, int p)
                 start_idx = b * blocksize;
                 stop_idx = (b + 1) * blocksize >= data->nsnps ? data->nsnps - 1 : (b + 1) * blocksize - 1 ;
                 actual_block_size = stop_idx - start_idx + 1;
-                G.block(start_idx, 0, actual_block_size, size).noalias() = data->G.block(0, start_idx, data->G.rows(), actual_block_size).transpose() * Omg;
+                G.middleRows(start_idx, actual_block_size).noalias() = data->G.middleCols(start_idx, actual_block_size).transpose() * Omg;
                 if (i <= band / 2) {
-                    H1.noalias() += data->G.block(0, start_idx, data->G.rows(), actual_block_size) * G.block(start_idx, 0, actual_block_size, size);
+                    H1.noalias() += data->G.middleCols(start_idx, actual_block_size) * G.middleRows(start_idx, actual_block_size);
                 }else if (i > band / 2 && i <= band) {
-                    H2.noalias() += data->G.block(0, start_idx, data->G.rows(), actual_block_size) * G.block(start_idx, 0, actual_block_size, size);
+                    H2.noalias() += data->G.middleCols(start_idx, actual_block_size) * G.middleRows(start_idx, actual_block_size);
                 }
                 if( (b+1) >= band ) {
                     if (i == band) {
@@ -184,11 +192,11 @@ void FancyRsvdOpData::computeGandH(MatrixXd& G, MatrixXd& H, int p)
                 } else {
                     data->read_snp_block_initial(start_idx, stop_idx, standardize);
                 }
-                G.block(start_idx, 0, actual_block_size, size).noalias() = data->G.transpose() * Omg;
+                G.middleRows(start_idx, actual_block_size).noalias() = data->G.transpose() * Omg;
                 if (i <= band / 2) {
-                    H1.noalias() += data->G * G.block(start_idx, 0, actual_block_size, size);
+                    H1.noalias() += data->G * G.middleRows(start_idx, actual_block_size);
                 }else if (i > band / 2 && i <= band) {
-                    H2.noalias() += data->G * G.block(start_idx, 0, actual_block_size, size);
+                    H2.noalias() += data->G * G.middleRows(start_idx, actual_block_size);
                 }
                 if( (b+1) >= band ) {
                     if (i == band) {
@@ -228,18 +236,19 @@ void FancyRsvdOpData::computeGandH(MatrixXd& G, MatrixXd& H, int p)
     }
 }
 
-bool check_if_halko_converge(int pi, double tol, MatrixXd& Upre, MatrixXd& Ucur, const MatrixXd& G, const MatrixXd& H, int k, int nrow, int ncol, int size, bool verbose = false)
+bool check_if_halko_converge(int pi, double tol, MatrixXd& Upre, MatrixXd& Ucur, MatrixXd& G, MatrixXd& H, int k, int nrow, int ncol, int size, bool verbose = false)
 {
-    MatrixXd Q(nrow, size), B(size, ncol), R(size, size), Rt(size, size);
-    Eigen::HouseholderQR<MatrixXd> qr(G);
-    Q.noalias() = qr.householderQ() * MatrixXd::Identity(nrow, size);
-    R.noalias() = MatrixXd::Identity(size, nrow) * qr.matrixQR().triangularView<Eigen::Upper>();
-    Eigen::HouseholderQR<MatrixXd> qr2(Q);
-    Q.noalias() = qr2.householderQ() * MatrixXd::Identity(nrow, size);
-    Rt.noalias() = MatrixXd::Identity(size, nrow) * qr2.matrixQR().triangularView<Eigen::Upper>();
+    Eigen::HouseholderQR<Ref<MatrixXd>> qr(G);
+    // R is size x size
+    MatrixXd R = MatrixXd::Identity(size, nrow) * qr.matrixQR().triangularView<Eigen::Upper>();
+    G.noalias() = qr.householderQ() * MatrixXd::Identity(nrow, size);
+    Eigen::HouseholderQR<Ref<MatrixXd>> qr2(G);
+    MatrixXd Rt = MatrixXd::Identity(size, nrow) * qr2.matrixQR().triangularView<Eigen::Upper>();
+    G.noalias() = qr2.householderQ() * MatrixXd::Identity(nrow, size);
     R = Rt * R;
+    // B is size x ncol
     // R.T * B = H.T
-    B.noalias() = R.transpose().householderQr().solve(H.transpose());
+    MatrixXd B = R.transpose().colPivHouseholderQr().solve(H.transpose());
     Eigen::JacobiSVD<MatrixXd> svd(B, Eigen::ComputeThinU | Eigen::ComputeThinV);
     Ucur = svd.matrixV().leftCols(k);
     if (pi == 0) {

@@ -30,6 +30,7 @@ void permute_plink(string& fin, uint blocksize)
     uint64 bed_bytes_per_block = bed_bytes_per_snp * blocksize;
     uint64 nblocks = (unsigned int)ceil((double)nsnps / blocksize);
 
+    setlocale(LC_ALL,"C");
     ios_base::sync_with_stdio(false);
     string fout = fin + ".perm";
     std::ifstream in(fin + ".bed", std::ios::binary);

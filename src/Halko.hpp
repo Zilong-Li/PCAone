@@ -31,7 +31,6 @@ class NormalRsvdOpData : public RsvdOpData
 private:
     Data* data;
     const Index nk, os, size;
-    MatrixXd Omg, Upre, Ucur;
     bool stop = false;
     uint64 actual_block_size, start_idx, stop_idx;
 
@@ -39,10 +38,7 @@ public:
 
     NormalRsvdOpData(Data* data_, int k_, int os_ = 10) :
         data(data_), nk(k_), os(os_), size(k_ + os_)
-        {
-            auto rng = std::default_random_engine {};
-            Omg = StandardNormalRandom<MatrixXd, std::default_random_engine>(data->nsamples, size, rng);
-        }
+        {}
 
     ~NormalRsvdOpData() {}
 
@@ -60,7 +56,6 @@ class FancyRsvdOpData : public RsvdOpData
 private:
     Data* data;
     const Index nk, os, size;
-    MatrixXd Omg, Omg2, H1, H2, Upre, Ucur;
     bool stop = false;
     uint64 actual_block_size, start_idx, stop_idx;
 
@@ -68,11 +63,7 @@ public:
 
     FancyRsvdOpData(Data* data_, int k_, int os_ = 10) :
         data(data_), nk(k_), os(os_), size(k_ + os_)
-        {
-            auto rng = std::default_random_engine {};
-            Omg = UniformRandom<MatrixXd, std::default_random_engine>(data->nsamples, size, rng);
-            Omg2 = Omg;
-        }
+        {}
 
     ~FancyRsvdOpData() {}
 
@@ -84,7 +75,7 @@ public:
     void computeGandH(MatrixXd& G, MatrixXd& H, int p);
 };
 
-bool check_if_halko_converge(int pi, double tol, MatrixXd& Upre, MatrixXd& Ucur, const MatrixXd& G, const MatrixXd& H, int k, int nrow, int ncol, int size, bool verbose);
+bool check_if_halko_converge(int pi, double tol, MatrixXd& Upre, MatrixXd& Ucur, MatrixXd& G, MatrixXd& H, int k, int nrow, int ncol, int size, bool verbose);
 void print_summary_table(const MatrixXd& Upre, const MatrixXd& Ucur);
 void run_pca_with_halko(Data* data, const Param& params);
 

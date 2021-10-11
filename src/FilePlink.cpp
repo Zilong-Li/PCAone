@@ -4,6 +4,8 @@
 // https://github.com/OpenGene/fastp/blame/master/src/fastareader.cpp#L11
 void FileBed::check_file_offset_first_var()
 {
+    setlocale(LC_ALL,"C");
+    ios_base::sync_with_stdio(false);
     long long offset = 3 + nsnps * bed_bytes_per_snp;
     if (bed_ifstream.tellg() == offset) {
         // reach the end of bed, reset the position to the first variant;

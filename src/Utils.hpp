@@ -14,6 +14,7 @@
 #include <cmath>
 #include <algorithm>
 #include <iterator>
+#include <clocale>
 
 const double VAR_TOL = 1e-9;
 
