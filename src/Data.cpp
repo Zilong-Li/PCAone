@@ -8,7 +8,20 @@ void Data::prepare(uint& blocksize)
     {
         read_all_and_centering();
     } else {
-        blocksize = (unsigned int)ceil((double)params.memory * 125000000 / nsamples);
+        if (params.arnoldi) {
+            // ram of arnoldi = n * b * 8 / 1024 kb
+            blocksize = (unsigned int)ceil((double)params.memory * 134217728 / nsamples);
+        } else {
+            // ram of halko = (3*n*l + 2*m*l + 5*m + n*b)*8/1024 Kb
+            uint64 l = params.k + params.oversamples;
+            double m = (3 * nsamples * l + 2 * nsnps * l + 5 * nsnps) / 134217728 ;
+            if (params.memory > 1.1 * m) {
+                m = 0;
+            } else {
+                cerr << "Waring: minimum RAM required is " << m << ". Trying to allocate more RAM. "<< endl;
+            }
+            blocksize = (unsigned int)ceil((double)((m + params.memory) * 134217728 - 3 * nsamples * l - 2 * nsnps * l - 5 * nsnps ) / nsamples);
+        }
         nblocks = (unsigned int)ceil((double)nsnps / blocksize);
         params.verbose && cout << timestamp() << "initial setting by -m/--memory: blocksize=" << blocksize << ", nblocks=" << nblocks << ", bandFactor=" << bandFactor << ".\n";
         if (nblocks == 1) {

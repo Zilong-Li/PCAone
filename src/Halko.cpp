@@ -35,7 +35,7 @@ void NormalRsvdOpData::computeGandH(MatrixXd& G, MatrixXd& H, int p)
                 stop = check_if_halko_converge(pi, data->params.tol_halko, Upre, Ucur, G, H, nk, rows(), cols(), size, verbose);
                 if (stop || pi == p) {
                     if (verbose) {
-                        cout << timestamp() << "stops at epoch=" << pi + 1 << ".\n";
+                        cout << timestamp() << "stops at epoch=" << pi + 1 << endl;
                         print_summary_table(Upre, Ucur);
                     }
                     break;
@@ -73,7 +73,7 @@ void NormalRsvdOpData::computeGandH(MatrixXd& G, MatrixXd& H, int p)
                 stop = check_if_halko_converge(pi, data->params.tol_halko, Upre, Ucur, G, H, nk, rows(), cols(), size, verbose);
                 if (stop || pi == p) {
                     if (verbose) {
-                        cout << timestamp() << "stops at epoch=" << pi + 1 << ".\n";
+                        cout << timestamp() << "stops at epoch=" << pi + 1 << endl;
                         print_summary_table(Upre, Ucur);
                     }
                     break;
@@ -238,13 +238,22 @@ void FancyRsvdOpData::computeGandH(MatrixXd& G, MatrixXd& H, int p)
 
 bool check_if_halko_converge(int pi, double tol, MatrixXd& Upre, MatrixXd& Ucur, MatrixXd& G, MatrixXd& H, int k, int nrow, int ncol, int size, bool verbose = false)
 {
-    Eigen::HouseholderQR<Ref<MatrixXd>> qr(G);
-    // R is size x size
-    MatrixXd R = MatrixXd::Identity(size, nrow) * qr.matrixQR().triangularView<Eigen::Upper>();
-    G.noalias() = qr.householderQ() * MatrixXd::Identity(nrow, size);
-    Eigen::HouseholderQR<Ref<MatrixXd>> qr2(G);
-    MatrixXd Rt = MatrixXd::Identity(size, nrow) * qr2.matrixQR().triangularView<Eigen::Upper>();
-    G.noalias() = qr2.householderQ() * MatrixXd::Identity(nrow, size);
+    MatrixXd R(size, size), Rt(size, size);
+    {
+        Eigen::HouseholderQR<Ref<MatrixXd>> qr(G);
+        // G equals qr.matrixQR()
+        // so get R first and put G as Q afterwards
+        R.noalias() = MatrixXd::Identity(size, nrow) * qr.matrixQR().triangularView<Eigen::Upper>();
+        G.noalias() = qr.householderQ() * MatrixXd::Identity(nrow, size);
+
+    }
+
+    {
+        Eigen::HouseholderQR<Ref<MatrixXd>> qr(G);
+        Rt.noalias() = MatrixXd::Identity(size, nrow) * qr.matrixQR().triangularView<Eigen::Upper>();
+        G.noalias() = qr.householderQ() * MatrixXd::Identity(nrow, size);
+    }
+
     R = Rt * R;
     // B is size x ncol
     // R.T * B = H.T
@@ -256,7 +265,7 @@ bool check_if_halko_converge(int pi, double tol, MatrixXd& Upre, MatrixXd& Ucur,
     } else {
         double diff_mev;
         diff_mev = 1 - mev(Upre, Ucur);
-        verbose && cout << timestamp() << "running of epoch=" << pi << ", 1-MEV=" << diff_mev << ".\n";
+        verbose && cout << timestamp() << "running of epoch=" << pi << ", 1-MEV=" << diff_mev << endl;
         if (diff_mev < tol) {
             return true;
         } else {
@@ -290,9 +299,9 @@ void run_pca_with_halko(Data* data, const Param& params)
     VectorXd S;
     RsvdOpData* op;
     if (!params.runem && params.fast) {
-        op = new FancyRsvdOpData(data, params.k, fmax(params.k, params.oversamples));
+        op = new FancyRsvdOpData(data, params.k, params.oversamples);
     } else {
-        op = new NormalRsvdOpData(data, params.k, fmax(params.k, params.oversamples));
+        op = new NormalRsvdOpData(data, params.k, params.oversamples);
     }
     RsvdOnePass< MatrixXd, RsvdOpData >* rsvd = new RsvdOnePass< MatrixXd, RsvdOpData >(*op);
     if (!params.runem)
