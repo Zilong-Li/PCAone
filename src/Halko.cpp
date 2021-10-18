@@ -164,24 +164,21 @@ void FancyRsvdOpData::computeGandH(MatrixXd& G, MatrixXd& H, int pi)
                         H = H1 + H2;
                         Eigen::HouseholderQR<MatrixXd> qr(H);
                         Omg.noalias() = qr.householderQ() * MatrixXd::Identity(cols(), size);
-                        flip_Y(Omg2, Omg);
-                        Omg2 = Omg;
+                        flip_Omg(Omg2, Omg);
                         H1 = MatrixXd::Zero(cols(), size);
                         i = 0;
                     }else if (i == band / 2) {
                         H = H1 + H2;
                         Eigen::HouseholderQR<MatrixXd> qr(H);
                         Omg.noalias() = qr.householderQ() * MatrixXd::Identity(cols(), size);
-                        flip_Y(Omg2, Omg);
-                        Omg2 = Omg;
+                        flip_Omg(Omg2, Omg);
                         H2 = MatrixXd::Zero(cols(), size);
                     }else if( (b+1) == data->nblocks) {
                         // shouldn't go here if the bands is proper.
                         H = H1 + H2;
                         Eigen::HouseholderQR<MatrixXd> qr(H);
                         Omg.noalias() = qr.householderQ() * MatrixXd::Identity(cols(), size);
-                        flip_Y(Omg2, Omg);
-                        Omg2 = Omg;
+                        flip_Omg(Omg2, Omg);
                     }
                 }
             }
@@ -219,23 +216,20 @@ void FancyRsvdOpData::computeGandH(MatrixXd& G, MatrixXd& H, int pi)
                         H = H1 + H2;
                         Eigen::HouseholderQR<MatrixXd> qr(H);
                         Omg.noalias() = qr.householderQ() * MatrixXd::Identity(cols(), size);
-                        flip_Y(Omg2, Omg);
-                        Omg2 = Omg;
+                        flip_Omg(Omg2, Omg);
                         H1 = MatrixXd::Zero(cols(), size);
                         i = 0;
                     }else if (i == band / 2) {
                         H = H1 + H2;
                         Eigen::HouseholderQR<MatrixXd> qr(H);
                         Omg.noalias() = qr.householderQ() * MatrixXd::Identity(cols(), size);
-                        flip_Y(Omg2, Omg);
-                        Omg2 = Omg;
+                        flip_Omg(Omg2, Omg);
                         H2 = MatrixXd::Zero(cols(), size);
                     }else if( (b+1) == data->nblocks) {
                         H = H1 + H2;
                         Eigen::HouseholderQR<MatrixXd> qr(H);
                         Omg.noalias() = qr.householderQ() * MatrixXd::Identity(cols(), size);
-                        flip_Y(Omg2, Omg);
-                        Omg2 = Omg;
+                        flip_Omg(Omg2, Omg);
                     }
                 }
             }

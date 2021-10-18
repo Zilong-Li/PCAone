@@ -96,6 +96,7 @@ size_t count_lines(const string& fpath);
 string timestamp();
 void permute_plink(string& fin, uint blocksize=1);
 void flip_UV(MatrixXd& U, MatrixXd& V, bool ubase = true);
+void flip_Omg(MatrixXd& Omg2, MatrixXd& Omg);
 void flip_Y(const MatrixXd& X, MatrixXd& Y);
 double rmse(const MatrixXd& X, const MatrixXd& Y);
 double mev(const MatrixXd& X, const MatrixXd& Y);
