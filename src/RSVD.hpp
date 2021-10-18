@@ -188,9 +188,8 @@ public:
             const Eigen::Index ncol{b_op.cols()};
             const Eigen::Index size{b_op.ranks() + b_op.oversamples()};
             const Eigen::Index k{b_op.ranks()};
-            MatrixType R(size, size), Rt(size, size);
-            MatrixType H = MatrixType::Zero(ncol, size);
-            MatrixType G = MatrixType::Zero(nrow, size);
+            MatrixType H(ncol, size), G(nrow, size), R(size, size), Rt(size, size);
+
             b_op.computeGandH(G, H, p);
 
             {
@@ -214,31 +213,6 @@ public:
             b_singularValues = svd.singularValues().head(k);
         }
 
-    // for fancy in future
-    // void computeUSV(MatrixType& G, MatrixType& H, int p = 1)
-    //     {
-    //         b_op.computeGandH(G, H, p);
-
-    //         const Eigen::Index nrow{G.rows()};
-    //         const Eigen::Index ncol{H.cols()};
-    //         const Eigen::Index size{b_op.ranks() + b_op.oversamples()};
-    //         const Eigen::Index k{b_op.ranks()};
-    //         MatrixType Q(nrow, size), B(size, ncol), R(size, size), Rt(size, size);
-
-    //         Eigen::HouseholderQR<MatrixType> qr(G);  // shouldn't use in place qr
-    //         Q.noalias() = qr.householderQ() * MatrixType::Identity(nrow, size);
-    //         R.noalias() = MatrixType::Identity(size, nrow) * qr.matrixQR().template triangularView<Eigen::Upper>();
-    //         Eigen::HouseholderQR<MatrixType> qr2(Q);
-    //         Q.noalias() = qr2.householderQ() * MatrixType::Identity(nrow, size);
-    //         Rt.noalias() = MatrixType::Identity(size, nrow) * qr2.matrixQR().template triangularView<Eigen::Upper>();
-    //         R = Rt * R;
-
-    //         B.noalias() = R.transpose().householderQr().solve(H.transpose());
-    //         Eigen::JacobiSVD<MatrixType> svd(B, Eigen::ComputeThinU | Eigen::ComputeThinV);
-    //         b_leftSingularVectors.noalias() = Q * svd.matrixU().leftCols(k);
-    //         b_rightSingularVectors = svd.matrixV().leftCols(k);
-    //         b_singularValues = svd.singularValues().head(k);
-    //     }
 
 private:
 

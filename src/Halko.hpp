@@ -1,5 +1,5 @@
-#ifndef __EMU_HALKO__
-#define __EMU_HALKO__
+#ifndef __HALKO__
+#define __HALKO__
 
 #include "Data.hpp"
 #include "RSVD.hpp"
@@ -20,20 +20,23 @@ public:
     virtual Index ranks() const = 0;
     virtual Index oversamples() const = 0;
 
-    virtual void computeGandH(MatrixXd& G, MatrixXd& H, int p) = 0;
+    virtual void computeGandH(MatrixXd& G, MatrixXd& H, int pi) = 0;
+
     inline void setFlags(bool is_update, bool is_standardize, bool is_verbose)
         {update = is_update; standardize = is_standardize; verbose = is_verbose;}
 
+    void computeUSV(int p, double tol);
+
 };
+
 
 class NormalRsvdOpData : public RsvdOpData
 {
 private:
     Data* data;
     const Index nk, os, size;
-    bool stop = false;
     uint64 actual_block_size, start_idx, stop_idx;
-
+    MatrixXd Omg;
 public:
 
     NormalRsvdOpData(Data* data_, int k_, int os_ = 10) :
@@ -47,7 +50,7 @@ public:
     Index ranks() const { return nk; }
     Index oversamples() const { return os; }
 
-    void computeGandH(MatrixXd& G, MatrixXd& H, int p);
+    void computeGandH(MatrixXd& G, MatrixXd& H, int pi=0);
 
 };
 
@@ -56,8 +59,8 @@ class FancyRsvdOpData : public RsvdOpData
 private:
     Data* data;
     const Index nk, os, size;
-    bool stop = false;
-    uint64 actual_block_size, start_idx, stop_idx;
+    uint64 band, blocksize, actual_block_size, start_idx, stop_idx;
+    MatrixXd Omg, Omg2;
 
 public:
 
@@ -72,10 +75,9 @@ public:
     Index ranks() const { return nk; }
     Index oversamples() const { return os; }
 
-    void computeGandH(MatrixXd& G, MatrixXd& H, int p);
+    void computeGandH(MatrixXd& G, MatrixXd& H, int pi = 0);
 };
 
-bool check_if_halko_converge(int pi, double tol, MatrixXd& Upre, MatrixXd& Ucur, MatrixXd& G, MatrixXd& H, int k, int nrow, int ncol, int size, bool verbose);
 void print_summary_table(const MatrixXd& Upre, const MatrixXd& Ucur);
 void run_pca_with_halko(Data* data, const Param& params);
 

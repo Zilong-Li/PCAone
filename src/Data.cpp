@@ -14,11 +14,11 @@ void Data::prepare(uint& blocksize)
         } else {
             // ram of halko = (3*n*l + 2*m*l + 5*m + n*b)*8/1024 Kb
             uint64 l = params.k + params.oversamples;
-            double m = (3 * nsamples * l + 2 * nsnps * l + 5 * nsnps) / 134217728 ;
+            double m = (double)(3 * nsamples * l + 2 * nsnps * l + 5 * nsnps) / 134217728 ;
             if (params.memory > 1.1 * m) {
                 m = 0;
             } else {
-                cerr << "Waring: minimum RAM required is " << m << ". Trying to allocate more RAM. "<< endl;
+                cerr << "Waring: minimum RAM required is " << m << " GB. Trying to allocate more RAM. "<< endl;
             }
             blocksize = (unsigned int)ceil((double)((m + params.memory) * 134217728 - 3 * nsamples * l - 2 * nsnps * l - 5 * nsnps ) / nsamples);
         }
