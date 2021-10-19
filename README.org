@@ -2,7 +2,7 @@
 
 #+OPTIONS: ^:nil
 
-*Current Version: v0.1.2*
+*Current Version: v0.1.3*
 
 PCAone is a fast and memory efficient PCA tool implemented in C++ aiming at providing comprehensive features and algorithms for different scenarios.
 
