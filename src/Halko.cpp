@@ -270,12 +270,12 @@ void run_pca_with_halko(Data* data, const Param& params)
     {
         cout << timestamp() << "begin to do non-EM PCA.\n";
         rsvd->setFlags(false, true, params.verbose);
-        rsvd->computeUSV(params.p, params.tol_halko);
+        rsvd->computeUSV(params.maxp, params.tol_halko);
         data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U);
     } else {
         // for EM iteration
         rsvd->setFlags(false, false, false);
-        rsvd->computeUSV(params.p, params.tol_halko);
+        rsvd->computeUSV(params.maxp, params.tol_halko);
         // flip_UV(Upre, V, false);
         double diff;
         rsvd->setFlags(true, false, false);
@@ -283,7 +283,7 @@ void run_pca_with_halko(Data* data, const Param& params)
         for (uint i = 0; i < params.maxiter; ++i)
         {
             Vpre = rsvd->V;
-            rsvd->computeUSV(params.p, params.tol_halko);
+            rsvd->computeUSV(params.maxp, params.tol_halko);
             // flip_UV(U, V, false);
             diff = rmse(rsvd->V, Vpre);
             cout << timestamp() << "Individual allele frequencies estimated (iter=" << i+1 << "), RMSE=" << diff <<".\n";
@@ -310,7 +310,7 @@ void run_pca_with_halko(Data* data, const Param& params)
             data->write_eigs_files(svd.singularValues().head(params.k), svd.matrixU().leftCols(params.k));
         } else {
             rsvd->setFlags(true, true, false);
-            rsvd->computeUSV(params.p, params.tol_halko);
+            rsvd->computeUSV(params.maxp, params.tol_halko);
             data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U);
         }
     }

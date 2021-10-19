@@ -52,7 +52,7 @@ struct Param {
     string csvfile;
     string outfile;
     uint k = 10;
-    uint p = 20;  // maximum number of power iterations
+    uint maxp = 20;  // maximum number of power iterations
     uint threads = 1;
     uint blocksize = 0;
     uint bands = 64;

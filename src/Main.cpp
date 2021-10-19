@@ -115,7 +115,7 @@ void parse_params(int argc, char* argv[], struct Param* params)
         if( vm.count("threads") ) params->threads = vm["threads"].as<int>();
         if( vm.count("tol-halko") ) params->tol_halko = vm["tol-halko"].as<double>();
         if( vm.count("imaxiter") ) params->imaxiter = vm["imaxiter"].as<int>();
-        if( vm.count("maxp") ) params->p = vm["maxp"].as<int>();
+        if( vm.count("maxp") ) params->maxp = vm["maxp"].as<int>();
         if( vm.count("oversamples") ) params->oversamples = vm["oversamples"].as<int>();
         if( vm.count("bands") ) params->bands = vm["bands"].as<int>();
         if( vm.count("buffer") ) params->buffer = vm["buffer"].as<int>();
