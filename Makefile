@@ -20,10 +20,10 @@ program       = PCAone
 # for mac user, please change this to gnu gcc instead of the default clang version
 # brew install gcc && ln -s $(which g++-11) /usr/local/bin/g++
 CXX           = g++
-CXXFLAGS	  = -O3 -Wall -std=c++11 -mavx -mavx2 -ffast-math -m64
+CXXFLAGS	  = -O3 -Wall -std=c++11 -mavx2 -mfma -ffast-math -m64
 MYFLAGS       = -DVERSION=\"$(VERSION)\" -DNDEBUG -DWITH_BGEN
-INC           = -I./external -I/usr/include -I/usr/local/include
-LPATHS        = -L/usr/lib -L/usr/local/lib
+INC           = -I./external -I/usr/local/include
+LPATHS        = -L/usr/local/lib
 #######
 
 # detect OS architecture and add flags
@@ -102,7 +102,7 @@ LIBS += ${SLIBS} ${DLIBS} -lm -ldl
 all: ${program}
 
 ${program}: bgenlib ${OBJ}
-	$(CXX) $(CXXFLAGS) ${MYFLAGS} -o $(program) ${OBJ} ./external/bgen/bgenlib.a ${LPATHS} ${LIBS}
+	$(CXX) $(CXXFLAGS) -o $(program) ${OBJ} ./external/bgen/bgenlib.a ${LPATHS} ${LIBS}
 
 %.o: %.cpp
 	${CXX} ${CXXFLAGS} ${MYFLAGS} -o $@ -c $< ${INC}
