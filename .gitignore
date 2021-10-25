@@ -10,3 +10,6 @@ GPATH
 PCAone*
 *.makefile
 external/*/*.a
+*.dylib
+/external/zstd/lib/*.a
+/external/zstd/lib/obj/

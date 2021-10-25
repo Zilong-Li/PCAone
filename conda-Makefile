@@ -8,14 +8,12 @@ MKLROOT       =
 program       = PCAone
 # for mac user, please change CXX to g++ gcc instead of the default clang version
 # brew install gcc && ln -s $(which g++-11) /usr/local/bin/g++
-# export CC="gcc-8"
-# export CXX="g++-8"
-# export CPP="g++-8"
-# export LD="gcc-8"
-# export LDFLAGS="-Wl,-rpath,/usr/local/opt/gcc/lib/gcc/8/"
+# export CC="gcc-11"
+# export CXX="g++-11"
+# export LDFLAGS="-Wl,-rpath,/usr/local/opt/gcc/lib/gcc/11/"
 # conda install -c anaconda mkl mkl-include intel-openmp
 # CXX           = g++
-CXXFLAGS	  = -O3 -Wall -std=c++11 -march=native -ffast-math -m64 -fopenmp
+CXXFLAGS	  = -O3 -Wall -std=c++11 -march=native -ffast-math -m64
 MYFLAGS       = -fopenmp -DVERSION=\"$(VERSION)\" -DNDEBUG -DWITH_BGEN -DWITH_MKL -DEIGEN_USE_MKL_ALL
 INC           = -I./external -I/usr/local/include
 LPATHS        = -L/usr/local/lib

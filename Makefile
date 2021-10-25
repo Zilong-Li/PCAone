@@ -32,7 +32,8 @@ ifeq ($(Platform),Linux)
 ###### for linux
 	ifeq ($(strip $(STATIC)),1)
 		CXXFLAGS += -static-libstdc++ -fopenmp
-        SLIBS    += /usr/lib/x86_64-linux-gnu/libz.a /usr/lib/x86_64-linux-gnu/libzstd.a
+		# CXXFLAGS += -static -fopenmp
+        SLIBS    += /usr/lib/x86_64-linux-gnu/libz.a
 	else
 		CXXFLAGS += -march=native -fopenmp
         DLIBS    += -lz -lzstd
@@ -44,7 +45,7 @@ ifeq ($(Platform),Linux)
 		LPATHS  += -L${MKLROOT}/lib
 		ifeq ($(strip $(STATIC)),1)
 			SLIBS += -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_intel_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -liomp5 -lpthread
-			# SLIBS += -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_sequential.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread
+			# SLIBS += -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_gnu_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -lgomp -lpthread
 		else
 			DLIBS += -Wl,-rpath,${MKLROOT}/lib -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread
 		endif
@@ -60,7 +61,7 @@ ifeq ($(Platform),Linux)
 else ifeq ($(Platform),Darwin)
 ###### for mac
 	ifeq ($(strip $(STATIC)),1)
-		SLIBS += /usr/local/opt/zlib/lib/libz.a /usr/local/lib/libzstd.a /usr/local/lib/libomp.a  # clang needs libomp.a
+		SLIBS += /usr/local/opt/zlib/lib/libz.a /usr/local/lib/libomp.a  # clang needs libomp.a
 		CXXFLAGS += -stdlib=libc++ -Xpreprocessor -fopenmp 
 	else
         DLIBS += -lz -lzstd
@@ -101,14 +102,19 @@ LIBS += ${SLIBS} ${DLIBS} -lm -ldl
 
 all: ${program}
 
-${program}: bgenlib ${OBJ}
-	$(CXX) $(CXXFLAGS) -o $(program) ${OBJ} ./external/bgen/bgenlib.a ${LPATHS} ${LIBS}
+${program}: zstdlib bgenlib ${OBJ}
+	$(CXX) $(CXXFLAGS) -o $(program) ${OBJ} ./external/zstd/lib/libzstd.a ./external/bgen/bgenlib.a ${LPATHS} ${LIBS}
 
 %.o: %.cpp
 	${CXX} ${CXXFLAGS} ${MYFLAGS} -o $@ -c $< ${INC}
+
+zstdlib:
+	(cd ./external/zstd/lib/; $(MAKE))
 
 bgenlib:
 	(cd ./external/bgen/; $(MAKE))
 
 clean:
-	(rm -f $(OBJ) $(program);cd ./external/bgen/; $(MAKE) clean)
+	(rm -f $(OBJ) $(program))
+	(cd ./external/bgen/; $(MAKE) clean)
+	(cd ./external/zstd/lib/; $(MAKE) clean)

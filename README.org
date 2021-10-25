@@ -34,7 +34,7 @@ See [[file:CHANGELOG.org][change log]] here.
 There are pre-compiled program provided for both Mac and Linux platform. If you want to use PCAone with MKL threading, make sure the runtime library =libiomp5= is in your environment. Please check the releases page to download them.
 
 ** Build from source
-PCAone use [[https://github.com/facebook/zstd][zstd]] library to parse zstd compressed input format. Please make sure it is installed. If you don't want to use MKL of OpenBlas as backends, you can just copy and run the following code without modifying anything.  
+If you don't want to use MKL of OpenBlas as backends, you can just copy and run the following code without modifying anything.
 #+begin_src sh
 git clone https://github.com/Zilong-Li/PCAone.git
 # modify variables in Makefile to use MKL or OpenBlas as backend
