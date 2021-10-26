@@ -31,11 +31,12 @@ See [[file:CHANGELOG.org][change log]] here.
 
 ** Download pre-compiled binary
 
-There are pre-compiled program provided for both Mac and Linux platform. If you want to use PCAone with MKL threading, make sure the runtime library =libiomp5= is in your environment. Please check the releases page to download them.
+There are pre-compiled program provided for both Mac and Linux platform. For Mac platform, the binary program is without MKL threading. For Linux platform, it is recommended to use PCAone with MKL libiomp5 threading which will speed up the program significantly, but please make sure the runtime library =libiomp5= is in your environment =LD_LIBRARY_PATH=. Check the releases page to download it.
 
 ** Build from source
-If you don't want to use MKL of OpenBlas as backends, you can just copy and run the following code without modifying anything.
-#+begin_src sh
+
+If you don't want to use MKL of OpenBlas as backends, you can just copy and paste the following code in the terminal without modifying anything. 
+#+begin_src shell
 git clone https://github.com/Zilong-Li/PCAone.git
 # modify variables in Makefile to use MKL or OpenBlas as backend
 cd PCAone
@@ -43,24 +44,31 @@ make
 #+end_src
 Since the default compilation is without external MKL or OpenBLAS support, you need to set the =MKLROOT= or =OPENBLAS_ROOT= in *Makefile* to your own path to use one of them as backend. If it complains that there is no =lapack= lib, please install it and set the =LAPACK_ROOT= to the correct path as well. 
 
+*IMPORTANT:* Only =GNU GCC= compiler is supported because MKL threading doesn't support =clang= at the moment. For mac users, you need to make sure the default compiler is =GNU g++= instead of =clang= by doing the following steps before running =make= command.
+#+begin_src shell
+brew install gcc
+export CC=$(find $(brew --prefix)/bin/ -name "gcc-[0-9]*" | tail -1)
+export CXX=$(find $(brew --prefix)/bin/ -name "g++-[0-9]*" | tail -1)
+#+end_src
+
 * Usage
 
 #+begin_src plain
 Usage:
   ./PCAone [OPTION...]
 
-  -h, --help  print list of main options.
-  -H,         print list of all options.
+      --help     print list of main options.
+      --helpall  print list of all options.
 
  Main options:
-  -a, --arnoldi        use Implicit Restarted Arnoldi method instead of
-                       default Randomized SVD(Halko).
+      --beagle FILE    beagle file.
       --bfile PREFIX   prefix of PLINK .bed/.bim/.fam files.
       --bgen FILE      BGEN file.
-      --beagle FILE    beagle file.
   -e, --emu            use EMU algorithm for data with large proportion of
                        missingness.
   -f, --fast           force to use fast super power iterations for Halko.
+  -h, --halko          use single pass Halko method instead of default
+                       Arnoldi method.
   -k, --eigs INT       top k components to be calculated.[10]
   -m, --memory DOUBLE  specify the RAM usage in GB unit instead of exploiting
                        the RAM of the server.

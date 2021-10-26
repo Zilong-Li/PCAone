@@ -68,7 +68,7 @@ struct Param {
     double itol = 1e-6;
     // for halko
     uint oversamples = 10;
-    double tol_halko = 1e-4;
+    double tol_halko = 1e-3;
     uint buffer = 1;
 
     double memory = 2; // 2 G
@@ -78,8 +78,8 @@ struct Param {
     bool fast = false;
     bool emu = false;
     bool pcangsd  = false; // read GP field for PCAngsd instead of GT.
-    bool halko = true;
-    bool arnoldi = false;
+    bool halko = false;
+    bool arnoldi = true;
     bool verbose = false;
 };
 

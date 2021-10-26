@@ -4,10 +4,7 @@
 #include "FileBeagle.hpp"
 #include "Halko.hpp"
 #include "Arnoldi.hpp"
-// use bgen lib for parsing bgen file
-#ifdef WITH_BGEN
 #include "FileBgen.hpp"
-#endif
 // if using external BLAS LAPACK routines
 #ifdef WITH_OPENBLAS
 #include "lapacke.h"
@@ -33,10 +30,8 @@ int main(int argc, char *argv[])
         if (!params.batch && params.fast && !params.noshuffle)
             permute_plink(params.bed_prefix, params.buffer);
         data = new FileBed(params);
-    #ifdef WITH_BGEN
     } else if( params.intype == "bgen" ) {
         data = new FileBgen(params);
-    #endif
     } else if( params.intype == "beagle" ) {
         data = new FileBeagle(params);
     } else {
@@ -62,12 +57,11 @@ void parse_params(int argc, char* argv[], struct Param* params)
 {
     cxxopts::Options opts(argv[0], (string)"PCA All In One (v" + VERSION + ")");
     opts.add_options()
-        ("h,help", "print list of main options.")
-        ("H", "print list of all options.")
+        ("help", "print list of main options.")
+        ("helpall", "print list of all options.")
         ;
 
     opts.add_options("Main")
-        ("a, arnoldi", "use Implicit Restarted Arnoldi method instead of default Randomized SVD(Halko).", cxxopts::value<bool>()->default_value("false"))
         ("beagle", "beagle file.", cxxopts::value<std::string>(), "FILE")
         ("bfile", "prefix of PLINK .bed/.bim/.fam files.", cxxopts::value<std::string>(), "PREFIX")
         // ("pfile", "prefix to PLINK2 .pgen/.pvar/.psam files.", cxxopts::value<std::string>(), "PREFIX")
@@ -76,6 +70,7 @@ void parse_params(int argc, char* argv[], struct Param* params)
         #endif
         ("e,emu", "use EMU algorithm for data with large proportion of missingness.", cxxopts::value<bool>()->default_value("false"))
         ("f, fast", "force to use fast super power iterations for Halko.", cxxopts::value<bool>()->default_value("false"))
+        ("h, halko", "use single pass Halko method instead of default Arnoldi method.", cxxopts::value<bool>()->default_value("false"))
         ("k,eigs", "top k components to be calculated.[10]", cxxopts::value<int>(),"INT")
         ("m,memory", "specify the RAM usage in GB unit instead of exploiting the RAM of the server.", cxxopts::value<double>(),"DOUBLE")
         ("n,threads", "number of threads.[1]", cxxopts::value<int>(),"INT")
@@ -94,7 +89,7 @@ void parse_params(int argc, char* argv[], struct Param* params)
         ("no-shuffle", "do not shuffle the matrix for fast Halko blocksize mode.", cxxopts::value<bool>()->default_value("false"))
         ("oversamples", "the number of oversampling columns for Halko.[10]", cxxopts::value<int>(),"INT")
         ("tol-em", "tolerance for EMU/PCAngsd algorithm.[1e-5]", cxxopts::value<double>(),"DOUBLE")
-        ("tol-halko", "tolerance for Halko algorithm.[1e-4]", cxxopts::value<double>(),"DOUBLE")
+        ("tol-halko", "tolerance for Halko algorithm.[1e-3]", cxxopts::value<double>(),"DOUBLE")
         ("tol-maf", "MAF tolerance for PCAngsd algorithm.[1e-4]", cxxopts::value<double>(),"DOUBLE")
         ;
 
@@ -106,7 +101,7 @@ void parse_params(int argc, char* argv[], struct Param* params)
             cout << opts.help({"", "Main"}) << "\n\n";
             exit(EXIT_SUCCESS);
         }
-        if (vm.count("H")){
+        if (vm.count("helpall")){
             cout << opts.help({"", "Main", "More"}) << "\n";
             exit(EXIT_SUCCESS);
         }
@@ -121,7 +116,7 @@ void parse_params(int argc, char* argv[], struct Param* params)
         if( vm.count("buffer") ) params->buffer = vm["buffer"].as<int>();
         if( vm.count("ncv") ) params->ncv = vm["ncv"].as<int>();
         if( vm.count("itol") ) params->itol = vm["itol"].as<double>();
-        if( vm.count("arnoldi") ) params->arnoldi = vm["arnoldi"].as<bool>();
+        if( vm.count("halko") ) params->halko = vm["halko"].as<bool>();
         if( vm.count("verbose") ) params->verbose = vm["verbose"].as<bool>();
         if( vm.count("pcangsd") ) params->pcangsd = vm["pcangsd"].as<bool>();
         if( vm.count("emu") ) params->emu = vm["emu"].as<bool>();
