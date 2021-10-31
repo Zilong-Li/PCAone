@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
     Data *data;
     if (params.intype == "bfile") {
         if (!params.batch && params.fast && !params.noshuffle)
-            permute_plink(params.bed_prefix, params.buffer);
+            permute_plink2(params.bed_prefix, params.buffer);
         data = new FileBed(params);
     } else if( params.intype == "bgen" ) {
         data = new FileBgen(params);
@@ -80,7 +80,7 @@ void parse_params(int argc, char* argv[], struct Param* params)
         ;
     opts.add_options("More")
         ("bands", "number of bands to use for fast Halko.[64]", cxxopts::value<int>(),"INT")
-        ("buffer", "number of snps as a buffer for permuting the data.[1]", cxxopts::value<int>(),"INT")
+        ("buffer", "buffer in GB uint used for permuting the data.[2]", cxxopts::value<int>(),"INT")
         ("imaxiter", "maximum number of Arnoldi interations.[500]", cxxopts::value<int>(),"INT")
         ("itol", "tolerance for Arnoldi algorithm.[1e-6]", cxxopts::value<double>(),"DOUBLE")
         ("maxp", "maximum number of power iteration for Halko.[20]", cxxopts::value<int>(),"INT")
@@ -116,12 +116,17 @@ void parse_params(int argc, char* argv[], struct Param* params)
         if( vm.count("buffer") ) params->buffer = vm["buffer"].as<int>();
         if( vm.count("ncv") ) params->ncv = vm["ncv"].as<int>();
         if( vm.count("itol") ) params->itol = vm["itol"].as<double>();
-        if( vm.count("halko") ) params->halko = vm["halko"].as<bool>();
         if( vm.count("verbose") ) params->verbose = vm["verbose"].as<bool>();
         if( vm.count("pcangsd") ) params->pcangsd = vm["pcangsd"].as<bool>();
         if( vm.count("emu") ) params->emu = vm["emu"].as<bool>();
-        if( vm.count("fast") ) params->fast = vm["fast"].as<bool>();
         if( vm.count("no-shuffle") ) params->noshuffle = vm["no-shuffle"].as<bool>();
+        if( vm.count("halko") ) {
+            params->halko = vm["halko"].as<bool>();
+            params->arnoldi = false;
+        } else if( vm.count("fast") ) {
+            params->fast = vm["fast"].as<bool>();
+            params->arnoldi = false;
+        }
         if (params->emu || params->pcangsd) {
             params->runem = true;
             if( vm.count("maxiter") ) params->maxiter = vm["maxiter"].as<int>();

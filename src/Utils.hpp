@@ -69,7 +69,7 @@ struct Param {
     // for halko
     uint oversamples = 10;
     double tol_halko = 1e-3;
-    uint buffer = 1;
+    uint buffer = 2;
 
     double memory = 2; // 2 G
     bool runem = false;
@@ -93,13 +93,23 @@ struct Line
 };
 
 size_t count_lines(const string& fpath);
+
 string timestamp();
+
+void permute_plink2(string& fin, uint gb = 2);
+
 void permute_plink(string& fin, uint blocksize=1);
+
 void flip_UV(MatrixXd& U, MatrixXd& V, bool ubase = true);
+
 void flip_Omg(MatrixXd& Omg2, MatrixXd& Omg);
+
 void flip_Y(const MatrixXd& X, MatrixXd& Y);
+
 double rmse(const MatrixXd& X, const MatrixXd& Y);
+
 double mev(const MatrixXd& X, const MatrixXd& Y);
+
 void mev_rmse_byk(const MatrixXd& X, const MatrixXd& Y, VectorXd& Vm, VectorXd& Vr);
 
 #endif

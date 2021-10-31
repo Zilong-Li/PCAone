@@ -15,7 +15,7 @@ See [[file:CHANGELOG.org][change log]] here.
 - Quite fast with multi-threading support using high performance library [[https://software.intel.com/content/www/us/en/develop/tools/oneapi/components/onemkl.html#gs.8jsfgz][MKL]] or [[https://www.openblas.net/][OpenBLAS]] as backend.
 - Supports the [[https://www.cog-genomics.org/plink/1.9/formats#bed][PLINK]], [[https://www.well.ox.ac.uk/~gav/bgen_format][BGEN]], [[http://www.popgen.dk/angsd/index.php/Input#Beagle_format][Beagle]] genetic data formats.
 - Supports [[https://github.com/Rosemeis/emu][EMU]] algorithm for scenario with large proportion of missingness.
-- Supports [[https://github.com/Rosemeis/pcangsd][PCAngsd]] algorithm for low coverage sequencing scenario with genotype probability as input.
+- Supports [[https://github.com/Rosemeis/pcangsd][PCAngsd]] algorithm for low coverage sequencing scenario with genotype likelihood as input.
 - Supports zstd compressed CSV format for scRNAs data [In progress]
 
 | Input format               | bfile | bgen | beagle |
