@@ -28,23 +28,6 @@ void permute_plink2(string& fin, uint gb)
     uint64 nsnps = count_lines(fin + ".bim");
     uint64 nsamples = count_lines(fin + ".fam");
     uint64 bed_bytes_per_snp = (nsamples+3)>>2;
-    ios_base::sync_with_stdio(false);
-    string fout = fin + ".perm";
-    std::ifstream in(fin + ".bed", std::ios::binary);
-    std::ofstream out(fout + ".bed", std::ios::binary);
-    if (!in.is_open()) {
-        throw std::invalid_argument("ERROR: Cannot open bed file.\n");
-    }
-    uchar header[3];
-    in.read(reinterpret_cast<char *> (&header[0]), 3);
-    if ( (header[0] != 0x6c) || (header[1] != 0x1b) || (header[2] != 0x01) ) {
-        throw std::invalid_argument("ERROR: Incorrect magic number in bed file.\n");
-    }
-    out.write(reinterpret_cast<char *> (&header[0]), 3);
-    std::ifstream in_bim(fin + ".bim", std::ios::in);
-    std::ofstream out_bim(fout + ".bim", std::ios::out);
-    vector<string> bims(std::istream_iterator<Line>{in_bim},
-                        std::istream_iterator<Line>{});
 
     // calculate the readin number of snps of certain big buffer like 2GB.
     // must be a multiple of nbands.
@@ -82,9 +65,26 @@ void permute_plink2(string& fin, uint gb)
         }
     }
 
-    uint64 b, i, j, twoGB_snps2, idx, bufidx=bufsize;
+    ios_base::sync_with_stdio(false);
+    string fout = fin + ".perm";
+    std::ifstream in(fin + ".bed", std::ios::binary);
+    std::ofstream out(fout + ".bed", std::ios::binary);
+    if (!in.is_open()) {
+        throw std::invalid_argument("ERROR: Cannot open bed file.\n");
+    }
+    uchar header[3];
+    in.read(reinterpret_cast<char *> (&header[0]), 3);
+    if ( (header[0] != 0x6c) || (header[1] != 0x1b) || (header[2] != 0x01) ) {
+        throw std::invalid_argument("ERROR: Incorrect magic number in bed file.\n");
+    }
+    out.write(reinterpret_cast<char *> (&header[0]), 3);
+    std::ifstream in_bim(fin + ".bim", std::ios::in);
+    std::ofstream out_bim(fout + ".bim", std::ios::out);
+    vector<string> bims(std::istream_iterator<Line>{in_bim},
+                        std::istream_iterator<Line>{});
     vector<string> bims2;
     bims2.resize(nsnps);
+    uint64 b, i, j, twoGB_snps2, idx, bufidx=bufsize;
     for(i = 0; i < nblocks; i++) {
         if (i == nblocks - 1 && modr2 != 0) {
             twoGB_snps2 = nsnps - (nblocks - 1) * twoGB_snps;

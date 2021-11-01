@@ -1,4 +1,16 @@
 
+- v0.1.3
+
+  - refactor Halko implementation
+
+  - use Arnoldi as default method
+
+  - add external/zlib
+
+  - upgrade to Eigen 3.4.0
+
+  - add structured permutation
+
 - v0.1.2
 
   - use double instead of float to improve numerical accuracy
