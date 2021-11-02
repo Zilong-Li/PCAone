@@ -55,27 +55,28 @@ int main(int argc, char *argv[])
 
 void parse_params(int argc, char* argv[], struct Param* params)
 {
-    cxxopts::Options opts(argv[0], (string)"PCA All In One (v" + VERSION + ")");
+    cxxopts::Options opts(argv[0], (string)"PCA All In One (v" + VERSION + ")        https://github.com/Zilong-Li/PCAone\n(C) 2021-2021 Zilong Li        GNU General Public License v3");
     opts.add_options()
-        ("help", "print list of main options.")
-        ("helpall", "print list of all options.")
+        ("help", "Print list of main options.")
+        ("helpall", "Print list of all options.")
         ;
 
     opts.add_options("Main")
-        ("beagle", "beagle file.", cxxopts::value<std::string>(), "FILE")
+        ("beagle", "path of beagle file.", cxxopts::value<std::string>(), "FILE")
         ("bfile", "prefix of PLINK .bed/.bim/.fam files.", cxxopts::value<std::string>(), "PREFIX")
         // ("pfile", "prefix to PLINK2 .pgen/.pvar/.psam files.", cxxopts::value<std::string>(), "PREFIX")
         #ifdef WITH_BGEN
-        ("bgen", "BGEN file.", cxxopts::value<std::string>(), "FILE")
+        ("bgen", "path of BGEN file.", cxxopts::value<std::string>(), "FILE")
         #endif
-        ("e,emu", "use EMU algorithm for data with large proportion of missingness.", cxxopts::value<bool>()->default_value("false"))
+        ("e,emu", "use EMU algorithm for data with lots of missingness.", cxxopts::value<bool>()->default_value("false"))
         ("f, fast", "force to use fast super power iterations for Halko.", cxxopts::value<bool>()->default_value("false"))
-        ("h, halko", "use single pass Halko method instead of default Arnoldi method.", cxxopts::value<bool>()->default_value("false"))
+        ("h, halko", "use Halko method instead of default Arnoldi method.", cxxopts::value<bool>()->default_value("false"))
         ("k,eigs", "top k components to be calculated.[10]", cxxopts::value<int>(),"INT")
+        ("maxp", "maximum number of power iteration for Halko.[20]", cxxopts::value<int>(),"INT")
         ("m,memory", "specify the RAM usage in GB unit instead of exploiting the RAM of the server.", cxxopts::value<double>(),"DOUBLE")
         ("n,threads", "number of threads.[1]", cxxopts::value<int>(),"INT")
         ("o,out", "prefix of output files.", cxxopts::value<string>(),"PREFIX")
-        ("p,pcangsd", "use PCAngsd algorithm for data with genotype probability.", cxxopts::value<bool>()->default_value("false"))
+        ("p,pcangsd", "use PCAngsd algorithm for data with genotype likelihood.", cxxopts::value<bool>()->default_value("false"))
         ("v,verbose", "verbose message output.", cxxopts::value<bool>()->default_value("false"))
         ;
     opts.add_options("More")
@@ -83,13 +84,12 @@ void parse_params(int argc, char* argv[], struct Param* params)
         ("buffer", "buffer in GB uint used for permuting the data.[2]", cxxopts::value<int>(),"INT")
         ("imaxiter", "maximum number of Arnoldi interations.[500]", cxxopts::value<int>(),"INT")
         ("itol", "tolerance for Arnoldi algorithm.[1e-6]", cxxopts::value<double>(),"DOUBLE")
-        ("maxp", "maximum number of power iteration for Halko.[20]", cxxopts::value<int>(),"INT")
         ("maxiter", "maximum number of EMU/PCAngsd interations.[100]", cxxopts::value<int>(),"INT")
         ("ncv", "number of Lanzcos basis vectors.[max(20, 2*k+1)]", cxxopts::value<int>(),"INT")
-        ("no-shuffle", "do not shuffle the matrix for fast Halko blocksize mode.", cxxopts::value<bool>()->default_value("false"))
+        ("no-shuffle", "do not shuffle data for fast Halko out-of-ram mode.", cxxopts::value<bool>()->default_value("false"))
         ("oversamples", "the number of oversampling columns for Halko.[10]", cxxopts::value<int>(),"INT")
         ("tol-em", "tolerance for EMU/PCAngsd algorithm.[1e-5]", cxxopts::value<double>(),"DOUBLE")
-        ("tol-halko", "tolerance for Halko algorithm.[1e-3]", cxxopts::value<double>(),"DOUBLE")
+        ("tol-halko", "tolerance for Halko algorithm.[1e-4]", cxxopts::value<double>(),"DOUBLE")
         ("tol-maf", "MAF tolerance for PCAngsd algorithm.[1e-4]", cxxopts::value<double>(),"DOUBLE")
         ;
 

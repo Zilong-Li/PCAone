@@ -11,20 +11,20 @@ PCAone is a fast and memory efficient PCA tool implemented in C++ aiming at prov
 See [[file:CHANGELOG.org][change log]] here.
 
 - Has both Arnoldi and Halko methods with *out-of-core* implementation.
-- Implement our own Halko algorithm with super power iteration for tera-scale dataset.
+- Implement our own fast Halko algorithm with super power iterations for tera-scale dataset.
 - Quite fast with multi-threading support using high performance library [[https://software.intel.com/content/www/us/en/develop/tools/oneapi/components/onemkl.html#gs.8jsfgz][MKL]] or [[https://www.openblas.net/][OpenBLAS]] as backend.
 - Supports the [[https://www.cog-genomics.org/plink/1.9/formats#bed][PLINK]], [[https://www.well.ox.ac.uk/~gav/bgen_format][BGEN]], [[http://www.popgen.dk/angsd/index.php/Input#Beagle_format][Beagle]] genetic data formats.
 - Supports [[https://github.com/Rosemeis/emu][EMU]] algorithm for scenario with large proportion of missingness.
 - Supports [[https://github.com/Rosemeis/pcangsd][PCAngsd]] algorithm for low coverage sequencing scenario with genotype likelihood as input.
 - Supports zstd compressed CSV format for scRNAs data [In progress]
 
-| Input format               | bfile | bgen | beagle |
-| Arnoldi method             | +     | +    | +      |
-| One-Pass Halko             | +     | +    | +      |
-| Super fast Halko           | +     | -    | -      |
-| EMU algorithm              | +     | +    | -      |
-| PCAngsd algorithm          | -     | +    | +      |
-| Out-of-core implementation | +     | +    | -      |
+| *Input format*      | bfile | bgen | beagle |
+| *Arnoldi method*    | +     | +    | +      |
+| *One Pass Halko*    | +     | +    | +      |
+| *Super fast Halko*  | +     | +/-  | +/-    |
+| *EMU algorithm*     | +     | +    | -      |
+| *PCAngsd algorithm* | -     | +    | +      |
+| *Out of RAM mode*   | +     | +    | -      |
 
 
 * Installation
@@ -57,33 +57,71 @@ export CXX=$(find $(brew --prefix)/bin/ -name "g++-[0-9]*" | tail -1)
 Usage:
   ./PCAone [OPTION...]
 
-      --help     print list of main options.
-      --helpall  print list of all options.
+      --help     Print list of main options.
+      --helpall  Print list of all options.
 
  Main options:
-      --beagle FILE    beagle file.
+      --beagle FILE    path of beagle file.
       --bfile PREFIX   prefix of PLINK .bed/.bim/.fam files.
-      --bgen FILE      BGEN file.
-  -e, --emu            use EMU algorithm for data with large proportion of
-                       missingness.
+  -e, --emu            use EMU algorithm for data with lots of missingness.
   -f, --fast           force to use fast super power iterations for Halko.
-  -h, --halko          use single pass Halko method instead of default
-                       Arnoldi method.
+  -h, --halko          use Halko method instead of default Arnoldi method.
   -k, --eigs INT       top k components to be calculated.[10]
-  -m, --memory DOUBLE  specify the RAM usage in GB unit instead of exploiting
+      --maxp INT       maximum number of power iteration for Halko.[20]
+  -m, --memory DOUBLE  Specify the RAM usage in GB unit instead of exploiting
                        the RAM of the server.
   -n, --threads INT    number of threads.[1]
-  -o, --out PREFIX     prefix of output files.
+  -o, --out PREFIX     Prefix of output files.
   -p, --pcangsd        use PCAngsd algorithm for data with genotype
-                       probability.
+                       likelihood.
   -v, --verbose        verbose message output.
 #+end_src
 
-*Warning*: On most OS it is recommended to limit the number of threads to the number of physical cores. 
+*WARNING*: On most OS it is recommended to limit the number of threads to the number of physical cores.
+
+** Examples
+
+- use *Default* Arnoldi method for data with small number of samples
+#+begin_src shell
+# running in RAM
+PCAone --bfile input.plink -k 20 -n 20 -o out
+# running out of RAM, only use 2GB memory
+PCAone --bfile input.plink -k 20 -n 20 -o out -m 2
+#+end_src
+
+- use normal Halko method for large data set
+#+begin_src shell
+# running in RAM with Halko
+PCAone --bfile input.plink -k 20 -n 20 -o out -h
+# running out of RAM with Halko, only use 2GB memory
+PCAone --bfile input.plink -k 20 -n 20 -o out -h -m 2
+#+end_src
+
+- use super fast Halko method for crazy huge data set
+#+begin_src shell
+# running in RAM with fast Halko
+PCAone --bfile input.plink -k 20 -n 20 -o out -f
+# running out of RAM with fast Halko, only use 2GB memory
+PCAone --bfile input.plink -k 20 -n 20 -o out -f -m 2
+#+end_src
+
+- running EMU with super fast halko method
+#+begin_src shell
+PCAone --bfile input.plink -k 20 -n 20 -o out -f --emu -m 2
+#+end_src
+
+- running PCAngsd with super fast halko method
+#+begin_src shell
+PCAone --beagle input.bgl.gz -k 20 -n 20 -o out -f --pcangsd
+#+end_src
 
 * Citation
 
-TBD
+If you find PCAone helpful, please cite our paper https://github.com/Zilong-Li/PCAone [Paper TBD].
+
+If using EMU algorithm, please also cite [[https://academic.oup.com/bioinformatics/article/37/13/1868/6103565][Large-scale inference of population structure in presence of missingness using PCA]].
+
+If using PCAngsd algorithm, please also cite [[https://www.genetics.org/content/210/2/719][Inferring Population Structure and Admixture Proportions in Low-Depth NGS Data]].
 
 * Acknowledgements
 

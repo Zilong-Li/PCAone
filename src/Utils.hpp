@@ -68,7 +68,7 @@ struct Param {
     double itol = 1e-6;
     // for halko
     uint oversamples = 10;
-    double tol_halko = 1e-3;
+    double tol_halko = 1e-4;
     uint buffer = 2;
 
     double memory = 2; // 2 G

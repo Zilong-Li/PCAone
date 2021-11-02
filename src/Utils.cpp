@@ -24,6 +24,7 @@ string timestamp()
 // structured permutation with cached buffer
 void permute_plink2(string& fin, uint gb)
 {
+    cout << timestamp() << "begin to permute plink data.\n";
     uint   nbands = 64;
     uint64 nsnps = count_lines(fin + ".bim");
     uint64 nsamples = count_lines(fin + ".fam");
