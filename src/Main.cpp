@@ -65,9 +65,7 @@ void parse_params(int argc, char* argv[], struct Param* params)
         ("beagle", "path of beagle file.", cxxopts::value<std::string>(), "FILE")
         ("bfile", "prefix of PLINK .bed/.bim/.fam files.", cxxopts::value<std::string>(), "PREFIX")
         // ("pfile", "prefix to PLINK2 .pgen/.pvar/.psam files.", cxxopts::value<std::string>(), "PREFIX")
-        #ifdef WITH_BGEN
         ("bgen", "path of BGEN file.", cxxopts::value<std::string>(), "FILE")
-        #endif
         ("e,emu", "use EMU algorithm for data with lots of missingness.", cxxopts::value<bool>()->default_value("false"))
         ("f, fast", "force to use fast super power iterations for Halko.", cxxopts::value<bool>()->default_value("false"))
         ("h, halko", "use Halko method instead of default Arnoldi method.", cxxopts::value<bool>()->default_value("false"))
@@ -147,11 +145,9 @@ void parse_params(int argc, char* argv[], struct Param* params)
         } else if( vm.count("pfile") ) {
             params->intype = "pfile";
             params->pgen_prefix = vm["pfile"].as<string>();
-        #ifdef WITH_BGEN
         } else if( vm.count("bgen") ) {
             params->intype = "bgen";
             params->bgen = vm["bgen"].as<string>();
-        #endif
         } else if( vm.count("beagle") ) {
             params->intype = "beagle";
             params->beagle = vm["beagle"].as<string>();
