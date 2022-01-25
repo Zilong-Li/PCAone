@@ -37,7 +37,7 @@ public:
     void standardize_E();
     void pcangsd_standardize_E(const MatrixXd& U, const VectorXd& svals, const MatrixXd& VT);
     void update_batch_E(const MatrixXd& U, const VectorXd& svals, const MatrixXd& VT);
-    void write_eigs_files(const VectorXd& vals, const MatrixXd& vecs);
+    void write_eigs_files(const VectorXd& S, const MatrixXd& U, const MatrixXd& V);
 
     // for blockwise
     void calcu_vt_initial(const MatrixXd& T, MatrixXd& VT);

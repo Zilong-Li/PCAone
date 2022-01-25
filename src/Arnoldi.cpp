@@ -57,15 +57,15 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
             exit(EXIT_FAILURE);
         }
         U = svds.matrix_U(params.k);
+        V = svds.matrix_V(params.k);
         svals = svds.singular_values();
         if (!params.runem)
         {
             cout << timestamp() << "Final SVD done!\n";
             evals = svals.array().square() / data->nsnps;
-            data->write_eigs_files(evals, U);
+            data->write_eigs_files(evals, U, V);
             return;
         }
-        V = svds.matrix_V(params.k);
         flip_UV(U, V);
         cout << timestamp() << "begin to do EM iteration.\n";
         for (uint i = 1; i <= params.maxiter; ++i)
@@ -105,7 +105,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
             nconv = eigs2.compute();
             if(eigs2.info() == SUCCESSFUL) {
                 nu = min(params.k, nconv);
-                data->write_eigs_files(eigs2.eigenvalues(), eigs2.eigenvectors().leftCols(nu));
+                data->write_eigs_files(eigs2.eigenvalues(), eigs2.eigenvectors().leftCols(nu), eigs2.eigenvectors().leftCols(nu));
             } else {
                 throw std::runtime_error("something wrong with Spectra SymEigsSolver\n");
             }
@@ -121,7 +121,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
         cout << timestamp() << "Final SVD done!\n";
         evals = svals.array().square() / data->nsnps;
         // write to files;
-        data->write_eigs_files(evals, U);
+        data->write_eigs_files(evals, U, V);
 
     } else {
         // for blockwise
@@ -139,13 +139,6 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
         if(eigs->info() == Spectra::SUCCESSFUL)
         {
             op->U = eigs->eigenvectors().leftCols(nu);
-            if (!params.runem)
-            {
-                cout << timestamp() << "Final SVD done!\n";
-                evals = eigs->eigenvalues() / data->nsnps;
-                data->write_eigs_files(evals, op->U);
-                return;
-            }
             op->S = eigs->eigenvalues().cwiseSqrt();
             // V = G' * U / s
             // VT = (U' / s) * G
@@ -154,6 +147,14 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
             T = (eigs->eigenvectors().leftCols(nu).transpose().array().colwise() / eigs->eigenvalues().head(nu).array().sqrt()).matrix();
             op->VT = MatrixXd::Zero(T.rows(), data->nsnps);
             data->calcu_vt_initial(T, op->VT);
+            if (!params.runem)
+            {
+                cout << timestamp() << "Final SVD done!\n";
+                evals = eigs->eigenvalues() / data->nsnps;
+                MatrixXd V = op->VT.transpose();
+                data->write_eigs_files(evals, op->U, V);
+                return;
+            }
             flip_UV(op->U, op->VT);
             cout << timestamp() << "begin to do EM iteration.\n";
             op->setFlags(true, false, params.pcangsd);
@@ -203,7 +204,8 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
                 op->U = eigs->eigenvectors().leftCols(nu);
                 flip_UV(op->U, op->VT);
                 evals = eigs->eigenvalues() / data->nsnps;
-                data->write_eigs_files(evals, op->U);
+                MatrixXd V = op->VT.transpose();
+                data->write_eigs_files(evals, op->U, V);
             } else {
                 throw std::runtime_error("something wrong with Spectra SymEigsSolver\n");
             }

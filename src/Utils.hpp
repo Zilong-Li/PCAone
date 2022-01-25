@@ -72,6 +72,7 @@ struct Param {
     uint buffer = 2;
 
     double memory = 2; // 2 G
+    bool printv = false;
     bool runem = false;
     bool batch = true; // if load all matrix into RAM.
     bool noshuffle = false;

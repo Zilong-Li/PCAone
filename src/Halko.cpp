@@ -271,7 +271,7 @@ void run_pca_with_halko(Data* data, const Param& params)
         cout << timestamp() << "begin to do non-EM PCA.\n";
         rsvd->setFlags(false, true, params.verbose);
         rsvd->computeUSV(params.maxp, params.tol_halko);
-        data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U);
+        data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, rsvd->V);
     } else {
         // for EM iteration
         rsvd->setFlags(false, false, false);
@@ -307,11 +307,11 @@ void run_pca_with_halko(Data* data, const Param& params)
             }
             // use Eigen::JacobiSVD to get eigenvecs
             Eigen::JacobiSVD< MatrixXd > svd(C, Eigen::ComputeThinU | Eigen::ComputeThinV);
-            data->write_eigs_files(svd.singularValues().head(params.k), svd.matrixU().leftCols(params.k));
+            data->write_eigs_files(svd.singularValues().head(params.k), svd.matrixU().leftCols(params.k), svd.matrixU().leftCols(params.k));
         } else {
             rsvd->setFlags(true, true, false);
             rsvd->computeUSV(params.maxp, params.tol_halko);
-            data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U);
+            data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, rsvd->V);
         }
     }
 

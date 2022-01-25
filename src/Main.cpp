@@ -75,6 +75,7 @@ void parse_params(int argc, char* argv[], struct Param* params)
         ("n,threads", "number of threads.[1]", cxxopts::value<int>(),"INT")
         ("o,out", "prefix of output files.", cxxopts::value<string>(),"PREFIX")
         ("p,pcangsd", "use PCAngsd algorithm for data with genotype likelihood.", cxxopts::value<bool>()->default_value("false"))
+        ("printv", "print out another eigen vector.", cxxopts::value<bool>()->default_value("false"))
         ("v,verbose", "verbose message output.", cxxopts::value<bool>()->default_value("false"))
         ;
     opts.add_options("More")
@@ -115,6 +116,7 @@ void parse_params(int argc, char* argv[], struct Param* params)
         if( vm.count("ncv") ) params->ncv = vm["ncv"].as<int>();
         if( vm.count("itol") ) params->itol = vm["itol"].as<double>();
         if( vm.count("verbose") ) params->verbose = vm["verbose"].as<bool>();
+        if( vm.count("printv") ) params->printv = vm["printv"].as<bool>();
         if( vm.count("pcangsd") ) params->pcangsd = vm["pcangsd"].as<bool>();
         if( vm.count("emu") ) params->emu = vm["emu"].as<bool>();
         if( vm.count("no-shuffle") ) params->noshuffle = vm["no-shuffle"].as<bool>();

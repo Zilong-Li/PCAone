@@ -119,17 +119,23 @@ void Data::calcu_vt_update(const MatrixXd& T, const MatrixXd& U, const VectorXd&
 //     return VT;
 // }
 
-void Data::write_eigs_files(const VectorXd& vals, const MatrixXd& vecs)
+void Data::write_eigs_files(const VectorXd& S, const MatrixXd& U, const MatrixXd& V)
 {
-    std::ofstream out_vals(params.outfile + ".eigvals");
-    std::ofstream out_vecs(params.outfile + ".eigvecs");
-    if (out_vals.is_open()) {
-        out_vals << vals << '\n';
+    std::ofstream outs(params.outfile + ".eigvals");
+    std::ofstream outu(params.outfile + ".eigvecs");
+    if (outs.is_open()) {
+        outs << S << '\n';
     }
-    if (out_vecs.is_open()) {
-        out_vecs << vecs << '\n';
+    if (outu.is_open()) {
+        outu << U << '\n';
     }
+    if (params.printv) {
+        std::ofstream outv(params.outfile + ".projection");
+        if (outv.is_open()) {
+            outv << V << '\n';
+        }
 
+    }
 }
 
 void Data::update_batch_E(const MatrixXd& U, const VectorXd& svals, const MatrixXd& VT)
