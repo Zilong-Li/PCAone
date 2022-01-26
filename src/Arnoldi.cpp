@@ -2,6 +2,7 @@
 #include <Spectra/SymEigsSolver.h>
 #include <Spectra/contrib/PartialSVDSolver.h>
 
+using namespace std;
 using namespace Spectra;
 
 void ArnoldiOpData::perform_op(const double *x_in, double* y_out)

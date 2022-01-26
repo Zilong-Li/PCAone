@@ -1,7 +1,6 @@
 #include "FileBeagle.hpp"
-#include <assert.h>
-#include <string.h>
-#include <stdlib.h>
+
+using namespace std;
 
 // inspired by Angsd
 int tgets(gzFile gz,char**buf,int *l)
@@ -41,7 +40,7 @@ void FileBeagle::read_all_and_centering()
         for (i = 0; i < nsamples * 3; i++) {
             tok = strtok_r(NULL,delims,&buffer);
             assert(tok!=NULL);
-            P(j, i) = atof(tok);
+            P(j, i) = std::stod(std::string(tok));
         }
         buffer = original;
         j++;

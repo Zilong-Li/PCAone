@@ -1,7 +1,6 @@
 #ifndef __EMU_UTILES__
 #define __EMU_UTILES__
 
-#include <Eigen/Dense>
 #include <vector>
 #include <iostream>
 #include <fstream>
@@ -15,10 +14,12 @@
 #include <algorithm>
 #include <iterator>
 #include <clocale>
+#include <cstdio>
+#include <cassert>
+#include <Eigen/Dense>
 
 const double VAR_TOL = 1e-9;
 
-using namespace std;
 using namespace Eigen;
 
 typedef unsigned char uchar;
@@ -27,8 +28,7 @@ typedef unsigned long long uint64;
 
 template<typename M>
 M load_csv (const std::string & path) {
-    std::ifstream in;
-    in.open(path);
+    std::ifstream in(path);
     std::string line;
     std::vector<double> values;
     uint rows = 0;
@@ -44,13 +44,13 @@ M load_csv (const std::string & path) {
 }
 
 struct Param {
-    string intype = ""; // bfile, bgen, beagle, csv
-    string bed_prefix;
-    string pgen_prefix;
-    string bgen;
-    string beagle;
-    string csvfile;
-    string outfile;
+    std::string intype = ""; // bfile, bgen, beagle, csv
+    std::string bed_prefix;
+    std::string pgen_prefix;
+    std::string bgen;
+    std::string beagle;
+    std::string csvfile;
+    std::string outfile;
     uint k = 10;
     uint maxp = 20;  // maximum number of power iterations
     uint threads = 1;
@@ -93,13 +93,13 @@ struct Line
     }
 };
 
-size_t count_lines(const string& fpath);
+size_t count_lines(const std::string& fpath);
 
-string timestamp();
+std::string timestamp();
 
-void permute_plink2(string& fin, uint gb = 2);
+void permute_plink2(std::string& fin, uint gb = 2);
 
-void permute_plink(string& fin, uint blocksize=1);
+void permute_plink(std::string& fin, uint blocksize=1);
 
 void flip_UV(MatrixXd& U, MatrixXd& V, bool ubase = true);
 

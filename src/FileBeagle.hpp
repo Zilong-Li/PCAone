@@ -33,7 +33,7 @@ public:
             nsnps = nSites;
             gzclose(fp);
 
-            cout << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << endl;
+            std::cout << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << std::endl;
             P = MatrixXd(nsnps, nsamples * 3);
         }
 

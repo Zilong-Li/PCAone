@@ -22,13 +22,13 @@ public:
     uint64 nsamples, nsnps;  // prevent from potential integer overflow
     uint nblocks = 1;
     uint bandFactor = 1;
-    vector<uint> start, stop;
+    std::vector<uint> start, stop;
     MatrixXd G;  // genotype matrix, can be initial E or centered E, which is nsamples x nsnps;
     MatrixXd P;  // genotype probability, nsnps x nsamples x 3.
     VectorXd F;  // observed or estimated population allele frequency
     VectorXd Dc; // diagnal vector of covariance matrix
     ArrayXXd centered_geno_lookup;
-    vector<bool> C; // 1 or true indicates a ind's snp is missing and need to be predicted.
+    std::vector<bool> C; // 1 or true indicates a ind's snp is missing and need to be predicted.
     const Param& params;
 
 

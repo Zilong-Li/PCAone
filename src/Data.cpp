@@ -1,5 +1,7 @@
 #include "Data.hpp"
 
+using namespace std;
+
 void Data::prepare(uint& blocksize)
 {
     if (nsamples > nsnps) nsamples_ge_nsnps = true;

@@ -21,14 +21,14 @@ public:
     //
     FileBed(const Param& params_) : Data(params_)
         {
-            string fbim = params.bed_prefix + ".bim";
-            string ffam = params.bed_prefix + ".fam";
+            std::string fbim = params.bed_prefix + ".bim";
+            std::string ffam = params.bed_prefix + ".fam";
             nsamples = count_lines(ffam);
             nsnps = count_lines(fbim);
             snpmajor = true;
-            cout << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << endl;
+            std::cout << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << std::endl;
             bed_bytes_per_snp = (nsamples+3)>>2; // get ceiling(nsamples/4)
-            string fbed = params.bed_prefix + ".bed";
+            std::string fbed = params.bed_prefix + ".bed";
             bed_ifstream.open(fbed, std::ios::in | std::ios::binary);
             if (!bed_ifstream.is_open()) {
                 throw std::invalid_argument("ERROR: Cannot open bed file.\n");
@@ -56,7 +56,7 @@ private:
     std::ifstream bed_ifstream;
     uint64 bed_bytes_per_snp;
     bool frequency_was_estimated = false;
-    vector<uchar> inbed;
+    std::vector<uchar> inbed;
 };
 
 #endif

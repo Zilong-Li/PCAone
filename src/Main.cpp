@@ -1,17 +1,18 @@
-#include "cxxopts.hpp"
 #include "Data.hpp"
 #include "FilePlink.hpp"
 #include "FileBeagle.hpp"
+#include "FileBgen.hpp"
+#include "FileCsv.hpp"
 #include "Halko.hpp"
 #include "Arnoldi.hpp"
-#include "FileBgen.hpp"
-// if using external BLAS LAPACK routines
+#include "cxxopts.hpp"
+#include <omp.h>
+
 #ifdef WITH_OPENBLAS
 #include "lapacke.h"
 #elif defined WITH_MKL
 #include "mkl_lapacke.h"
 #endif
-#include <omp.h>
 
 using namespace std;
 
@@ -34,6 +35,8 @@ int main(int argc, char *argv[])
         data = new FileBgen(params);
     } else if( params.intype == "beagle" ) {
         data = new FileBeagle(params);
+    } else if( params.intype == "csv" ) {
+        data = new FileCsv(params);
     } else {
         exit(EXIT_FAILURE);
     }
@@ -66,6 +69,7 @@ void parse_params(int argc, char* argv[], struct Param* params)
         ("bfile", "prefix of PLINK .bed/.bim/.fam files.", cxxopts::value<std::string>(), "PREFIX")
         // ("pfile", "prefix to PLINK2 .pgen/.pvar/.psam files.", cxxopts::value<std::string>(), "PREFIX")
         ("bgen", "path of BGEN file.", cxxopts::value<std::string>(), "FILE")
+        ("csv", "path of zstd compressed csv file.", cxxopts::value<std::string>(), "FILE")
         ("e,emu", "use EMU algorithm for data with lots of missingness.", cxxopts::value<bool>()->default_value("false"))
         ("f, fast", "force to use fast super power iterations for Halko.", cxxopts::value<bool>()->default_value("false"))
         ("h, halko", "use Halko method instead of default Arnoldi method.", cxxopts::value<bool>()->default_value("false"))
@@ -154,6 +158,9 @@ void parse_params(int argc, char* argv[], struct Param* params)
             params->intype = "beagle";
             params->beagle = vm["beagle"].as<string>();
             params->pcangsd = true;
+        } else if( vm.count("csv") ) {
+            params->intype = "csv";
+            params->csvfile = vm["csv"].as<string>();
         } else {
             cout << opts.help({"", "Main"}) << "\n\n";
             exit(EXIT_SUCCESS);

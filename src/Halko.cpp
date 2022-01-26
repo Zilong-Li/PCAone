@@ -1,5 +1,7 @@
 #include "Halko.hpp"
 
+using namespace std;
+
 void RsvdOpData::computeUSV(int p, double tol)
 {
     const Index size{ranks() + oversamples()};

@@ -1,28 +1,30 @@
 #include "Utils.hpp"
 
-size_t count_lines(const string& fpath)
+using namespace std;
+
+size_t count_lines(const std::string& fpath)
 {
     std::ifstream in(fpath);
     size_t count = 0;
-    string line;
+    std::string line;
     while (getline(in, line)) {
         count++;
     }
     return count;
 }
 
-string timestamp()
+std::string timestamp()
 {
     time_t t = time(NULL);
     char *s = asctime(localtime(&t));
     s[strlen(s) - 1] = '\0';
-    string str(s);
-    str = string("[") + str + string("] ");
+    std::string str(s);
+    str = std::string("[") + str + std::string("] ");
     return str;
 }
 
 // structured permutation with cached buffer
-void permute_plink2(string& fin, uint gb)
+void permute_plink2(std::string& fin, uint gb)
 {
     cout << timestamp() << "begin to permute plink data.\n";
     uint   nbands = 64;
@@ -67,7 +69,7 @@ void permute_plink2(string& fin, uint gb)
     }
 
     ios_base::sync_with_stdio(false);
-    string fout = fin + ".perm";
+    std::string fout = fin + ".perm";
     std::ifstream in(fin + ".bed", std::ios::binary);
     std::ofstream out(fout + ".bed", std::ios::binary);
     if (!in.is_open()) {
@@ -81,9 +83,9 @@ void permute_plink2(string& fin, uint gb)
     out.write(reinterpret_cast<char *> (&header[0]), 3);
     std::ifstream in_bim(fin + ".bim", std::ios::in);
     std::ofstream out_bim(fout + ".bim", std::ios::out);
-    vector<string> bims(std::istream_iterator<Line>{in_bim},
+    vector<std::string> bims(std::istream_iterator<Line>{in_bim},
                         std::istream_iterator<Line>{});
-    vector<string> bims2;
+    vector<std::string> bims2;
     bims2.resize(nsnps);
     uint64 b, i, j, twoGB_snps2, idx, bufidx=bufsize;
     for(i = 0; i < nblocks; i++) {
@@ -126,7 +128,7 @@ void permute_plink2(string& fin, uint gb)
     fin = fout;
 }
 
-void permute_plink(string& fin, uint blocksize)
+void permute_plink(std::string& fin, uint blocksize)
 {
     cout << timestamp() << "begin to permute plink data.\n";
     uint64 nsnps = count_lines(fin + ".bim");
@@ -137,7 +139,7 @@ void permute_plink(string& fin, uint blocksize)
 
     setlocale(LC_ALL,"C");
     ios_base::sync_with_stdio(false);
-    string fout = fin + ".perm";
+    std::string fout = fin + ".perm";
     std::ifstream in(fin + ".bed", std::ios::binary);
     std::ofstream out(fout + ".bed", std::ios::binary);
     if (!in.is_open()) {
@@ -153,11 +155,11 @@ void permute_plink(string& fin, uint blocksize)
     inbed.resize(bed_bytes_per_block);
     std::ifstream in_bim(fin + ".bim", std::ios::in);
     std::ofstream out_bim(fout + ".bim", std::ios::out);
-    vector<string> bims;
+    vector<std::string> bims;
     bims.resize(nblocks);
     vector<uint64> seqs;
     seqs.reserve(nblocks);
-    string line;
+    std::string line;
     uint64 i, j;
     for(i = 0; i < nblocks; i++) {
         seqs.push_back(i);
@@ -174,7 +176,7 @@ void permute_plink(string& fin, uint blocksize)
     std::shuffle(std::begin(seqs), std::end(seqs), rng);
     uint64 idx;
     uint64 len = 3 + bed_bytes_per_snp * nsnps;
-    string sites = "";
+    std::string sites = "";
     for(i = 0; i < nblocks; i++)
     {
         idx = 3 + (seqs[i] + 1) * bed_bytes_per_snp * blocksize;

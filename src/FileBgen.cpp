@@ -1,5 +1,7 @@
 #include "FileBgen.hpp"
 
+using namespace std;
+
 void FileBgen::read_all_and_centering()
 {
     uint i, j, gc;

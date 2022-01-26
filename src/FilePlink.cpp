@@ -1,5 +1,7 @@
 #include "FilePlink.hpp"
 
+using namespace std;
+
 // https://stackoverflow.com/questions/5166263/how-to-get-iostream-to-perform-better
 // https://github.com/OpenGene/fastp/blame/master/src/fastareader.cpp#L11
 void FileBed::check_file_offset_first_var()
