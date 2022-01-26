@@ -20,7 +20,10 @@
 
 const double VAR_TOL = 1e-9;
 
-using namespace Eigen;
+
+typedef Eigen::MatrixXd MyMatrix;
+typedef Eigen::VectorXd MyVector;
+typedef Eigen::ArrayXXd MyArrayX;
 
 typedef unsigned char uchar;
 typedef unsigned int uint;
@@ -40,7 +43,7 @@ M load_csv (const std::string & path) {
         }
         ++rows;
     }
-    return Eigen::Map<const Matrix<typename M::Scalar, M::RowsAtCompileTime, M::ColsAtCompileTime, RowMajor>>(values.data(), rows, values.size()/rows);
+    return Eigen::Map<const Eigen::Matrix<typename M::Scalar, M::RowsAtCompileTime, M::ColsAtCompileTime, Eigen::RowMajor>>(values.data(), rows, values.size()/rows);
 }
 
 struct Param {
@@ -101,16 +104,16 @@ void permute_plink2(std::string& fin, uint gb = 2);
 
 void permute_plink(std::string& fin, uint blocksize=1);
 
-void flip_UV(MatrixXd& U, MatrixXd& V, bool ubase = true);
+void flip_UV(MyMatrix& U, MyMatrix& V, bool ubase = true);
 
-void flip_Omg(MatrixXd& Omg2, MatrixXd& Omg);
+void flip_Omg(MyMatrix& Omg2, MyMatrix& Omg);
 
-void flip_Y(const MatrixXd& X, MatrixXd& Y);
+void flip_Y(const MyMatrix& X, MyMatrix& Y);
 
-double rmse(const MatrixXd& X, const MatrixXd& Y);
+double rmse(const MyMatrix& X, const MyMatrix& Y);
 
-double mev(const MatrixXd& X, const MatrixXd& Y);
+double mev(const MyMatrix& X, const MyMatrix& Y);
 
-void mev_rmse_byk(const MatrixXd& X, const MatrixXd& Y, VectorXd& Vm, VectorXd& Vr);
+void mev_rmse_byk(const MyMatrix& X, const MyMatrix& Y, MyVector& Vm, MyVector& Vr);
 
 #endif

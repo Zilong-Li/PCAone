@@ -9,8 +9,8 @@ void FileBgen::read_all_and_centering()
     cout << timestamp() << "begin to parse the bgen file.\n";
     if (!params.pcangsd)
     {
-        F = VectorXd::Zero(nsnps);
-        G = MatrixXd(nsamples, nsnps);
+        F = MyVector::Zero(nsnps);
+        G = MyMatrix(nsamples, nsnps);
         if (params.runem) C.resize(nsnps * nsamples);
         for (j = 0; j < nsnps; j++) {
             try {
@@ -62,8 +62,8 @@ void FileBgen::read_all_and_centering()
         }
         assert( j == nsnps );
         cout << timestamp() << "begin to estimate allele frequencies using GP" << endl;
-        VectorXd Ft(nsnps);
-        F = VectorXd::Constant(nsnps, 0.25);
+        MyVector Ft(nsnps);
+        F = MyVector::Constant(nsnps, 0.25);
         // run EM to estimate allele frequencies
         double diff;
         for (uint it = 0; it < params.maxiter; it++)
@@ -91,7 +91,7 @@ void FileBgen::read_all_and_centering()
             }
         }
         // initial E which is G
-        G = MatrixXd(nsamples, nsnps);
+        G = MyMatrix(nsamples, nsnps);
         #pragma omp parallel for
         for (j = 0; j < nsnps; j++) {
             double p0, p1, p2;
@@ -111,7 +111,7 @@ void FileBgen::read_snp_block_initial(uint64 start_idx, uint64 stop_idx, bool st
     uint i, j, snp_idx;
     if (G.cols() < params.blocksize || (actual_block_size < params.blocksize))
     {
-        G = MatrixXd::Zero(nsamples, actual_block_size);
+        G = MyMatrix::Zero(nsamples, actual_block_size);
     }
     if (frequency_was_estimated)
     {

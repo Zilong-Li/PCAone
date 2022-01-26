@@ -9,8 +9,8 @@ class RsvdOpData
 public:
     using Index = Eigen::Index;
     bool update = false, standardize = false, verbose = false;
-    MatrixXd U, V;
-    VectorXd S;
+    MyMatrix U, V;
+    MyVector S;
 
 public:
     virtual ~RsvdOpData() {}
@@ -20,7 +20,7 @@ public:
     virtual Index ranks() const = 0;
     virtual Index oversamples() const = 0;
 
-    virtual void computeGandH(MatrixXd& G, MatrixXd& H, int pi) = 0;
+    virtual void computeGandH(MyMatrix& G, MyMatrix& H, int pi) = 0;
 
     inline void setFlags(bool is_update, bool is_standardize, bool is_verbose)
         {update = is_update; standardize = is_standardize; verbose = is_verbose;}
@@ -36,7 +36,7 @@ private:
     Data* data;
     const Index nk, os, size;
     uint64 actual_block_size, start_idx, stop_idx;
-    MatrixXd Omg;
+    MyMatrix Omg;
 public:
 
     NormalRsvdOpData(Data* data_, int k_, int os_ = 10) :
@@ -50,7 +50,7 @@ public:
     Index ranks() const { return nk; }
     Index oversamples() const { return os; }
 
-    void computeGandH(MatrixXd& G, MatrixXd& H, int pi=0);
+    void computeGandH(MyMatrix& G, MyMatrix& H, int pi=0);
 
 };
 
@@ -60,7 +60,7 @@ private:
     Data* data;
     const Index nk, os, size;
     uint64 band, blocksize, actual_block_size, start_idx, stop_idx;
-    MatrixXd Omg, Omg2;
+    MyMatrix Omg, Omg2;
 
 public:
 
@@ -75,10 +75,10 @@ public:
     Index ranks() const { return nk; }
     Index oversamples() const { return os; }
 
-    void computeGandH(MatrixXd& G, MatrixXd& H, int pi = 0);
+    void computeGandH(MyMatrix& G, MyMatrix& H, int pi = 0);
 };
 
-void print_summary_table(const MatrixXd& Upre, const MatrixXd& Ucur);
+void print_summary_table(const MyMatrix& Upre, const MyMatrix& Ucur);
 void run_pca_with_halko(Data* data, const Param& params);
 
 #endif

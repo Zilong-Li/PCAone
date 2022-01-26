@@ -49,8 +49,8 @@ void Data::prepare(uint& blocksize)
             stop[i] = stop[i] >= nsnps ? nsnps - 1 : stop[i];
         }
         // initial some variables for blockwise here.
-        F = VectorXd::Zero(nsnps);
-        centered_geno_lookup = ArrayXXd::Zero(4, nsnps); // for plink input
+        F = MyVector::Zero(nsnps);
+        centered_geno_lookup = MyArrayX::Zero(4, nsnps); // for plink input
     }
 
 }
@@ -62,7 +62,7 @@ void Data::prepare(uint& blocksize)
   V = G' * (U/s) // calculate V is not a good idea
  **/
 
-void Data::calcu_vt_initial(const MatrixXd& T, MatrixXd& VT)
+void Data::calcu_vt_initial(const MyMatrix& T, MyMatrix& VT)
 {
     if (nblocks == 1) {
         cerr << "Warning: only one block exists. please use --batch mode instead.\n";
@@ -81,7 +81,7 @@ void Data::calcu_vt_initial(const MatrixXd& T, MatrixXd& VT)
     return;
 }
 
-void Data::calcu_vt_update(const MatrixXd& T, const MatrixXd& U, const VectorXd& svals, MatrixXd& VT, bool standardize)
+void Data::calcu_vt_update(const MyMatrix& T, const MyMatrix& U, const MyVector& svals, MyMatrix& VT, bool standardize)
 {
     if (nblocks == 1) {
         cerr << "Warning: only one block exists. please use --batch mode instead.\n";
@@ -100,14 +100,14 @@ void Data::calcu_vt_update(const MatrixXd& T, const MatrixXd& U, const VectorXd&
     return;
 }
 
-// MatrixXd Data::calcu_vt_from_Eb(const MatrixXd& T, const MatrixXd& U, bool standardize )
+// MyMatrix Data::calcu_vt_from_Eb(const MyMatrix& T, const MyMatrix& U, bool standardize )
 // {
 //     if (nblocks == 1) {
 //         cerr << "Warning: only one block exists. please use --batch mode instead.\n";
 //         exit(EXIT_SUCCESS);
 //     }
 //     uint nrow = T.rows();
-//     MatrixXd VT(nrow, nsnps);
+//     MyMatrix VT(nrow, nsnps);
 //     uint actual_block_size;
 //     check_file_offset_first_var();
 //     for(uint i = 0 ; i < nblocks ; ++i)
@@ -121,7 +121,7 @@ void Data::calcu_vt_update(const MatrixXd& T, const MatrixXd& U, const VectorXd&
 //     return VT;
 // }
 
-void Data::write_eigs_files(const VectorXd& S, const MatrixXd& U, const MatrixXd& V)
+void Data::write_eigs_files(const MyVector& S, const MyMatrix& U, const MyMatrix& V)
 {
     std::ofstream outs(params.outfile + ".eigvals");
     std::ofstream outu(params.outfile + ".eigvecs");
@@ -140,7 +140,7 @@ void Data::write_eigs_files(const VectorXd& S, const MatrixXd& U, const MatrixXd
     }
 }
 
-void Data::update_batch_E(const MatrixXd& U, const VectorXd& svals, const MatrixXd& VT)
+void Data::update_batch_E(const MyMatrix& U, const MyVector& svals, const MyMatrix& VT)
 {
     uint ks = svals.size();
     if (params.pcangsd)
@@ -192,13 +192,13 @@ void Data::standardize_E()
     }
 }
 
-void Data::pcangsd_standardize_E(const MatrixXd& U, const VectorXd& svals, const MatrixXd& VT)
+void Data::pcangsd_standardize_E(const MyMatrix& U, const MyVector& svals, const MyMatrix& VT)
 {
     uint ks = svals.size();
-    Dc = VectorXd::Zero(nsamples);
+    Dc = MyVector::Zero(nsamples);
     #pragma omp parallel
     {
-        VectorXd diag_private = VectorXd::Zero(nsamples); // Thread private vector;
+        MyVector diag_private = MyVector::Zero(nsamples); // Thread private vector;
         #pragma omp for
         for (uint j = 0; j < nsnps; j++) {
             double p0, p1, p2, pt, pSum, tmp;
@@ -237,7 +237,7 @@ void Data::pcangsd_standardize_E(const MatrixXd& U, const VectorXd& svals, const
 
 /****
 
-MatrixXd Data::calcu_block_matmul(const MatrixXd& X, bool rightside)
+MyMatrix Data::calcu_block_matmul(const MyMatrix& X, bool rightside)
 {
     uint n, m;
     uint actual_block_size;
@@ -246,7 +246,7 @@ MatrixXd Data::calcu_block_matmul(const MatrixXd& X, bool rightside)
         // Y.block(0, b_start_idx, n, bs) = X.block(0, 0, n, nsamples) * G.block(0, 0, nsamples, bs)
         n = X.rows();
         m = nsnps;
-        MatrixXd Y = MatrixXd::Zero(n, m);
+        MyMatrix Y = MyMatrix::Zero(n, m);
 
         check_file_offset_first_var();
         for(uint i = 0 ; i < nblocks ; ++i)
@@ -265,7 +265,7 @@ MatrixXd Data::calcu_block_matmul(const MatrixXd& X, bool rightside)
         // Y += G.block(0, 0, nsamples, bs) * X.block(b_start_idx, 0, bs, X.cols())
         n = nsamples;
         m = X.cols();
-        MatrixXd Y = MatrixXd::Zero(n, m);
+        MyMatrix Y = MyMatrix::Zero(n, m);
 
         check_file_offset_first_var();
         for(uint i = 0 ; i < nblocks ; ++i)
@@ -280,7 +280,7 @@ MatrixXd Data::calcu_block_matmul(const MatrixXd& X, bool rightside)
     }
 }
 
-MatrixXd Data::calcu_block_matmul(const MatrixXd& X, bool rightside, const MatrixXd& U, const VectorXd& S, const MatrixXd& V, bool standardize)
+MyMatrix Data::calcu_block_matmul(const MyMatrix& X, bool rightside, const MyMatrix& U, const MyVector& S, const MyMatrix& V, bool standardize)
 {
     uint n, m;
     uint actual_block_size;
@@ -289,7 +289,7 @@ MatrixXd Data::calcu_block_matmul(const MatrixXd& X, bool rightside, const Matri
         // Y.block(0, b_start_idx, n, bs) = X.block(0, 0, n, nsamples) * G.block(0, 0, nsamples, bs)
         n = X.rows();
         m = nsnps;
-        MatrixXd Y = MatrixXd::Zero(n, m);
+        MyMatrix Y = MyMatrix::Zero(n, m);
 
         check_file_offset_first_var();
         for(uint i = 0 ; i < nblocks ; ++i)
@@ -308,7 +308,7 @@ MatrixXd Data::calcu_block_matmul(const MatrixXd& X, bool rightside, const Matri
         // Y += G.block(0, 0, nsamples, bs) * X.block(b_start_idx, 0, bs, X.cols())
         n = nsamples;
         m = X.cols();
-        MatrixXd Y = MatrixXd::Zero(n, m);
+        MyMatrix Y = MyMatrix::Zero(n, m);
 
         check_file_offset_first_var();
         for(uint i = 0 ; i < nblocks ; ++i)
@@ -323,7 +323,7 @@ MatrixXd Data::calcu_block_matmul(const MatrixXd& X, bool rightside, const Matri
     }
 }
 
-MatrixXd Data::calcu_block_matmul_trans(const MatrixXd& X, bool rightside)
+MyMatrix Data::calcu_block_matmul_trans(const MyMatrix& X, bool rightside)
 {
     uint n, m;
     uint actual_block_size;
@@ -337,7 +337,7 @@ MatrixXd Data::calcu_block_matmul_trans(const MatrixXd& X, bool rightside)
         //let G = {a1, a2,...}, then G' = {a1', a2',...}
         n = nsnps;
         m = X.cols();
-        MatrixXd Y = MatrixXd::Zero(n, m);
+        MyMatrix Y = MyMatrix::Zero(n, m);
 
         check_file_offset_first_var();
         for(uint i = 0 ; i < nblocks ; ++i)
@@ -352,7 +352,7 @@ MatrixXd Data::calcu_block_matmul_trans(const MatrixXd& X, bool rightside)
     }
 }
 
-MatrixXd Data::calcu_block_matmul_trans(const MatrixXd& X, bool rightside, const MatrixXd& U, const VectorXd& S, const MatrixXd& V, bool standardize)
+MyMatrix Data::calcu_block_matmul_trans(const MyMatrix& X, bool rightside, const MyMatrix& U, const MyVector& S, const MyMatrix& V, bool standardize)
 {
     uint n, m, actual_block_size;
     if (rightside)
@@ -365,7 +365,7 @@ MatrixXd Data::calcu_block_matmul_trans(const MatrixXd& X, bool rightside, const
         //let G = {a1, a2,...}, then G' = {a1', a2',...}
         n = nsnps;
         m = X.cols();
-        MatrixXd Y = MatrixXd::Zero(n, m);
+        MyMatrix Y = MyMatrix::Zero(n, m);
 
         check_file_offset_first_var();
         for(uint i = 0 ; i < nblocks ; ++i)
@@ -380,7 +380,7 @@ MatrixXd Data::calcu_block_matmul_trans(const MatrixXd& X, bool rightside, const
     }
 }
 
-// void Data::update_block_E(uint start_idx, uint stop_idx, const MatrixXd& U, bool standardize)
+// void Data::update_block_E(uint start_idx, uint stop_idx, const MyMatrix& U, bool standardize)
 // {
 //     if (params.intype == "bfile")
 //     {
@@ -389,9 +389,9 @@ MatrixXd Data::calcu_block_matmul_trans(const MatrixXd& X, bool rightside, const
 //         // if actual_block_size is smaller than blocksize, don't resize G;
 //         if (G.cols() < params.blocksize || (actual_block_size < params.blocksize))
 //         {
-//             G = MatrixXd::Zero(nsamples, actual_block_size);
+//             G = MyMatrix::Zero(nsamples, actual_block_size);
 //         }
-//         Cb = MatrixXd::Zero(nsamples, actual_block_size);
+//         Cb = MyMatrix::Zero(nsamples, actual_block_size);
 //         // check where we are
 //         long long offset = 3 + start_idx * bed_bytes_per_snp;
 //         if (bed_ifstream.tellg() != offset)
@@ -427,7 +427,7 @@ MatrixXd Data::calcu_block_matmul_trans(const MatrixXd& X, bool rightside, const
 //         // get Beta matrix and update Eb
 
 //         uint k = U.cols();
-//         Bb = MatrixXd::Zero(k, actual_block_size);
+//         Bb = MyMatrix::Zero(k, actual_block_size);
 //         #pragma omp parallel for
 //         for (i = 0; i < actual_block_size; ++i)
 //         {

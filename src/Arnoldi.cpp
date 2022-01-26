@@ -8,8 +8,8 @@ using namespace Spectra;
 void ArnoldiOpData::perform_op(const double *x_in, double* y_out)
 {
    data->params.verbose && cout << timestamp() << "Arnoldi Matrix Operation = " << nops << ".\n";
-   Map<const VectorXd> x(x_in, n);
-   Map<VectorXd> y(y_out, n);
+   Eigen::Map<const MyVector> x(x_in, n);
+   Eigen::Map<MyVector> y(y_out, n);
    data->check_file_offset_first_var();
    if (update) {
        data->read_snp_block_update(data->start[0], data->stop[0], U, S, VT, standardize);
@@ -39,15 +39,15 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
     } else {
         cout << timestamp() << "begin to run_pca_with_arnoldi blockwise mode\n";
     }
-    VectorXd svals, evals;
+    MyVector svals, evals;
     uint nconv, nu;
     double diff;
     if (params.batch)
     {
-        MatrixXd U, V, V2;
+        MyMatrix U, V, V2;
         // SpMatrix sG = data->G.sparseView();
         // PartialSVDSolver< double, SpMatrix > svds(sG, params.k, params.ncv);
-        PartialSVDSolver< double, MatrixXd > svds(data->G, params.k, params.ncv);
+        PartialSVDSolver< double, MyMatrix > svds(data->G, params.k, params.ncv);
         if (!params.runem)
         {
             data->standardize_E();
@@ -91,7 +91,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
         if (params.pcangsd)
         {
             data->pcangsd_standardize_E(U, svals, V.transpose());
-            MatrixXd C = data->G * data->G.transpose();
+            MyMatrix C = data->G * data->G.transpose();
             C.array() /= (double) data->nsnps;
             C.diagonal() = data->Dc.array() / (double) data->nsnps;
             std::ofstream out_cov(params.outfile + ".cov");
@@ -126,7 +126,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
 
     } else {
         // for blockwise
-        MatrixXd T, VT;
+        MyMatrix T, VT;
         ArnoldiOpData *op = new ArnoldiOpData(data);
         SymEigsSolver< double, LARGEST_ALGE, ArnoldiOpData > *eigs = new SymEigsSolver< double, LARGEST_ALGE, ArnoldiOpData >(op, params.k, params.ncv);
         if (!params.runem) op->setFlags(false, true, false);
@@ -146,13 +146,13 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
             // T = U' / s
             // T' = (U.array().rowwise() / eigs.eigenvalues().head(nv).transpose().array().sqrt()).matrix();
             T = (eigs->eigenvectors().leftCols(nu).transpose().array().colwise() / eigs->eigenvalues().head(nu).array().sqrt()).matrix();
-            op->VT = MatrixXd::Zero(T.rows(), data->nsnps);
+            op->VT = MyMatrix::Zero(T.rows(), data->nsnps);
             data->calcu_vt_initial(T, op->VT);
             if (!params.runem)
             {
                 cout << timestamp() << "Final SVD done!\n";
                 evals = eigs->eigenvalues() / data->nsnps;
-                MatrixXd V = op->VT.transpose();
+                MyMatrix V = op->VT.transpose();
                 data->write_eigs_files(evals, op->U, V);
                 return;
             }
@@ -205,7 +205,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
                 op->U = eigs->eigenvectors().leftCols(nu);
                 flip_UV(op->U, op->VT);
                 evals = eigs->eigenvalues() / data->nsnps;
-                MatrixXd V = op->VT.transpose();
+                MyMatrix V = op->VT.transpose();
                 data->write_eigs_files(evals, op->U, V);
             } else {
                 throw std::runtime_error("something wrong with Spectra SymEigsSolver\n");

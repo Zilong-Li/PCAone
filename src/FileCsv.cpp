@@ -38,7 +38,7 @@ void FileCsv::read_all_and_centering()
 
     assert(buffVecs.size() == nsamples);
 
-    G = MatrixXd(nsamples, nsnps);
+    G = MyMatrix(nsamples, nsnps);
     // start parsing all inputs in parallel
     #pragma omp parallel for
     for(size_t i = 0; i < nsamples; i++) {

@@ -22,9 +22,9 @@ void FileBed::check_file_offset_first_var()
 
 void FileBed::read_all_and_centering()
 {
-    F = VectorXd::Zero(nsnps);
+    F = MyVector::Zero(nsnps);
     check_file_offset_first_var();
-    G = MatrixXd(nsamples, nsnps);
+    G = MyMatrix(nsamples, nsnps);
     // Begin to decode the plink bed
     inbed.reserve(bed_bytes_per_snp * nsnps); 
     bed_ifstream.read(reinterpret_cast<char *> (&inbed[0]), bed_bytes_per_snp * nsnps);
@@ -80,7 +80,7 @@ void FileBed::read_snp_block_initial(uint64 start_idx, uint64 stop_idx, bool sta
     // if actual_block_size is smaller than blocksize, don't resize G;
     if (G.cols() < params.blocksize || (actual_block_size < params.blocksize))
     {
-        G = MatrixXd::Zero(nsamples, actual_block_size);
+        G = MyMatrix::Zero(nsamples, actual_block_size);
         inbed.reserve(bed_bytes_per_snp * params.blocksize);
     }
     // check where we are
@@ -174,12 +174,12 @@ void FileBed::read_snp_block_initial(uint64 start_idx, uint64 stop_idx, bool sta
 
 }
 
-void FileBed::read_snp_block_update(uint64 start_idx, uint64 stop_idx, const MatrixXd& U, const VectorXd& svals, const MatrixXd& VT, bool standardize)
+void FileBed::read_snp_block_update(uint64 start_idx, uint64 stop_idx, const MyMatrix& U, const MyVector& svals, const MyMatrix& VT, bool standardize)
 {
     uint actual_block_size = stop_idx - start_idx + 1;
     if (G.cols() < params.blocksize || (actual_block_size < params.blocksize))
     {
-        G = MatrixXd::Zero(nsamples, actual_block_size);
+        G = MyMatrix::Zero(nsamples, actual_block_size);
         inbed.reserve(bed_bytes_per_snp * params.blocksize);
     }
     // check where we are

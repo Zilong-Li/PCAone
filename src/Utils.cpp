@@ -202,7 +202,7 @@ void permute_plink(std::string& fin, uint blocksize)
 
 // Sign correction to ensure deterministic output from SVD.
 // see https://www.kite.com/python/docs/sklearn.utils.extmath.svd_flip
-void flip_UV(MatrixXd& U, MatrixXd& V, bool ubase)
+void flip_UV(MyMatrix& U, MyMatrix& V, bool ubase)
 {
     if (ubase)
     {
@@ -250,7 +250,7 @@ void flip_UV(MatrixXd& U, MatrixXd& V, bool ubase)
     }
 }
 
-void flip_Omg(MatrixXd& Omg2, MatrixXd& Omg)
+void flip_Omg(MyMatrix& Omg2, MyMatrix& Omg)
 {
     for (Eigen::Index i = 0; i < Omg.cols(); ++i)
     {
@@ -263,7 +263,7 @@ void flip_Omg(MatrixXd& Omg2, MatrixXd& Omg)
     Omg2 = Omg;
 }
 
-void flip_Y(const MatrixXd& X, MatrixXd& Y)
+void flip_Y(const MyMatrix& X, MyMatrix& Y)
 {
     for (Eigen::Index i = 0; i < X.cols(); ++i)
     {
@@ -275,14 +275,14 @@ void flip_Y(const MatrixXd& X, MatrixXd& Y)
     }
 }
 
-double rmse(const MatrixXd& X, const MatrixXd& Y)
+double rmse(const MyMatrix& X, const MyMatrix& Y)
 {
-    MatrixXd Z = Y;
+    MyMatrix Z = Y;
     flip_Y(X, Z);
     return sqrt( (X - Z).array().square().sum() / (X.cols() * X.rows()) );
 }
 
-double mev(const MatrixXd& X, const MatrixXd& Y)
+double mev(const MyMatrix& X, const MyMatrix& Y)
 {
     double res = 0;
     for (Eigen::Index i = 0; i < X.cols(); ++i)
@@ -292,7 +292,7 @@ double mev(const MatrixXd& X, const MatrixXd& Y)
     return res / X.cols();
 }
 
-void mev_rmse_byk(const MatrixXd& X, const MatrixXd& Y, VectorXd& Vm, VectorXd& Vr)
+void mev_rmse_byk(const MyMatrix& X, const MyMatrix& Y, MyVector& Vm, MyVector& Vr)
 {
     for (Eigen::Index i = 0; i < X.cols(); ++i)
     {

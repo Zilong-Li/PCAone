@@ -17,8 +17,8 @@ public:
     void perform_op(const double *x_in, double* y_out);
     inline void setFlags(bool is_update, bool is_standardize, bool is_pcangsd) {update = is_update; standardize = is_standardize; pcangsd = is_pcangsd;}
 
-    MatrixXd U, VT;
-    VectorXd S;
+    MyMatrix U, VT;
+    MyVector S;
     uint nops;
 
 private:
