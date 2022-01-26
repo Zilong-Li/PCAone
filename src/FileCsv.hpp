@@ -4,7 +4,7 @@
 #include "Data.hpp"
 #include "zstd.h"
 
-static void fclose_orDie(FILE *file) {
+void fcloseOrDie(FILE *file) {
     if (!fclose(file)) {
         return;
     };
@@ -13,7 +13,7 @@ static void fclose_orDie(FILE *file) {
     exit(1);
 }
 
-static FILE *fopen_orDie(const char *filename, const char *instruction) {
+static FILE *fopenOrDie(const char *filename, const char *instruction) {
     FILE *const inFile = fopen(filename, instruction);
     if (inFile) return inFile;
     /* error */
@@ -21,7 +21,7 @@ static FILE *fopen_orDie(const char *filename, const char *instruction) {
     exit(1);
 }
 
-static size_t fread_orDie(void *buffer, size_t sizeToRead, FILE *file) {
+static size_t freadOrDie(void *buffer, size_t sizeToRead, FILE *file) {
     size_t const readSize = fread(buffer, 1, sizeToRead, file);
     if (readSize == sizeToRead)
         return readSize; /* good */
@@ -52,10 +52,10 @@ public:
         size_t lastRet = 0;
         size_t read, p, ncol, lastCol;
         int isEmpty = 1;
-        fin = fopen_orDie(params.csvfile.c_str(), "rb");
+        fin = fopenOrDie(params.csvfile.c_str(), "rb");
         nsamples = 0;
         buffCur = "";
-        while ((read = fread_orDie(buffIn, toRead, fin))) {
+        while ((read = freadOrDie(buffIn, toRead, fin))) {
             isEmpty = 0;
             ZSTD_inBuffer input = {buffIn, read, 0};
             while (input.pos < input.size) {
@@ -88,19 +88,14 @@ public:
             throw std::runtime_error("EOF before end of ZSTD_decompressStream.\n");
         }
 
-        ZSTD_freeDCtx(dctx);
-        fclose_orDie(fin);
         nsnps = ncol;
+        ZSTD_freeDCtx(dctx);
+        fcloseOrDie(fin);
 
         std::cout << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << std::endl;
     }
 
-    ~FileCsv()
-    {
-        if (fin) {
-            fclose_orDie(fin);
-        }
-    }
+    ~FileCsv() {}
 
     virtual void read_all_and_centering();
     // for blockwise

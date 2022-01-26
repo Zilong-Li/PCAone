@@ -48,7 +48,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
         // SpMatrix sG = data->G.sparseView();
         // PartialSVDSolver< double, SpMatrix > svds(sG, params.k, params.ncv);
         PartialSVDSolver< double, MyMatrix > svds(data->G, params.k, params.ncv);
-        if (!params.runem)
+        if (!params.runem && params.intype != "csv")
         {
             data->standardize_E();
         }

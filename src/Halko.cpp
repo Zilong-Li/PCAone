@@ -271,7 +271,11 @@ void run_pca_with_halko(Data* data, const Param& params)
     if (!params.runem)
     {
         cout << timestamp() << "begin to do non-EM PCA.\n";
-        rsvd->setFlags(false, true, params.verbose);
+        if (params.intype == "csv") {
+            rsvd->setFlags(false, false, params.verbose);
+        } else {
+            rsvd->setFlags(false, true, params.verbose);
+        }
         rsvd->computeUSV(params.maxp, params.tol_halko);
         data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, rsvd->V);
     } else {
