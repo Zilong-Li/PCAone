@@ -96,6 +96,12 @@ struct Line
     }
 };
 
+void fcloseOrDie(FILE *file);
+
+FILE *fopenOrDie(const char *filename, const char *instruction);
+
+size_t freadOrDie(void *buffer, size_t sizeToRead, FILE *file);
+
 size_t count_lines(const std::string& fpath);
 
 std::string timestamp();

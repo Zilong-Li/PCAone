@@ -4,34 +4,6 @@
 #include "Data.hpp"
 #include "zstd.h"
 
-void fcloseOrDie(FILE *file) {
-    if (!fclose(file)) {
-        return;
-    };
-    /* error */
-    perror("fclose");
-    exit(1);
-}
-
-static FILE *fopenOrDie(const char *filename, const char *instruction) {
-    FILE *const inFile = fopen(filename, instruction);
-    if (inFile) return inFile;
-    /* error */
-    perror(filename);
-    exit(1);
-}
-
-static size_t freadOrDie(void *buffer, size_t sizeToRead, FILE *file) {
-    size_t const readSize = fread(buffer, 1, sizeToRead, file);
-    if (readSize == sizeToRead)
-        return readSize; /* good */
-    if (feof(file))
-        return readSize; /* good, reached end of file */
-    /* error */
-    perror("fread");
-    exit(1);
-}
-
 // assume data is already noralized
 class FileCsv : public Data
 {
