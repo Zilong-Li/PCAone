@@ -1,3 +1,6 @@
+- v0.1.4
+
+  - add CSV format support for scRNAs data
 
 - v0.1.3
 

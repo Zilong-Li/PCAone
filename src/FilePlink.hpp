@@ -21,6 +21,7 @@ public:
     //
     FileBed(const Param& params_) : Data(params_)
         {
+            std::cout << timestamp() << "start parsing PLINK format" << std::endl;
             std::string fbim = params.bed_prefix + ".bim";
             std::string ffam = params.bed_prefix + ".fam";
             nsamples = count_lines(ffam);
@@ -46,11 +47,11 @@ public:
 
     virtual void read_all_and_centering();
     // for blockwise
-    virtual void read_snp_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize = false);
-    virtual void read_snp_block_update(uint64 start_idx, uint64 stop_idx, const MyMatrix& U, const MyVector& svals, const MyMatrix& VT, bool standardize = false);
-
-
     virtual void check_file_offset_first_var();
+
+    virtual void read_snp_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize = false);
+
+    virtual void read_snp_block_update(uint64 start_idx, uint64 stop_idx, const MyMatrix& U, const MyVector& svals, const MyMatrix& VT, bool standardize = false);
 
 private:
     std::ifstream bed_ifstream;

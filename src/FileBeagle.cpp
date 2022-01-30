@@ -24,7 +24,6 @@ neverUseGoto:
 // read all data and estimate F
 void FileBeagle::read_all_and_centering()
 {
-    cout << timestamp() << "begin to read whole data" << endl;
     fp = gzopen(params.beagle.c_str(), "r");
     tgets(fp, &buffer, &bufsize);
     char *tok;

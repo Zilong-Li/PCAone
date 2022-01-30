@@ -29,7 +29,6 @@ void FileBed::read_all_and_centering()
     inbed.reserve(bed_bytes_per_snp * nsnps); 
     bed_ifstream.read(reinterpret_cast<char *> (&inbed[0]), bed_bytes_per_snp * nsnps);
     if (params.runem) C.resize(nsnps * nsamples);
-    cout << timestamp() << "begin to decode the plink bed.\n";
     uint64 c, i, j, b, k;
     uchar buf;
 #pragma omp parallel for private(i,j,b,c,k,buf)

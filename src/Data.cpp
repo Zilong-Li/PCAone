@@ -10,6 +10,7 @@ void Data::prepare(uint& blocksize)
     {
         read_all_and_centering();
     } else {
+        // some common settings
         if (params.arnoldi) {
             // ram of arnoldi = n * b * 8 / 1024 kb
             blocksize = (unsigned int)ceil((double)params.memory * 134217728 / nsamples);
@@ -48,11 +49,13 @@ void Data::prepare(uint& blocksize)
             stop[i] = start[i] + blocksize - 1;
             stop[i] = stop[i] >= nsnps ? nsnps - 1 : stop[i];
         }
-        // initial some variables for blockwise here.
-        F = MyVector::Zero(nsnps);
-        centered_geno_lookup = MyArrayX::Zero(4, nsnps); // for plink input
     }
 
+    // initial some variables for blockwise for specific files here.
+    if(params.intype != "csv")
+        F = MyVector::Zero(nsnps);
+    if(params.intype == "bfile")
+        centered_geno_lookup = MyArrayX::Zero(4, nsnps); // for plink input
 }
 
 
@@ -234,225 +237,4 @@ void Data::pcangsd_standardize_E(const MyMatrix& U, const MyVector& svals, const
         }
     }
 }
-
-/****
-
-MyMatrix Data::calcu_block_matmul(const MyMatrix& X, bool rightside)
-{
-    uint n, m;
-    uint actual_block_size;
-    if (rightside)
-    {   // Y = X * G
-        // Y.block(0, b_start_idx, n, bs) = X.block(0, 0, n, nsamples) * G.block(0, 0, nsamples, bs)
-        n = X.rows();
-        m = nsnps;
-        MyMatrix Y = MyMatrix::Zero(n, m);
-
-        check_file_offset_first_var();
-        for(uint i = 0 ; i < nblocks ; ++i)
-        {
-            actual_block_size = stop[i] - start[i] + 1;
-            // G (nsamples, actual_block_size)
-            read_snp_block_initial(start[i], stop[i]);
-            Y.block(0, start[i], n, actual_block_size).noalias() = X * G.leftCols(actual_block_size);
-        }
-
-        return Y;
-
-    } else {
-        // Y = G * X
-        // bs = blocksize
-        // Y += G.block(0, 0, nsamples, bs) * X.block(b_start_idx, 0, bs, X.cols())
-        n = nsamples;
-        m = X.cols();
-        MyMatrix Y = MyMatrix::Zero(n, m);
-
-        check_file_offset_first_var();
-        for(uint i = 0 ; i < nblocks ; ++i)
-        {
-            actual_block_size = stop[i] - start[i] + 1;
-            // G (nsamples, actual_block_size)
-            read_snp_block_initial(start[i], stop[i]);
-            Y.noalias() = Y + G.leftCols(actual_block_size) * X.block(start[i], 0, actual_block_size, m);
-        }
-
-        return Y;
-    }
-}
-
-MyMatrix Data::calcu_block_matmul(const MyMatrix& X, bool rightside, const MyMatrix& U, const MyVector& S, const MyMatrix& V, bool standardize)
-{
-    uint n, m;
-    uint actual_block_size;
-    if (rightside)
-    {   // Y = X * G
-        // Y.block(0, b_start_idx, n, bs) = X.block(0, 0, n, nsamples) * G.block(0, 0, nsamples, bs)
-        n = X.rows();
-        m = nsnps;
-        MyMatrix Y = MyMatrix::Zero(n, m);
-
-        check_file_offset_first_var();
-        for(uint i = 0 ; i < nblocks ; ++i)
-        {
-            actual_block_size = stop[i] - start[i] + 1;
-            // G (nsamples, actual_block_size)
-            read_snp_block_update(start[i], stop[i], U, S, V.transpose(), standardize);
-            Y.block(0, start[i], n, actual_block_size).noalias() = X * G.leftCols(actual_block_size);
-        }
-
-        return Y;
-
-    } else {
-        // Y = G * X
-        // bs = blocksize
-        // Y += G.block(0, 0, nsamples, bs) * X.block(b_start_idx, 0, bs, X.cols())
-        n = nsamples;
-        m = X.cols();
-        MyMatrix Y = MyMatrix::Zero(n, m);
-
-        check_file_offset_first_var();
-        for(uint i = 0 ; i < nblocks ; ++i)
-        {
-            actual_block_size = stop[i] - start[i] + 1;
-            // G (nsamples, actual_block_size)
-            read_snp_block_update(start[i], stop[i], U, S, V.transpose(), standardize);
-            Y.noalias() = Y + G.leftCols(actual_block_size) * X.block(start[i], 0, actual_block_size, m);
-        }
-
-        return Y;
-    }
-}
-
-MyMatrix Data::calcu_block_matmul_trans(const MyMatrix& X, bool rightside)
-{
-    uint n, m;
-    uint actual_block_size;
-    if (rightside)
-    {
-        cerr << "shouldn't come to here.\n";
-        exit(EXIT_FAILURE);
-    } else {
-        // Y = G' * X
-        // G is nsamples x nsnps,
-        //let G = {a1, a2,...}, then G' = {a1', a2',...}
-        n = nsnps;
-        m = X.cols();
-        MyMatrix Y = MyMatrix::Zero(n, m);
-
-        check_file_offset_first_var();
-        for(uint i = 0 ; i < nblocks ; ++i)
-        {
-            actual_block_size = stop[i] - start[i] + 1;
-            // G (nsamples, actual_block_size)
-            read_snp_block_initial(start[i], stop[i]);
-            Y.block(start[i], 0, actual_block_size, m).noalias() = G.leftCols(actual_block_size).transpose() * X ;
-        }
-
-        return Y;
-    }
-}
-
-MyMatrix Data::calcu_block_matmul_trans(const MyMatrix& X, bool rightside, const MyMatrix& U, const MyVector& S, const MyMatrix& V, bool standardize)
-{
-    uint n, m, actual_block_size;
-    if (rightside)
-    {
-        cerr << "shouldn't come to here.\n";
-        exit(EXIT_FAILURE);
-    } else {
-        // Y = G' * X
-        // G is nsamples x nsnps,
-        //let G = {a1, a2,...}, then G' = {a1', a2',...}
-        n = nsnps;
-        m = X.cols();
-        MyMatrix Y = MyMatrix::Zero(n, m);
-
-        check_file_offset_first_var();
-        for(uint i = 0 ; i < nblocks ; ++i)
-        {
-            actual_block_size = stop[i] - start[i] + 1;
-            // G (nsamples, actual_block_size)
-            read_snp_block_update(start[i], stop[i], U, S, V.transpose(), standardize);
-            Y.block(start[i], 0, actual_block_size, m).noalias() = G.leftCols(actual_block_size).transpose() * X ;
-        }
-
-        return Y;
-    }
-}
-
-// void Data::update_block_E(uint start_idx, uint stop_idx, const MyMatrix& U, bool standardize)
-// {
-//     if (params.intype == "bfile")
-//     {
-//         uint actual_block_size = stop_idx - start_idx + 1;
-//         // if G is not initial then initial it
-//         // if actual_block_size is smaller than blocksize, don't resize G;
-//         if (G.cols() < params.blocksize || (actual_block_size < params.blocksize))
-//         {
-//             G = MyMatrix::Zero(nsamples, actual_block_size);
-//         }
-//         Cb = MyMatrix::Zero(nsamples, actual_block_size);
-//         // check where we are
-//         long long offset = 3 + start_idx * bed_bytes_per_snp;
-//         if (bed_ifstream.tellg() != offset)
-//         {
-//             cerr << "Error: something wrong with read_snp_block!\n";
-//             exit(EXIT_FAILURE);
-//         }
-//         uint bi, ki, i, j;
-//         inbed.resize(bed_bytes_per_snp * actual_block_size);
-//         bed_ifstream.read( reinterpret_cast<char *> (&inbed[0]), bed_bytes_per_snp * actual_block_size);
-//         #pragma omp parallel for private(i,j,bi,ki)
-//         for (i = 0; i < actual_block_size; ++i)
-//         {
-//             uint snp_idx = start_idx + i;
-//             for (bi = 0, j = 0; bi < bed_bytes_per_snp; ++bi)
-//             {
-//                 uchar buf = inbed[i * bed_bytes_per_snp + bi];
-//                 for (ki=0; ki<4; ++ki, ++j)
-//                 {
-//                     if (j < nsamples)
-//                     {
-//                         G(j, i) = centered_geno_lookup(buf & 3, snp_idx);
-//                         if ((buf & 3) != 1)
-//                         {
-//                             Cb(j, i) = 1; // not missing, weight is 1
-//                         }
-//                         buf = buf >> 2;  // shift packed data and throw away genotype just processed.
-//                     }
-//                 }
-//             }
-//         }
-
-//         // get Beta matrix and update Eb
-
-//         uint k = U.cols();
-//         Bb = MyMatrix::Zero(k, actual_block_size);
-//         #pragma omp parallel for
-//         for (i = 0; i < actual_block_size; ++i)
-//         {
-//             // WXb = Wy
-//             Bb.col(i) = (Cb.col(i).asDiagonal() * U).jacobiSvd(ComputeThinU | ComputeThinV).solve(Cb.col(i).asDiagonal() * G.col(i));
-//             uint snp_idx = start_idx + i;
-//             for(j = 0; j < nsamples; ++j)
-//             {
-//                 if (Cb(j, i) == 0 && G(j, i) == 0)
-//                 {
-//                     for(ki = 0; ki < k; ++ki)
-//                     {
-//                         // update
-//                         G(j, i) = G(j, i) + U(j, ki) * Bb(ki, i);
-//                         G(j, i) = fmin(fmax(G(j, i), -F(snp_idx)), 1 - F(snp_idx));
-//                         if (standardize) G(j, i) /= sqrt(F(snp_idx) * (1 - F(snp_idx)));
-//                     }
-//                 }
-//             }
-//         }
-
-//     } else {
-//         cerr << "pfile and bgen mode is coming.\n";
-//     }
-// }
-
-****/
 

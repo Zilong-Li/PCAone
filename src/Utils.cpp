@@ -7,7 +7,7 @@ void fcloseOrDie(FILE *file) {
         return;
     };
     /* error */
-    perror("fclose");
+    perror("fclose error");
     exit(1);
 }
 

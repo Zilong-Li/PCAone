@@ -6,7 +6,6 @@ void FileBgen::read_all_and_centering()
 {
     uint i, j, gc;
     double gs;
-    cout << timestamp() << "begin to parse the bgen file.\n";
     if (!params.pcangsd)
     {
         F = MyVector::Zero(nsnps);

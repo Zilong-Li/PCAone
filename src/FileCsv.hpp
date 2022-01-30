@@ -10,24 +10,20 @@ class FileCsv : public Data
 public:
     FileCsv(const Param &params_) : Data(params_)
     {
-        size_t const buffInSize = ZSTD_DStreamInSize();
+        std::cout << timestamp() << "start parsing CSV format" << std::endl;
+
         buffInTmp.reserve(buffInSize);
         auto buffIn = const_cast<void *>(static_cast<const void *>(buffInTmp.c_str()));
 
-        auto buffOutSize = ZSTD_DStreamOutSize();
         buffOutTmp.reserve(buffOutSize);
         auto buffOut = const_cast<void *>(static_cast<const void *>(buffOutTmp.c_str()));
 
-        ZSTD_DCtx *const dctx = ZSTD_createDCtx();
-
-        size_t const toRead = buffInSize;
-        size_t lastRet = 0;
         size_t read, p, ncol, lastCol;
         int isEmpty = 1;
         fin = fopenOrDie(params.csvfile.c_str(), "rb");
-        nsamples = 0;
+        nsnps = 0;
         buffCur = "";
-        while ((read = freadOrDie(buffIn, toRead, fin))) {
+        while ((read = freadOrDie(buffIn, buffInSize, fin))) {
             isEmpty = 0;
             ZSTD_inBuffer input = {buffIn, read, 0};
             while (input.pos < input.size) {
@@ -36,7 +32,7 @@ public:
                 lastRet = ret;
                 buffCur += std::string((char *)buffOut, output.pos);
                 while (( p = buffCur.find("\n") ) != std::string::npos) {
-                    nsamples++;
+                    nsnps++;
                     buffLine = buffCur.substr(0, p);
                     buffCur.erase(0, p + 1);
                     lastCol = ncol;
@@ -45,7 +41,7 @@ public:
                         ncol++;
                         buffLine.erase(0, p + 1);
                     }
-                    if (nsamples > 2 && (lastCol != ncol)) {
+                    if (nsnps > 2 && (lastCol != ncol)) {
                         throw std::invalid_argument("the csv file has unaligned columns\n");
                     }
                 }
@@ -60,24 +56,33 @@ public:
             throw std::runtime_error("EOF before end of ZSTD_decompressStream.\n");
         }
 
-        nsnps = ncol;
-        ZSTD_freeDCtx(dctx);
-        fcloseOrDie(fin);
 
+        nsamples = ncol;
+        lastRet = 1;
         std::cout << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << std::endl;
     }
 
-    ~FileCsv() {}
+    ~FileCsv() {
+        ZSTD_freeDCtx(dctx);
+        fcloseOrDie(fin);
+    }
 
     virtual void read_all_and_centering();
     // for blockwise
-    virtual void read_snp_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize = false) {}
+    virtual void check_file_offset_first_var();
+
+    virtual void read_snp_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize = false);
+
     virtual void read_snp_block_update(uint64 start_idx, uint64 stop_idx, const MyMatrix& U, const MyVector& svals, const MyMatrix& VT, bool standardize = false) {}
-    virtual void check_file_offset_first_var() {}
 
 private:
-    FILE *fin;
+    FILE *fin = nullptr;
+    size_t const buffInSize = ZSTD_DStreamInSize();
+    size_t const buffOutSize = ZSTD_DStreamOutSize();
+    ZSTD_DCtx *const dctx = ZSTD_createDCtx();
     std::string buffCur, buffLine, buffInTmp, buffOutTmp;
+    std::vector<std::string> buffVecs;
+    size_t lastRet = 1;
 };
 
 #endif // FILECSV_H_

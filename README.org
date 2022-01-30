@@ -2,7 +2,7 @@
 
 #+OPTIONS: ^:nil
 
-*Current Version: v0.1.3*
+*Current Version: v0.1.4*
 
 PCAone is a fast and memory efficient PCA tool implemented in C++ aiming at providing comprehensive features and algorithms for different scenarios.
 
@@ -16,15 +16,15 @@ See [[file:CHANGELOG.org][change log]] here.
 - Supports the [[https://www.cog-genomics.org/plink/1.9/formats#bed][PLINK]], [[https://www.well.ox.ac.uk/~gav/bgen_format][BGEN]], [[http://www.popgen.dk/angsd/index.php/Input#Beagle_format][Beagle]] genetic data formats.
 - Supports [[https://github.com/Rosemeis/emu][EMU]] algorithm for scenario with large proportion of missingness.
 - Supports [[https://github.com/Rosemeis/pcangsd][PCAngsd]] algorithm for low coverage sequencing scenario with genotype likelihood as input.
-- Supports zstd compressed CSV format for scRNAs data [In progress]
+- Supports a general zstd compressed CSV format for scRNAs data
 
-| *Input format*      | bfile | bgen | beagle |
-| *Arnoldi method*    | +     | +    | +      |
-| *One Pass Halko*    | +     | +    | +      |
-| *Super fast Halko*  | +     | +/-  | +/-    |
-| *EMU algorithm*     | +     | +    | -      |
-| *PCAngsd algorithm* | -     | +    | +      |
-| *Out of RAM mode*   | +     | +    | -      |
+| *Input format*      | bfile | bgen | beagle | csv |
+| *Arnoldi method*    | +     | +    | +      | +   |
+| *One Pass Halko*    | +     | +    | +      | +   |
+| *Super fast Halko*  | +     | +/-  | +/-    | +   |
+| *EMU algorithm*     | +     | +    | -      | -   |
+| *PCAngsd algorithm* | -     | +    | +      | -   |
+| *Out of RAM mode*   | +     | +    | -      | +   |
 
 
 * Installation
@@ -63,18 +63,23 @@ Usage:
  Main options:
       --beagle FILE    path of beagle file.
       --bfile PREFIX   prefix of PLINK .bed/.bim/.fam files.
+      --bgen FILE      path of BGEN file.
+      --csv FILE       path of zstd compressed csv file.
   -e, --emu            use EMU algorithm for data with lots of missingness.
   -f, --fast           force to use fast super power iterations for Halko.
   -h, --halko          use Halko method instead of default Arnoldi method.
   -k, --eigs INT       top k components to be calculated.[10]
       --maxp INT       maximum number of power iteration for Halko.[20]
-  -m, --memory DOUBLE  Specify the RAM usage in GB unit instead of exploiting
+  -m, --memory DOUBLE  specify the RAM usage in GB unit instead of exploiting
                        the RAM of the server.
   -n, --threads INT    number of threads.[1]
-  -o, --out PREFIX     Prefix of output files.
+  -o, --out PREFIX     prefix of output files.
   -p, --pcangsd        use PCAngsd algorithm for data with genotype
                        likelihood.
+      --printv         print out another eigen vectors with projection
+                       suffix.
   -v, --verbose        verbose message output.
+
 #+end_src
 
 *WARNING*: On most OS it is recommended to limit the number of threads to the number of physical cores.

@@ -16,6 +16,7 @@ public:
     virtual void read_snp_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize = false) = 0;
     virtual void read_snp_block_update(uint64 start_idx, uint64 stop_idx, const MyMatrix& U, const MyVector& svals, const MyMatrix& VT, bool standardize = false) = 0;
 
+    const Param& params;
     bool snpmajor = true;
     bool nsamples_ge_nsnps = false;  // if nsamples greater than or equal to nsnps
     bool initialFonly = false;
@@ -27,9 +28,8 @@ public:
     MyMatrix P;  // genotype probability, nsnps x nsamples x 3.
     MyVector F;  // observed or estimated population allele frequency
     MyVector Dc; // diagnal vector of covariance matrix
-    MyArrayX centered_geno_lookup;
     std::vector<bool> C; // 1 or true indicates a ind's snp is missing and need to be predicted.
-    const Param& params;
+    MyArrayX centered_geno_lookup;
 
 
     void prepare(uint& blocksize);
@@ -42,18 +42,6 @@ public:
     // for blockwise
     void calcu_vt_initial(const MyMatrix& T, MyMatrix& VT);
     void calcu_vt_update(const MyMatrix& T, const MyMatrix& U, const MyVector& svals, MyMatrix& VT, bool standardize);
-    // update Eb, using V as predictor and Db as input
-    // void update_block_E(uint start_idx, uint stop_idx, const MyMatrix& U, bool standardize = false);
-    // MyMatrix calcu_vt_from_Eb(const MyMatrix& T, const MyMatrix& U, bool standardize);
-
-    // calculate G * X or X * G by block
-    // MyMatrix calcu_block_matmul(const MyMatrix& X, bool rightside);
-
-    // MyMatrix calcu_block_matmul(const MyMatrix& X, bool rightside, const MyMatrix& U, const MyVector& S, const MyMatrix& V, bool standardize = false);
-    // calculate G' * X or X * G' by block
-    // MyMatrix calcu_block_matmul_trans(const MyMatrix& X, bool rightside);
-
-    // MyMatrix calcu_block_matmul_trans(const MyMatrix& X, bool rightside, const MyMatrix& U, const MyVector& S, const MyMatrix& V, bool standardize = false);
 
 };
 
