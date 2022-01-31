@@ -2,6 +2,9 @@
 
 #+OPTIONS: ^:nil
 
+[[https://github.com/Zilong-Li/PCAone/actions/workflows/linux.yml/badge.svg]]
+[[https://github.com/Zilong-Li/PCAone/actions/workflows/mac.yml/badge.svg]]
+
 *Current Version: v0.1.4*
 
 PCAone is a fast and memory efficient PCA tool implemented in C++ aiming at providing comprehensive features and algorithms for different scenarios.
@@ -31,7 +34,7 @@ See [[file:CHANGELOG.org][change log]] here.
 
 ** Download pre-compiled binary
 
-There are pre-compiled program provided for both Mac and Linux platform. For Mac platform, the binary program is without MKL threading. For Linux platform, it is recommended to use PCAone with MKL libiomp5 threading which will speed up the program significantly, but please make sure the runtime library =libiomp5= is in your environment =LD_LIBRARY_PATH=. Check the releases page to download it.
+There are pre-compiled program provided for both Mac and Linux platform. Check [[https://github.com/Zilong-Li/PCAone/releases][the releases page]] to download them. For Mac platform, the binary program is without MKL threading. For Linux platform, it is recommended to use PCAone with MKL libiomp5 threading which will speed up the program significantly, but please make sure the runtime library =libiomp5= is in your environment =LD_LIBRARY_PATH=.
 
 ** Build from source
 

@@ -2,6 +2,9 @@
 
   - add CSV format support for scRNAs data
 
+  - add --printv to print out another eigen vectors
+
+
 - v0.1.3
 
   - refactor Halko implementation

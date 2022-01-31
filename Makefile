@@ -22,7 +22,7 @@ program       = PCAone
 CXX          ?= g++       # use default g++ only if not set in env
 CXXFLAGS	  = -O3 -Wall -std=c++11 -mavx2 -mfma -ffast-math -m64
 MYFLAGS       = -DVERSION=\"$(VERSION)\" -DNDEBUG
-INC           = -I./external -I/usr/local/include
+INC           = -I./external -I./external/zstd/lib
 LPATHS        = -L/usr/local/lib
 # CURRENT_DIR   = $(shell pwd)
 SLIBS         = ./external/zstd/lib/libzstd.a  

@@ -5,7 +5,7 @@ CXX         ?= g++
 CXXFLAGS     = -O3 -Wall -std=c++11 -mavx -mavx2
 
 OBJECTS      = $(patsubst %.cpp,%.o,$(wildcard *.cpp))
-INC          = -I/usr/include -I/usr/local/include
+INC          = -I../zstd/lib
 
 bgenlib.a: ${OBJECTS}
 	ar -rcs $@ $^

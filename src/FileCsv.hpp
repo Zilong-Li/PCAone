@@ -18,7 +18,7 @@ public:
         buffOutTmp.reserve(buffOutSize);
         auto buffOut = const_cast<void *>(static_cast<const void *>(buffOutTmp.c_str()));
 
-        size_t read, p, ncol, lastCol;
+        size_t read, p, ncol = 0, lastCol = 0;
         int isEmpty = 1;
         fin = fopenOrDie(params.csvfile.c_str(), "rb");
         nsnps = 0;
