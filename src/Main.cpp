@@ -77,6 +77,8 @@ void parse_params(int argc, char* argv[], struct Param* params)
         ("maxp", "maximum number of power iteration for Halko.[20]", cxxopts::value<int>(),"INT")
         ("m,memory", "specify the RAM usage in GB unit instead of exploiting the RAM of the server.", cxxopts::value<double>(),"DOUBLE")
         ("n,threads", "number of threads.[1]", cxxopts::value<int>(),"INT")
+        ("M", "number of features. eg. SNPs.", cxxopts::value<int>(),"INT")
+        ("N", "number of samples.", cxxopts::value<int>(),"INT")
         ("o,out", "prefix of output files.", cxxopts::value<string>(),"PREFIX")
         ("p,pcangsd", "use PCAngsd algorithm for data with genotype likelihood.", cxxopts::value<bool>()->default_value("false"))
         ("printv", "print out another eigen vectors with projection suffix.", cxxopts::value<bool>()->default_value("false"))
@@ -111,6 +113,8 @@ void parse_params(int argc, char* argv[], struct Param* params)
         if( vm.count("out") ) params->outfile = vm["out"].as<string>();
         if( vm.count("eigs") ) {params->k = vm["eigs"].as<int>(); params->ncv = fmax(20, 2 * params->k + 1);}
         if( vm.count("threads") ) params->threads = vm["threads"].as<int>();
+        if( vm.count("N") ) params->nsamples = vm["N"].as<int>();
+        if( vm.count("M") ) params->nsnps = vm["M"].as<int>();
         if( vm.count("tol-halko") ) params->tol_halko = vm["tol-halko"].as<double>();
         if( vm.count("imaxiter") ) params->imaxiter = vm["imaxiter"].as<int>();
         if( vm.count("maxp") ) params->maxp = vm["maxp"].as<int>();

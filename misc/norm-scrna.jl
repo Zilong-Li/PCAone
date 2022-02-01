@@ -101,6 +101,9 @@ function normalizex(x::Array{UInt32,1}, libsize::Array{UInt32,1}, scale::Abstrac
         xx = log10.(xx .+ 1)
     end
 
+    # centering
+    xx = xx .- mean(xx)
+
     return xx
 end
 

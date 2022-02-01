@@ -12,27 +12,35 @@ public:
     FileBeagle(const Param& params_) : Data(params_)
         {
             std::cout << timestamp() << "start parsing BEAGLE format" << std::endl;
-            fp = gzopen(params.beagle.c_str(), "r");
             original = buffer =(char *) calloc(bufsize, sizeof(char));
-            tgets(fp, &buffer, &bufsize);
-            int nCol = 1;
-            if(buffer!=original) original=buffer;
-            strtok_r(buffer,delims,&buffer);
-            while(strtok_r(NULL,delims,&buffer))
-                nCol++;
-            if(nCol % 3){
-                throw std::runtime_error("Number of columns should be a multiple of 3.\n");
+
+            if (params.nsnps > 0 && params.nsamples > 0) {
+                std::cout << timestamp() << "use nsamples and nsnps given by user." << std::endl;
+                nsamples = params.nsamples;
+                nsnps = params.nsnps;
+
+            } else {
+                fp = gzopen(params.beagle.c_str(), "r");
+                tgets(fp, &buffer, &bufsize);
+                int nCol = 1;
+                if(buffer!=original) original=buffer;
+                strtok_r(buffer,delims,&buffer);
+                while(strtok_r(NULL,delims,&buffer))
+                    nCol++;
+                if(nCol % 3){
+                    throw std::runtime_error("Number of columns should be a multiple of 3.\n");
+                }
+                nsamples = nCol/3-1;
+                // continue getting the number of sites
+                // assume the number of columns of each line is the same. should check it first.
+                buffer = original;
+                int nSites = 0;
+                while(tgets(fp, &buffer, &bufsize)) {
+                    nSites++;
+                }
+                nsnps = nSites;
+                gzclose(fp);
             }
-            nsamples = nCol/3-1;
-            // continue getting the number of sites
-            // assume the number of columns of each line is the same. should check it first.
-            buffer = original;
-            int nSites = 0;
-            while(tgets(fp, &buffer, &bufsize)) {
-                nSites++;
-            }
-            nsnps = nSites;
-            gzclose(fp);
 
             P = MyMatrix(nsnps, nsamples * 3);
             std::cout << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << std::endl;

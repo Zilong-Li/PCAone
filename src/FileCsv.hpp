@@ -9,58 +9,65 @@ class FileCsv : public Data
 {
 public:
     FileCsv(const Param &params_) : Data(params_)
-    {
-        std::cout << timestamp() << "start parsing CSV format" << std::endl;
+        {
+            std::cout << timestamp() << "start parsing CSV format" << std::endl;
+            buffInTmp.reserve(buffInSize);
+            buffOutTmp.reserve(buffOutSize);
 
-        buffInTmp.reserve(buffInSize);
-        auto buffIn = const_cast<void *>(static_cast<const void *>(buffInTmp.c_str()));
+            if (params.nsnps > 0 && params.nsamples > 0) {
+                std::cout << timestamp() << "use nsamples and nsnps given by user." << std::endl;
+                nsamples = params.nsamples;
+                nsnps = params.nsnps;
 
-        buffOutTmp.reserve(buffOutSize);
-        auto buffOut = const_cast<void *>(static_cast<const void *>(buffOutTmp.c_str()));
+            } else {
+                auto buffIn = const_cast<void *>(static_cast<const void *>(buffInTmp.c_str()));
+                auto buffOut = const_cast<void *>(static_cast<const void *>(buffOutTmp.c_str()));
 
-        size_t read, p, ncol = 0, lastCol = 0;
-        int isEmpty = 1;
-        fin = fopenOrDie(params.csvfile.c_str(), "rb");
-        nsnps = 0;
-        buffCur = "";
-        while ((read = freadOrDie(buffIn, buffInSize, fin))) {
-            isEmpty = 0;
-            ZSTD_inBuffer input = {buffIn, read, 0};
-            while (input.pos < input.size) {
-                ZSTD_outBuffer output = {buffOut, buffOutSize, 0};
-                size_t const ret = ZSTD_decompressStream(dctx, &output, &input);
-                lastRet = ret;
-                buffCur += std::string((char *)buffOut, output.pos);
-                while (( p = buffCur.find("\n") ) != std::string::npos) {
-                    nsnps++;
-                    buffLine = buffCur.substr(0, p);
-                    buffCur.erase(0, p + 1);
-                    lastCol = ncol;
-                    ncol = 1;
-                    while (( p = buffLine.find(",") ) != std::string::npos) {
-                        ncol++;
-                        buffLine.erase(0, p + 1);
-                    }
-                    if (nsnps > 2 && (lastCol != ncol)) {
-                        throw std::invalid_argument("the csv file has unaligned columns\n");
+                size_t read, p, ncol = 0, lastCol = 0;
+                int isEmpty = 1;
+                nsnps = 0;
+                buffCur = "";
+                fin = fopenOrDie(params.csvfile.c_str(), "rb");
+                while ((read = freadOrDie(buffIn, buffInSize, fin))) {
+                    isEmpty = 0;
+                    ZSTD_inBuffer input = {buffIn, read, 0};
+                    while (input.pos < input.size) {
+                        ZSTD_outBuffer output = {buffOut, buffOutSize, 0};
+                        size_t const ret = ZSTD_decompressStream(dctx, &output, &input);
+                        lastRet = ret;
+                        buffCur += std::string((char *)buffOut, output.pos);
+                        while (( p = buffCur.find("\n") ) != std::string::npos) {
+                            nsnps++;
+                            buffLine = buffCur.substr(0, p);
+                            buffCur.erase(0, p + 1);
+                            lastCol = ncol;
+                            ncol = 1;
+                            while (( p = buffLine.find(",") ) != std::string::npos) {
+                                ncol++;
+                                buffLine.erase(0, p + 1);
+                            }
+                            if (nsnps > 2 && (lastCol != ncol)) {
+                                throw std::invalid_argument("the csv file has unaligned columns\n");
+                            }
+                        }
                     }
                 }
+
+                if (isEmpty) {
+                    throw std::invalid_argument("input file is empty.\n");
+                }
+
+                if (lastRet != 0) {
+                    throw std::runtime_error("EOF before end of ZSTD_decompressStream.\n");
+                }
+
+                nsamples = ncol;
+                lastRet = 1;
             }
+
+            std::cout << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << std::endl;
         }
 
-        if (isEmpty) {
-            throw std::invalid_argument("input file is empty.\n");
-        }
-
-        if (lastRet != 0) {
-            throw std::runtime_error("EOF before end of ZSTD_decompressStream.\n");
-        }
-
-
-        nsamples = ncol;
-        lastRet = 1;
-        std::cout << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << std::endl;
-    }
 
     ~FileCsv() {
         ZSTD_freeDCtx(dctx);

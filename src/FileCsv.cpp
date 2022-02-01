@@ -55,7 +55,9 @@ void FileCsv::read_all_and_centering()
 
 void FileCsv::check_file_offset_first_var()
 {
-    if ( feof(fin) || lastRet == 0 ) {
+    if ( fin == nullptr) {
+        fin = fopenOrDie(params.csvfile.c_str(), "rb");
+    } else if (feof(fin) || lastRet == 0) {
         rewind(fin);
     } else {
         throw std::runtime_error("no eof detected. something wrong.\n");
