@@ -66,10 +66,10 @@ void FileCsv::check_file_offset_first_var()
 
 }
 
-void FileCsv::read_snp_block_initial(uint64 start_tidx, uint64 stop_tidx, bool standardize)
+void FileCsv::read_snp_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize)
 {
 
-    const uint actual_block_size = stop_tidx - start_tidx + 1;
+    const uint actual_block_size = stop_idx - start_idx + 1;
 
     if (G.cols() < params.blocksize || (actual_block_size < params.blocksize))
     {

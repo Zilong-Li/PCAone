@@ -63,9 +63,9 @@ public:
 
                 lastRet = 1;
                 nsamples = ncol;
-                tidx.resize(nsamples + 1);  // tidx[0] = 0;
             }
 
+            tidx.resize(nsamples + 1);  // tidx[0] = 0;
             std::cout << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << std::endl;
         }
 

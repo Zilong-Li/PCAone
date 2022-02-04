@@ -80,7 +80,7 @@ void parse_params(int argc, char* argv[], struct Param* params)
         ("M", "number of features. eg. SNPs.", cxxopts::value<int>(),"INT")
         ("N", "number of samples.", cxxopts::value<int>(),"INT")
         ("o,out", "prefix of output files.", cxxopts::value<string>(),"PREFIX")
-        ("p,pcangsd", "use PCAngsd algorithm for data with genotype likelihood.", cxxopts::value<bool>()->default_value("false"))
+        ("p,pcangsd", "use PCAngsd algorithm for genotype likelihood input.", cxxopts::value<bool>()->default_value("false"))
         ("printv", "print out another eigen vectors with projection suffix.", cxxopts::value<bool>()->default_value("false"))
         ("v,verbose", "verbose message output.", cxxopts::value<bool>()->default_value("false"))
         ;

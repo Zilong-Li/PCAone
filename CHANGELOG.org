@@ -4,6 +4,7 @@
 
   - add --printv to print out another eigen vectors
 
+  - add -N and -M options
 
 - v0.1.3
 

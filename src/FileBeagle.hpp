@@ -34,7 +34,7 @@ public:
                 // continue getting the number of sites
                 // assume the number of columns of each line is the same. should check it first.
                 buffer = original;
-                int nSites = 0;
+                size_t nSites = 0;
                 while(tgets(fp, &buffer, &bufsize)) {
                     nSites++;
                 }
