@@ -9,15 +9,22 @@
 
 PCAone is a fast and memory efficient PCA tool implemented in C++ aiming at providing comprehensive features and algorithms for different scenarios.
 
-* Table of Contents :TOC:
+* Table of Contents :TOC:QUOTE:
+#+BEGIN_QUOTE
 - [[#features][Features]]
 - [[#installation][Installation]]
-  - [[#download-pre-compiled-binary][Download pre-compiled binary]]
+  - [[#download-binary][Download binary]]
   - [[#build-from-source][Build from source]]
-- [[#usage][Usage]]
+- [[#documentation][Documentation]]
+  - [[#input-formats][Input formats]]
+  - [[#output-files][Output files]]
+  - [[#pca-algorithms][PCA algorithms]]
+  - [[#running-mode][Running mode]]
   - [[#examples][Examples]]
+- [[#command-line][Command Line]]
 - [[#citation][Citation]]
 - [[#acknowledgements][Acknowledgements]]
+#+END_QUOTE
 
 * Features
 
@@ -29,7 +36,7 @@ See [[file:CHANGELOG.org][change log]] here.
 - Supports the [[https://www.cog-genomics.org/plink/1.9/formats#bed][PLINK]], [[https://www.well.ox.ac.uk/~gav/bgen_format][BGEN]], [[http://www.popgen.dk/angsd/index.php/Input#Beagle_format][Beagle]] genetic data formats.
 - Supports [[https://github.com/Rosemeis/emu][EMU]] algorithm for scenario with large proportion of missingness.
 - Supports [[https://github.com/Rosemeis/pcangsd][PCAngsd]] algorithm for low coverage sequencing scenario with genotype likelihood as input.
-- Supports a general zstd compressed CSV format for scRNAs data
+- Supports a general [[https://github.com/facebook/zstd][zstd]] compressed CSV format for scRNAs data
 
 | *Input format*      | bfile | bgen | beagle | csv |
 | *Arnoldi method*    | +     | +    | +      | +   |
@@ -42,7 +49,7 @@ See [[file:CHANGELOG.org][change log]] here.
 
 * Installation
 
-** Download pre-compiled binary
+** Download binary
 
 There are pre-compiled program provided for both Mac and Linux platform. Check [[https://github.com/Zilong-Li/PCAone/releases][the releases page]] to download them. For Mac platform, the binary program is without MKL threading. For Linux platform, it is recommended to use PCAone with MKL libiomp5 threading which will speed up the program significantly, but please make sure the runtime library =libiomp5= is in your environment =LD_LIBRARY_PATH=.
 
@@ -64,38 +71,28 @@ export CC=$(find $(brew --prefix)/bin/ -name "gcc-[0-9]*" | tail -1)
 export CXX=$(find $(brew --prefix)/bin/ -name "g++-[0-9]*" | tail -1)
 #+end_src
 
-* Usage
+* Documentation
 
-#+begin_src plain
-Usage:
-  ./PCAone [OPTION...]
+** Input formats
 
-      --help     Print list of main options.
-      --helpall  Print list of all options.
+PCAone is designed to be extensible to accept many different formats. Currently, PCAone can work with SNP major genetic formats to study population structure. such as [[https://www.cog-genomics.org/plink/1.9/formats#bed][PLINK]], [[https://www.well.ox.ac.uk/~gav/bgen_format][BGEN]] and [[http://www.popgen.dk/angsd/index.php/Input#Beagle_format][Beagle]]. In addition, PCAone also supports a general csv format compressed by zstd assuming the data is already normalized by the users, which is useful for other datasets requiring specific normalization such as single cell RNAs data.
 
- Main options:
-      --beagle FILE    path of beagle file.
-      --bfile PREFIX   prefix of PLINK .bed/.bim/.fam files.
-      --bgen FILE      path of BGEN file.
-      --csv FILE       path of zstd compressed csv file.
-  -e, --emu            use EMU algorithm for data with lots of missingness.
-  -f, --fast           force to use fast super power iterations for Halko.
-  -h, --halko          use Halko method instead of default Arnoldi method.
-  -k, --eigs INT       top k components to be calculated.[10]
-      --maxp INT       maximum number of power iteration for Halko.[20]
-  -m, --memory DOUBLE  specify the RAM usage in GB unit instead of exploiting
-                       the RAM of the server.
-  -n, --threads INT    number of threads.[1]
-  -o, --out PREFIX     prefix of output files.
-  -p, --pcangsd        use PCAngsd algorithm for data with genotype
-                       likelihood.
-      --printv         print out another eigen vectors with projection
-                       suffix.
-  -v, --verbose        verbose message output.
+** Output files
 
-#+end_src
+- eigen vectors :: eigen vectors are saved in file with suffix =.eigvecs=. each row represents a sample and each col represents a PC.
+- eigen values :: eigen values are saved in file with suffix =.eigvals=. each row represents the eigenvalue of correspoding PC.
+- loadings :: loadings are saved in file with suffix =.projection=. need to use =--printv= option.
 
-*WARNING*: On most OS it is recommended to limit the number of threads to the number of physical cores.
+
+** PCA algorithms
+
+PCAone implements two popular fast PCA algorithms for solving the eigenvalues of large datasets. One is [[https://en.wikipedia.org/wiki/Arnoldi_iteration][Implicitly Restarted Arnoldi Method]] (Arnoldi) and the other is [[https://arxiv.org/abs/0909.4061][Randomized SVD]] (Halko).
+
+Specifically, for genetics data, PCAone also implements  [[https://github.com/Rosemeis/emu][EMU]] and [[https://github.com/Rosemeis/pcangsd][PCAngsd]] algorithm.
+
+** Running mode
+
+PCAone has both in-core and out-of-core mode for each algorithm. In default, PCAone will load all data in memory, which is the fastest way to do calculation. However, it is usually not feasible to keep the whole large matrix in memory. In contrast, PCAone allows user using =-m= option to specify the amount of memory.
 
 ** Examples
 
@@ -132,6 +129,41 @@ PCAone --bfile input.plink -k 20 -n 20 -o out -f --emu -m 2
 #+begin_src shell
 PCAone --beagle input.bgl.gz -k 20 -n 20 -o out -f --pcangsd
 #+end_src
+
+
+* Command Line
+
+#+begin_src plain
+Usage:
+  ./PCAone [OPTION...]
+
+      --help     Print list of main options.
+      --helpall  Print list of all options.
+
+ Main options:
+      --beagle FILE    path of beagle file.
+      --bfile PREFIX   prefix of PLINK .bed/.bim/.fam files.
+      --bgen FILE      path of BGEN file.
+      --csv FILE       path of zstd compressed csv file.
+  -e, --emu            use EMU algorithm for data with lots of missingness.
+  -f, --fast           force to use fast super power iterations for Halko.
+  -h, --halko          use Halko method instead of default Arnoldi method.
+  -k, --eigs INT       top k components to be calculated.[10]
+      --maxp INT       maximum number of power iteration for Halko.[20]
+  -m, --memory DOUBLE  specify the RAM usage in GB unit instead of exploiting
+                       the RAM of the server.
+  -n, --threads INT    number of threads.[1]
+  -M, INT              number of features. eg, SNPs.
+  -N, INT              number of samples.
+  -o, --out PREFIX     prefix of output files.
+  -p, --pcangsd        use PCAngsd algorithm for genotype likelihood input.
+      --printv         print out another eigen vectors with projection
+                       suffix.
+  -v, --verbose        verbose message output.
+
+#+end_src
+
+*Note*: On most OS it is recommended to limit the number of threads to the number of physical cores.
 
 * Citation
 
