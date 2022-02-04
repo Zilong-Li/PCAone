@@ -5,6 +5,7 @@
 #include "zstd.h"
 
 // assume data is already noralized
+// only do centering
 class FileCsv : public Data
 {
 public:
@@ -13,6 +14,7 @@ public:
             std::cout << timestamp() << "start parsing CSV format" << std::endl;
             buffInTmp.reserve(buffInSize);
             buffOutTmp.reserve(buffOutSize);
+            buffCur = "";
 
             if (params.nsnps > 0 && params.nsamples > 0) {
                 std::cout << timestamp() << "use nsamples and nsnps given by user." << std::endl;
@@ -23,32 +25,30 @@ public:
                 auto buffIn = const_cast<void *>(static_cast<const void *>(buffInTmp.c_str()));
                 auto buffOut = const_cast<void *>(static_cast<const void *>(buffOutTmp.c_str()));
 
-                size_t read, p, ncol = 0, lastCol = 0;
+                size_t read, i, p, ncol = 0, lastCol = 0;
                 int isEmpty = 1;
                 nsnps = 0;
-                buffCur = "";
                 fin = fopenOrDie(params.csvfile.c_str(), "rb");
                 while ((read = freadOrDie(buffIn, buffInSize, fin))) {
                     isEmpty = 0;
                     ZSTD_inBuffer input = {buffIn, read, 0};
                     while (input.pos < input.size) {
                         ZSTD_outBuffer output = {buffOut, buffOutSize, 0};
-                        size_t const ret = ZSTD_decompressStream(dctx, &output, &input);
-                        lastRet = ret;
+                        lastRet = ZSTD_decompressStream(dctx, &output, &input);
                         buffCur += std::string((char *)buffOut, output.pos);
-                        while (( p = buffCur.find("\n") ) != std::string::npos) {
+                        while ( (p = buffCur.find("\n")) != std::string::npos ) {
                             nsnps++;
                             buffLine = buffCur.substr(0, p);
-                            buffCur.erase(0, p + 1);
+                            buffCur.erase(0, p+1);
                             lastCol = ncol;
                             ncol = 1;
-                            while (( p = buffLine.find(",") ) != std::string::npos) {
-                                ncol++;
-                                buffLine.erase(0, p + 1);
+                            for (i = 0; i < buffLine.size(); i++) {
+                                if (buffLine[i] == ',') ncol++;
                             }
                             if (nsnps > 2 && (lastCol != ncol)) {
                                 throw std::invalid_argument("the csv file has unaligned columns\n");
                             }
+
                         }
                     }
                 }
@@ -61,8 +61,9 @@ public:
                     throw std::runtime_error("EOF before end of ZSTD_decompressStream.\n");
                 }
 
-                nsamples = ncol;
                 lastRet = 1;
+                nsamples = ncol;
+                tidx.resize(nsamples + 1);  // tidx[0] = 0;
             }
 
             std::cout << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << std::endl;
@@ -88,8 +89,8 @@ private:
     size_t const buffOutSize = ZSTD_DStreamOutSize();
     ZSTD_DCtx *const dctx = ZSTD_createDCtx();
     std::string buffCur, buffLine, buffInTmp, buffOutTmp;
-    std::vector<std::string> buffVecs;
     size_t lastRet = 1;
+    std::vector<size_t> tidx;
 };
 
 #endif // FILECSV_H_
