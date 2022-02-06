@@ -14,11 +14,12 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - name: install gnu gcc
-      run: brew install gcc
+    - name: install dependency
+      run: brew install gcc zstd
 
     - name: make
       run: |
         export CC=$(find $(brew --prefix)/bin/ -name "gcc-[0-9]*" | tail -1)
         export CXX=$(find $(brew --prefix)/bin/ -name "g++-[0-9]*" | tail -1)
         make
+

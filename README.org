@@ -31,7 +31,7 @@ PCAone is a fast and memory efficient PCA tool implemented in C++ aiming at prov
 See [[file:CHANGELOG.org][change log]] here.
 
 - Has both Arnoldi and Halko methods with *out-of-core* implementation.
-- Implement our own fast Halko algorithm with super power iterations for tera-scale dataset.
+- Implement our new fast Halko algorithm with super power iterations for tera-scale dataset.
 - Quite fast with multi-threading support using high performance library [[https://software.intel.com/content/www/us/en/develop/tools/oneapi/components/onemkl.html#gs.8jsfgz][MKL]] or [[https://www.openblas.net/][OpenBLAS]] as backend.
 - Supports the [[https://www.cog-genomics.org/plink/1.9/formats#bed][PLINK]], [[https://www.well.ox.ac.uk/~gav/bgen_format][BGEN]], [[http://www.popgen.dk/angsd/index.php/Input#Beagle_format][Beagle]] genetic data formats.
 - Supports [[https://github.com/Rosemeis/emu][EMU]] algorithm for scenario with large proportion of missingness.
@@ -44,7 +44,7 @@ See [[file:CHANGELOG.org][change log]] here.
 | *Super fast Halko*  | +     | +/-  | +/-    | +   |
 | *EMU algorithm*     | +     | +    | -      | -   |
 | *PCAngsd algorithm* | -     | +    | +      | -   |
-| *Out of RAM mode*   | +     | +    | -      | +   |
+| *Out-of-core mode*  | +     | +    | -      | +   |
 
 
 * Installation
@@ -67,8 +67,10 @@ Since the default compilation is without external MKL or OpenBLAS support, you n
 *IMPORTANT:* Only =GNU GCC= compiler is supported because MKL threading doesn't support =clang= at the moment. For mac users, you need to make sure the default compiler is =GNU g++= instead of =clang= by doing the following steps before running =make= command.
 #+begin_src shell
 brew install gcc
-export CC=$(find $(brew --prefix)/bin/ -name "gcc-[0-9]*" | tail -1)
-export CXX=$(find $(brew --prefix)/bin/ -name "g++-[0-9]*" | tail -1)
+alias gcc=$(find $(brew --prefix)/bin/ -name "gcc-[0-9]*" | tail -1)
+alias g++=$(find $(brew --prefix)/bin/ -name "g++-[0-9]*" | tail -1)
+export CC="gcc"
+export CXX="g++"
 #+end_src
 
 * Documentation
@@ -92,7 +94,7 @@ Specifically, for genetics data, PCAone also implements  [[https://github.com/Ro
 
 ** Running mode
 
-PCAone has both in-core and out-of-core mode for each algorithm. In default, PCAone will load all data in memory, which is the fastest way to do calculation. However, it is usually not feasible to keep the whole large matrix in memory. In contrast, PCAone allows user using =-m= option to specify the amount of memory.
+PCAone has both in-core and out-of-core mode for each algorithm. In default, PCAone will load all data in memory, which is the fastest way to do calculation. However, it is usually not feasible to keep the whole large matrix in memory. In contrast, PCAone allows user to specify the amount of memory using =-m= option .
 
 ** Examples
 

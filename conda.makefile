@@ -1,8 +1,8 @@
 ###########################
 
-VERSION=0.1.3
+VERSION=0.1.4
 
-MKLROOT       =
+MKLROOT       = $PREFIX
 
 ####### INC, LPATHS, LIBS, MYFLAGS
 program       = PCAone
@@ -13,9 +13,9 @@ program       = PCAone
 # export LDFLAGS="-Wl,-rpath,/usr/local/opt/gcc/lib/gcc/11/"
 # conda install -c anaconda mkl mkl-include intel-openmp
 # CXX           = g++
-CXXFLAGS	  = -O3 -Wall -std=c++11 -march=native -ffast-math -m64
+CXXFLAGS	    = -O3 -Wall -std=c++11 -march=native -ffast-math -m64
 MYFLAGS       = -fopenmp -DVERSION=\"$(VERSION)\" -DNDEBUG -DWITH_BGEN -DWITH_MKL -DEIGEN_USE_MKL_ALL
-INC           = -I./external -I/usr/local/include
+INC           = -I./external -I./external/zstd/lib
 LPATHS        = -L/usr/local/lib
 
 INC          += -I${MKLROOT}/include/
@@ -26,6 +26,8 @@ DLIBS        += -Wl,-rpath,${MKLROOT}/lib -lmkl_intel_lp64 -lmkl_intel_thread -l
 #######
 
 OBJ = $(patsubst %.cpp, %.o, $(wildcard ./src/*.cpp))
+
+SLIBS += ./external/bgen/bgenlib.a
 
 LIBS += ${SLIBS} ${DLIBS} -lm -ldl
 
@@ -38,14 +40,19 @@ LIBS += ${SLIBS} ${DLIBS} -lm -ldl
 
 all: ${program}
 
-${program}: bgenlib ${OBJ}
-	$(CXX) $(CXXFLAGS) -o $(program) ${OBJ} ./external/bgen/bgenlib.a ${LPATHS} ${LIBS}
+${program}: zstdlib bgenlib ${OBJ}
+	$(CXX) $(CXXFLAGS) -o $(program) ${OBJ} ${LPATHS} ${LIBS}
 
 %.o: %.cpp
 	${CXX} ${CXXFLAGS} ${MYFLAGS} -o $@ -c $< ${INC}
+
+zstdlib:
+	(cd ./external/zstd/lib/; $(MAKE))
 
 bgenlib:
 	(cd ./external/bgen/; $(MAKE))
 
 clean:
-	(rm -f $(OBJ) $(program);cd ./external/bgen/; $(MAKE) clean)
+	(rm -f $(OBJ) $(program))
+	(cd ./external/bgen/; $(MAKE) clean)
+	(cd ./external/zstd/lib/; $(MAKE) clean)

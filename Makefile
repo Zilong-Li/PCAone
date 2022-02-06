@@ -1,6 +1,4 @@
-###########################
-
-VERSION=0.1.4
+######################### configure ################
 
 # for mkl
 # make sure libiomp5 can be found
@@ -12,41 +10,76 @@ MKLROOT       =
 # OPENBLAS_ROOT = /usr/local/opt/openblas
 # LAPACK_ROOT   = /usr/local/opt/lapack
 OPENBLAS_ROOT =
-LAPACK_ROOT   = /usr/local
+LAPACK_ROOT   =
+
+# by default dynamical linking
 STATIC       := 0
+# only if static = 1, IOMP5 works
+IOMP5        := 0
+
+########################### end ###########################
+
+VERSION=0.1.5
+# detect OS architecture and add flags
+Platform     := $(shell uname -s)
+
+$(info "building PCAone on ${Platform} -- version ${VERSION}")
+
 
 ####### INC, LPATHS, LIBS, MYFLAGS
 program       = PCAone
 # for mac user, please change this to gnu gcc instead of the default clang version
 # brew install gcc && ln -s $(which g++-11) /usr/local/bin/g++
-CXX          ?= g++       # use default g++ only if not set in env
-CXXFLAGS	  = -O3 -Wall -std=c++11 -mavx2 -mfma -ffast-math -m64
+# use default g++ only if not set in env
+CXX           ?= g++
+CXXFLAGS	  = -O3 -Wall -std=c++11 -mavx2 -mfma -ffast-math -m64 -fPIC -pipe
 MYFLAGS       = -DVERSION=\"$(VERSION)\" -DNDEBUG
-INC           = -I./external -I./external/zstd/lib
-LPATHS        = -L/usr/local/lib
+LINKFLAGS     = -s
+CFLAGS        =
 # CURRENT_DIR   = $(shell pwd)
-SLIBS         = ./external/zstd/lib/libzstd.a  
-# detect OS architecture and add flags
-Platform     := $(shell uname -s)
+INC           = -I./external
+LPATHS        = -L/usr/local/lib
+
+ifeq ($(strip $(STATIC)),1)
+	INC  += -I./external/zstd/lib
+	SLIBS += ./external/zstd/lib/libzstd.a
+
+	ifeq ($(Platform), Darwin)
+		SLIBS += /usr/local/opt/zlib/lib/libz.a
+		ifeq ($(strip $(IOMP5)), 1)
+			SLIBS += /usr/local/opt/gcc/lib/gcc/11/libgomp.a  # gcc need libgomp.a
+			CXXFLAGS += -static-libgcc
+			MYFLAGS  += -fopenmp
+		else
+			SLIBS += /usr/local/lib/libomp.a  # clang needs libomp.a
+			CXXFLAGS += -stdlib=libc++
+			CFLAGS  += -Xpreprocessor -fopenmp
+		endif
+	else
+		CXXFLAGS += -static
+		SLIBS    += /usr/lib/x86_64-linux-gnu/libz.a
+	endif
+else
+	MYFLAGS  += -fopenmp
+	CXXFLAGS += -march=native
+	DLIBS    += -lz -lzstd
+	INC      += -I/usr/local/include
+endif
+
+
 ifeq ($(Platform),Linux)
 ###### for linux
-	ifeq ($(strip $(STATIC)),1)
-		CXXFLAGS += -static-libstdc++ 
-		# CXXFLAGS += -static
-        SLIBS    += /usr/lib/x86_64-linux-gnu/libz.a
-	else
-		CXXFLAGS += -march=native
-        DLIBS    += -lz 
-	endif
-
 	MYFLAGS  += -fopenmp
 	ifneq ($(strip $(MKLROOT)),)
 		MYFLAGS += -DWITH_MKL -DEIGEN_USE_MKL_ALL
 		INC     += -I${MKLROOT}/include/
 		LPATHS  += -L${MKLROOT}/lib
 		ifeq ($(strip $(STATIC)),1)
-			SLIBS += -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_intel_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -liomp5 -lpthread
-			# SLIBS += -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_gnu_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -lgomp -lpthread
+			ifeq ($(strip $(IOMP5)), 1)
+				SLIBS += -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_intel_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -liomp5 -lpthread
+			else
+				SLIBS += -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_gnu_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -lgomp -lpthread
+			endif
 		else
 			DLIBS += -Wl,-rpath,${MKLROOT}/lib -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread 
 		endif
@@ -63,21 +96,16 @@ ifeq ($(Platform),Linux)
 
 else ifeq ($(Platform),Darwin)
 ###### for mac
-	ifeq ($(strip $(STATIC)),1)
-		SLIBS += /usr/local/opt/zlib/lib/libz.a /usr/local/lib/libomp.a  # clang needs libomp.a
-		CXXFLAGS += -stdlib=libc++ -Xpreprocessor -fopenmp 
-	else
-        DLIBS += -lz
-		CXXFLAGS += -march=native -fopenmp
-	endif
-
 	ifneq ($(strip $(MKLROOT)),)
 		MYFLAGS += -DWITH_MKL -DEIGEN_USE_MKL_ALL
 		INC     += -I${MKLROOT}/include/
 		LPATHS  += -L${MKLROOT}/lib
 		ifeq ($(strip $(STATIC)),1)
-			SLIBS += ${MKLROOT}/lib/libmkl_intel_lp64.a ${MKLROOT}/lib/libmkl_intel_thread.a ${MKLROOT}/lib/libmkl_core.a -liomp5 -lpthread
-			# SLIBS += ${MKLROOT}/lib/libmkl_intel_lp64.a ${MKLROOT}/lib/libmkl_sequential.a ${MKLROOT}/lib/libmkl_core.a -lpthread
+			ifeq ($(strip $(IOMP5)), 1)
+				SLIBS += ${MKLROOT}/lib/libmkl_intel_lp64.a ${MKLROOT}/lib/libmkl_intel_thread.a ${MKLROOT}/lib/libmkl_core.a -liomp5 -lpthread
+			else
+				SLIBS += ${MKLROOT}/lib/libmkl_intel_lp64.a ${MKLROOT}/lib/libmkl_sequential.a ${MKLROOT}/lib/libmkl_core.a -lpthread
+			endif
 		else
 			DLIBS += -Wl,-rpath,${MKLROOT}/lib -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread
 		endif
@@ -96,6 +124,8 @@ endif
 
 OBJ = $(patsubst %.cpp, %.o, $(wildcard ./src/*.cpp))
 
+SLIBS += ./external/bgen/bgenlib.a
+
 LIBS += ${SLIBS} ${DLIBS} -lm -ldl
 
 .PHONY: clean
@@ -103,13 +133,18 @@ LIBS += ${SLIBS} ${DLIBS} -lm -ldl
 all: ${program}
 
 ${program}: zstdlib bgenlib ${OBJ}
-	$(CXX) $(CXXFLAGS) -o $(program) ${OBJ} ./external/bgen/bgenlib.a ${LPATHS} ${LIBS}
+	$(CXX) $(CXXFLAGS) $(CFLAGS) $(LINKFLAGS) -o $(program) ${OBJ}  ${LPATHS} ${LIBS}
 
 %.o: %.cpp
 	${CXX} ${CXXFLAGS} ${MYFLAGS} -o $@ -c $< ${INC}
 
 zstdlib:
+
+ifeq ($(STATIC),1)
 	(cd ./external/zstd/lib/; $(MAKE))
+else
+	@echo "no building zstd manually"
+endif
 
 bgenlib:
 	(cd ./external/bgen/; $(MAKE))
