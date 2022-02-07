@@ -64,7 +64,6 @@ ifeq ($(strip $(STATIC)),1)
 		endif
 	endif
 else
-	MYFLAGS  += -fopenmp
 	CXXFLAGS += -march=native
 	DLIBS    += -lz -lzstd
 	INC      += -I/usr/local/include
@@ -95,6 +94,7 @@ ifeq ($(Platform),Linux)
 		DLIBS   += -llapack -llapacke -lopenblas -lgfortran -lgomp -lpthread
 
 	else
+		CXXFLAGS += -static-libgcc -static-libstdc++  # helpful to fix some glibcxx issue
 		DLIBS   += -lgomp -lpthread
 	endif
 
@@ -122,6 +122,7 @@ else ifeq ($(Platform),Darwin)
 
 	else
 		DLIBS   += -lgomp -lpthread
+		MYFLAGS  += -fopenmp
 	endif
 
 endif
@@ -152,6 +153,10 @@ endif
 
 bgenlib:
 	(cd ./external/bgen/; $(MAKE))
+
+rm:
+	(rm -f $(OBJ) $(program))
+	(cd ./external/bgen/; $(MAKE) clean)
 
 clean:
 	(rm -f $(OBJ) $(program))
