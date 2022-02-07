@@ -5,7 +5,7 @@
 [[https://github.com/Zilong-Li/PCAone/actions/workflows/linux.yml/badge.svg]]
 [[https://github.com/Zilong-Li/PCAone/actions/workflows/mac.yml/badge.svg]]
 
-*Current Version: v0.1.4*
+*Current Version: v0.1.5*
 
 PCAone is a fast and memory efficient PCA tool implemented in C++ aiming at providing comprehensive features and algorithms for different scenarios.
 
@@ -13,12 +13,14 @@ PCAone is a fast and memory efficient PCA tool implemented in C++ aiming at prov
 #+BEGIN_QUOTE
 - [[#features][Features]]
 - [[#installation][Installation]]
-  - [[#download-binary][Download binary]]
+  - [[#via-conda][Via conda]]
+  - [[#download-binaries][Download binaries]]
   - [[#build-from-source][Build from source]]
 - [[#documentation][Documentation]]
+  - [[#pca-algorithms][PCA algorithms]]
   - [[#input-formats][Input formats]]
   - [[#output-files][Output files]]
-  - [[#pca-algorithms][PCA algorithms]]
+  - [[#advanced-options][Advanced options]]
   - [[#running-mode][Running mode]]
   - [[#examples][Examples]]
 - [[#command-line][Command Line]]
@@ -49,9 +51,13 @@ See [[file:CHANGELOG.org][change log]] here.
 
 * Installation
 
-** Download binary
+** Via conda
 
-There are pre-compiled program provided for both Mac and Linux platform. Check [[https://github.com/Zilong-Li/PCAone/releases][the releases page]] to download them. For Mac platform, the binary program is without MKL threading. For Linux platform, it is recommended to use PCAone with MKL libiomp5 threading which will speed up the program significantly, but please make sure the runtime library =libiomp5= is in your environment =LD_LIBRARY_PATH=.
+You can install PCAone via =conda install -c bioconda PCAone=.
+
+** Download binaries
+
+There are compiled binaries provided for both Mac and Linux platform. Check [[https://github.com/Zilong-Li/PCAone/releases][the releases page]] to download them. Note that packages named with =iomp5= need runtime library =libiomp5= to be found in your environment =LD_LIBRARY_PATH=. You can install the lib by =conda install mkl=. But it should be fast enough to use PCAone without =libiomp5= threading, although it is recommended to use PCAone with MKL =libiomp5= threading which will speed up the program significantly,
 
 ** Build from source
 
@@ -64,16 +70,20 @@ make
 #+end_src
 Since the default compilation is without external MKL or OpenBLAS support, you need to set the =MKLROOT= or =OPENBLAS_ROOT= in *Makefile* to your own path to use one of them as backend. If it complains that there is no =lapack= lib, please install it and set the =LAPACK_ROOT= to the correct path as well. 
 
-*IMPORTANT:* Only =GNU GCC= compiler is supported because MKL threading doesn't support =clang= at the moment. For mac users, you need to make sure the default compiler is =GNU g++= instead of =clang= by doing the following steps before running =make= command.
+*IMPORTANT:* Only =GNU GCC= compiler is supported because MKL threading doesn't support =clang= at the moment. For mac users, you need to make sure the default compiler is =GNU gcc= instead of =clang= by doing the following steps before running =make= command.
 #+begin_src shell
 brew install gcc
-alias gcc=$(find $(brew --prefix)/bin/ -name "gcc-[0-9]*" | tail -1)
-alias g++=$(find $(brew --prefix)/bin/ -name "g++-[0-9]*" | tail -1)
-export CC="gcc"
-export CXX="g++"
+export CC=$(find $(brew --prefix)/bin/ -name "gcc-[0-9]*" | tail -1)
+export CXX=$(find $(brew --prefix)/bin/ -name "g++-[0-9]*" | tail -1)
 #+end_src
 
 * Documentation
+
+** PCA algorithms
+
+PCAone implements two popular fast PCA algorithms for solving the eigenvalues of large datasets. One is [[https://en.wikipedia.org/wiki/Arnoldi_iteration][Implicitly Restarted Arnoldi Method]] (Arnoldi) and the other is [[https://arxiv.org/abs/0909.4061][Randomized SVD]] (Halko).
+
+Specifically, for genetics data, PCAone also implements  [[https://github.com/Rosemeis/emu][EMU]] and [[https://github.com/Rosemeis/pcangsd][PCAngsd]] algorithm.
 
 ** Input formats
 
@@ -85,12 +95,12 @@ PCAone is designed to be extensible to accept many different formats. Currently,
 - eigen values :: eigen values are saved in file with suffix =.eigvals=. each row represents the eigenvalue of correspoding PC.
 - loadings :: loadings are saved in file with suffix =.projection=. need to use =--printv= option.
 
+** Advanced options
 
-** PCA algorithms
-
-PCAone implements two popular fast PCA algorithms for solving the eigenvalues of large datasets. One is [[https://en.wikipedia.org/wiki/Arnoldi_iteration][Implicitly Restarted Arnoldi Method]] (Arnoldi) and the other is [[https://arxiv.org/abs/0909.4061][Randomized SVD]] (Halko).
-
-Specifically, for genetics data, PCAone also implements  [[https://github.com/Rosemeis/emu][EMU]] and [[https://github.com/Rosemeis/pcangsd][PCAngsd]] algorithm.
+- --maxp :: maximum number of iterations for halko algorithm.
+- --printv :: print out another eigenvectors or loadings.
+- --shuffle :: shuffle the input data first for fancy halko algorithm.
+- --bands :: number of bands used by fancy halko algorithm.
 
 ** Running mode
 
@@ -104,6 +114,8 @@ PCAone has both in-core and out-of-core mode for each algorithm. In default, PCA
 PCAone --bfile input.plink -k 20 -n 20 -o out
 # running out of RAM, only use 2GB memory
 PCAone --bfile input.plink -k 20 -n 20 -o out -m 2
+# for csv format compressed by zstd
+PCAone --csv input.csv.zstd -k 20 -n 20 -o out -m 2
 #+end_src
 
 - use normal Halko method for large data set

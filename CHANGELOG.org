@@ -1,3 +1,13 @@
+- v0.1.5
+
+  - publish PCAone on mac with =libiomp5= support
+
+  - update makefile and setup bioconda
+
+  - add --shuffle option
+
+  - optimization of FileCsv
+
 - v0.1.4
 
   - add CSV format support for scRNAs data
