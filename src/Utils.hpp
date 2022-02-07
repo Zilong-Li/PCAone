@@ -81,7 +81,7 @@ struct Param {
     bool printv = false;
     bool runem = false;
     bool batch = true; // if load all matrix into RAM.
-    bool noshuffle = false;
+    bool shuffle = false;
     bool fast = false;
     bool emu = false;
     bool pcangsd  = false; // read GP field for PCAngsd instead of GT.

@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
     omp_set_num_threads(params.threads);
     Data *data;
     if (params.intype == "bfile") {
-        if (!params.batch && params.fast && !params.noshuffle)
+        if (!params.batch && params.fast && params.shuffle)
             permute_plink2(params.bed_prefix, params.buffer);
         data = new FileBed(params);
     } else if( params.intype == "bgen" ) {
@@ -91,7 +91,7 @@ void parse_params(int argc, char* argv[], struct Param* params)
         ("itol", "tolerance for Arnoldi algorithm.[1e-6]", cxxopts::value<double>(),"DOUBLE")
         ("maxiter", "maximum number of EMU/PCAngsd interations.[100]", cxxopts::value<int>(),"INT")
         ("ncv", "number of Lanzcos basis vectors.[max(20, 2*k+1)]", cxxopts::value<int>(),"INT")
-        ("no-shuffle", "do not shuffle data for fast Halko out-of-ram mode.", cxxopts::value<bool>()->default_value("false"))
+        ("shuffle", "permute data by features for fast Halko.", cxxopts::value<bool>()->default_value("false"))
         ("oversamples", "the number of oversampling columns for Halko.[10]", cxxopts::value<int>(),"INT")
         ("tol-em", "tolerance for EMU/PCAngsd algorithm.[1e-5]", cxxopts::value<double>(),"DOUBLE")
         ("tol-halko", "tolerance for Halko algorithm.[1e-4]", cxxopts::value<double>(),"DOUBLE")
@@ -127,7 +127,7 @@ void parse_params(int argc, char* argv[], struct Param* params)
         if( vm.count("printv") ) params->printv = vm["printv"].as<bool>();
         if( vm.count("pcangsd") ) params->pcangsd = vm["pcangsd"].as<bool>();
         if( vm.count("emu") ) params->emu = vm["emu"].as<bool>();
-        if( vm.count("no-shuffle") ) params->noshuffle = vm["no-shuffle"].as<bool>();
+        if( vm.count("shuffle") ) params->shuffle = vm["shuffle"].as<bool>();
         if( vm.count("halko") ) {
             params->halko = vm["halko"].as<bool>();
             params->arnoldi = false;

@@ -136,14 +136,16 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
                     data->standardize_E();
                 }
             }
-            // permute snps of G, see https://stackoverflow.com/questions/15858569/randomly-permute-rows-columns-of-a-matrix-with-eigen
-            Eigen::PermutationMatrix<Eigen::Dynamic,Eigen::Dynamic> perm(data->G.cols());
-            perm.setIdentity();
-            auto rng = std::default_random_engine {};
-            std::shuffle(perm.indices().data(), perm.indices().data()+perm.indices().size(), rng);
-            data->G = data->G * perm; // permute columns in-place
             band = 2;
             blocksize = (unsigned int)ceil((double)data->nsnps / data->params.bands);
+            // permute snps of G, see https://stackoverflow.com/questions/15858569/randomly-permute-rows-columns-of-a-matrix-with-eigen
+            if (data->params.shuffle) {
+                Eigen::PermutationMatrix<Eigen::Dynamic,Eigen::Dynamic> perm(data->G.cols());
+                perm.setIdentity();
+                auto rng = std::default_random_engine {};
+                std::shuffle(perm.indices().data(), perm.indices().data()+perm.indices().size(), rng);
+                data->G = data->G * perm; // permute columns in-place
+            }
 
         }
         {

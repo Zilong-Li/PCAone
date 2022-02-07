@@ -37,7 +37,7 @@ MYFLAGS       = -DVERSION=\"$(VERSION)\" -DNDEBUG
 LINKFLAGS     = -s
 CFLAGS        =
 # CURRENT_DIR   = $(shell pwd)
-INC           = -I./external
+INC           = -I./external -I./external/zstd/lib
 LPATHS        = -L/usr/local/lib
 
 ifeq ($(strip $(STATIC)),1)
@@ -56,8 +56,12 @@ ifeq ($(strip $(STATIC)),1)
 			CFLAGS  += -Xpreprocessor -fopenmp
 		endif
 	else
-		CXXFLAGS += -static
 		SLIBS    += /usr/lib/x86_64-linux-gnu/libz.a
+		ifeq ($(strip $(IOMP5)), 1)
+			CXXFLAGS += -static-libgcc -static-libstdc++
+		else
+			CXXFLAGS += -static
+		endif
 	endif
 else
 	MYFLAGS  += -fopenmp
