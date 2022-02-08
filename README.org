@@ -53,7 +53,7 @@ See [[file:CHANGELOG.org][change log]] here.
 
 ** Via conda
 
-You can install PCAone via =conda install -c bioconda PCAone=.
+You can install PCAone via =conda install -c bioconda pcaone=.
 
 ** Download binaries
 
@@ -100,7 +100,7 @@ PCAone is designed to be extensible to accept many different formats. Currently,
 - --maxp :: maximum number of iterations for halko algorithm.
 - --printv :: print out another eigenvectors or loadings.
 - --shuffle :: shuffle the input data first for fancy halko algorithm.
-- --bands :: number of bands used by fancy halko algorithm.
+- --bands :: number of bands used by fancy halko algorithm. must be 2^x.
 
 ** Running mode
 
