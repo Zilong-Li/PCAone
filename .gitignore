@@ -9,8 +9,7 @@ GPATH
 *.pdf
 *.o
 PCAone*
-mac.makefile
-linux.makefile
+*.makefile
 external/*/*.a
 *.dylib
 /external/zstd/lib/*.a

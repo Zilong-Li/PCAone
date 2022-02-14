@@ -33,27 +33,31 @@ PCAone is a fast and memory efficient PCA tool implemented in C++ aiming at prov
 See [[file:CHANGELOG.org][change log]] here.
 
 - Has both Arnoldi and Halko methods with *out-of-core* implementation.
-- Implement our new fast Halko algorithm with super power iterations for tera-scale dataset.
+- Implement our new fast fancy Halko algorithm with super power iterations for tera-scale dataset.
 - Quite fast with multi-threading support using high performance library [[https://software.intel.com/content/www/us/en/develop/tools/oneapi/components/onemkl.html#gs.8jsfgz][MKL]] or [[https://www.openblas.net/][OpenBLAS]] as backend.
 - Supports the [[https://www.cog-genomics.org/plink/1.9/formats#bed][PLINK]], [[https://www.well.ox.ac.uk/~gav/bgen_format][BGEN]], [[http://www.popgen.dk/angsd/index.php/Input#Beagle_format][Beagle]] genetic data formats.
 - Supports [[https://github.com/Rosemeis/emu][EMU]] algorithm for scenario with large proportion of missingness.
 - Supports [[https://github.com/Rosemeis/pcangsd][PCAngsd]] algorithm for low coverage sequencing scenario with genotype likelihood as input.
 - Supports a general [[https://github.com/facebook/zstd][zstd]] compressed CSV format for scRNAs data
 
-| *Input format*      | bfile | bgen | beagle | csv |
-| *Arnoldi method*    | +     | +    | +      | +   |
-| *One Pass Halko*    | +     | +    | +      | +   |
-| *Super fast Halko*  | +     | +/-  | +/-    | +   |
-| *EMU algorithm*     | +     | +    | -      | -   |
-| *PCAngsd algorithm* | -     | +    | +      | -   |
-| *Out-of-core mode*  | +     | +    | -      | +   |
+| *Input format*       | bfile | bgen | beagle | csv |
+| *Arnoldi method*     | +     | +    | +      | +   |
+| *One Pass Halko*     | +     | +    | +      | +   |
+| *Fast fancy Halko* | +     | +/-  | +/-    | +   |
+| *EMU algorithm*      | +     | +    | -      | -   |
+| *PCAngsd algorithm*  | -     | +    | +      | -   |
+| *Out-of-core mode*   | +     | +    | -      | +   |
 
 
 * Installation
 
 ** Via conda
 
-You can install PCAone via =conda install -c bioconda pcaone=.
+If you have conda installed, you can simply run the following command, which will download the MKL dependency for you and fix the runtime library automatically.
+
+#+begin_src sh
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Zilong-Li/PCAone/main/install.sh)"
+#+end_src
 
 ** Download binaries
 
@@ -126,7 +130,7 @@ PCAone --bfile input.plink -k 20 -n 20 -o out -h
 PCAone --bfile input.plink -k 20 -n 20 -o out -h -m 2
 #+end_src
 
-- use super fast Halko method for crazy huge data set
+- use fast fancy Halko method for crazy huge data set
 #+begin_src shell
 # running in RAM with fast Halko
 PCAone --bfile input.plink -k 20 -n 20 -o out -f
