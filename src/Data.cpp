@@ -134,7 +134,7 @@ void Data::write_eigs_files(const MyVector& S, const MyMatrix& U, const MyMatrix
         outu << U << '\n';
     }
     if (params.printv) {
-        std::ofstream outv(params.outfile + ".projection");
+        std::ofstream outv(params.outfile + ".loadings");
         if (outv.is_open()) {
             outv << V << '\n';
         }

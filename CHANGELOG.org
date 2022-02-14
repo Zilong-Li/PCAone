@@ -2,7 +2,7 @@
 
   - publish PCAone on mac with =libiomp5= support
 
-  - update makefile and setup bioconda
+  - update documentation
 
   - add --shuffle option
 

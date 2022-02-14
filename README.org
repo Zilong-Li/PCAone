@@ -97,7 +97,7 @@ PCAone is designed to be extensible to accept many different formats. Currently,
 
 - eigen vectors :: eigen vectors are saved in file with suffix =.eigvecs=. each row represents a sample and each col represents a PC.
 - eigen values :: eigen values are saved in file with suffix =.eigvals=. each row represents the eigenvalue of correspoding PC.
-- loadings :: loadings are saved in file with suffix =.projection=. need to use =--printv= option.
+- loadings :: loadings are saved in file with suffix =.loadings=. need to use =--printv= option.
 
 ** Advanced options
 
@@ -163,21 +163,20 @@ Usage:
       --bfile PREFIX   prefix of PLINK .bed/.bim/.fam files.
       --bgen FILE      path of BGEN file.
       --csv FILE       path of zstd compressed csv file.
+      --maxp INT       maximum number of power iteration for Halko.[20]
+      --printv         print out another eigen vectors with suffix .loadings.
   -e, --emu            use EMU algorithm for data with lots of missingness.
   -f, --fast           force to use fast super power iterations for Halko.
   -h, --halko          use Halko method instead of default Arnoldi method.
   -k, --eigs INT       top k components to be calculated.[10]
-      --maxp INT       maximum number of power iteration for Halko.[20]
   -m, --memory DOUBLE  specify the RAM usage in GB unit instead of exploiting
                        the RAM of the server.
   -n, --threads INT    number of threads.[1]
-  -M, INT              number of features. eg, SNPs.
-  -N, INT              number of samples.
   -o, --out PREFIX     prefix of output files.
   -p, --pcangsd        use PCAngsd algorithm for genotype likelihood input.
-      --printv         print out another eigen vectors with projection
-                       suffix.
   -v, --verbose        verbose message output.
+  -M, INT              number of features. eg. SNPs.
+  -N, INT              number of samples.
 
 #+end_src
 
