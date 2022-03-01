@@ -32,6 +32,7 @@ void FileCsv::read_all_and_centering()
                 #pragma omp parallel for
                 for (size_t i = 0; i < nsamples; i++) {
                     G(i, lastSNP) = std::stod(buffLine.substr(tidx[i], tidx[i+1] - tidx[i] - 1));
+                    if (params.cpmed) G(i, lastSNP) = log10(G(i, lastSNP) * median_libsize / libsize[i] + 1 );
                 }
 
                 G.col(lastSNP).array() -= G.col(lastSNP).mean();  // only do centering
@@ -93,6 +94,7 @@ void FileCsv::read_snp_block_initial(uint64 start_idx, uint64 stop_idx, bool sta
             #pragma omp parallel for
             for (size_t i = 0; i < nsamples; i++) {
                 G(i, lastSNP) = std::stod(buffLine.substr(tidx[i], tidx[i+1] - tidx[i] - 1));
+                if (params.cpmed) G(i, lastSNP) = log10(G(i, lastSNP) * median_libsize / libsize[i] + 1 );
             }
 
             G.col(lastSNP).array() -= G.col(lastSNP).mean();  // only do centering
@@ -122,6 +124,7 @@ void FileCsv::read_snp_block_initial(uint64 start_idx, uint64 stop_idx, bool sta
                     #pragma omp parallel for
                     for (size_t i = 0; i < nsamples; i++) {
                         G(i, lastSNP) = std::stod(buffLine.substr(tidx[i], tidx[i+1] - tidx[i] - 1));
+                        if (params.cpmed) G(i, lastSNP) = log10(G(i, lastSNP) * median_libsize / libsize[i] + 1 );
                     }
 
                     G.col(lastSNP).array() -= G.col(lastSNP).mean();  // only do centering

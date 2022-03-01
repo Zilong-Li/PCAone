@@ -103,7 +103,7 @@ PCAone is designed to be extensible to accept many different formats. Currently,
 
 - --maxp :: maximum number of iterations for halko algorithm.
 - --printv :: print out another eigenvectors or loadings.
-- --shuffle :: shuffle the input data first for fancy halko algorithm.
+- --shuffle :: shuffle the input data first for fancy halko algorithm, used together with -f.
 - --bands :: number of bands used by fancy halko algorithm. must be 2^x.
 
 ** Running mode
@@ -133,9 +133,9 @@ PCAone --bfile input.plink -k 20 -n 20 -o out -h -m 2
 - use fast fancy Halko method for crazy huge data set
 #+begin_src shell
 # running in RAM with fast Halko
-PCAone --bfile input.plink -k 20 -n 20 -o out -f
+PCAone --bfile input.plink -k 20 -n 20 -o out -f --shuffle
 # running out of RAM with fast Halko, only use 2GB memory
-PCAone --bfile input.plink -k 20 -n 20 -o out -f -m 2
+PCAone --bfile input.plink -k 20 -n 20 -o out -f --shuffle -m 2
 #+end_src
 
 - running EMU with super fast halko method

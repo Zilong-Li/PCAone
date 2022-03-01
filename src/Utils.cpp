@@ -328,3 +328,18 @@ void mev_rmse_byk(const MyMatrix& X, const MyMatrix& Y, MyVector& Vm, MyVector& 
         Vr(i) = rmse(X.leftCols(i+1), Y.leftCols(i+1));
     }
 }
+
+double get_median(std::vector<double>  v)
+{
+    size_t n = v.size();
+    if (n == 0) {
+        return 0;
+    } else {
+        std::sort(v.begin(), v.end());
+        if (n % 2 == 0) {
+            return (v[n / 2 - 1] + v[n / 2]) / 2.0;
+        } else {
+            return v[n / 2];
+        }
+    }
+}

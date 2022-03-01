@@ -70,6 +70,7 @@ void parse_params(int argc, char* argv[], struct Param* params)
         // ("pfile", "prefix to PLINK2 .pgen/.pvar/.psam files.", cxxopts::value<std::string>(), "PREFIX")
         ("bgen", "path of BGEN file.", cxxopts::value<std::string>(), "FILE")
         ("csv", "path of zstd compressed csv file.", cxxopts::value<std::string>(), "FILE")
+        ("cpmed", "normalize values by count per median (CPMED)for scRNAs", cxxopts::value<bool>()->default_value("false"))
         ("maxp", "maximum number of power iteration for Halko.[20]", cxxopts::value<int>(),"INT")
         ("printv", "print out another eigen vectors with suffix .loadings.", cxxopts::value<bool>()->default_value("false"))
         ("e,emu", "use EMU algorithm for data with lots of missingness.", cxxopts::value<bool>()->default_value("false"))
@@ -128,6 +129,7 @@ void parse_params(int argc, char* argv[], struct Param* params)
         if( vm.count("pcangsd") ) params->pcangsd = vm["pcangsd"].as<bool>();
         if( vm.count("emu") ) params->emu = vm["emu"].as<bool>();
         if( vm.count("shuffle") ) params->shuffle = vm["shuffle"].as<bool>();
+        if( vm.count("cpmed") ) params->cpmed = vm["cpmed"].as<bool>();
         if( vm.count("halko") ) {
             params->halko = vm["halko"].as<bool>();
             params->arnoldi = false;

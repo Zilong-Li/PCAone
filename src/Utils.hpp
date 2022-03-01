@@ -78,6 +78,7 @@ struct Param {
     uint buffer = 2;
 
     double memory = 2; // 2 G
+    bool cpmed = false;
     bool printv = false;
     bool runem = false;
     bool batch = true; // if load all matrix into RAM.
@@ -124,5 +125,7 @@ double rmse(const MyMatrix& X, const MyMatrix& Y);
 double mev(const MyMatrix& X, const MyMatrix& Y);
 
 void mev_rmse_byk(const MyMatrix& X, const MyMatrix& Y, MyVector& Vm, MyVector& Vr);
+
+double get_median(std::vector<double>  v);
 
 #endif
