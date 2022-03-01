@@ -20,6 +20,7 @@ void parse_params(int argc, char* argv[], struct Param* params);
 
 int main(int argc, char *argv[])
 {
+    auto t1 = std::chrono::steady_clock::now();
     Param params;
     // parse params and check before run
     parse_params(argc, argv, &params);
@@ -49,7 +50,10 @@ int main(int argc, char *argv[])
     } else {
         run_pca_with_halko(data, params);
     }
+    auto t2 = std::chrono::steady_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::seconds>(t2 - t1);
     cout << timestamp() << "total elapsed reading time: " << data->readtime << " seconds" << endl;
+    cout << timestamp() << "total elapsed wall time: " << duration.count() << " seconds" << endl;
     cout << timestamp() << "eigenvecs and eigenvals are saved. have a nice day. bye!\n";
 
     delete data;
