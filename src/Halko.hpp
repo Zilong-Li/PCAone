@@ -78,7 +78,7 @@ public:
     void computeGandH(MyMatrix& G, MyMatrix& H, int pi = 0);
 };
 
-void print_summary_table(const MyMatrix& Upre, const MyMatrix& Ucur);
+// void print_summary_table(const MyMatrix& Upre, const MyMatrix& Ucur);
 void run_pca_with_halko(Data* data, const Param& params);
 
 #endif

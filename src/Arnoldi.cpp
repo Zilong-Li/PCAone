@@ -7,28 +7,35 @@ using namespace Spectra;
 
 void ArnoldiOpData::perform_op(const double *x_in, double* y_out)
 {
-   data->params.verbose && cout << timestamp() << "Arnoldi Matrix Operation = " << nops << ".\n";
-   Eigen::Map<const MyVector> x(x_in, n);
-   Eigen::Map<MyVector> y(y_out, n);
-   data->check_file_offset_first_var();
-   if (update) {
-       data->read_snp_block_update(data->start[0], data->stop[0], U, S, VT, standardize);
-   } else {
-       data->read_snp_block_initial(data->start[0], data->stop[0], standardize);
-   }
-   y.noalias() = data->G * (data->G.transpose() * x);
-   for (uint k=1; k < data->nblocks; ++k)
-   {
-       if (update) {
-           data->read_snp_block_update(data->start[k], data->stop[k], U, S, VT, standardize);
-       } else {
-           data->read_snp_block_initial(data->start[k], data->stop[k], standardize);
-       }
-       //TODO: Kahan summation
-       // optimal evaluation see https://eigen.tuxfamily.org/dox/TopicWritingEfficientProductExpression.html
-       y.noalias() += data->G * (data->G.transpose() * x);
-   }
-   nops++;
+    data->params.verbose && cout << timestamp() << "Arnoldi Matrix Operation = " << nops << endl;
+    Eigen::Map<const MyVector> x(x_in, n);
+    Eigen::Map<MyVector> y(y_out, n);
+    auto t1 = std::chrono::high_resolution_clock::now();
+    data->check_file_offset_first_var();
+    if (update) {
+        data->read_snp_block_update(data->start[0], data->stop[0], U, S, VT, standardize);
+    } else {
+        data->read_snp_block_initial(data->start[0], data->stop[0], standardize);
+    }
+    auto t2 = std::chrono::high_resolution_clock::now();
+    data->readtime += std::chrono::duration<double>(t2 - t1).count() *  std::chrono::duration<double>::period::num / std::chrono::duration<double>::period::den;
+
+    y.noalias() = data->G * (data->G.transpose() * x);
+    for (uint k=1; k < data->nblocks; ++k)
+    {
+        auto t1 = std::chrono::high_resolution_clock::now();
+        if (update) {
+            data->read_snp_block_update(data->start[k], data->stop[k], U, S, VT, standardize);
+        } else {
+            data->read_snp_block_initial(data->start[k], data->stop[k], standardize);
+        }
+        auto t2 = std::chrono::high_resolution_clock::now();
+        data->readtime += std::chrono::duration<double>(t2 - t1).count() *  std::chrono::duration<double>::period::num / std::chrono::duration<double>::period::den;
+        //TODO: Kahan summation
+        // optimal evaluation see https://eigen.tuxfamily.org/dox/TopicWritingEfficientProductExpression.html
+        y.noalias() += data->G * (data->G.transpose() * x);
+    }
+    nops++;
 }
 
 

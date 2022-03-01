@@ -4,8 +4,6 @@
 #include <vector>
 #include <iostream>
 #include <fstream>
-#include <time.h>
-#include <sys/time.h>
 #include <cstring>
 #include <string>
 #include <chrono>

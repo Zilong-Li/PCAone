@@ -8,7 +8,10 @@ void Data::prepare(uint& blocksize)
 
     if (params.batch)
     {
+        auto t1 = std::chrono::high_resolution_clock::now();
         read_all_and_centering();
+        auto t2 = std::chrono::high_resolution_clock::now();
+        readtime += std::chrono::duration<double>(t2 - t1).count() *  std::chrono::duration<double>::period::num / std::chrono::duration<double>::period::den;
     } else {
         // some common settings
         if (params.arnoldi) {

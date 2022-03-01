@@ -43,10 +43,10 @@ size_t count_lines(const std::string& fpath)
 
 std::string timestamp()
 {
-    time_t t = time(NULL);
-    char *s = asctime(localtime(&t));
-    s[strlen(s) - 1] = '\0';
-    std::string str(s);
+    auto t1 = std::chrono::system_clock::now();
+    std::time_t tc = std::chrono::system_clock::to_time_t(t1);
+    std::string str(std::ctime(&tc));
+    str.pop_back();    // str[str.size() - 1] = '.';
     str = std::string("[") + str + std::string("] ");
     return str;
 }

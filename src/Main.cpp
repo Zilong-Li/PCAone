@@ -49,6 +49,7 @@ int main(int argc, char *argv[])
     } else {
         run_pca_with_halko(data, params);
     }
+    cout << timestamp() << "total elapsed reading time: " << data->readtime << " seconds" << endl;
     cout << timestamp() << "eigenvecs and eigenvals are saved. have a nice day. bye!\n";
 
     delete data;
@@ -70,7 +71,7 @@ void parse_params(int argc, char* argv[], struct Param* params)
         // ("pfile", "prefix to PLINK2 .pgen/.pvar/.psam files.", cxxopts::value<std::string>(), "PREFIX")
         ("bgen", "path of BGEN file.", cxxopts::value<std::string>(), "FILE")
         ("csv", "path of zstd compressed csv file.", cxxopts::value<std::string>(), "FILE")
-        ("cpmed", "normalize values by count per median (CPMED)for scRNAs", cxxopts::value<bool>()->default_value("false"))
+        ("cpmed", "normalize values by count per median(CPMED)for scRNAs", cxxopts::value<bool>()->default_value("false"))
         ("maxp", "maximum number of power iteration for Halko.[20]", cxxopts::value<int>(),"INT")
         ("printv", "print out another eigen vectors with suffix .loadings.", cxxopts::value<bool>()->default_value("false"))
         ("e,emu", "use EMU algorithm for data with lots of missingness.", cxxopts::value<bool>()->default_value("false"))

@@ -1,3 +1,6 @@
+- v0.1.6
+  - add --cpmed option to support raw counts for scRNAs
+
 - v0.1.5
 
   - publish PCAone on mac with =libiomp5= support

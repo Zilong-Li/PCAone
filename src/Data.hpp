@@ -21,6 +21,7 @@ public:
     bool nsamples_ge_nsnps = false;  // if nsamples greater than or equal to nsnps
     bool initialFonly = false;
     uint64 nsamples, nsnps;  // prevent from potential integer overflow
+    double readtime = 0;
     uint nblocks = 1;
     uint bandFactor = 1;
     std::vector<uint> start, stop;

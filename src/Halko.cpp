@@ -95,12 +95,15 @@ void NormalRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
                 start_idx = data->start[i];
                 stop_idx = data->stop[i];
                 actual_block_size = stop_idx - start_idx + 1;
+                auto t1 = std::chrono::steady_clock::now();
                 if (update)
                 {
                     data->read_snp_block_update(start_idx, stop_idx, U, S, V.transpose(), standardize);
                 } else {
                     data->read_snp_block_initial(start_idx, stop_idx, standardize);
                 }
+                auto t2 = std::chrono::steady_clock::now();
+                data->readtime += std::chrono::duration<double>(t2 - t1).count() *  std::chrono::duration<double>::period::num / std::chrono::duration<double>::period::den;
                 G.middleRows(start_idx, actual_block_size).noalias() = data->G.transpose() * Omg;
                 H.noalias() += data->G * G.middleRows(start_idx, actual_block_size);
             }
@@ -203,12 +206,15 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
                 start_idx = data->start[b];
                 stop_idx = data->stop[b];
                 actual_block_size = stop_idx - start_idx + 1;
+                auto t1 = std::chrono::steady_clock::now();
                 if (update)
                 {
                     data->read_snp_block_update(start_idx, stop_idx, U, S, V.transpose(), standardize);
                 } else {
                     data->read_snp_block_initial(start_idx, stop_idx, standardize);
                 }
+                auto t2 = std::chrono::steady_clock::now();
+                data->readtime += std::chrono::duration<double>(t2 - t1).count() *  std::chrono::duration<double>::period::num / std::chrono::duration<double>::period::den;
                 G.middleRows(start_idx, actual_block_size).noalias() = data->G.transpose() * Omg;
                 if (i <= band / 2) {
                     H1.noalias() += data->G * G.middleRows(start_idx, actual_block_size);
@@ -241,19 +247,19 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
     }
 }
 
-void print_summary_table(const MyMatrix& Upre, const MyMatrix& Ucur)
-{
-    string out = "summary:";
-    for (int i=0; i < Ucur.cols(); i++) {
-        out += " PC1-" + std::to_string(i+1);
-    }
-    MyVector Vrmse = MyVector::Zero(Ucur.cols());
-    MyVector Vmev  = MyVector::Zero(Ucur.cols());
-    mev_rmse_byk(Upre, Ucur, Vmev, Vrmse);
-    cout   << out << "\n"
-           << "RMSE:" << Vrmse.transpose() << ".\n"
-           << "1-MEV:" << Vmev.transpose() << ".\n";
-}
+// void print_summary_table(const MyMatrix& Upre, const MyMatrix& Ucur)
+// {
+//     string out = "summary:";
+//     for (int i=0; i < Ucur.cols(); i++) {
+//         out += " PC1-" + std::to_string(i+1);
+//     }
+//     MyVector Vrmse = MyVector::Zero(Ucur.cols());
+//     MyVector Vmev  = MyVector::Zero(Ucur.cols());
+//     mev_rmse_byk(Upre, Ucur, Vmev, Vrmse);
+//     cout   << out << "\n"
+//            << "RMSE:" << Vrmse.transpose() << ".\n"
+//            << "1-MEV:" << Vmev.transpose() << ".\n";
+// }
 
 void run_pca_with_halko(Data* data, const Param& params)
 {
