@@ -101,11 +101,11 @@ PCAone is designed to be extensible to accept many different formats. Currently,
 
 ** Advanced options
 
-- --cpmed :: normalize values by count per median (CPMED)for scRNAs. use this if the input is raw counts.
+- --bands :: number of bands used by fancy halko algorithm. must be =2^x=.
+- --cpmed :: normalize values by count per median (CPMED) for scRNAs. use this if the input is raw counts.
 - --maxp :: maximum number of iterations for halko algorithm.
 - --printv :: print out another eigenvectors or loadings.
-- --shuffle :: shuffle the input data first for fancy halko algorithm, used together with -f.
-- --bands :: number of bands used by fancy halko algorithm. must be 2^x.
+- --shuffle :: shuffle the input data first for fancy halko algorithm, use it together with =-f=.
 
 ** Running mode
 
@@ -165,6 +165,7 @@ Usage:
       --cpmed          normalize values by count per median(CPMED) for scRNAs
       --maxp INT       maximum number of power iteration for Halko.[20]
       --printv         print out another eigen vectors with suffix .loadings.
+      --shuffle        permute data by features for fast Halko.
   -e, --emu            use EMU algorithm for data with lots of missingness.
   -f, --fast           force to use fast super power iterations for Halko.
   -h, --halko          use Halko method instead of default Arnoldi method.
