@@ -98,7 +98,7 @@ void parse_params(int argc, char* argv[], struct Param* params)
         ("itol", "tolerance for Arnoldi algorithm.[1e-6]", cxxopts::value<double>(),"DOUBLE")
         ("maxiter", "maximum number of EMU/PCAngsd interations.[100]", cxxopts::value<int>(),"INT")
         ("ncv", "number of Lanzcos basis vectors.[max(20, 2*k+1)]", cxxopts::value<int>(),"INT")
-        ("oversamples", "the number of oversampling columns for Halko.[10]", cxxopts::value<int>(),"INT")
+        ("oversamples", "the number of oversampling columns for Halko.[max(10, k)]", cxxopts::value<int>(),"INT")
         ("tol-em", "tolerance for EMU/PCAngsd algorithm.[1e-5]", cxxopts::value<double>(),"DOUBLE")
         ("tol-halko", "tolerance for Halko algorithm.[1e-4]", cxxopts::value<double>(),"DOUBLE")
         ("tol-maf", "MAF tolerance for PCAngsd algorithm.[1e-4]", cxxopts::value<double>(),"DOUBLE")
@@ -117,7 +117,11 @@ void parse_params(int argc, char* argv[], struct Param* params)
             exit(EXIT_SUCCESS);
         }
         if( vm.count("out") ) params->outfile = vm["out"].as<string>();
-        if( vm.count("eigs") ) {params->k = vm["eigs"].as<int>(); params->ncv = fmax(20, 2 * params->k + 1);}
+        if( vm.count("eigs") ) {
+            params->k = vm["eigs"].as<int>();
+            params->ncv = fmax(20, 2 * params->k + 1);
+            params->oversamples = fmax(10, params->k);
+        }
         if( vm.count("threads") ) params->threads = vm["threads"].as<int>();
         if( vm.count("N") ) params->nsamples = vm["N"].as<int>();
         if( vm.count("M") ) params->nsnps = vm["M"].as<int>();
