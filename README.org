@@ -4,8 +4,8 @@
 
 [[https://github.com/Zilong-Li/PCAone/actions/workflows/linux.yml/badge.svg]]
 [[https://github.com/Zilong-Li/PCAone/actions/workflows/mac.yml/badge.svg]]
-
-*Current Version: v0.1.6*
+[[https://img.shields.io/github/v/release/Zilong-Li/PCAone.svg]]
+[[https://img.shields.io/github/license/Zilong-Li/PCAone.svg]]
 
 PCAone is a fast and memory efficient PCA tool implemented in C++ aiming at providing comprehensive features and algorithms for different scenarios.
 
@@ -32,21 +32,21 @@ PCAone is a fast and memory efficient PCA tool implemented in C++ aiming at prov
 
 See [[file:CHANGELOG.org][change log]] here.
 
-- Has both Arnoldi and Halko methods with *out-of-core* implementation.
-- Implement our new fast fancy Halko algorithm with super power iterations for tera-scale dataset.
+- Has both Implicitly Restarted Arnoldi Method (IRAM) and Halko randomized SVD method with *out-of-core* implementation.
+- Implements our new fast fancy randomized SVD algorithm for tera-scale dataset.
 - Quite fast with multi-threading support using high performance library [[https://software.intel.com/content/www/us/en/develop/tools/oneapi/components/onemkl.html#gs.8jsfgz][MKL]] or [[https://www.openblas.net/][OpenBLAS]] as backend.
 - Supports the [[https://www.cog-genomics.org/plink/1.9/formats#bed][PLINK]], [[https://www.well.ox.ac.uk/~gav/bgen_format][BGEN]], [[http://www.popgen.dk/angsd/index.php/Input#Beagle_format][Beagle]] genetic data formats.
 - Supports [[https://github.com/Rosemeis/emu][EMU]] algorithm for scenario with large proportion of missingness.
 - Supports [[https://github.com/Rosemeis/pcangsd][PCAngsd]] algorithm for low coverage sequencing scenario with genotype likelihood as input.
 - Supports a general [[https://github.com/facebook/zstd][zstd]] compressed CSV format for scRNAs data
 
-| *Input format*       | bfile | bgen | beagle | csv |
-| *Arnoldi method*     | +     | +    | +      | +   |
-| *One Pass Halko*     | +     | +    | +      | +   |
-| *Fast fancy Halko* | +     | +/-  | +/-    | +   |
-| *EMU algorithm*      | +     | +    | -      | -   |
-| *PCAngsd algorithm*  | -     | +    | +      | -   |
-| *Out-of-core mode*   | +     | +    | -      | +   |
+| *Input format*      | bfile | bgen | beagle | csv |
+| *IRAM method*       | +     | +    | +      | +   |
+| *One pass rSVD*     | +     | +    | +      | +   |
+| *Fast fancy rSVD*   | +     | +/-  | +/-    | +   |
+| *EMU algorithm*     | +     | +    | -      | -   |
+| *PCAngsd algorithm* | -     | +    | +      | -   |
+| *Out-of-core mode*  | +     | +    | -      | +   |
 
 
 * Installation
@@ -61,7 +61,7 @@ If you have conda installed, you can simply run the following command, which wil
 
 ** Download binaries
 
-There are compiled binaries provided for both Mac and Linux platform. Check [[https://github.com/Zilong-Li/PCAone/releases][the releases page]] to download them. Note that packages named with =iomp5= need runtime library =libiomp5= to be found in your environment =LD_LIBRARY_PATH=. You can install the lib by =conda install mkl=. But it should be fast enough to use PCAone without =libiomp5= threading, although it is recommended to use PCAone with MKL =libiomp5= threading which will speed up the program significantly,
+There are compiled binaries provided for both Mac and Linux platform. Check [[https://github.com/Zilong-Li/PCAone/releases][the releases page]] to download them. *Note* that packages named with =iomp5= need runtime library =libiomp5= to be found in your environment =LD_LIBRARY_PATH=, which can speedup further. If you really need it, You can install the lib by =conda install mkl=.
 
 ** Build from source
 
@@ -193,4 +193,4 @@ If using PCAngsd algorithm, please also cite [[https://www.genetics.org/content/
 
 * Acknowledgements
 
-PCAone use [[https://eigen.tuxfamily.org/index.php?title=Main_Page][Eigen]] for linear algebra operation. The Arnoldi method is based on [[https://github.com/yixuan/spectra][yixuan/spectra]]. The bgen lib is ported from [[https://github.com/jeremymcrae/bgen][jeremymcrae/bgen]]. The EMU and PCAngsd algorithms are modified from [[https://github.com/Rosemeis][@Jonas]] packages.
+PCAone use [[https://eigen.tuxfamily.org/index.php?title=Main_Page][Eigen]] for linear algebra operation. The IRAM method is based on [[https://github.com/yixuan/spectra][yixuan/spectra]]. The bgen lib is ported from [[https://github.com/jeremymcrae/bgen][jeremymcrae/bgen]]. The EMU and PCAngsd algorithms are modified from [[https://github.com/Rosemeis][@Jonas]] packages.
