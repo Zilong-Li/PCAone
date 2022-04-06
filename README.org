@@ -96,7 +96,7 @@ PCAone is designed to be extensible to accept many different formats. Currently,
 ** Output files
 
 - eigen vectors :: eigen vectors are saved in file with suffix =.eigvecs=. each row represents a sample and each col represents a PC.
-- eigen values :: eigen values are saved in file with suffix =.eigvals=. each row represents the eigenvalue of correspoding PC.
+- eigen values :: eigen values are saved in file with suffix =.eigvals=. each row represents the eigenvalue of corresponding PC.
 - loadings :: loadings are saved in file with suffix =.loadings=. need to use =--printv= option.
 
 ** Advanced options

@@ -24,6 +24,7 @@ public:
     double readtime = 0;
     uint nblocks = 1;
     uint bandFactor = 1;
+    uint nops = 0;
     std::vector<uint> start, stop;
     MyMatrix G;  // genotype matrix, can be initial E or centered E, which is nsamples x nsnps;
     MyMatrix P;  // genotype probability, nsnps x nsamples x 3.

@@ -19,7 +19,7 @@ IOMP5        := 0
 
 ########################### end ###########################
 
-VERSION=0.1.6
+VERSION=0.1.7
 # detect OS architecture and add flags
 Platform     := $(shell uname -s)
 

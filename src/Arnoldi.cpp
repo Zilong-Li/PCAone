@@ -5,9 +5,9 @@
 using namespace std;
 using namespace Spectra;
 
-void ArnoldiOpData::perform_op(const double *x_in, double* y_out)
+void ArnoldiOpData::perform_op(const double *x_in, double* y_out) const
 {
-    data->params.verbose && cout << timestamp() << "Arnoldi Matrix Operation = " << nops << endl;
+    data->params.verbose && cout << timestamp() << "Arnoldi Matrix Operation = " << data->nops << endl;
     Eigen::Map<const MyVector> x(x_in, n);
     Eigen::Map<MyVector> y(y_out, n);
     auto t1 = std::chrono::high_resolution_clock::now();
@@ -35,7 +35,7 @@ void ArnoldiOpData::perform_op(const double *x_in, double* y_out)
         // optimal evaluation see https://eigen.tuxfamily.org/dox/TopicWritingEfficientProductExpression.html
         y.noalias() += data->G * (data->G.transpose() * x);
     }
-    nops++;
+    data->nops++;
 }
 
 
@@ -53,8 +53,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
     {
         MyMatrix U, V, V2;
         // SpMatrix sG = data->G.sparseView();
-        // PartialSVDSolver< double, SpMatrix > svds(sG, params.k, params.ncv);
-        PartialSVDSolver< double, MyMatrix > svds(data->G, params.k, params.ncv);
+        PartialSVDSolver< MyMatrix > svds(data->G, params.k, params.ncv);
         if (!params.runem && params.intype != "csv")
         {
             data->standardize_E();
@@ -107,11 +106,10 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
             }
             // calculate eigenvectors
             DenseSymMatProd<double> op2(C);
-            // Construct eigen solver object, requesting the largest three eigenvalues
-            SymEigsSolver< double, LARGEST_ALGE, DenseSymMatProd<double> > eigs2(&op2, params.k, params.ncv);
+            SymEigsSolver<DenseSymMatProd<double> > eigs2(op2, params.k, params.ncv);
             eigs2.init();
-            nconv = eigs2.compute();
-            if(eigs2.info() == SUCCESSFUL) {
+            nconv = eigs2.compute(SortRule::LargestAlge, params.imaxiter, params.itol);
+            if(eigs2.info() == CompInfo::Successful) {
                 nu = min(params.k, nconv);
                 data->write_eigs_files(eigs2.eigenvalues(), eigs2.eigenvectors().leftCols(nu), eigs2.eigenvectors().leftCols(nu));
             } else {
@@ -135,16 +133,16 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
         // for blockwise
         MyMatrix T, VT;
         ArnoldiOpData *op = new ArnoldiOpData(data);
-        SymEigsSolver< double, LARGEST_ALGE, ArnoldiOpData > *eigs = new SymEigsSolver< double, LARGEST_ALGE, ArnoldiOpData >(op, params.k, params.ncv);
+        // SymEigsSolver< double, LARGEST_ALGE, ArnoldiOpData > *eigs = new SymEigsSolver< double, LARGEST_ALGE, ArnoldiOpData >(op, params.k, params.ncv);
+        SymEigsSolver< ArnoldiOpData > *eigs = new SymEigsSolver< ArnoldiOpData >(*op, params.k, params.ncv);
         if (!params.runem) op->setFlags(false, true, false);
         eigs->init();
-        nconv = eigs->compute(params.imaxiter, params.itol);
+        nconv = eigs->compute(SortRule::LargestAlge, params.imaxiter, params.itol);
         if (nconv < params.k) {
-
             params.verbose && cerr << "Warning: the nconv is not equal to k.\n";
         }
         nu = min(params.k, nconv);
-        if(eigs->info() == Spectra::SUCCESSFUL)
+        if(eigs->info() == CompInfo::Successful)
         {
             op->U = eigs->eigenvectors().leftCols(nu);
             op->S = eigs->eigenvalues().cwiseSqrt();
@@ -170,11 +168,11 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
             {
                 VT = op->VT;
                 eigs->init();
-                nconv = eigs->compute(params.imaxiter, params.itol);
+                nconv = eigs->compute(SortRule::LargestAlge, params.imaxiter, params.itol);
                 if (nconv < params.k) {
                     params.verbose && cerr << "Warning: the nconv is not equal to k.\n";
                 }
-                if(eigs->info() == Spectra::SUCCESSFUL)
+                if(eigs->info() == CompInfo::Successful)
                 {
                     nu = min(params.k, nconv);
                     T = (eigs->eigenvectors().leftCols(nu).transpose().array().colwise() / eigs->eigenvalues().head(nu).array().sqrt()).matrix();
@@ -199,11 +197,11 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
             cout << timestamp() << "begin to standardize the matrix\n";
             op->setFlags(true, true, params.pcangsd);
             eigs->init();
-            nconv = eigs->compute(params.imaxiter, params.itol);
+            nconv = eigs->compute(SortRule::LargestAlge, params.imaxiter, params.itol);
             if (nconv < params.k) {
                 params.verbose && cerr << "Warning: the nconv is not equal to k.\n";
             }
-            if(eigs->info() == Spectra::SUCCESSFUL)
+            if(eigs->info() == CompInfo::Successful)
             {
                 nu = min(params.k, nconv);
                 T = (eigs->eigenvectors().leftCols(nu).transpose().array().colwise() / eigs->eigenvalues().head(nu).array().sqrt()).matrix();

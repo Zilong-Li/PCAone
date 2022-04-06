@@ -65,8 +65,7 @@ void parse_params(int argc, char* argv[], struct Param* params)
 {
     cxxopts::Options opts(argv[0], (string)"PCA All In One (v" + VERSION + ")        https://github.com/Zilong-Li/PCAone\n(C) 2021-2022 Zilong Li        GNU General Public License v3");
     opts.add_options()
-        ("help", "Print list of main options.")
-        ("helpall", "Print list of all options.")
+        ("help", "Print list of all options.")
         ;
 
     opts.add_options("Main")
@@ -109,10 +108,6 @@ void parse_params(int argc, char* argv[], struct Param* params)
         auto args = vm.arguments();
         // help menu
         if (vm.count("help")){
-            cout << opts.help({"", "Main"}) << "\n\n";
-            exit(EXIT_SUCCESS);
-        }
-        if (vm.count("helpall")){
             cout << opts.help({"", "Main", "More"}) << "\n";
             exit(EXIT_SUCCESS);
         }
