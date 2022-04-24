@@ -3,7 +3,9 @@
 
 set -e
 
-version="v0.1.6"
+version=v`grep "^VERSION" Makefile|cut -c 9-`
+
+mkdir -p releases/$version
 
 platform=$(uname -s)
 

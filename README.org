@@ -9,6 +9,8 @@
 
 PCAone is a fast and memory efficient PCA tool implemented in C++ aiming at providing comprehensive features and algorithms for different scenarios.
 
+[[file:misc/architecture.png]]
+
 * Table of Contents :TOC:QUOTE:
 #+BEGIN_QUOTE
 - [[#features][Features]]
@@ -48,7 +50,6 @@ See [[file:CHANGELOG.org][change log]] here.
 | *PCAngsd algorithm* | -     | +    | +      | -   |
 | *Out-of-core mode*  | +     | +    | -      | +   |
 
-
 * Installation
 
 ** Via conda
@@ -82,7 +83,6 @@ export CXX=$(find $(brew --prefix)/bin/ -name "g++-[0-9]*" | tail -1)
 #+end_src
 
 * Documentation
-
 ** PCA algorithms
 
 PCAone implements two popular fast PCA algorithms for solving the eigenvalues of large datasets. One is [[https://en.wikipedia.org/wiki/Arnoldi_iteration][Implicitly Restarted Arnoldi Method]] (Arnoldi) and the other is [[https://arxiv.org/abs/0909.4061][Randomized SVD]] (Halko).
@@ -148,7 +148,6 @@ PCAone --bfile input.plink -k 20 -n 20 -o out -f --emu -m 2
 #+begin_src shell
 PCAone --beagle input.bgl.gz -k 20 -n 20 -o out -f --pcangsd
 #+end_src
-
 
 * Command Line
 

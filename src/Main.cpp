@@ -29,8 +29,13 @@ int main(int argc, char *argv[])
     omp_set_num_threads(params.threads);
     Data *data;
     if (params.intype == "bfile") {
-        if (!params.batch && params.fast && params.shuffle)
+        if (!params.batch && params.fast && params.shuffle) {
+            auto ts = std::chrono::steady_clock::now();
             permute_plink2(params.bed_prefix, params.buffer);
+            auto te = std::chrono::steady_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::seconds>(te - ts);
+            cout << timestamp() << "total elapsed time of permuting data: " << duration.count() << " seconds" << endl;
+        }
         data = new FileBed(params);
     } else if( params.intype == "bgen" ) {
         data = new FileBgen(params);
