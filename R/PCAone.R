@@ -59,24 +59,3 @@ PCAone <- function (
   S <- fread(paste0(out, ".eigvals"))
   res <-  list(u = as.matrix(U), d = as.vector(S$V1))
 }
-
-## norm_vec <- function(x) {
-##   sqrt(sum(x^2))
-## }
-
-## mev <- function(X, Y) {
-##   mean(apply(Y, 2, function(x) { norm_vec(t(X) %*% x) }))
-## }
-
-## Flipmat <- function(X, Y) {
-##   switched <- colSums(abs(X-Y)) > 2*colSums(abs(X+Y))
-##   if (any(switched)) {
-##     Y[, switched] <- -Y[, switched]
-##   }
-##   Y
-## }
-
-## rmse <- function(X, Y) {
-##   Y <- flipmat(X, Y)
-##   sqrt(mean((X-Y)^2))
-## }

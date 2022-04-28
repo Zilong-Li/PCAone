@@ -180,8 +180,6 @@ Usage:
 
 #+end_src
 
-*Note*: On most OS it is recommended to limit the number of threads to the number of physical cores.
-
 * Citation
 
 If you find PCAone helpful, please cite our paper https://github.com/Zilong-Li/PCAone [Paper TBD].
