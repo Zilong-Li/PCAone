@@ -24,4 +24,4 @@ jobs:
       run: make
 
     - name: run test
-      run: sh misc/test.sh
+      run: sh test/test-examples.sh
