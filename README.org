@@ -22,7 +22,7 @@ PCAone is a fast and memory efficient PCA tool implemented in C++ aiming at prov
   - [[#pca-algorithms][PCA algorithms]]
   - [[#input-formats][Input formats]]
   - [[#output-files][Output files]]
-  - [[#advanced-options][Advanced options]]
+  - [[#options][Options]]
   - [[#running-mode][Running mode]]
   - [[#examples][Examples]]
 - [[#command-line][Command Line]]
@@ -34,7 +34,7 @@ PCAone is a fast and memory efficient PCA tool implemented in C++ aiming at prov
 
 See [[file:CHANGELOG.org][change log]] here.
 
-- Has both Implicitly Restarted Arnoldi Method (IRAM) and Halko randomized SVD method with *out-of-core* implementation.
+- Has both Implicitly Restarted Arnoldi Method (IRAM) and Randomized SVD (RSVD) with *out-of-core* implementation.
 - Implements our new fast fancy randomized SVD algorithm for tera-scale dataset.
 - Quite fast with multi-threading support using high performance library [[https://software.intel.com/content/www/us/en/develop/tools/oneapi/components/onemkl.html#gs.8jsfgz][MKL]] or [[https://www.openblas.net/][OpenBLAS]] as backend.
 - Supports the [[https://www.cog-genomics.org/plink/1.9/formats#bed][PLINK]], [[https://www.well.ox.ac.uk/~gav/bgen_format][BGEN]], [[http://www.popgen.dk/angsd/index.php/Input#Beagle_format][Beagle]] genetic data formats.
@@ -85,9 +85,7 @@ export CXX=$(find $(brew --prefix)/bin/ -name "g++-[0-9]*" | tail -1)
 * Documentation
 ** PCA algorithms
 
-PCAone implements two popular fast PCA algorithms for solving the eigenvalues of large datasets. One is [[https://en.wikipedia.org/wiki/Arnoldi_iteration][Implicitly Restarted Arnoldi Method]] (Arnoldi) and the other is [[https://arxiv.org/abs/0909.4061][Randomized SVD]] (Halko).
-
-Specifically, for genetics data, PCAone also implements  [[https://github.com/Rosemeis/emu][EMU]] and [[https://github.com/Rosemeis/pcangsd][PCAngsd]] algorithm.
+PCAone implements 3 fast PCA algorithms for finding the top eigenvectors of large datasets, which are [[https://en.wikipedia.org/wiki/Arnoldi_iteration][Implicitly Restarted Arnoldi Method]] (IRAM), [[https://www.ijcai.org/proceedings/2017/468][single pass Randomized SVD]] (RSVD) and our own fancy RSVD method with window based power iterations. Specifically, for genetics data, PCAone also implements [[https://github.com/Rosemeis/emu][EMU]] and [[https://github.com/Rosemeis/pcangsd][PCAngsd]] algorithm.
 
 ** Input formats
 
@@ -99,13 +97,15 @@ PCAone is designed to be extensible to accept many different formats. Currently,
 - eigen values :: eigen values are saved in file with suffix =.eigvals=. each row represents the eigenvalue of corresponding PC.
 - loadings :: loadings are saved in file with suffix =.loadings=. need to use =--printv= option.
 
-** Advanced options
+** Options
 
-- --bands :: number of bands used by fancy halko algorithm. must be =2^x=.
+- -h :: use normal RSVD algorithm.
+- -f :: use fancy RSVD algorithm in PCAone's paper.
+- --bands :: number of bands used by fancy RSVD algorithm. must be =2^x=.
 - --cpmed :: normalize values by count per median (CPMED) for scRNAs. use this if the input is raw counts.
-- --maxp :: maximum number of iterations for halko algorithm.
+- --maxp :: maximum number of iterations for RSVD algorithm.
 - --printv :: print out another eigenvectors or loadings.
-- --shuffle :: shuffle the input data first for fancy halko algorithm, use it together with =-f=.
+- --shuffle :: shuffle the input data first for fancy RSVD algorithm, use it together with =-f=.
 
 ** Running mode
 
@@ -113,7 +113,7 @@ PCAone has both in-core and out-of-core mode for each algorithm. In default, PCA
 
 ** Examples
 
-- use *Default* Arnoldi method for data with small number of samples
+- use *Default IRAM* algorithm for small or medium datasets
 #+begin_src shell
 # running in RAM
 PCAone --bfile input.plink -k 20 -n 20 -o out
@@ -123,28 +123,28 @@ PCAone --bfile input.plink -k 20 -n 20 -o out -m 2
 PCAone --csv input.csv.zstd -k 20 -n 20 -o out -m 2
 #+end_src
 
-- use normal Halko method for large data set
+- use normal RSVD method for large datasets
 #+begin_src shell
-# running in RAM with Halko
+# running in RAM
 PCAone --bfile input.plink -k 20 -n 20 -o out -h
-# running out of RAM with Halko, only use 2GB memory
+# running out of RAM using  only 2GB memory
 PCAone --bfile input.plink -k 20 -n 20 -o out -h -m 2
 #+end_src
 
-- use fast fancy Halko method for crazy huge data set
+- use fancy RSVD method for crazy huge datasets
 #+begin_src shell
-# running in RAM with fast Halko
+# running in RAM
 PCAone --bfile input.plink -k 20 -n 20 -o out -f --shuffle
-# running out of RAM with fast Halko, only use 2GB memory
+# running out of RAM using  only 2GB memory
 PCAone --bfile input.plink -k 20 -n 20 -o out -f --shuffle -m 2
 #+end_src
 
-- running EMU with super fast halko method
+- running EMU with super fancy RSVD method
 #+begin_src shell
 PCAone --bfile input.plink -k 20 -n 20 -o out -f --emu -m 2
 #+end_src
 
-- running PCAngsd with super fast halko method
+- running PCAngsd with fancy RSVD method
 #+begin_src shell
 PCAone --beagle input.bgl.gz -k 20 -n 20 -o out -f --pcangsd
 #+end_src
