@@ -16,14 +16,14 @@
 
 using namespace std;
 
-void parse_params(int argc, char* argv[], struct Param* params);
+string parse_params(int argc, char* argv[], struct Param* params);
 
 int main(int argc, char *argv[])
 {
     auto t1 = std::chrono::steady_clock::now();
     Param params;
     // parse params and check before run
-    parse_params(argc, argv, &params);
+    string commandargs = parse_params(argc, argv, &params);
     // set number of threads
     // openblas_set_num_threads(params.threads);
     omp_set_num_threads(params.threads);
@@ -48,6 +48,7 @@ int main(int argc, char *argv[])
     }
     // start logging
     data->llog.clog.open(string(params.outfile + ".log").c_str(), ios::out | ios::trunc);
+    data->llog << timestamp() << commandargs << endl;
     // ready for run
     data->prepare(params.blocksize);
     // begin to run
@@ -68,7 +69,7 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-void parse_params(int argc, char* argv[], struct Param* params)
+std::string parse_params(int argc, char* argv[], struct Param* params)
 {
     cxxopts::Options opts(argv[0], (string)"PCA All In One (v" + VERSION + ")        https://github.com/Zilong-Li/PCAone\n(C) 2021-2022 Zilong Li        GNU General Public License v3");
     opts.add_options()
@@ -110,9 +111,24 @@ void parse_params(int argc, char* argv[], struct Param* params)
         ("tol-maf", "MAF tolerance for PCAngsd algorithm.[1e-4]", cxxopts::value<double>(),"DOUBLE")
         ;
 
+    std::ostringstream ss;
     try {
         auto vm = opts.parse(argc, argv);
         auto args = vm.arguments();
+        // print command line options
+        ss << "running with the follwing arguments:\n" << argv[0] << "\n";
+        for (size_t counter = 1; counter < args.size(); counter++) {
+            ss << "  --" << args[counter - 1].key() << " ";
+            if (args[counter - 1].value() == "true") {
+                ss << "\\\n";
+                continue;
+            }
+            ss << args[counter - 1].value() << " \\" << endl;
+        }
+        // last option (skip \ at the end)
+        ss << "  --" << args.back().key() << " ";
+        if (args.back().value() != "true") ss << args.back().value();
+
         // help menu
         if (vm.count("help")){
             cout << opts.help({"", "Main", "More"}) << "\n";
@@ -191,5 +207,5 @@ void parse_params(int argc, char* argv[], struct Param* params)
         throw e.what();
     }
 
-    return;
+    return ss.str();
 }
