@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-std::string parse_params(int argc, char* argv[], struct Param* params)
+string parse_params(int argc, char* argv[], struct Param* params)
 {
     cxxopts::Options opts(argv[0], (string)"PCA All In One (v" + VERSION + ")        https://github.com/Zilong-Li/PCAone\n(C) 2021-2022 Zilong Li        GNU General Public License v3");
     opts.add_options()
@@ -112,23 +112,11 @@ std::string parse_params(int argc, char* argv[], struct Param* params)
         ;
 
     std::ostringstream ss;
+    // print command line options
+    ss << "running with the follwing arguments:\n" << argv[0] << "\n";
     try {
         auto vm = opts.parse(argc, argv);
         auto args = vm.arguments();
-        // print command line options
-        ss << "running with the follwing arguments:\n" << argv[0] << "\n";
-        for (size_t counter = 1; counter < args.size(); counter++) {
-            ss << "  --" << args[counter - 1].key() << " ";
-            if (args[counter - 1].value() == "true") {
-                ss << "\\\n";
-                continue;
-            }
-            ss << args[counter - 1].value() << " \\" << endl;
-        }
-        // last option (skip \ at the end)
-        ss << "  --" << args.back().key() << " ";
-        if (args.back().value() != "true") ss << args.back().value();
-
         // help menu
         if (vm.count("help")){
             cout << opts.help({"", "Main", "More"}) << "\n";
@@ -198,10 +186,21 @@ std::string parse_params(int argc, char* argv[], struct Param* params)
             cout << opts.help({"", "Main"}) << "\n\n";
             exit(EXIT_SUCCESS);
         }
-
         if (vm.count("out") != 1) {
             throw std::invalid_argument("ERROR: You must specify the output prefix with -o option.\n");
         }
+
+        for (size_t counter = 1; counter < args.size(); counter++) {
+            ss << "  --" << args[counter - 1].key() << " ";
+            if (args[counter - 1].value() == "true") {
+                ss << "\\\n";
+                continue;
+            }
+            ss << args[counter - 1].value() << " \\" << endl;
+        }
+        // last option (skip \ at the end)
+        ss << "  --" << args.back().key() << " ";
+        if (args.back().value() != "true") ss << args.back().value();
 
     } catch (const cxxopts::OptionException& e) {
         throw e.what();

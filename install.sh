@@ -30,7 +30,7 @@ if [[ "${OS}" == "Linux" ]]
 then
     system="Linux"
     # detect os instructions
-    grep "avx2" /proc/cpuinfo |grep "fma" >/dev/null
+    grep "avx2" /proc/cpuinfo |grep "fma" 2>/dev/null
     [[ $? != 0 ]] && flag="x64"
     echo "download PCAone for ${system}"
     url="https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-${flag}-${system}-iomp5.zip"
