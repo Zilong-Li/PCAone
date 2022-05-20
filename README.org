@@ -80,12 +80,12 @@ PCAone --bfile examples/test -k 10 -n 10 -o out -h -m 2
 PCAone --bfile examples/test -k 10 -n 10 -o out -f --shuffle -m 2
 #+end_src
 
-- rung *EMU* with fancy RSVD for data with many missingness
+- run *EMU* with fancy RSVD for data with many missingness
 #+begin_src shell
 PCAone --bfile examples/test -k 10 -n 10 -o out -f --emu -m 2
 #+end_src
 
-- rung *PCAngsd* with genotype likelihoods
+- run *PCAngsd* with genotype likelihoods
 #+begin_src shell
 PCAone --beagle examples/test.bgl.gz -k 3 -n 10 -o out -h --pcangsd
 #+end_src

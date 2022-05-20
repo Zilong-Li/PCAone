@@ -1,7 +1,11 @@
 - v0.1.7
+  - two releases =x64= and =avx2= for linux
+
   - upgrade Spectra to v1.0.1
 
   - change oversamples default as max(10, k)
+
+  - add logger
 
 - v0.1.6
   - add --cpmed option to support raw counts for scRNAs
