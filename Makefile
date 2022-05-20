@@ -39,6 +39,7 @@ CFLAGS        =
 # CURRENT_DIR   = $(shell pwd)
 INC           = -I./external -I./external/zstd/lib
 LPATHS        = -L/usr/local/lib
+AVX = 1
 
 ifeq ($(strip $(AVX)),1)
   $(info "use -mavx2 for PCAone")

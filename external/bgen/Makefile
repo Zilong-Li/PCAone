@@ -3,6 +3,7 @@
 #
 CXX         ?= g++
 CXXFLAGS     = -O3 -Wall -std=c++11
+AVX = 1
 
 ifeq ($(strip $(AVX)), 1)
   $(info "use -mavx2 for bgen")
