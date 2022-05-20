@@ -13,7 +13,7 @@ PCAone is a fast and memory efficient PCA tool implemented in C++ aiming at prov
 
 * Table of Contents :TOC:QUOTE:
 #+BEGIN_QUOTE
-- [[#quick-start][Quick start]]
+- [[#quickstart][Quickstart]]
   - [[#download-pcaone][Download PCAone]]
   - [[#download-examples][Download examples]]
   - [[#run-pcaone][Run PCAone]]
@@ -31,7 +31,7 @@ PCAone is a fast and memory efficient PCA tool implemented in C++ aiming at prov
 - [[#acknowledgements][Acknowledgements]]
 #+END_QUOTE
 
-* Quick start
+* Quickstart
 ** Download PCAone
 - Linux
 #+begin_src shell
@@ -105,7 +105,7 @@ See [[file:CHANGELOG.org][change log]] here.
 * Installation
 ** Download binary
 There are compiled binaries provided for both Mac and Linux platform. Check [[https://github.com/Zilong-Li/PCAone/releases][the releases page]] to download them.
-- PCAone without =libiomp5= :: follow guide in [[*Download PCAone][Quick start]].
+- PCAone no dependency :: follow guide in [[#Quickstart][Quickstart]].
 - PCAone with =libiomp5= :: packages named with =iomp5= need runtime library =libiomp5= to be found in your environment =LD_LIBRARY_PATH=.
 
 ** Via conda

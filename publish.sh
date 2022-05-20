@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# exit immediately if errors
 set -e
 
 version=v`grep "^VERSION" Makefile|cut -c 9-`

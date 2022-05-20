@@ -4,8 +4,6 @@
 # first, this script will install mkl dependency via conda
 # second, it will try to add or link libiomp5 into runtime path
 
-set -e
-
 version=0.1.7
 
 abort() {
@@ -33,9 +31,7 @@ then
     system="Linux"
     # detect os instructions
     grep "avx2" /proc/cpuinfo |grep "fma" >/dev/null
-    if [[ $? !=0 ]];then
-       flag="x64"
-    fi
+    [[ $? != 0 ]] && flag="x64"
     echo "download PCAone for ${system}"
     url="https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-${flag}-${system}-iomp5.zip"
     curl -OL $url && unzip "PCAone-${flag}-${system}-iomp5.zip"
