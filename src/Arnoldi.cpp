@@ -7,7 +7,7 @@ using namespace Spectra;
 
 void ArnoldiOpData::perform_op(const double *x_in, double* y_out) const
 {
-    data->params.verbose && cout << timestamp() << "Arnoldi Matrix Operation = " << data->nops << endl;
+    if( data->params.verbose ) data->llog << timestamp() << "Arnoldi Matrix Operation = " << data->nops << endl;
     Eigen::Map<const MyVector> x(x_in, n);
     Eigen::Map<MyVector> y(y_out, n);
     auto t1 = std::chrono::high_resolution_clock::now();
@@ -42,9 +42,9 @@ void ArnoldiOpData::perform_op(const double *x_in, double* y_out) const
 void run_pca_with_arnoldi(Data* data, const Param& params)
 {
     if (params.batch) {
-        cout << timestamp() << "begin to run_pca_with_arnoldi batch mode\n";
+        data->llog << timestamp() << "begin to run_pca_with_arnoldi batch mode\n";
     } else {
-        cout << timestamp() << "begin to run_pca_with_arnoldi blockwise mode\n";
+        data->llog << timestamp() << "begin to run_pca_with_arnoldi blockwise mode\n";
     }
     MyVector svals, evals;
     uint nconv, nu;
@@ -60,7 +60,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
         }
         nconv = svds.compute(params.imaxiter, params.itol);
         if (nconv != params.k) {
-            params.verbose && cerr << "Warning: the nconv is not equal to k.\n";
+            if(params.verbose) data->llog << "Warning: the nconv is not equal to k.\n";
             exit(EXIT_FAILURE);
         }
         U = svds.matrix_U(params.k);
@@ -68,13 +68,13 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
         svals = svds.singular_values();
         if (!params.runem)
         {
-            cout << timestamp() << "Final SVD done!\n";
+            data->llog << timestamp() << "Final SVD done!\n";
             evals = svals.array().square() / data->nsnps;
             data->write_eigs_files(evals, U, V);
             return;
         }
         flip_UV(U, V);
-        cout << timestamp() << "begin to do EM iteration.\n";
+        data->llog << timestamp() << "begin to do EM iteration.\n";
         for (uint i = 1; i <= params.maxiter; ++i)
         {
             data->update_batch_E(U, svals, V.transpose());
@@ -84,16 +84,16 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
             V2 = svds.matrix_V(params.k);
             flip_UV(U, V2);
             diff = rmse(V2, V);
-            params.verbose && cout << timestamp() << "Individual allele frequencies estimated (iter=" << i << "), RMSE=" << diff <<".\n";
+            if (params.verbose) data->llog << timestamp() << "Individual allele frequencies estimated (iter=" << i << "), RMSE=" << diff <<".\n";
             V = V2;
             if (diff < params.tol)
             {
-                cout << timestamp() << "Come to convergence!\n";
+                data->llog << timestamp() << "Come to convergence!\n";
                 break;
             }
         }
 
-        cout << timestamp() << "begin to standardize the matrix\n";
+        data->llog << timestamp() << "begin to standardize the matrix\n";
         if (params.pcangsd)
         {
             data->pcangsd_standardize_E(U, svals, V.transpose());
@@ -124,7 +124,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
         U = svds.matrix_U(params.k);
         V = svds.matrix_V(params.k);
         flip_UV(U, V);
-        cout << timestamp() << "Final SVD done!\n";
+        data->llog << timestamp() << "Final SVD done!\n";
         evals = svals.array().square() / data->nsnps;
         // write to files;
         data->write_eigs_files(evals, U, V);
@@ -139,7 +139,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
         eigs->init();
         nconv = eigs->compute(SortRule::LargestAlge, params.imaxiter, params.itol);
         if (nconv < params.k) {
-            params.verbose && cerr << "Warning: the nconv is not equal to k.\n";
+            if(params.verbose) data->llog << "Warning: the nconv is not equal to k.\n";
         }
         nu = min(params.k, nconv);
         if(eigs->info() == CompInfo::Successful)
@@ -155,14 +155,14 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
             data->calcu_vt_initial(T, op->VT);
             if (!params.runem)
             {
-                cout << timestamp() << "Final SVD done!\n";
+                data->llog << timestamp() << "Final SVD done!\n";
                 evals = eigs->eigenvalues() / data->nsnps;
                 MyMatrix V = op->VT.transpose();
                 data->write_eigs_files(evals, op->U, V);
                 return;
             }
             flip_UV(op->U, op->VT);
-            cout << timestamp() << "begin to do EM iteration.\n";
+            data->llog << timestamp() << "begin to do EM iteration.\n";
             op->setFlags(true, false, params.pcangsd);
             for (uint i = 1; i <= params.maxiter; ++i)
             {
@@ -170,7 +170,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
                 eigs->init();
                 nconv = eigs->compute(SortRule::LargestAlge, params.imaxiter, params.itol);
                 if (nconv < params.k) {
-                    params.verbose && cerr << "Warning: the nconv is not equal to k.\n";
+                    if(params.verbose) data->llog << "Warning: the nconv is not equal to k.\n";
                 }
                 if(eigs->info() == CompInfo::Successful)
                 {
@@ -182,24 +182,24 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
                     op->U = eigs->eigenvectors().leftCols(nu);
                     flip_UV(op->U, op->VT);
                     diff = rmse(op->VT, VT);
-                    params.verbose && cout << timestamp() << "Individual allele frequencies estimated (iter=" << i << "), RMSE=" << diff <<".\n";
+                    if( params.verbose ) data->llog << timestamp() << "Individual allele frequencies estimated (iter=" << i << "), RMSE=" << diff <<".\n";
                     if (diff < params.tol) {
-                        cout << timestamp() << "Come to convergence!\n";
+                        data->llog << timestamp() << "Come to convergence!\n";
                         break;
                     }
 
                 } else {
-                    cerr << "Error: something wrong with Spectra SymEigsSolver\n";
+                    data->llog << "Error: something wrong with Spectra SymEigsSolver\n";
                     exit(EXIT_FAILURE);
                 }
             }
 
-            cout << timestamp() << "begin to standardize the matrix\n";
+            data->llog << timestamp() << "begin to standardize the matrix\n";
             op->setFlags(true, true, params.pcangsd);
             eigs->init();
             nconv = eigs->compute(SortRule::LargestAlge, params.imaxiter, params.itol);
             if (nconv < params.k) {
-                params.verbose && cerr << "Warning: the nconv is not equal to k.\n";
+                if(params.verbose) data->llog << "Warning: the nconv is not equal to k.\n";
             }
             if(eigs->info() == CompInfo::Successful)
             {

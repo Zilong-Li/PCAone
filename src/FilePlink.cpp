@@ -15,7 +15,7 @@ void FileBed::check_file_offset_first_var()
     } else if (bed_ifstream.tellg() == 3) {
         ;
     } else {
-        cout << bed_ifstream.tellg() << ".\n";
+        llog << bed_ifstream.tellg() << ".\n";
         throw std::runtime_error("Warning: the bed_ifstream is pointing an unexpected position.\n");
     }
 }

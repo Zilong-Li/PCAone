@@ -47,7 +47,7 @@ void FileBeagle::read_all_and_centering()
     gzclose(fp);
     assert(j==nsnps);
 
-    cout << timestamp() << "begin to estimate allele frequencies" << endl;
+    llog << timestamp() << "begin to estimate allele frequencies" << endl;
     MyVector Ft(nsnps);
     F = MyVector::Constant(nsnps, 0.25);
     // run EM to estimate allele frequencies
@@ -70,10 +70,10 @@ void FileBeagle::read_all_and_centering()
         diff = sqrt((F - Ft).array().square().sum() / nsnps);
         // Check for convergence
         if (diff < params.tolmaf) {
-            cout << timestamp() << "EM (MAF) converged at iteration: " << it+1 << endl;
+            llog << timestamp() << "EM (MAF) converged at iteration: " << it+1 << endl;
             break;
         } else if (it == (params.maxiter-1)) {
-            cout << timestamp() << "EM (MAF) did not converge.\n";
+            llog << timestamp() << "EM (MAF) did not converge.\n";
         }
     }
     // initial E which is G

@@ -11,13 +11,13 @@ class FileCsv : public Data
 public:
     FileCsv(const Param &params_) : Data(params_)
         {
-            std::cout << timestamp() << "start parsing CSV format" << std::endl;
+            llog << timestamp() << "start parsing CSV format" << std::endl;
             buffInTmp.reserve(buffInSize);
             buffOutTmp.reserve(buffOutSize);
             buffCur = "";
 
             if (params.nsnps > 0 && params.nsamples > 0 && !params.cpmed) {
-                std::cout << timestamp() << "use nsamples and nsnps given by user." << std::endl;
+                llog << timestamp() << "use nsamples and nsnps given by user." << std::endl;
                 nsamples = params.nsamples;
                 nsnps = params.nsnps;
 
@@ -92,7 +92,7 @@ public:
             }
 
             tidx.resize(nsamples + 1);  // tidx[0] = 0;
-            std::cout << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << std::endl;
+            llog << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << std::endl;
         }
 
 

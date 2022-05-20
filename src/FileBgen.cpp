@@ -60,7 +60,7 @@ void FileBgen::read_all_and_centering()
             }
         }
         assert( j == nsnps );
-        cout << timestamp() << "begin to estimate allele frequencies using GP" << endl;
+        llog << timestamp() << "begin to estimate allele frequencies using GP" << endl;
         MyVector Ft(nsnps);
         F = MyVector::Constant(nsnps, 0.25);
         // run EM to estimate allele frequencies
@@ -83,10 +83,10 @@ void FileBgen::read_all_and_centering()
             diff = sqrt((F - Ft).array().square().sum() / nsnps);
             // Check for convergence
             if (diff < params.tolmaf) {
-                cout << "EM (MAF) converged at iteration: " << it+1 << endl;
+                llog << "EM (MAF) converged at iteration: " << it+1 << endl;
                 break;
             } else if (it == (params.maxiter-1)) {
-                cerr << "EM (MAF) did not converge.\n";
+                llog << "EM (MAF) did not converge.\n";
             }
         }
         // initial E which is G

@@ -56,7 +56,7 @@ void NormalRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
     if (data->params.batch)
     {
         if (pi == 0) {
-            verbose && cout << timestamp() << "running in batch mode with one-pass halko." << endl;
+            if( verbose ) data->llog << timestamp() << "running in batch mode with one-pass halko." << endl;
             if (update)
             {
                 data->update_batch_E(U, S, V.transpose());
@@ -80,7 +80,7 @@ void NormalRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
         }
     } else {
         // for block version
-        if (pi==0) verbose && cout << timestamp() << "running in blockwise mode with one-pass halko." << endl;
+        if (pi==0 && verbose) data->llog << timestamp() << "running in blockwise mode with one-pass halko." << endl;
         // data->G is always nsamples x nsnps;
         if (data->snpmajor || true) {
             // for nsnps > nsamples
@@ -126,7 +126,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
     if (data->params.batch)
     {
         if (pi == 0) {
-            verbose && cout << timestamp() << "running in batch mode with fancy halko." << endl;
+            if( verbose ) data->llog << timestamp() << "running in batch mode with fancy halko." << endl;
             if (update)
             {
                 data->update_batch_E(U, S, V.transpose());
@@ -192,7 +192,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
         }
     } else {
         if (pi == 0) {
-            verbose && cout << timestamp() << "running in blockwise mode with fancy halko." << endl;
+            if( verbose) data->llog << timestamp() << "running in blockwise mode with fancy halko." << endl;
             band = 2 * data->bandFactor;
         }
         {
@@ -264,9 +264,9 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
 void run_pca_with_halko(Data* data, const Param& params)
 {
     if (params.batch) {
-        cout << timestamp() << "begin to run_pca_with_halko batch mode" << endl;
+        data->llog << timestamp() << "begin to run_pca_with_halko batch mode" << endl;
     } else {
-        cout << timestamp() << "begin to run_pca_with_halko blockwise mode" << endl;
+        data->llog << timestamp() << "begin to run_pca_with_halko blockwise mode" << endl;
     }
     MyMatrix Vpre;
     MyVector S;
@@ -278,7 +278,7 @@ void run_pca_with_halko(Data* data, const Param& params)
     }
     if (!params.runem)
     {
-        cout << timestamp() << "begin to do non-EM PCA." << endl;
+        data->llog << timestamp() << "begin to do non-EM PCA." << endl;
         if (params.intype == "csv") {
             rsvd->setFlags(false, false, params.verbose);
         } else {
@@ -293,21 +293,21 @@ void run_pca_with_halko(Data* data, const Param& params)
         // flip_UV(rsvd->U, rsvd->V, false);
         double diff;
         rsvd->setFlags(true, false, false);
-        cout << timestamp() << "begin to do EM PCA." << endl;
+        data->llog << timestamp() << "begin to do EM PCA." << endl;
         for (uint i = 0; i < params.maxiter; ++i)
         {
             Vpre = rsvd->V;
             rsvd->computeUSV(params.maxp, params.tol_halko);
             // flip_UV(rsvd->U, rsvd->V, false);
             diff = 1.0 - mev(rsvd->V, Vpre);
-            cout << timestamp() << "Individual allele frequencies estimated (iter=" << i+1 << "), 1-MEV=" << diff << endl;
+            data->llog << timestamp() << "Individual allele frequencies estimated (iter=" << i+1 << "), 1-MEV=" << diff << endl;
             if (diff < params.tol)
             {
-                cout << timestamp() << "Come to convergence!" << endl;
+                data->llog << timestamp() << "Come to convergence!" << endl;
                 break;
             }
         }
-        cout << timestamp() << "Begin to standardize the matrix."<< endl;
+        data->llog << timestamp() << "Begin to standardize the matrix."<< endl;
 
         // if pcangsd, estimate GRM.
         if (params.pcangsd) {

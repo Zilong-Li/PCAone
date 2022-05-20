@@ -3,6 +3,26 @@
 
 #include "Utils.hpp"
 
+class Logger
+{
+public:
+    std::ofstream clog;
+    template <class S> Logger &operator<<(const S &val) {
+        clog << val;
+        std::cout << val;
+        return *this;
+    }
+
+    Logger &operator<<(std::ostream &(*pfun)(std::ostream &)) {
+        pfun(clog);
+        pfun(std::cout);
+        return *this;
+    };
+
+    Logger(void);
+    ~Logger(void);
+};
+
 class Data
 {
 public:
@@ -17,6 +37,7 @@ public:
     virtual void read_snp_block_update(uint64 start_idx, uint64 stop_idx, const MyMatrix& U, const MyVector& svals, const MyMatrix& VT, bool standardize = false) = 0;
 
     const Param& params;
+    Logger llog;
     bool snpmajor = true;
     bool nsamples_ge_nsnps = false;  // if nsamples greater than or equal to nsnps
     bool initialFonly = false;

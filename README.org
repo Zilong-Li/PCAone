@@ -63,31 +63,31 @@ You should find a fold named =examples= with files =test.bed=, =test.bim=, =test
 - use *Default IRAM* algorithm for small or medium datasets
 #+begin_src shell
 # running in RAM using 20 threads to calculate top 20 PCs
-PCAone --bfile examples/test -k 20 -n 20 -o out
+PCAone --bfile examples/test -k 10 -n 10 -o out
 # running out of RAM, only use 2GB memory
-PCAone --bfile examples/test -k 20 -n 20 -o out -m 2
+PCAone --bfile examples/test -k 10 -n 10 -o out -m 2
 #+end_src
 
 - use *normal RSVD* method for large datasets
 #+begin_src shell
 # running out of RAM using  only 2GB memory
-PCAone --bfile examples/test -k 20 -n 20 -o out -h -m 2
+PCAone --bfile examples/test -k 10 -n 10 -o out -h -m 2
 #+end_src
 
 - use *fancy RSVD* method for crazy huge datasets
 #+begin_src shell
 # running out of RAM using  only 2GB memory
-PCAone --bfile examples/test -k 20 -n 20 -o out -f --shuffle -m 2
+PCAone --bfile examples/test -k 10 -n 10 -o out -f --shuffle -m 2
 #+end_src
 
-- running *EMU* with super fancy RSVD method
+- rung *EMU* with fancy RSVD for data with many missingness
 #+begin_src shell
-PCAone --bfile examples/test -k 20 -n 20 -o out -f --emu -m 2
+PCAone --bfile examples/test -k 10 -n 10 -o out -f --emu -m 2
 #+end_src
 
-- running *PCAngsd* with fancy RSVD method
+- rung *PCAngsd* with genotype likelihoods
 #+begin_src shell
-PCAone --beagle examples/test.bgl.gz -k 20 -n 20 -o out -f --pcangsd
+PCAone --beagle examples/test.bgl.gz -k 3 -n 10 -o out -h --pcangsd
 #+end_src
 
 * Features
@@ -110,12 +110,15 @@ There are compiled binaries provided for both Mac and Linux platform. Check [[ht
 
 ** Via conda
 
-If you have conda installed, you can simply run the following command, which will download the MKL dependency for you and fix the runtime library automatically.
-
+If you want to use the compiled binary with =libiomp5= dependency, you can simply run the following command in your =conda= environment, which will download the MKL dependency for you and fix the runtime library automatically.
+- wget
 #+begin_src sh
-# use wget
+# have wget installed
 /bin/bash -c "$(wget -O - https://raw.githubusercontent.com/Zilong-Li/PCAone/main/install.sh)"
-# use curl
+#+end_src
+- curl
+#+begin_src sh
+# have curl installed
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Zilong-Li/PCAone/main/install.sh)"
 #+end_src
 
@@ -124,7 +127,7 @@ If you have conda installed, you can simply run the following command, which wil
 If you don't want to use MKL of OpenBlas as backends, you can just copy and paste the following code in the terminal without modifying anything. 
 #+begin_src shell
 git clone https://github.com/Zilong-Li/PCAone.git
-# modify variables in Makefile to use MKL or OpenBlas as backend
+# modify variables in Makefile to use MKL or OpenBlas as backend if needed
 cd PCAone
 make
 #+end_src
@@ -156,8 +159,8 @@ PCAone is designed to be extensible to accept many different formats. Currently,
 
 run =./PCAone --help= to show all options. I feature some useful and important options.
 
-- -h :: use normal RSVD algorithm.
 - -f :: use fancy RSVD algorithm in PCAone's paper.
+- -h :: use normal RSVD algorithm.
 - -n :: number of threads.
 - -o :: prefix of output files.
 - --bands :: number of bands used by fancy RSVD algorithm. must be =2^x=.

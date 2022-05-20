@@ -64,7 +64,7 @@ struct Param {
     uint maxiter = 100;
     double alpha = 0.001;
     // can be tol_emu or tol_pcangsd
-    double tol = 1e-5;
+    double tol = 1e-4;
     double tolmaf = 1e-4;
     // for arnoldi
     uint ncv = 20;   // max(20, 2*k + 1)

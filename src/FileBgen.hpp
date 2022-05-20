@@ -14,11 +14,11 @@ public:
     // using Data::Data;
     FileBgen(const Param& params_) : Data(params_)
         {
-            std::cout << timestamp() << "start parsing BGEN format" << std::endl;
+            llog << timestamp() << "start parsing BGEN format" << std::endl;
             bg = new bgen::Bgen(params.bgen, "", true);
             nsamples = bg->header.nsamples;
             nsnps = bg->header.nvariants;
-            std::cout << timestamp() << "the layout of bgen file is " << bg->header.layout << ". N samples is " << nsamples << ". M snps is " << nsnps << std::endl;
+            llog << timestamp() << "the layout of bgen file is " << bg->header.layout << ". N samples is " << nsamples << ". M snps is " << nsnps << std::endl;
         }
 
     ~FileBgen() { delete bg; }

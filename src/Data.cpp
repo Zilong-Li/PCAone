@@ -2,6 +2,9 @@
 
 using namespace std;
 
+Logger::Logger() {}
+Logger::~Logger() {}
+
 void Data::prepare(uint& blocksize)
 {
     if (nsamples > nsnps) nsamples_ge_nsnps = true;
@@ -24,12 +27,12 @@ void Data::prepare(uint& blocksize)
             if (params.memory > 1.1 * m) {
                 m = 0;
             } else {
-                cerr << "Waring: minimum RAM required is " << m << " GB. Trying to allocate more RAM. "<< endl;
+                llog << "Waring: minimum RAM required is " << m << " GB. Trying to allocate more RAM. "<< endl;
             }
             blocksize = (unsigned int)ceil((double)((m + params.memory) * 134217728 - 3 * nsamples * l - 2 * nsnps * l - 5 * nsnps ) / nsamples);
         }
         nblocks = (unsigned int)ceil((double)nsnps / blocksize);
-        params.verbose && cout << timestamp() << "initial setting by -m/--memory: blocksize=" << blocksize << ", nblocks=" << nblocks << ", bandFactor=" << bandFactor << ".\n";
+        if (params.verbose) llog << timestamp() << "initial setting by -m/--memory: blocksize=" << blocksize << ", nblocks=" << nblocks << ", bandFactor=" << bandFactor << ".\n";
         if (nblocks == 1) {
             throw std::invalid_argument("Warning: only one block exists. please remove -m / --memory option instead.\n");
         }
@@ -42,7 +45,7 @@ void Data::prepare(uint& blocksize)
                 blocksize = (unsigned int)ceil((double)nsnps / (params.bands * bandFactor));
             }
             nblocks = (unsigned int)ceil((double)nsnps / blocksize);
-            params.verbose && cout << timestamp() << "after adjustment by -f/--fast: blocksize=" << blocksize << ", nblocks=" << nblocks << ", bandFactor=" << bandFactor << ".\n";
+            if (params.verbose) llog << timestamp() << "after adjustment by -f/--fast: blocksize=" << blocksize << ", nblocks=" << nblocks << ", bandFactor=" << bandFactor << ".\n";
         }
         start.resize(nblocks);
         stop.resize(nblocks);
@@ -70,7 +73,7 @@ void Data::prepare(uint& blocksize)
 void Data::calcu_vt_initial(const MyMatrix& T, MyMatrix& VT)
 {
     if (nblocks == 1) {
-        cerr << "Warning: only one block exists. please use --batch mode instead.\n";
+        llog << "Warning: only one block exists. please use --batch mode instead.\n";
         exit(EXIT_SUCCESS);
     }
     uint actual_block_size;
@@ -89,7 +92,7 @@ void Data::calcu_vt_initial(const MyMatrix& T, MyMatrix& VT)
 void Data::calcu_vt_update(const MyMatrix& T, const MyMatrix& U, const MyVector& svals, MyMatrix& VT, bool standardize)
 {
     if (nblocks == 1) {
-        cerr << "Warning: only one block exists. please use --batch mode instead.\n";
+        llog << "Warning: only one block exists. please use --batch mode instead.\n";
         exit(EXIT_SUCCESS);
     }
     uint actual_block_size;
@@ -108,7 +111,7 @@ void Data::calcu_vt_update(const MyMatrix& T, const MyMatrix& U, const MyVector&
 // MyMatrix Data::calcu_vt_from_Eb(const MyMatrix& T, const MyMatrix& U, bool standardize )
 // {
 //     if (nblocks == 1) {
-//         cerr << "Warning: only one block exists. please use --batch mode instead.\n";
+//         llog << "Warning: only one block exists. please use --batch mode instead.\n";
 //         exit(EXIT_SUCCESS);
 //     }
 //     uint nrow = T.rows();

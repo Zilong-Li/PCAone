@@ -21,13 +21,13 @@ public:
     //
     FileBed(const Param& params_) : Data(params_)
         {
-            std::cout << timestamp() << "start parsing PLINK format" << std::endl;
+            llog << timestamp() << "start parsing PLINK format" << std::endl;
             std::string fbim = params.bed_prefix + ".bim";
             std::string ffam = params.bed_prefix + ".fam";
             nsamples = count_lines(ffam);
             nsnps = count_lines(fbim);
             snpmajor = true;
-            std::cout << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << std::endl;
+            llog << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << std::endl;
             bed_bytes_per_snp = (nsamples+3)>>2; // get ceiling(nsamples/4)
             std::string fbed = params.bed_prefix + ".bed";
             bed_ifstream.open(fbed, std::ios::in | std::ios::binary);

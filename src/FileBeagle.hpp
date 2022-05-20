@@ -11,11 +11,11 @@ class FileBeagle : public Data
 public:
     FileBeagle(const Param& params_) : Data(params_)
         {
-            std::cout << timestamp() << "start parsing BEAGLE format" << std::endl;
+            llog << timestamp() << "start parsing BEAGLE format" << std::endl;
             original = buffer =(char *) calloc(bufsize, sizeof(char));
 
             if (params.nsnps > 0 && params.nsamples > 0) {
-                std::cout << timestamp() << "use nsamples and nsnps given by user." << std::endl;
+                llog << timestamp() << "use nsamples and nsnps given by user." << std::endl;
                 nsamples = params.nsamples;
                 nsnps = params.nsnps;
 
@@ -43,7 +43,7 @@ public:
             }
 
             P = MyMatrix(nsnps, nsamples * 3);
-            std::cout << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << std::endl;
+            llog << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << std::endl;
         }
 
     ~FileBeagle() {}

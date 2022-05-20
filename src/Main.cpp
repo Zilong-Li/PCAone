@@ -46,6 +46,8 @@ int main(int argc, char *argv[])
     } else {
         exit(EXIT_FAILURE);
     }
+    // start logging
+    data->llog.clog.open(string(params.outfile + ".log").c_str(), ios::out | ios::trunc);
     // ready for run
     data->prepare(params.blocksize);
     // begin to run
@@ -57,9 +59,9 @@ int main(int argc, char *argv[])
     }
     auto t2 = std::chrono::steady_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(t2 - t1);
-    cout << timestamp() << "total elapsed reading time: " << data->readtime << " seconds" << endl;
-    cout << timestamp() << "total elapsed wall time: " << duration.count() << " seconds" << endl;
-    cout << timestamp() << "eigenvecs and eigenvals are saved. have a nice day. bye!\n";
+    data->llog << timestamp() << "total elapsed reading time: " << data->readtime << " seconds" << endl;
+    data->llog << timestamp() << "total elapsed wall time: " << duration.count() << " seconds" << endl;
+    data->llog << timestamp() << "eigenvecs and eigenvals are saved. have a nice day. bye!\n";
 
     delete data;
 
@@ -103,8 +105,8 @@ void parse_params(int argc, char* argv[], struct Param* params)
         ("maxiter", "maximum number of EMU/PCAngsd interations.[100]", cxxopts::value<int>(),"INT")
         ("ncv", "number of Lanzcos basis vectors.[max(20, 2*k+1)]", cxxopts::value<int>(),"INT")
         ("oversamples", "the number of oversampling columns for RSVD.[max(10, k)]", cxxopts::value<int>(),"INT")
-        ("tol-em", "tolerance for EMU/PCAngsd algorithm.[1e-5]", cxxopts::value<double>(),"DOUBLE")
-        ("tol-halko", "tolerance for RSVD algorithm.[1e-4]", cxxopts::value<double>(),"DOUBLE")
+        ("tol-em", "tolerance for EMU/PCAngsd algorithm.[1e-4]", cxxopts::value<double>(),"DOUBLE")
+        ("tol-rsvd", "tolerance for RSVD algorithm.[1e-4]", cxxopts::value<double>(),"DOUBLE")
         ("tol-maf", "MAF tolerance for PCAngsd algorithm.[1e-4]", cxxopts::value<double>(),"DOUBLE")
         ;
 
@@ -125,7 +127,7 @@ void parse_params(int argc, char* argv[], struct Param* params)
         if( vm.count("threads") ) params->threads = vm["threads"].as<int>();
         if( vm.count("N") ) params->nsamples = vm["N"].as<int>();
         if( vm.count("M") ) params->nsnps = vm["M"].as<int>();
-        if( vm.count("tol-halko") ) params->tol_halko = vm["tol-halko"].as<double>();
+        if( vm.count("tol-rsvd") ) params->tol_halko = vm["tol-rsvd"].as<double>();
         if( vm.count("imaxiter") ) params->imaxiter = vm["imaxiter"].as<int>();
         if( vm.count("maxp") ) params->maxp = vm["maxp"].as<int>();
         if( vm.count("oversamples") ) params->oversamples = vm["oversamples"].as<int>();
@@ -182,7 +184,7 @@ void parse_params(int argc, char* argv[], struct Param* params)
         }
 
         if (vm.count("out") != 1) {
-            throw std::invalid_argument("ERROR: You must specify the output prefix.\n");
+            throw std::invalid_argument("ERROR: You must specify the output prefix with -o option.\n");
         }
 
     } catch (const cxxopts::OptionException& e) {
