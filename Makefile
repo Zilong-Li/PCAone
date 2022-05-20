@@ -32,13 +32,18 @@ program       = PCAone
 # brew install gcc && ln -s $(which g++-11) /usr/local/bin/g++
 # use default g++ only if not set in env
 CXX           ?= g++
-CXXFLAGS	  = -O3 -Wall -std=c++11 -mavx2 -mfma -ffast-math -m64 -fPIC -pipe
+CXXFLAGS	  = -O3 -Wall -std=c++11 -ffast-math -m64 -fPIC -pipe
 MYFLAGS       = -DVERSION=\"$(VERSION)\" -DNDEBUG
 LINKFLAGS     = -s
 CFLAGS        =
 # CURRENT_DIR   = $(shell pwd)
 INC           = -I./external -I./external/zstd/lib
 LPATHS        = -L/usr/local/lib
+
+ifeq ($(strip $(AVX)),1)
+  $(info "use -mavx2 for PCAone")
+  CXXFLAGS += -mavx2 -mfma
+endif
 
 ifeq ($(strip $(STATIC)),1)
 	INC  += -I./external/zstd/lib

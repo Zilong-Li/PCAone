@@ -26,13 +26,19 @@ conda install -c conda-forge -y mkl
 
 # check OS.
 OS="$(uname)"
+flag="avx2"
 
 if [[ "${OS}" == "Linux" ]]
 then
     system="Linux"
+    # detect os instructions
+    grep "avx2" /proc/cpuinfo |grep "fma" >/dev/null
+    if [[ $? !=0 ]];then
+       flag="x64"
+    fi
     echo "download PCAone for ${system}"
-    url="https://github.com/Zilong-Li/PCAone/releases/download/v${version}/PCAone-v${version}_x64-${system}-iomp5.zip"
-    curl -OL $url && unzip "PCAone-v${version}_x64-${system}-iomp5.zip"
+    url="https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-${flag}-${system}-iomp5.zip"
+    curl -OL $url && unzip "PCAone-${flag}-${system}-iomp5.zip"
     # download patchelf
     conda install -c conda-forge -y patchelf
     # add rpath
@@ -44,8 +50,8 @@ elif [[ "${OS}" == "Darwin" ]]
 then
     system="Mac"
     echo "download PCAone for ${system}"
-    url="https://github.com/Zilong-Li/PCAone/releases/download/v${version}/PCAone-v${version}_x64-${system}-iomp5.zip"
-    curl -OL $url && unzip "PCAone-v${version}_x64-${system}-iomp5.zip"
+    url="https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-${flag}-Mac-iomp5.zip"
+    curl -OL $url && unzip "PCAone-${flag}-Mac-iomp5.zip"
     # add rpath
     install_name_tool -add_rpath ${PREFIX}/lib PCAone
     # try to link

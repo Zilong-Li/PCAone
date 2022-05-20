@@ -7,62 +7,117 @@
 [[https://img.shields.io/github/v/release/Zilong-Li/PCAone.svg]]
 [[https://img.shields.io/github/license/Zilong-Li/PCAone.svg]]
 
-PCAone is a fast and memory efficient PCA tool implemented in C++ aiming at providing comprehensive features and algorithms for different scenarios.
+PCAone is a fast and memory efficient PCA tool implemented in C++ aiming at providing comprehensive features and algorithms for different scenarios. PCAone implements 3 fast PCA algorithms for finding the top eigenvectors of large datasets, which are [[https://en.wikipedia.org/wiki/Arnoldi_iteration][Implicitly Restarted Arnoldi Method]] (IRAM), [[https://www.ijcai.org/proceedings/2017/468][single pass Randomized SVD]] (RSVD) and our own fancy RSVD method with window based power iterations. For genetics data, PCAone also implements [[https://github.com/Rosemeis/emu][EMU]] and [[https://github.com/Rosemeis/pcangsd][PCAngsd]] algorithm.
 
 [[file:misc/architecture.png]]
 
 * Table of Contents :TOC:QUOTE:
 #+BEGIN_QUOTE
+- [[#quick-start][Quick start]]
+  - [[#download-pcaone][Download PCAone]]
+  - [[#download-examples][Download examples]]
+  - [[#run-pcaone][Run PCAone]]
 - [[#features][Features]]
 - [[#installation][Installation]]
+  - [[#download-binary][Download binary]]
   - [[#via-conda][Via conda]]
-  - [[#download-binaries][Download binaries]]
   - [[#build-from-source][Build from source]]
 - [[#documentation][Documentation]]
-  - [[#pca-algorithms][PCA algorithms]]
   - [[#input-formats][Input formats]]
   - [[#output-files][Output files]]
   - [[#options][Options]]
   - [[#running-mode][Running mode]]
-  - [[#examples][Examples]]
-- [[#command-line][Command Line]]
 - [[#citation][Citation]]
 - [[#acknowledgements][Acknowledgements]]
 #+END_QUOTE
+
+* Quick start
+** Download PCAone
+- Linux
+#+begin_src shell
+wget https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-avx2-Linux.zip || curl -LO https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-avx2-Linux.zip
+unzip PCAone-avx2-Linux.zip
+#+end_src
+If your server is too old to support =AVX2= instruction, get your boss to buy a new server or download the following version.
+#+begin_src shell
+wget https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-x64-Linux.zip || curl -LO https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-x64-Linux.zip
+unzip PCAone-x64-Linux.zip
+#+end_src
+
+- Mac
+#+begin_src shell
+curl -LO https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-x64-Mac.zip || wget https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-x64-Mac.zip
+unzip PCAone-avx2-Mac.zip
+#+end_src
+Since you are using Mac and rich, I suppose this version just works.
+
+** Download examples
+#+begin_src shell
+wget http://popgen.dk/zilong/datahub/pca/examples.tar.gz || curl -LO http://popgen.dk/zilong/datahub/pca/examples.tar.gz
+tar -xzf examples.tar.gz
+#+end_src
+You should find a fold named =examples= with files =test.bed=, =test.bim=, =test.fam=, =test.bgl.gz=.
+
+** Run PCAone
+
+- use *Default IRAM* algorithm for small or medium datasets
+#+begin_src shell
+# running in RAM using 20 threads to calculate top 20 PCs
+PCAone --bfile examples/test -k 20 -n 20 -o out
+# running out of RAM, only use 2GB memory
+PCAone --bfile examples/test -k 20 -n 20 -o out -m 2
+#+end_src
+
+- use *normal RSVD* method for large datasets
+#+begin_src shell
+# running out of RAM using  only 2GB memory
+PCAone --bfile examples/test -k 20 -n 20 -o out -h -m 2
+#+end_src
+
+- use *fancy RSVD* method for crazy huge datasets
+#+begin_src shell
+# running out of RAM using  only 2GB memory
+PCAone --bfile examples/test -k 20 -n 20 -o out -f --shuffle -m 2
+#+end_src
+
+- running *EMU* with super fancy RSVD method
+#+begin_src shell
+PCAone --bfile examples/test -k 20 -n 20 -o out -f --emu -m 2
+#+end_src
+
+- running *PCAngsd* with fancy RSVD method
+#+begin_src shell
+PCAone --beagle examples/test.bgl.gz -k 20 -n 20 -o out -f --pcangsd
+#+end_src
 
 * Features
 
 See [[file:CHANGELOG.org][change log]] here.
 
 - Has both Implicitly Restarted Arnoldi Method (IRAM) and Randomized SVD (RSVD) with *out-of-core* implementation.
-- Implements our new fast fancy randomized SVD algorithm for tera-scale dataset.
+- Implements our new fast fancy Randomized SVD algorithm for tera-scale dataset.
 - Quite fast with multi-threading support using high performance library [[https://software.intel.com/content/www/us/en/develop/tools/oneapi/components/onemkl.html#gs.8jsfgz][MKL]] or [[https://www.openblas.net/][OpenBLAS]] as backend.
 - Supports the [[https://www.cog-genomics.org/plink/1.9/formats#bed][PLINK]], [[https://www.well.ox.ac.uk/~gav/bgen_format][BGEN]], [[http://www.popgen.dk/angsd/index.php/Input#Beagle_format][Beagle]] genetic data formats.
 - Supports [[https://github.com/Rosemeis/emu][EMU]] algorithm for scenario with large proportion of missingness.
 - Supports [[https://github.com/Rosemeis/pcangsd][PCAngsd]] algorithm for low coverage sequencing scenario with genotype likelihood as input.
 - Supports a general [[https://github.com/facebook/zstd][zstd]] compressed CSV format for scRNAs data
 
-| *Input format*      | bfile | bgen | beagle | csv |
-| *IRAM method*       | +     | +    | +      | +   |
-| *One pass rSVD*     | +     | +    | +      | +   |
-| *Fast fancy rSVD*   | +     | +/-  | +/-    | +   |
-| *EMU algorithm*     | +     | +    | -      | -   |
-| *PCAngsd algorithm* | -     | +    | +      | -   |
-| *Out-of-core mode*  | +     | +    | -      | +   |
-
 * Installation
+** Download binary
+There are compiled binaries provided for both Mac and Linux platform. Check [[https://github.com/Zilong-Li/PCAone/releases][the releases page]] to download them.
+- PCAone without =libiomp5= :: follow guide in [[*Download PCAone][Quick start]].
+- PCAone with =libiomp5= :: packages named with =iomp5= need runtime library =libiomp5= to be found in your environment =LD_LIBRARY_PATH=.
 
 ** Via conda
 
 If you have conda installed, you can simply run the following command, which will download the MKL dependency for you and fix the runtime library automatically.
 
 #+begin_src sh
+# use wget
+/bin/bash -c "$(wget -O - https://raw.githubusercontent.com/Zilong-Li/PCAone/main/install.sh)"
+# use curl
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Zilong-Li/PCAone/main/install.sh)"
 #+end_src
-
-** Download binaries
-
-There are compiled binaries provided for both Mac and Linux platform. Check [[https://github.com/Zilong-Li/PCAone/releases][the releases page]] to download them. *Note* that packages named with =iomp5= need runtime library =libiomp5= to be found in your environment =LD_LIBRARY_PATH=, which can speedup further. If you really need it, You can install the lib by =conda install mkl=.
 
 ** Build from source
 
@@ -83,13 +138,13 @@ export CXX=$(find $(brew --prefix)/bin/ -name "g++-[0-9]*" | tail -1)
 #+end_src
 
 * Documentation
-** PCA algorithms
-
-PCAone implements 3 fast PCA algorithms for finding the top eigenvectors of large datasets, which are [[https://en.wikipedia.org/wiki/Arnoldi_iteration][Implicitly Restarted Arnoldi Method]] (IRAM), [[https://www.ijcai.org/proceedings/2017/468][single pass Randomized SVD]] (RSVD) and our own fancy RSVD method with window based power iterations. Specifically, for genetics data, PCAone also implements [[https://github.com/Rosemeis/emu][EMU]] and [[https://github.com/Rosemeis/pcangsd][PCAngsd]] algorithm.
-
 ** Input formats
 
-PCAone is designed to be extensible to accept many different formats. Currently, PCAone can work with SNP major genetic formats to study population structure. such as [[https://www.cog-genomics.org/plink/1.9/formats#bed][PLINK]], [[https://www.well.ox.ac.uk/~gav/bgen_format][BGEN]] and [[http://www.popgen.dk/angsd/index.php/Input#Beagle_format][Beagle]]. In addition, PCAone also supports a general csv format compressed by zstd assuming the data is already normalized by the users, which is useful for other datasets requiring specific normalization such as single cell RNAs data.
+PCAone is designed to be extensible to accept many different formats. Currently, PCAone can work with SNP major genetic formats to study population structure. such as [[https://www.cog-genomics.org/plink/1.9/formats#bed][PLINK]], [[https://www.well.ox.ac.uk/~gav/bgen_format][BGEN]] and [[http://www.popgen.dk/angsd/index.php/Input#Beagle_format][Beagle]]. Also, PCAone supports a general CSV format compressed by zstd assuming the data is already normalized by the users, which is useful for other datasets requiring specific normalization such as single cell RNAs data.
+- --beagle :: path of beagle file.
+- --bfile :: prefix of PLINK .bed/.bim/.fam files.
+- --bgen :: path of BGEN file.
+- --csv :: path of zstd compressed CSV file.
 
 ** Output files
 
@@ -99,86 +154,21 @@ PCAone is designed to be extensible to accept many different formats. Currently,
 
 ** Options
 
+run =./PCAone --help= to show all options. I feature some useful and important options.
+
 - -h :: use normal RSVD algorithm.
 - -f :: use fancy RSVD algorithm in PCAone's paper.
+- -n :: number of threads.
+- -o :: prefix of output files.
 - --bands :: number of bands used by fancy RSVD algorithm. must be =2^x=.
-- --cpmed :: normalize values by count per median (CPMED) for scRNAs. use this if the input is raw counts.
+- --cpmed :: normalize values by count per median (CPMED) for scRNAs.
 - --maxp :: maximum number of iterations for RSVD algorithm.
 - --printv :: print out another eigenvectors or loadings.
 - --shuffle :: shuffle the input data first for fancy RSVD algorithm, use it together with =-f=.
 
 ** Running mode
 
-PCAone has both in-core and out-of-core mode for each algorithm. In default, PCAone will load all data in memory, which is the fastest way to do calculation. However, it is usually not feasible to keep the whole large matrix in memory. In contrast, PCAone allows user to specify the amount of memory using =-m= option .
-
-** Examples
-
-- use *Default IRAM* algorithm for small or medium datasets
-#+begin_src shell
-# running in RAM
-PCAone --bfile input.plink -k 20 -n 20 -o out
-# running out of RAM, only use 2GB memory
-PCAone --bfile input.plink -k 20 -n 20 -o out -m 2
-# for csv format compressed by zstd
-PCAone --csv input.csv.zstd -k 20 -n 20 -o out -m 2
-#+end_src
-
-- use normal RSVD method for large datasets
-#+begin_src shell
-# running in RAM
-PCAone --bfile input.plink -k 20 -n 20 -o out -h
-# running out of RAM using  only 2GB memory
-PCAone --bfile input.plink -k 20 -n 20 -o out -h -m 2
-#+end_src
-
-- use fancy RSVD method for crazy huge datasets
-#+begin_src shell
-# running in RAM
-PCAone --bfile input.plink -k 20 -n 20 -o out -f --shuffle
-# running out of RAM using  only 2GB memory
-PCAone --bfile input.plink -k 20 -n 20 -o out -f --shuffle -m 2
-#+end_src
-
-- running EMU with super fancy RSVD method
-#+begin_src shell
-PCAone --bfile input.plink -k 20 -n 20 -o out -f --emu -m 2
-#+end_src
-
-- running PCAngsd with fancy RSVD method
-#+begin_src shell
-PCAone --beagle input.bgl.gz -k 20 -n 20 -o out -f --pcangsd
-#+end_src
-
-* Command Line
-
-#+begin_src plain
-Usage:
-      --help     Print list of main options.
-      --helpall  Print list of all options.
-
- Main options:
-      --beagle FILE    path of beagle file.
-      --bfile PREFIX   prefix of PLINK .bed/.bim/.fam files.
-      --bgen FILE      path of BGEN file.
-      --csv FILE       path of zstd compressed csv file.
-      --cpmed          normalize values by count per median(CPMED) for scRNAs
-      --maxp INT       maximum number of power iteration for Halko.[20]
-      --printv         print out another eigen vectors with suffix .loadings.
-      --shuffle        permute data by features for fast Halko.
-  -e, --emu            use EMU algorithm for data with lots of missingness.
-  -f, --fast           force to use fast super power iterations for Halko.
-  -h, --halko          use Halko method instead of default Arnoldi method.
-  -k, --eigs INT       top k components to be calculated.[10]
-  -m, --memory DOUBLE  specify the RAM usage in GB unit instead of exploiting
-                       the RAM of the server.
-  -n, --threads INT    number of threads.[1]
-  -o, --out PREFIX     prefix of output files.
-  -p, --pcangsd        use PCAngsd algorithm for genotype likelihood input.
-  -v, --verbose        verbose message output.
-  -M, INT              number of features. eg. SNPs.
-  -N, INT              number of samples.
-
-#+end_src
+PCAone has both in-core and out-of-core mode for each algorithm. In default, PCAone will load all data in memory, which is the fastest way to do calculation. However, it is usually not feasible to keep the whole large matrix in memory. In contrast, PCAone allows user to specify the amount of memory using =-m= option.
 
 * Citation
 

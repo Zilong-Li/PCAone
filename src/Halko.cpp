@@ -15,15 +15,15 @@ void RsvdOpData::computeUSV(int p, double tol)
         // check if converged
         {
             Eigen::HouseholderQR<Eigen::Ref<MyMatrix>> qr(G);
-            R.noalias() = MyMatrix::Identity(size, nrow) * qr.matrixQR().triangularView<Eigen::Upper>();
-            G.noalias() = qr.householderQ() * MyMatrix::Identity(nrow, size);
+            R.noalias() = MyMatrix::Identity(size, nrow) * qr.matrixQR().triangularView<Eigen::Upper>(); // get R1
+            G.noalias() = qr.householderQ() * MyMatrix::Identity(nrow, size); // hold Q1 in G
         }
         {
             Eigen::HouseholderQR<Eigen::Ref<MyMatrix>> qr(G);
-            Rt.noalias() = MyMatrix::Identity(size, nrow) * qr.matrixQR().triangularView<Eigen::Upper>();
-            G.noalias() = qr.householderQ() * MyMatrix::Identity(nrow, size);
+            Rt.noalias() = MyMatrix::Identity(size, nrow) * qr.matrixQR().triangularView<Eigen::Upper>();  // get R2
+            G.noalias() = qr.householderQ() * MyMatrix::Identity(nrow, size); // hold Q2 in G
         }
-        R = Rt * R;
+        R = Rt * R; // get R = R1R2;
         // B is size x ncol
         // R.T * B = H.T
         B.noalias() = R.transpose().colPivHouseholderQr().solve(H.transpose());
@@ -70,10 +70,10 @@ void NormalRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
                 }
             }
         }
-        if (data->snpmajor || true) {
+        if (data->snpmajor || true) { // only work with snpmajor input data now.
             if (pi > 0) {
                 Eigen::HouseholderQR<Eigen::Ref<MyMatrix>> qr(H);
-                Omg.noalias() = qr.householderQ() * MyMatrix::Identity(cols(), size);
+                Omg.noalias() = qr.householderQ() * MyMatrix::Identity(cols(), size);  // hold H in Omega
             }
             G.noalias() = data->G.transpose() * Omg;
             H.noalias() = data->G * G;

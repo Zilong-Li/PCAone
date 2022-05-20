@@ -2,7 +2,12 @@
 # Makefile to compile bgen library
 #
 CXX         ?= g++
-CXXFLAGS     = -O3 -Wall -std=c++11 -mavx -mavx2
+CXXFLAGS     = -O3 -Wall -std=c++11
+
+ifeq ($(strip $(AVX)), 1)
+  $(info "use -mavx2 for bgen")
+  CXXFLAGS += -mavx -mavx2 -DAVX2
+endif
 
 OBJECTS      = $(patsubst %.cpp,%.o,$(wildcard *.cpp))
 INC          = -I../zstd/lib

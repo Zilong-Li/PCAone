@@ -7,9 +7,11 @@
 #include <cassert>
 #include <cstring>
 
-#if defined(__x86_64__)
+#if defined(AVX2)
   #include <immintrin.h>
 #endif
+
+// #if defined(__x86_64__)
 
 #include "zstd.h"
 #include <zlib.h>
@@ -482,7 +484,7 @@ int Genotypes::find_minor_allele(float * dose) {
 /// @param uncompressed char array containing genotype probabilities
 /// @param idx uint position where the genotype probabilties begin
 void Genotypes::ref_dosage_fast(char * uncompressed, uint & idx) {
-#if defined(__x86_64__)
+#if defined(AVX2)
   __m256i mask_odd = _mm256_set_epi8(0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0,
     -1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0,  -1, 0, -1, 0, -1, 0, -1);
   __m256i mask_even = _mm256_set_epi8(-1, 0, -1, 0, -1, 0, -1, 0, -1, 0, -1, 0,
@@ -565,7 +567,7 @@ void Genotypes::ref_dosage_fast(char * uncompressed, uint & idx) {
 /// This uses AVX vectorization to speed up calculations on x86_64 hardware.
 /// This assumes AVX is available on x86_64 machines, which isn't always true.
 void Genotypes::alt_dosage() {
-#if defined(__x86_64__)
+#if defined(AVX2)
   __m256 k = {2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f};
   __m256 batch;
   for (uint n=0; n<(n_samples - (n_samples % 8)); n+=8) {
