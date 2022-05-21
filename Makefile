@@ -32,13 +32,12 @@ program       = PCAone
 # brew install gcc && ln -s $(which g++-11) /usr/local/bin/g++
 # use default g++ only if not set in env
 CXX           ?= g++
-CXXFLAGS	  = -O3 -Wall -std=c++11 -ffast-math -m64 -fPIC -pipe
+CXXFLAGS	  += -O3 -Wall -std=c++11 -ffast-math -m64 -fPIC -pipe
 MYFLAGS       = -DVERSION=\"$(VERSION)\" -DNDEBUG
 LINKFLAGS     = -s
-CFLAGS        =
 # CURRENT_DIR   = $(shell pwd)
 INC           = -I./external -I./external/zstd/lib
-LPATHS        = -L/usr/local/lib
+# LPATHS        = -L/usr/local/lib
 AVX = 1
 
 ifeq ($(strip $(AVX)),1)
@@ -48,7 +47,6 @@ endif
 
 ifeq ($(strip $(STATIC)),1)
 	INC  += -I./external/zstd/lib
-	SLIBS += ./external/zstd/lib/libzstd.a
 
 	ifeq ($(Platform), Darwin)
 		SLIBS += /usr/local/opt/zlib/lib/libz.a
@@ -71,8 +69,8 @@ ifeq ($(strip $(STATIC)),1)
 	endif
 else
 	CXXFLAGS += -march=native
-	DLIBS    += -lz -lzstd
-	INC      += -I/usr/local/include
+	DLIBS    += -lz
+	# INC      += -I/usr/local/include
 endif
 
 
@@ -135,7 +133,7 @@ endif
 
 OBJ = $(patsubst %.cpp, %.o, $(wildcard ./src/*.cpp))
 
-SLIBS += ./external/bgen/bgenlib.a
+SLIBS += ./external/zstd/lib/libzstd.a ./external/bgen/bgenlib.a
 
 LIBS += ${SLIBS} ${DLIBS} -lm -ldl
 
@@ -144,18 +142,13 @@ LIBS += ${SLIBS} ${DLIBS} -lm -ldl
 all: ${program}
 
 ${program}: zstdlib bgenlib ${OBJ}
-	$(CXX) $(CXXFLAGS) $(CFLAGS) $(LINKFLAGS) -o $(program) ${OBJ}  ${LPATHS} ${LIBS}
+	$(CXX) $(CXXFLAGS) $(CFLAGS) $(LINKFLAGS) -o $(program) ${OBJ} ${LPATHS} ${LIBS} ${LDFLAGS}
 
 %.o: %.cpp
 	${CXX} ${CXXFLAGS} ${MYFLAGS} -o $@ -c $< ${INC}
 
 zstdlib:
-
-ifeq ($(STATIC),1)
 	(cd ./external/zstd/lib/; $(MAKE))
-else
-	@echo "no building zstd manually"
-endif
 
 bgenlib:
 	(cd ./external/bgen/; $(MAKE))

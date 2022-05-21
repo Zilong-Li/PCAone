@@ -136,13 +136,6 @@ make
 
 Since the default compilation is without external MKL or OpenBLAS support, you need to set the =MKLROOT= or =OPENBLAS_ROOT= in *Makefile* to your own path to use one of them as backend. If it complains that there is no =lapack= lib, please install it and set the =LAPACK_ROOT= to the correct path as well. 
 
-*IMPORTANT:* Only =GNU GCC= compiler is supported because MKL threading doesn't support =clang= at the moment. For mac users, you need to make sure the default compiler is =GNU gcc= instead of =clang= by doing the following steps before running =make= command.
-#+begin_src shell
-brew install gcc
-export CC=$(find $(brew --prefix)/bin/ -name "gcc-[0-9]*" | tail -1)
-export CXX=$(find $(brew --prefix)/bin/ -name "g++-[0-9]*" | tail -1)
-#+end_src
-
 * Documentation
 ** Input formats
 

@@ -99,7 +99,7 @@ string parse_params(int argc, char* argv[], struct Param* params)
         ("N", "number of samples.", cxxopts::value<int>(),"INT")
         ;
     opts.add_options("More")
-        ("bands", "number of bands to use for fast RSVD.[32]", cxxopts::value<int>(),"INT")
+        ("bands", "number of bands to use for fast RSVD.[64]", cxxopts::value<int>(),"INT")
         ("buffer", "buffer in GB uint used for permuting the data.[2]", cxxopts::value<int>(),"INT")
         ("imaxiter", "maximum number of IRAM interations.[500]", cxxopts::value<int>(),"INT")
         ("itol", "tolerance for IRAM algorithm.[1e-6]", cxxopts::value<double>(),"DOUBLE")
