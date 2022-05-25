@@ -13,9 +13,9 @@ OPENBLAS_ROOT =
 LAPACK_ROOT   =
 
 # by default dynamical linking
-STATIC       := 0
+STATIC        = 0
 # only if static = 1, IOMP5 works
-IOMP5        := 0
+IOMP5         = 0
 
 ########################### end ###########################
 
@@ -88,7 +88,7 @@ ifeq ($(Platform),Linux)
 				SLIBS += -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_gnu_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -lgomp -lpthread
 			endif
 		else
-			DLIBS += -Wl,-rpath,${MKLROOT}/lib -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread 
+			DLIBS += -Wl,-rpath,${MKLROOT}/lib,-rpath,${MKLROOT}/lib/intel64 -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread
 		endif
 
 	else ifneq ($(strip $(OPENBLAS_ROOT)),)

@@ -1,6 +1,8 @@
 - v0.1.7
   - two releases =x64= and =avx2= for linux
 
+  - add =conda install -c bioconda pcaone=
+
   - upgrade Spectra to v1.0.1
 
   - change oversamples default as max(10, k)
