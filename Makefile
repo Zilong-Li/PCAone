@@ -125,8 +125,8 @@ else ifeq ($(Platform),Darwin)
 		DLIBS   += -llapack -llapacke -lopenblas -lgfortran -lgomp -lpthread
 
 	else
-		DLIBS   += -lgomp -lpthread
-		MYFLAGS  += -fopenmp
+		DLIBS += -lomp -lpthread
+		CFLAGS  += -Xpreprocessor -fopenmp
 	endif
 
 endif

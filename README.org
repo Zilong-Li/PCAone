@@ -50,7 +50,7 @@ R -s -e 'df=read.table("out.eigvecs", h=F);plot(df[,1:2], xlab="PC1", ylab="PC2"
 wget https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-avx2-Linux.zip || curl -LO https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-avx2-Linux.zip
 unzip PCAone-avx2-Linux.zip
 #+end_src
-If your server is too old to support =AVX2= instruction, get your boss to buy a new server or download the following version.
+If your server is too old to support =avx2= instruction, get your boss to buy a new server or download the following version.
 #+begin_src shell
 wget https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-x64-Linux.zip || curl -LO https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-x64-Linux.zip
 unzip PCAone-x64-Linux.zip
@@ -126,23 +126,25 @@ There are compiled binaries provided for both Linux and Mac platform. Check [[ht
 
 ** Via conda
 
-It is recommended to use dynamically linked PCAone because it will link PCAone to the faster threading layer =libiomp5= at runtime. You can do so by using =conda= or building from source yourself.
+The dynamically linked version may be even faster because PCAone will be linked to the faster threading layer =libiomp5= at runtime. You can get it by using =conda= or building from source yourself.
 
 #+begin_src sh
 conda config --add channels bioconda
 conda install pcaone
 #+end_src
 
+*Note*: =avx2= instruction is enabled in default so make sure your server supports it.
+
 ** Build from source
 
-- Without MKL or OpenBLAS dependency
+- Without MKL or OpenBLAS dependency ::
 #+begin_src shell
 git clone https://github.com/Zilong-Li/PCAone.git
 cd PCAone
 make
 #+end_src
 
-If this doesn't work because the server is too outdated, run =make clean && make AVX=0= instead.
+If this doesn't work because the server is too outdated, run =make clean && make AVX=0= instead. For Mac users, also run =brew install libomp=.
 
 - With MKL or OpenBLAS as backend ::
 
@@ -159,30 +161,44 @@ Alternatively, modify variables directly in Makefile and run =make= to use MKL o
 ** Input formats
 
 PCAone is designed to be extensible to accept many different formats. Currently, PCAone can work with SNP major genetic formats to study population structure. such as [[https://www.cog-genomics.org/plink/1.9/formats#bed][PLINK]], [[https://www.well.ox.ac.uk/~gav/bgen_format][BGEN]] and [[http://www.popgen.dk/angsd/index.php/Input#Beagle_format][Beagle]]. Also, PCAone supports a general CSV format compressed by zstd assuming the data is already normalized by the users, which is useful for other datasets requiring specific normalization such as single cell RNAs data.
-- --beagle :: path of beagle file.
-- --bfile :: prefix of PLINK .bed/.bim/.fam files.
-- --bgen :: path of BGEN file.
-- --csv :: path of zstd compressed CSV file.
+
+|----------+-----------------------------------------|
+| Option   | Descrition                              |
+|----------+-----------------------------------------|
+| =--bfile=  | prefix of PLINK .bed/.bim/.fam files.   |
+| =--beagle= | path of beagle file compressed by gzip. |
+| =--bgen=   | path of BGEN file.                      |
+| =--csv=    | path of CSV file compressed by zstd.    |
+|----------+-----------------------------------------|
 
 ** Output files
 
-- eigen vectors :: eigen vectors are saved in file with suffix =.eigvecs=. each row represents a sample and each col represents a PC.
-- eigen values :: eigen values are saved in file with suffix =.eigvals=. each row represents the eigenvalue of corresponding PC.
-- loadings :: loadings are saved in file with suffix =.loadings=. need to use =--printv= option.
+|-----------+------------------------------------------------------------------------------------------------------------------|
+| Output    | Descrition                                                                                                       |
+|-----------+------------------------------------------------------------------------------------------------------------------|
+| =.eigvecs=  | eigen vectors are saved in file with suffix =.eigvecs=. each row represents a sample and each col represents a PC. |
+| =.eigvals=  | eigen values are saved in file with suffix =.eigvals=. each row represents the eigenvalue of corresponding PC.     |
+| =.loadings= | loadings are saved in file with suffix =.loadings=. need to use =--printv= option.                                   |
+| =.log=      | log is saved in file with suffix =.log=.                                                                           |
+|-----------+------------------------------------------------------------------------------------------------------------------|
 
 ** Options
 
-run =./PCAone --help= to show all options. I feature some useful and important options.
+run =./PCAone --help= to show all options. I feature some useful and important options below.
 
-- -f :: use fancy RSVD algorithm in PCAone's paper.
-- -h :: use normal RSVD algorithm.
-- -n :: number of threads.
-- -o :: prefix of output files.
-- --bands :: number of bands used by fancy RSVD algorithm. must be =2^x=.
-- --cpmed :: normalize values by count per median (CPMED) for scRNAs.
-- --maxp :: maximum number of iterations for RSVD algorithm.
-- --printv :: print out another eigenvectors or loadings.
-- --shuffle :: shuffle the input data first for fancy RSVD algorithm, use it together with =-f=.
+|--------------+----------------------------------------------------------------------------------------|
+| Option       | Descrition                                                                             |
+|--------------+----------------------------------------------------------------------------------------|
+| =-f,--fast=    | use fancy RSVD algorithm in PCAone's paper                                             |
+| =-h,--halko=   | use normal RSVD algorithm                                                              |
+| =-n,--threads= | number of threads                                                                      |
+| =-o,--out=     | prefix of output files                                                                 |
+| =--cpmed=      | normalize values by count per median (CPMED) for scRNAs.                               |
+| =--maxp=       | maximum number of iterations for RSVD algorithm.                                       |
+| =--printv=     | print out another eigenvectors or loadings.                                            |
+| =--shuffle=    | shuffle the input data first for fancy RSVD algorithm, use it together with =-f= and =-m=. |
+| =--bands=      | number of bands used by fancy RSVD algorithm. must be =2^x=.                             |
+|--------------+----------------------------------------------------------------------------------------|
 
 ** Running mode
 
