@@ -52,7 +52,7 @@ std::string timestamp()
 }
 
 // structured permutation with cached buffer
-void permute_plink2(std::string& fin, uint gb)
+void permute_plink2(std::string& fin, const std::string& fout, uint gb)
 {
     cout << timestamp() << "begin to permute plink data.\n";
     uint   nbands = 64;
@@ -97,16 +97,15 @@ void permute_plink2(std::string& fin, uint gb)
     }
 
     ios_base::sync_with_stdio(false);
-    std::string fout = fin + ".perm";
     std::ifstream in(fin + ".bed", std::ios::binary);
     std::ofstream out(fout + ".bed", std::ios::binary);
     if (!in.is_open()) {
-        throw std::invalid_argument("ERROR: Cannot open bed file.\n");
+        throw std::invalid_argument("Cannot open bed file.\n");
     }
     uchar header[3];
     in.read(reinterpret_cast<char *> (&header[0]), 3);
     if ( (header[0] != 0x6c) || (header[1] != 0x1b) || (header[2] != 0x01) ) {
-        throw std::invalid_argument("ERROR: Incorrect magic number in bed file.\n");
+        throw std::invalid_argument("Incorrect magic number in bed file.\n");
     }
     out.write(reinterpret_cast<char *> (&header[0]), 3);
     std::ifstream in_bim(fin + ".bim", std::ios::in);
@@ -171,12 +170,12 @@ void permute_plink(std::string& fin, uint blocksize)
     std::ifstream in(fin + ".bed", std::ios::binary);
     std::ofstream out(fout + ".bed", std::ios::binary);
     if (!in.is_open()) {
-        throw std::invalid_argument("ERROR: Cannot open bed file.\n");
+        throw std::invalid_argument("Cannot open bed file.\n");
     }
     uchar header[3];
     in.read(reinterpret_cast<char *> (&header[0]), 3);
     if ( (header[0] != 0x6c) || (header[1] != 0x1b) || (header[2] != 0x01) ) {
-        throw std::invalid_argument("ERROR: Incorrect magic number in bed file.\n");
+        throw std::invalid_argument("Incorrect magic number in bed file.\n");
     }
     out.write(reinterpret_cast<char *> (&header[0]), 3);
     vector<uchar> inbed;
@@ -247,7 +246,7 @@ void flip_UV(MyMatrix& U, MyMatrix& V, bool ubase)
                 } else if (V.rows() == U.cols()) {
                     V.row(i) *= -1;
                 } else {
-                    throw std::runtime_error("Error: the dimention of U and V have different k ranks.\n");
+                    throw std::runtime_error("the dimention of U and V have different k ranks.\n");
                 }
             }
 
@@ -272,7 +271,7 @@ void flip_UV(MyMatrix& U, MyMatrix& V, bool ubase)
                     V.row(i) *= -1;
                 }
             } else {
-                throw std::runtime_error("Error: the dimention of U and V have different k ranks.\n");
+                throw std::runtime_error("the dimention of U and V have different k ranks.\n");
             }
         }
     }

@@ -52,6 +52,7 @@ struct Param {
     std::string beagle;
     std::string csvfile;
     std::string outfile;
+    std::string tmpfile = "";
     //
     uint64 nsamples = 0;
     uint64 nsnps = 0;
@@ -85,7 +86,7 @@ struct Param {
     bool emu = false;
     bool pcangsd  = false; // read GP field for PCAngsd instead of GT.
     bool halko = false;
-    bool arnoldi = true;
+    bool arnoldi = false;
     bool verbose = false;
 };
 
@@ -108,7 +109,7 @@ size_t count_lines(const std::string& fpath);
 
 std::string timestamp();
 
-void permute_plink2(std::string& fin, uint gb = 2);
+void permute_plink2(std::string& fin, const std::string& fout, uint gb = 2);
 
 void permute_plink(std::string& fin, uint blocksize=1);
 
