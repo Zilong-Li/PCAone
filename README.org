@@ -89,34 +89,34 @@ tar -xzf examples.tar.gz
 You should find a fold named =examples= with some test data.
 ** Run PCAone
 
-- use *fancy RSVD* method for large datasets
+- use *fast fancy RSVD* algorithm for large datasets
 #+begin_src shell
 # running in RAM using 10 threads to calculate top 20 PCs
 PCAone --bfile examples/asia -k 20 -f -n 10 -o out
-# running out of RAM using  only 2GB memory
+# running out-of-core using only 2GB memory
 PCAone --bfile examples/asia -k 20 -f --shuffle -m 2 -n 10 -o out
 #+end_src
 
 - use *IRAM* algorithm for small or medium datasets
 #+begin_src shell
-# running out of RAM, only use 2GB memory
+# running out-of-core using only 2GB memory
 PCAone --bfile examples/asia -k 20 -a -n 10 -o out -m 2
 #+end_src
 
-- use *normal RSVD* method for large datasets
+- use *normal RSVD* algorithm for large datasets
 #+begin_src shell
-# running out of RAM using  only 2GB memory
+# running out-of-core using only 2GB memory
 PCAone --bfile examples/asia -k 20 -h -n 10 -o out -h -m 2
 #+end_src
 
-- run *EMU* with fancy RSVD for data with many missingness
+- run *EMU* using *fancy RSVD* for data with lots of missingness
 #+begin_src shell
 PCAone --bfile examples/test.emu -k 3 -f -n 10 -o out --emu -m 2
 #+end_src
 
-- run *PCAngsd* with genotype likelihoods
+- run *PCAngsd* using *IRAM* for genotype likelihoods
 #+begin_src shell
-PCAone --beagle examples/test.bgl.gz -k 3 -n 10 -h --pcangsd -o out
+PCAone --beagle examples/test.bgl.gz -k 3 -n 10 -a --pcangsd -o out
 #+end_src
 
 ** Make PCA plots
@@ -226,7 +226,7 @@ PCAone has both in-core and out-of-core mode for each algorithm. In default, PCA
 
 * Citation
 
-- If you find PCAone helpful, please cite our paper https://www.biorxiv.org/content/10.1101/2022.05.25.493261v1.
+- If you find PCAone helpful, please cite our paper [[https://www.biorxiv.org/content/10.1101/2022.05.25.493261v1][PCAone: fast and accurate out-of-core PCA framework for large scale biobank data]].
 
 - If using EMU algorithm, please also cite [[https://academic.oup.com/bioinformatics/article/37/13/1868/6103565][Large-scale inference of population structure in presence of missingness using PCA]].
 
