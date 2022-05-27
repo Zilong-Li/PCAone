@@ -19,3 +19,4 @@ compile_commands.json
 log
 *tmp
 .DS_Store
+lib*.a

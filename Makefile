@@ -38,6 +38,7 @@ LINKFLAGS     = -s
 # CURRENT_DIR   = $(shell pwd)
 INC           = -I./external -I./external/zstd/lib
 # LPATHS        = -L/usr/local/lib
+PCALIB = libpcaone.a
 AVX = 1
 
 ifeq ($(strip $(AVX)),1)
@@ -131,7 +132,11 @@ else ifeq ($(Platform),Darwin)
 
 endif
 
-OBJ = $(patsubst %.cpp, %.o, $(wildcard ./src/*.cpp))
+# OBJ = $(patsubst %.cpp, %.o, $(wildcard ./src/*.cpp))
+# tar OBJ as libpcaone.a
+OBJ = src/Arnoldi.o src/Halko.o src/Data.o src/Utils.o \
+		src/FileBeagle.o src/FileCsv.o src/FileBgen.o src/FilePlink.o
+
 
 SLIBS += ./external/zstd/lib/libzstd.a ./external/bgen/bgenlib.a
 
@@ -141,8 +146,8 @@ LIBS += ${SLIBS} ${DLIBS} -lm -ldl
 
 all: ${program}
 
-${program}: zstdlib bgenlib ${OBJ}
-	$(CXX) $(CXXFLAGS) $(CFLAGS) $(LINKFLAGS) -o $(program) ${OBJ} ${LPATHS} ${LIBS} ${LDFLAGS}
+${program}: zstdlib bgenlib pcaonelib
+	$(CXX) $(CXXFLAGS) $(CFLAGS) $(LINKFLAGS) -o $(program) src/Main.o ${PCALIB} ${LIBS} ${LDFLAGS} ${LPATHS}
 
 %.o: %.cpp
 	${CXX} ${CXXFLAGS} ${MYFLAGS} -o $@ -c $< ${INC}
@@ -153,11 +158,15 @@ zstdlib:
 bgenlib:
 	(cd ./external/bgen/; $(MAKE))
 
+pcaonelib:$(OBJ)
+	ar -rcs $(PCALIB) $(OBJ)
+
 rm:
-	(rm -f $(OBJ) $(program))
+	(rm -f $(PCALIB) $(OBJ) $(program))
 	(cd ./external/bgen/; $(MAKE) clean)
 
 clean:
-	(rm -f $(OBJ) $(program))
+	(rm -f $(PCALIB) $(OBJ) $(program))
 	(cd ./external/bgen/; $(MAKE) clean)
 	(cd ./external/zstd/lib/; $(MAKE) clean)
+
