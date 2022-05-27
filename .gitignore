@@ -20,3 +20,5 @@ log
 *tmp
 .DS_Store
 lib*.a
+out.*
+tutorial

@@ -35,7 +35,7 @@ PCAone is a fast and memory efficient PCA tool implemented in C++ aiming at prov
 
 * Quickstart
 
-You can run the following on Linux to get a sense of PCAone usage. More details are explained afterwards.
+You can run the following on Linux to get a sense of PCAone's usage.
 
 #+begin_src sh
 wget https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-avx2-Linux.zip && unzip PCAone-avx2-Linux.zip
@@ -44,13 +44,30 @@ wget http://popgen.dk/zilong/datahub/pca/examples.tar.gz && tar -xzf examples.ta
 R -s -e 'df=read.table("out.eigvecs", h=F);plot(df[,1:2], xlab="PC1", ylab="PC2");'
 #+end_src
 
+You will find those files in your current directory.
+
+#+begin_src plain
+.
+├── PCAone         # program
+├── Rplots.pdf     # pca plot
+├── examples       # folder of examples data
+├── out.eigvals    # eigenvalues
+├── out.eigvecs    # eigenvectors, the PCs you need to plot
+├── out.log        # log file
+├── out.perm.bed   # the permuted bed file
+├── out.perm.bim   # the permuted bim file
+└── out.perm.fam   # the permuted fam file
+#+end_src
+
 ** Download PCAone
 - Linux
 #+begin_src shell
 wget https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-avx2-Linux.zip || curl -LO https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-avx2-Linux.zip
 unzip PCAone-avx2-Linux.zip
 #+end_src
-If your server is too old to support =avx2= instruction, get your boss to buy a new server or download the following version.
+
+If your server is too old to support =avx2= instruction, get your boss to upgrade the server or download the following version.
+
 #+begin_src shell
 wget https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-x64-Linux.zip || curl -LO https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-x64-Linux.zip
 unzip PCAone-x64-Linux.zip
@@ -61,6 +78,7 @@ unzip PCAone-x64-Linux.zip
 curl -LO https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-avx2-Mac.zip || wget https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-avx2-Mac.zip
 unzip PCAone-avx2-Mac.zip
 #+end_src
+
 Since you are using Mac and rich, I suppose this version just works.
 
 ** Download examples
@@ -123,6 +141,8 @@ See [[file:CHANGELOG.org][change log]] here.
 ** Download binary
 
 There are compiled binaries provided for both Linux and Mac platform. Check [[https://github.com/Zilong-Li/PCAone/releases][the releases page]] to download one or find commands for downloading the latest version in [[#Quickstart][Quickstart]].
+
+*Note:* For Mac users, the precompiled binary is without MKL multithreading support. Please use =conda= or build from source.
 
 ** Via conda
 
@@ -206,7 +226,7 @@ PCAone has both in-core and out-of-core mode for each algorithm. In default, PCA
 
 * Citation
 
-- If you find PCAone helpful, please cite our paper https://github.com/Zilong-Li/PCAone [Paper TBD].
+- If you find PCAone helpful, please cite our paper https://www.biorxiv.org/content/10.1101/2022.05.25.493261v1.
 
 - If using EMU algorithm, please also cite [[https://academic.oup.com/bioinformatics/article/37/13/1868/6103565][Large-scale inference of population structure in presence of missingness using PCA]].
 

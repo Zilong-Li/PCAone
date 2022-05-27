@@ -19,7 +19,7 @@ IOMP5         = 0
 
 ########################### end ###########################
 
-VERSION=0.1.7
+VERSION=0.1.8
 # detect OS architecture and add flags
 Platform     := $(shell uname -s)
 
@@ -28,8 +28,6 @@ $(info "building PCAone on ${Platform} -- version ${VERSION}")
 
 ####### INC, LPATHS, LIBS, MYFLAGS
 program       = PCAone
-# for mac user, please change this to gnu gcc instead of the default clang version
-# brew install gcc && ln -s $(which g++-11) /usr/local/bin/g++
 # use default g++ only if not set in env
 CXX           ?= g++
 CXXFLAGS	  += -O3 -Wall -std=c++11 -ffast-math -m64 -fPIC -pipe
@@ -146,7 +144,7 @@ LIBS += ${SLIBS} ${DLIBS} -lm -ldl
 
 all: ${program}
 
-${program}: zstdlib bgenlib pcaonelib
+${program}: zstdlib bgenlib pcaonelib src/Main.o
 	$(CXX) $(CXXFLAGS) $(CFLAGS) $(LINKFLAGS) -o $(program) src/Main.o ${PCALIB} ${LIBS} ${LDFLAGS} ${LPATHS}
 
 %.o: %.cpp
@@ -162,11 +160,11 @@ pcaonelib:$(OBJ)
 	ar -rcs $(PCALIB) $(OBJ)
 
 rm:
-	(rm -f $(PCALIB) $(OBJ) $(program))
+	(rm -f src/*.o $(program))
 	(cd ./external/bgen/; $(MAKE) clean)
 
 clean:
-	(rm -f $(PCALIB) $(OBJ) $(program))
+	(rm -f src/*.o $(program))
 	(cd ./external/bgen/; $(MAKE) clean)
 	(cd ./external/zstd/lib/; $(MAKE) clean)
 
