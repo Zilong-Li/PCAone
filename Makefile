@@ -79,7 +79,7 @@ ifeq ($(Platform),Linux)
 	ifneq ($(strip $(MKLROOT)),)
 		MYFLAGS += -DWITH_MKL -DEIGEN_USE_MKL_ALL
 		INC     += -I${MKLROOT}/include/
-		LPATHS  += -L${MKLROOT}/lib
+		LPATHS  += -L${MKLROOT}/lib -L${MKLROOT}/lib/intel64
 		ifeq ($(strip $(STATIC)),1)
 			ifeq ($(strip $(IOMP5)), 1)
 				SLIBS += -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_intel_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -liomp5 -lpthread
@@ -145,7 +145,7 @@ LIBS += ${SLIBS} ${DLIBS} -lm -ldl
 all: ${program}
 
 ${program}: zstdlib bgenlib pcaonelib src/Main.o
-	$(CXX) $(CXXFLAGS) $(CFLAGS) $(LINKFLAGS) -o $(program) src/Main.o ${PCALIB} ${LIBS} ${LDFLAGS} ${LPATHS}
+	$(CXX) $(CXXFLAGS) $(CFLAGS) $(LINKFLAGS) -o $(program) src/Main.o ${PCALIB} ${LIBS} ${LPATHS} ${LDFLAGS}
 
 %.o: %.cpp
 	${CXX} ${CXXFLAGS} ${MYFLAGS} -o $@ -c $< ${INC}
