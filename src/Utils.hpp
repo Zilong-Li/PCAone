@@ -51,14 +51,14 @@ struct Param {
     std::string bgen;
     std::string beagle;
     std::string csvfile;
-    std::string outfile;
+    std::string outfile = "pcaone";
     std::string tmpfile = "";
     //
     uint64 nsamples = 0;
     uint64 nsnps = 0;
     uint k = 10;
     uint maxp = 20;  // maximum number of power iterations
-    uint threads = 1;
+    uint threads = 10;
     uint blocksize = 0;
     uint bands = 64;
     // for emu iteration
@@ -81,7 +81,7 @@ struct Param {
     bool printv = false;
     bool runem = false;
     bool batch = true; // if load all matrix into RAM.
-    bool shuffle = false;
+    bool shuffle = true;
     bool fast = false;
     bool emu = false;
     bool pcangsd  = false; // read GP field for PCAngsd instead of GT.
@@ -109,9 +109,9 @@ size_t count_lines(const std::string& fpath);
 
 std::string timestamp();
 
-void permute_plink2(std::string& fin, const std::string& fout, uint gb = 2);
+void permute_plink(std::string& fin, const std::string& fout, uint gb = 2);
 
-void permute_plink(std::string& fin, uint blocksize=1);
+// void permute_plink(std::string& fin, uint blocksize=1);
 
 void flip_UV(MyMatrix& U, MyMatrix& V, bool ubase = true);
 

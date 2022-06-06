@@ -2,8 +2,8 @@
 
 # for mkl
 # make sure libiomp5 can be found
-# MKLROOT       = /home/zilong/intel/oneapi/mkl/latest
-# MKLROOT       = /opt/intel/oneapi/mkl/latest
+# MKLROOT=/home/zilong/intel/oneapi/mkl/latest
+# MKLROOT=/opt/intel/oneapi/mkl/latest
 MKLROOT       =
 
 # install openblas lapack on mac with brew install openblas lapack
@@ -46,7 +46,6 @@ endif
 
 ifeq ($(strip $(STATIC)),1)
 	INC  += -I./external/zstd/lib
-
 	ifeq ($(Platform), Darwin)
 		SLIBS += /usr/local/opt/zlib/lib/libz.a
 		ifeq ($(strip $(IOMP5)), 1)
@@ -67,9 +66,7 @@ ifeq ($(strip $(STATIC)),1)
 		endif
 	endif
 else
-	CXXFLAGS += -march=native
 	DLIBS    += -lz
-	# INC      += -I/usr/local/include
 endif
 
 
@@ -97,12 +94,12 @@ ifeq ($(Platform),Linux)
 		DLIBS   += -llapack -llapacke -lopenblas -lgfortran -lgomp -lpthread
 
 	else
-		CXXFLAGS += -static-libgcc -static-libstdc++  # helpful to fix some glibcxx issue
 		DLIBS   += -lgomp -lpthread
 	endif
 
 else ifeq ($(Platform),Darwin)
 ###### for mac
+	MYFLAGS  += -Xpreprocessor -fopenmp
 	ifneq ($(strip $(MKLROOT)),)
 		MYFLAGS += -DWITH_MKL -DEIGEN_USE_MKL_ALL
 		INC     += -I${MKLROOT}/include/
@@ -125,7 +122,6 @@ else ifeq ($(Platform),Darwin)
 
 	else
 		DLIBS += -lomp -lpthread
-		CFLAGS  += -Xpreprocessor -fopenmp
 	endif
 
 endif
@@ -145,7 +141,7 @@ LIBS += ${SLIBS} ${DLIBS} -lm -ldl
 all: ${program}
 
 ${program}: zstdlib bgenlib pcaonelib src/Main.o
-	$(CXX) $(CXXFLAGS) $(CFLAGS) $(LINKFLAGS) -o $(program) src/Main.o ${PCALIB} ${LIBS} ${LPATHS} ${LDFLAGS}
+	$(CXX) $(CXXFLAGS) $(CFLAGS) $(LINKFLAGS) -o $(program) src/Main.o ${PCALIB} ${LPATHS} ${LIBS} ${LDFLAGS}
 
 %.o: %.cpp
 	${CXX} ${CXXFLAGS} ${MYFLAGS} -o $@ -c $< ${INC}

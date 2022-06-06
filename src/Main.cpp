@@ -29,14 +29,22 @@ int main(int argc, char *argv[])
     omp_set_num_threads(params.threads);
     Data *data;
     if (params.intype == "bfile") {
-        if (!params.batch && params.fast && params.shuffle) {
-            auto ts = std::chrono::steady_clock::now();
-            string fout = params.outfile + ".perm";
-            if (params.tmpfile != "") fout = params.tmpfile;
-            permute_plink2(params.bed_prefix, fout, params.buffer);
-            auto te = std::chrono::steady_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::seconds>(te - ts);
-            cout << timestamp() << "total elapsed time of permuting data: " << duration.count() << " seconds" << endl;
+        if (!params.batch && params.fast) {
+            if (params.shuffle) {
+                auto ts = std::chrono::steady_clock::now();
+                string fout = params.outfile + ".perm";
+                if (params.tmpfile != "")
+                  fout = params.tmpfile;
+                permute_plink(params.bed_prefix, fout, params.buffer);
+                auto te = std::chrono::steady_clock::now();
+                auto duration =
+                    std::chrono::duration_cast<std::chrono::seconds>(te - ts);
+                cout << timestamp() << "total elapsed time of permuting data: "
+                     << duration.count() << " seconds" << endl;
+            } else {
+                cout << timestamp() << "warning: running fast fancy RSVD without shuffling the "
+                      "data!" << endl;
+            }
         }
         data = new FileBed(params);
     } else if( params.intype == "bgen" ) {
@@ -80,39 +88,39 @@ string parse_params(int argc, char* argv[], struct Param* params)
 
     opts.add_options("Main")
         ("a, arnoldi", "use IRAM algorithm", cxxopts::value<bool>()->default_value("false"))
-        ("beagle", "path of beagle file", cxxopts::value<std::string>(), "FILE")
-        ("bfile", "prefix of PLINK .bed/.bim/.fam files", cxxopts::value<std::string>(), "PREFIX")
+        ("beagle", "path of beagle file", cxxopts::value<std::string>())
+        ("bfile", "prefix of PLINK .bed/.bim/.fam files", cxxopts::value<std::string>())
         // ("pfile", "prefix to PLINK2 .pgen/.pvar/.psam files.", cxxopts::value<std::string>(), "PREFIX")
-        ("bgen", "path of BGEN file", cxxopts::value<std::string>(), "FILE")
-        ("csv", "path of zstd compressed csv file", cxxopts::value<std::string>(), "FILE")
-        ("cpmed", "normalize values by count per median(CPMED) for scRNAs", cxxopts::value<bool>()->default_value("false"))
+        ("bgen", "path of BGEN file", cxxopts::value<std::string>())
+        ("csv", "path of zstd compressed csv file", cxxopts::value<std::string>())
+        ("cpmed", "normalize values by count per median (CPMED) for scRNAs", cxxopts::value<bool>()->default_value("false"))
         ("e,emu", "use EMU algorithm for data with lots of missingness", cxxopts::value<bool>()->default_value("false"))
-        ("f, fast", "use fast RSVD algorithm with super power iterations", cxxopts::value<bool>()->default_value("false"))
+        ("f, fast", "use fast RSVD algorithm with super power iterations", cxxopts::value<bool>()->default_value("true"))
         ("h, halko", "use normal RSVD algorithm", cxxopts::value<bool>()->default_value("false"))
-        ("k,eigs", "top k components to be calculated [10]", cxxopts::value<int>(),"INT")
-        ("maxp", "maximum number of power iteration for RSVD [20]", cxxopts::value<int>(),"INT")
-        ("m,memory", "specify the RAM usage in GB unit", cxxopts::value<double>(),"DOUBLE")
-        ("n,threads", "number of threads [1]", cxxopts::value<int>(),"INT")
-        ("o,out", "prefix of output files", cxxopts::value<string>(),"PREFIX")
+        ("k,eigs", "top k components to be calculated", cxxopts::value<int>()->default_value("10"))
+        ("maxp", "maximum number of power iteration for RSVD", cxxopts::value<int>()->default_value("20"))
+        ("m,memory", "specify the RAM usage in GB unit", cxxopts::value<double>())
+        ("n,threads", "number of threads", cxxopts::value<int>()->default_value("10"))
+        ("no-shuffle", "permute data by features for fast RSVD.", cxxopts::value<bool>()->default_value("false"))
+        ("o,out", "prefix of output files", cxxopts::value<string>())
         ("p,pcangsd", "use PCAngsd algorithm for genotype likelihood input", cxxopts::value<bool>()->default_value("false"))
         ("printv", "output another eigen vectors with suffix .loadings", cxxopts::value<bool>()->default_value("false"))
-        ("shuffle", "permute data by features for fast RSVD.", cxxopts::value<bool>()->default_value("false"))
-        ("tmp", "prefix of permuted data", cxxopts::value<string>(),"PREFIX")
+        ("tmp", "prefix of permuted data", cxxopts::value<string>())
         ("v,verbose", "verbose message output", cxxopts::value<bool>()->default_value("false"))
-        ("M", "number of features, eg. SNPs", cxxopts::value<int>(),"INT")
-        ("N", "number of samples", cxxopts::value<int>(),"INT")
+        ("M", "number of features, eg. SNPs", cxxopts::value<int>())
+        ("N", "number of samples", cxxopts::value<int>())
         ;
     opts.add_options("More")
-        ("bands", "number of bands to use for fast RSVD [64]", cxxopts::value<int>(),"INT")
-        ("buffer", "buffer in GB uint used for permuting the data [2]", cxxopts::value<int>(),"INT")
-        ("imaxiter", "maximum number of IRAM interations [500]", cxxopts::value<int>(),"INT")
-        ("itol", "tolerance for IRAM algorithm [1e-6]", cxxopts::value<double>(),"DOUBLE")
-        ("maxiter", "maximum number of EMU/PCAngsd interations [100]", cxxopts::value<int>(),"INT")
-        ("ncv", "number of Lanzcos basis vectors [max(20, 2*k+1)]", cxxopts::value<int>(),"INT")
-        ("oversamples", "number of oversampling columns for RSVD [max(10, k)]", cxxopts::value<int>(),"INT")
-        ("tol-em", "tolerance for EMU/PCAngsd algorithm [1e-4]", cxxopts::value<double>(),"DOUBLE")
-        ("tol-rsvd", "tolerance for RSVD algorithm [1e-4]", cxxopts::value<double>(),"DOUBLE")
-        ("tol-maf", "MAF tolerance for PCAngsd algorithm [1e-4]", cxxopts::value<double>(),"DOUBLE")
+        ("bands", "number of bands to use for fast RSVD", cxxopts::value<int>()->default_value("64"))
+        ("buffer", "buffer in GB uint used for permuting the data", cxxopts::value<int>()->default_value("2"))
+        ("imaxiter", "maximum number of IRAM interations", cxxopts::value<int>()->default_value("500"))
+        ("itol", "tolerance for IRAM algorithm", cxxopts::value<double>()->default_value("1e-6"))
+        ("maxiter", "maximum number of EMU/PCAngsd interations", cxxopts::value<int>()->default_value("100"))
+        ("ncv", "number of Lanzcos basis vectors", cxxopts::value<string>()->default_value("max(20, 2k+1)"))
+        ("oversamples", "number of oversampling columns for RSVD", cxxopts::value<string>()->default_value("max(k, 10)"))
+        ("tol-em", "tolerance for EMU/PCAngsd algorithm", cxxopts::value<double>()->default_value("1e-4"))
+        ("tol-rsvd", "tolerance for RSVD algorithm", cxxopts::value<double>()->default_value("1e-4"))
+        ("tol-maf", "MAF tolerance for PCAngsd algorithm", cxxopts::value<double>()->default_value("1e-4"))
         ;
 
     std::ostringstream ss;
@@ -146,7 +154,7 @@ string parse_params(int argc, char* argv[], struct Param* params)
         if( vm.count("printv") ) params->printv = vm["printv"].as<bool>();
         if( vm.count("pcangsd") ) params->pcangsd = vm["pcangsd"].as<bool>();
         if( vm.count("emu") ) params->emu = vm["emu"].as<bool>();
-        if( vm.count("shuffle") ) params->shuffle = vm["shuffle"].as<bool>();
+        if( vm.count("no-shuffle") ) params->shuffle = (vm["no-shuffle"].as<bool>() == 0);
         if( vm.count("cpmed") ) params->cpmed = vm["cpmed"].as<bool>();
         if (params->emu || params->pcangsd) {
             params->runem = true;
@@ -183,19 +191,13 @@ string parse_params(int argc, char* argv[], struct Param* params)
         }
         if( vm.count("arnoldi") ) {
             params->arnoldi = vm["arnoldi"].as<bool>();
-        } else if( vm.count("fast") ) {
-            params->fast = vm["fast"].as<bool>();
         } else if( vm.count("halko") ) {
             params->halko = vm["halko"].as<bool>();
         } else {
-            throw std::invalid_argument("\nYou must choose which PCA algorithm to use: -a, -f, -h.\n");
+            params->fast = true;
         }
         if( vm.count("tmp") ) params->tmpfile = vm["tmp"].as<string>();
-        if( vm.count("out") ) {
-            params->outfile = vm["out"].as<string>();
-        } else {
-            throw std::invalid_argument("\nYou must specify the output prefix with -o option.\n");
-        }
+        if( vm.count("out") ) params->outfile = vm["out"].as<string>();
 
         for (size_t counter = 1; counter < args.size(); counter++) {
             ss << "  --" << args[counter - 1].key() << " ";
