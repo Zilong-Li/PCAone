@@ -56,9 +56,9 @@ void Data::prepare(uint& blocksize)
             stop[i] = stop[i] >= nsnps ? nsnps - 1 : stop[i];
         }
         // initial some variables for blockwise for specific files here.
-        if(params.intype != "csv")
+        if(params.intype != CSV)
             F = MyVector::Zero(nsnps);
-        if(params.intype == "bfile")
+        if(params.intype == PLINK)
             centered_geno_lookup = MyArrayX::Zero(4, nsnps); // for plink input
     }
 }

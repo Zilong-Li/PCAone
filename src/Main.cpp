@@ -5,7 +5,7 @@
 #include "FileCsv.hpp"
 #include "Halko.hpp"
 #include "Arnoldi.hpp"
-#include "cxxopts.hpp"
+#include "popl/popl.hpp"
 #include <omp.h>
 
 #ifdef WITH_OPENBLAS
@@ -15,8 +15,9 @@
 #endif
 
 using namespace std;
+using namespace popl;
 
-string parse_params(int argc, char* argv[], struct Param* params);
+string parse_params(int argc, char *argv[], struct Param* params);
 
 int main(int argc, char *argv[])
 {
@@ -28,9 +29,12 @@ int main(int argc, char *argv[])
     // openblas_set_num_threads(params.threads);
     omp_set_num_threads(params.threads);
     Data *data;
-    if (params.intype == "bfile") {
+    if (params.bed_prefix != "") {
+        params.intype = PLINK;
         if (!params.batch && params.fast) {
-            if (params.shuffle) {
+            if (params.noshuffle) {
+                cout << timestamp() << "warning: running fast fancy RSVD without shuffling the data!" << endl;
+            } else {
                 auto ts = std::chrono::steady_clock::now();
                 string fout = params.outfile + ".perm";
                 if (params.tmpfile != "")
@@ -41,17 +45,17 @@ int main(int argc, char *argv[])
                     std::chrono::duration_cast<std::chrono::seconds>(te - ts);
                 cout << timestamp() << "total elapsed time of permuting data: "
                      << duration.count() << " seconds" << endl;
-            } else {
-                cout << timestamp() << "warning: running fast fancy RSVD without shuffling the "
-                      "data!" << endl;
             }
         }
         data = new FileBed(params);
-    } else if( params.intype == "bgen" ) {
+    } else if( params.bgen != "" ) {
+        params.intype = BGEN;
         data = new FileBgen(params);
-    } else if( params.intype == "beagle" ) {
+    } else if( params.beagle != "" ) {
+        params.intype = BEAGLE;
         data = new FileBeagle(params);
-    } else if( params.intype == "csv" ) {
+    } else if( params.csvfile != "" ) {
+        params.intype = CSV;
         data = new FileCsv(params);
     } else {
         exit(EXIT_FAILURE);
@@ -79,141 +83,89 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-string parse_params(int argc, char* argv[], struct Param* params)
+string parse_params(int argc, char *argv[], struct Param* params)
 {
-    cxxopts::Options opts(argv[0], (string)"PCA All In One (v" + VERSION + ")        https://github.com/Zilong-Li/PCAone\n(C) 2021-2022 Zilong Li        GNU General Public License v3");
-    opts.add_options()
-        ("help", "Print list of all options")
-        ;
-
-    opts.add_options("Main")
-        ("a, arnoldi", "use IRAM algorithm", cxxopts::value<bool>()->default_value("false"))
-        ("beagle", "path of beagle file", cxxopts::value<std::string>())
-        ("bfile", "prefix of PLINK .bed/.bim/.fam files", cxxopts::value<std::string>())
-        // ("pfile", "prefix to PLINK2 .pgen/.pvar/.psam files.", cxxopts::value<std::string>(), "PREFIX")
-        ("bgen", "path of BGEN file", cxxopts::value<std::string>())
-        ("csv", "path of zstd compressed csv file", cxxopts::value<std::string>())
-        ("cpmed", "normalize values by count per median (CPMED) for scRNAs", cxxopts::value<bool>()->default_value("false"))
-        ("e,emu", "use EMU algorithm for data with lots of missingness", cxxopts::value<bool>()->default_value("false"))
-        ("f, fast", "use fast RSVD algorithm with super power iterations", cxxopts::value<bool>()->default_value("true"))
-        ("h, halko", "use normal RSVD algorithm", cxxopts::value<bool>()->default_value("false"))
-        ("k,eigs", "top k components to be calculated", cxxopts::value<int>()->default_value("10"))
-        ("maxp", "maximum number of power iteration for RSVD", cxxopts::value<int>()->default_value("20"))
-        ("m,memory", "specify the RAM usage in GB unit", cxxopts::value<double>())
-        ("n,threads", "number of threads", cxxopts::value<int>()->default_value("10"))
-        ("no-shuffle", "permute data by features for fast RSVD.", cxxopts::value<bool>()->default_value("false"))
-        ("o,out", "prefix of output files", cxxopts::value<string>())
-        ("p,pcangsd", "use PCAngsd algorithm for genotype likelihood input", cxxopts::value<bool>()->default_value("false"))
-        ("printv", "output another eigen vectors with suffix .loadings", cxxopts::value<bool>()->default_value("false"))
-        ("tmp", "prefix of permuted data", cxxopts::value<string>())
-        ("v,verbose", "verbose message output", cxxopts::value<bool>()->default_value("false"))
-        ("M", "number of features, eg. SNPs", cxxopts::value<int>())
-        ("N", "number of samples", cxxopts::value<int>())
-        ;
-    opts.add_options("More")
-        ("bands", "number of bands to use for fast RSVD", cxxopts::value<int>()->default_value("64"))
-        ("buffer", "buffer in GB uint used for permuting the data", cxxopts::value<int>()->default_value("2"))
-        ("imaxiter", "maximum number of IRAM interations", cxxopts::value<int>()->default_value("500"))
-        ("itol", "tolerance for IRAM algorithm", cxxopts::value<double>()->default_value("1e-6"))
-        ("maxiter", "maximum number of EMU/PCAngsd interations", cxxopts::value<int>()->default_value("100"))
-        ("ncv", "number of Lanzcos basis vectors", cxxopts::value<string>()->default_value("max(20, 2k+1)"))
-        ("oversamples", "number of oversampling columns for RSVD", cxxopts::value<string>()->default_value("max(k, 10)"))
-        ("tol-em", "tolerance for EMU/PCAngsd algorithm", cxxopts::value<double>()->default_value("1e-4"))
-        ("tol-rsvd", "tolerance for RSVD algorithm", cxxopts::value<double>()->default_value("1e-4"))
-        ("tol-maf", "MAF tolerance for PCAngsd algorithm", cxxopts::value<double>()->default_value("1e-4"))
-        ;
+    string copyr{"PCA All In One (v" + (string)VERSION + ")        https://github.com/Zilong-Li/PCAone\n(C) 2021-2022 Zilong Li        GNU General Public License v3\n\nUsage: PCAone [OPTION]\n\n"};
+    OptionParser opts(copyr + "Main options");
+    auto help_opt = opts.add<Switch>("", "help", "Print list of all options");
+    opts.add<Switch>("a", "arnoldi", "use IRAM algorithm instead", &params->arnoldi);
+    opts.add<Value<string>>("b", "bfile", "prefix of PLINK .bed/.bim/.fam files", "", &params->bed_prefix);
+    opts.add<Value<string>>("B", "bgen", "path of BGEN file", "", &params->bgen);
+    opts.add<Value<string>>("g", "beagle", "path of beagle file", "",&params->beagle);
+    opts.add<Value<string>>("c", "csv", "path of CSV file compressed by zstd", "", &params->csvfile);
+    opts.add<Switch>("C", "cpmed", "normalize values by count per median (CPMED) for scRNAs", &params->cpmed);
+    opts.add<Switch>("e", "emu", "use EMU algorithm for data with lots of missingness", &params->emu);
+    // opts.add<Switch>("f", "fast", "use fast RSVD algorithm with super power iterations", &params->fast);
+    opts.add<Switch>("h", "halko", "use normal RSVD algorithm instead", &params->halko);
+    opts.add<Value<uint>>("k", "eigs", "top k components to be calculated", 10, &params->k);
+    opts.add<Value<double>>("m", "memory", "specify the RAM usage in GB unit", 0, &params->memory);
+    opts.add<Value<uint>>("n", "threads", "number of threads to use", 10, &params->threads);
+    opts.add<Value<string>>("o", "out", "prefix of prefix of output files", params->outfile, &params->outfile);
+    opts.add<Switch>("p", "pcangsd", "use PCAngsd algorithm for genotype likelihood input", &params->pcangsd);
+    opts.add<Value<uint>>("P", "maxp", "maximum number of power iteration for RSVD", 20, &params->maxp);
+    opts.add<Switch>("V", "printv", "output another eigen vectors with suffix .loadings", &params->printv);
+    opts.add<Value<string>>("T", "tmp", "prefix of temporary permuted data", "", &params->tmpfile);
+    opts.add<Switch>("v", "verbose", "verbose message output", &params->verbose);
+    opts.add<Switch>("", "no-shuffle", "do not shuffle the data if it is already permuted", &params->noshuffle);
+    opts.add<Value<uint64>, Attribute::advanced>("M", "", "number of features, eg. SNPs", 0,  &params->nsnps);
+    opts.add<Value<uint64>, Attribute::advanced>("N", "", "number of samples", 0,  &params->nsamples);
+    opts.add<Value<uint>, Attribute::advanced>("", "bands", "number of bands to use for fast RSVD", params->bands,  &params->bands);
+    opts.add<Value<uint>, Attribute::advanced>("", "buffer", "buffer in GB uint used for permuting the data", params->buffer,  &params->buffer);
+    opts.add<Value<uint>, Attribute::advanced>("", "imaxiter", "maximum number of IRAM interations", params->imaxiter,  &params->imaxiter);
+    opts.add<Value<double>, Attribute::advanced>("", "itol", "tolerance for IRAM algorithm", params->itol,  &params->itol);
+    opts.add<Value<uint>, Attribute::advanced>("", "ncv", "number of Lanzcos basis vectors for IRAM", params->ncv,  &params->ncv);
+    opts.add<Value<uint>, Attribute::advanced>("", "oversamples", "number of oversampling columns for RSVD", params->oversamples,  &params->oversamples);
+    opts.add<Value<double>, Attribute::advanced>("", "tol", "tolerance for RSVD algorithm", params->tol,  &params->tol);
+    opts.add<Value<double>, Attribute::advanced>("", "tol-em", "tolerance for EMU/PCAngsd algorithm", params->tolem,  &params->tolem);
+    opts.add<Value<double>, Attribute::advanced>("", "tol-maf", "Tolerance for minor allele frequencies estimation update by EM ", params->tolmaf,  &params->tolmaf);
 
     std::ostringstream ss;
     // print command line options
     ss << (string)"PCAone (v" + VERSION + ")    https://github.com/Zilong-Li/PCAone\n";
     ss << "Options in effect:\n";
-    try {
-        auto vm = opts.parse(argc, argv);
-        auto args = vm.arguments();
-        // help menu
-        if (vm.count("help")){
-            cout << opts.help({"", "Main", "More"}) << "\n";
-            exit(EXIT_SUCCESS);
-        }
-        if( vm.count("eigs") ) {
-            params->k = vm["eigs"].as<int>();
-            params->ncv = fmax(20, 2 * params->k + 1);
-            params->oversamples = fmax(10, params->k);
-        }
-        if( vm.count("threads") ) params->threads = vm["threads"].as<int>();
-        if( vm.count("N") ) params->nsamples = vm["N"].as<int>();
-        if( vm.count("M") ) params->nsnps = vm["M"].as<int>();
-        if( vm.count("tol-rsvd") ) params->tol_halko = vm["tol-rsvd"].as<double>();
-        if( vm.count("imaxiter") ) params->imaxiter = vm["imaxiter"].as<int>();
-        if( vm.count("maxp") ) params->maxp = vm["maxp"].as<int>();
-        if( vm.count("oversamples") ) params->oversamples = vm["oversamples"].as<int>();
-        if( vm.count("bands") ) params->bands = vm["bands"].as<int>();
-        if( vm.count("buffer") ) params->buffer = vm["buffer"].as<int>();
-        if( vm.count("ncv") ) params->ncv = vm["ncv"].as<int>();
-        if( vm.count("itol") ) params->itol = vm["itol"].as<double>();
-        if( vm.count("verbose") ) params->verbose = vm["verbose"].as<bool>();
-        if( vm.count("printv") ) params->printv = vm["printv"].as<bool>();
-        if( vm.count("pcangsd") ) params->pcangsd = vm["pcangsd"].as<bool>();
-        if( vm.count("emu") ) params->emu = vm["emu"].as<bool>();
-        if( vm.count("no-shuffle") ) params->shuffle = (vm["no-shuffle"].as<bool>() == 0);
-        if( vm.count("cpmed") ) params->cpmed = vm["cpmed"].as<bool>();
+    std::copy(argv, argv + argc, std::ostream_iterator<char *>(ss, " "));
+    try
+    {
+        opts.parse(argc, argv);
+        if (argc == 1)
+            cout << opts << "\n";
+        else if (help_opt->count() == 1)
+            cout << opts.help(Attribute::advanced) << "\n";
+        params->ncv = fmax(20, 2 * params->k + 1);
+        params->oversamples = fmax(10, params->k);
         if (params->emu || params->pcangsd) {
             params->runem = true;
-            if( vm.count("maxiter") ) params->maxiter = vm["maxiter"].as<int>();
-            if( vm.count("tol-maf") ) params->tolmaf = vm["tol-maf"].as<double>();
-            if( vm.count("tol-em") ) params->tol = vm["tol-em"].as<double>();
         } else {
             params->maxiter = 0;
         }
-        if( vm.count("memory") ) {
-            params->memory = vm["memory"].as<double>();
-            params->batch = false;
-        }
-        if( vm.count("bfile") ) {
-            params->intype = "bfile";
-            params->bed_prefix = vm["bfile"].as<string>();
-            params->pcangsd = false;
-        } else if( vm.count("pfile") ) {
-            params->intype = "pfile";
-            params->pgen_prefix = vm["pfile"].as<string>();
-        } else if( vm.count("bgen") ) {
-            params->intype = "bgen";
-            params->bgen = vm["bgen"].as<string>();
-        } else if( vm.count("beagle") ) {
-            params->intype = "beagle";
-            params->beagle = vm["beagle"].as<string>();
-            params->pcangsd = true;
-        } else if( vm.count("csv") ) {
-            params->intype = "csv";
-            params->csvfile = vm["csv"].as<string>();
-        } else {
-            cout << opts.help({"", "Main"}) << "\n\n";
-            exit(EXIT_SUCCESS);
-        }
-        if( vm.count("arnoldi") ) {
-            params->arnoldi = vm["arnoldi"].as<bool>();
-        } else if( vm.count("halko") ) {
-            params->halko = vm["halko"].as<bool>();
-        } else {
-            params->fast = true;
-        }
-        if( vm.count("tmp") ) params->tmpfile = vm["tmp"].as<string>();
-        if( vm.count("out") ) params->outfile = vm["out"].as<string>();
+        if( params->memory > 0) params->batch = false;
+        if( params->halko || params->arnoldi) params->fast = false;
 
-        for (size_t counter = 1; counter < args.size(); counter++) {
-            ss << "  --" << args[counter - 1].key() << " ";
-            if (args[counter - 1].value() == "true") {
-                ss << "\\\n";
-                continue;
-            }
-            ss << args[counter - 1].value() << " \\" << endl;
-        }
-        // last option (skip \ at the end)
-        ss << "  --" << args.back().key() << " ";
-        if (args.back().value() != "true") ss << args.back().value();
+    } catch (const popl::invalid_option& e) {
+        cerr << "Invalid Option Exception: " << e.what() << "\n";
+        cerr << "error:  ";
+        if (e.error() == invalid_option::Error::missing_argument)
+            cerr << "missing_argument\n";
+        else if (e.error() == invalid_option::Error::invalid_argument)
+            cerr << "invalid_argument\n";
+        else if (e.error() == invalid_option::Error::too_many_arguments)
+            cerr << "too_many_arguments\n";
+        else if (e.error() == invalid_option::Error::missing_option)
+            cerr << "missing_option\n";
 
-    } catch (const cxxopts::OptionException& e) {
-        throw e.what();
+        if (e.error() == invalid_option::Error::missing_option) {
+            string option_name(e.option()->name(OptionName::short_name, true));
+            if (option_name.empty())
+                option_name = e.option()->name(OptionName::long_name, true);
+            cerr << "option: " << option_name << "\n";
+        } else {
+            cerr << "option: " << e.option()->name(e.what_name()) << "\n";
+            cerr << "value:  " << e.value() << "\n";
+        }
+        exit(EXIT_FAILURE);
+    } catch (const std::exception &e) {
+        cerr << "Exception: " << e.what() << "\n";
+        exit(EXIT_FAILURE);
     }
 
     return ss.str();

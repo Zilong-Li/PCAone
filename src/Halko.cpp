@@ -56,7 +56,7 @@ void NormalRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
     if (data->params.batch)
     {
         if (pi == 0) {
-            if( verbose ) data->llog << timestamp() << "running in batch mode with one-pass halko." << endl;
+            if( verbose ) data->llog << timestamp() << "running in batch mode with one-pass rsvd." << endl;
             if (update)
             {
                 data->update_batch_E(U, S, V.transpose());
@@ -80,7 +80,7 @@ void NormalRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
         }
     } else {
         // for block version
-        if (pi==0 && verbose) data->llog << timestamp() << "running in blockwise mode with one-pass halko." << endl;
+        if (pi==0 && verbose) data->llog << timestamp() << "running in blockwise mode with one-pass rsvd." << endl;
         // data->G is always nsamples x nsnps;
         if (data->snpmajor || true) {
             // for nsnps > nsamples
@@ -126,7 +126,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
     if (data->params.batch)
     {
         if (pi == 0) {
-            if( verbose ) data->llog << timestamp() << "running in batch mode with fancy halko." << endl;
+            data->llog << timestamp() << "running in batch mode with fancy RSVD." << endl;
             if (update)
             {
                 data->update_batch_E(U, S, V.transpose());
@@ -142,7 +142,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
             band = 2;
             blocksize = (unsigned int)ceil((double)data->nsnps / data->params.bands);
             // permute snps of G, see https://stackoverflow.com/questions/15858569/randomly-permute-rows-columns-of-a-matrix-with-eigen
-            if (data->params.shuffle) {
+            if (!data->params.noshuffle) {
                 Eigen::PermutationMatrix<Eigen::Dynamic,Eigen::Dynamic> perm(data->G.cols());
                 perm.setIdentity();
                 auto rng = std::default_random_engine {};
@@ -192,7 +192,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
         }
     } else {
         if (pi == 0) {
-            if( verbose) data->llog << timestamp() << "running in blockwise mode with fancy halko." << endl;
+            if( verbose) data->llog << timestamp() << "running in blockwise mode with fancy RSVD." << endl;
             band = 2 * data->bandFactor;
         }
         {
@@ -247,26 +247,13 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
     }
 }
 
-// void print_summary_table(const MyMatrix& Upre, const MyMatrix& Ucur)
-// {
-//     string out = "summary:";
-//     for (int i=0; i < Ucur.cols(); i++) {
-//         out += " PC1-" + std::to_string(i+1);
-//     }
-//     MyVector Vrmse = MyVector::Zero(Ucur.cols());
-//     MyVector Vmev  = MyVector::Zero(Ucur.cols());
-//     mev_rmse_byk(Upre, Ucur, Vmev, Vrmse);
-//     cout   << out << "\n"
-//            << "RMSE:" << Vrmse.transpose() << ".\n"
-//            << "1-MEV:" << Vmev.transpose() << ".\n";
-// }
 
 void run_pca_with_halko(Data* data, const Param& params)
 {
     if (params.batch) {
-        data->llog << timestamp() << "begin to run_pca_with_halko batch mode" << endl;
+        data->llog << timestamp() << "begin to run_pca_with_rsvd batch mode" << endl;
     } else {
-        data->llog << timestamp() << "begin to run_pca_with_halko blockwise mode" << endl;
+        data->llog << timestamp() << "begin to run_pca_with_rsvd blockwise mode" << endl;
     }
     MyMatrix Vpre;
     MyVector S;
@@ -279,17 +266,17 @@ void run_pca_with_halko(Data* data, const Param& params)
     if (!params.runem)
     {
         data->llog << timestamp() << "begin to do non-EM PCA." << endl;
-        if (params.intype == "csv") {
+        if (params.intype == CSV) {
             rsvd->setFlags(false, false, params.verbose);
         } else {
             rsvd->setFlags(false, true, params.verbose);
         }
-        rsvd->computeUSV(params.maxp, params.tol_halko);
+        rsvd->computeUSV(params.maxp, params.tol);
         data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, rsvd->V);
     } else {
         // for EM iteration
         rsvd->setFlags(false, false, false);
-        rsvd->computeUSV(params.maxp, params.tol_halko);
+        rsvd->computeUSV(params.maxp, params.tol);
         // flip_UV(rsvd->U, rsvd->V, false);
         double diff;
         rsvd->setFlags(true, false, false);
@@ -297,11 +284,11 @@ void run_pca_with_halko(Data* data, const Param& params)
         for (uint i = 0; i < params.maxiter; ++i)
         {
             Vpre = rsvd->V;
-            rsvd->computeUSV(params.maxp, params.tol_halko);
+            rsvd->computeUSV(params.maxp, params.tol);
             // flip_UV(rsvd->U, rsvd->V, false);
             diff = 1.0 - mev(rsvd->V, Vpre);
             data->llog << timestamp() << "Individual allele frequencies estimated (iter=" << i+1 << "), 1-MEV=" << diff << endl;
-            if (diff < params.tol)
+            if (diff < params.tolem)
             {
                 data->llog << timestamp() << "Come to convergence!" << endl;
                 break;
@@ -324,7 +311,7 @@ void run_pca_with_halko(Data* data, const Param& params)
             data->write_eigs_files(svd.singularValues().head(params.k), svd.matrixU().leftCols(params.k), svd.matrixU().leftCols(params.k));
         } else {
             rsvd->setFlags(true, true, false);
-            rsvd->computeUSV(params.maxp, params.tol_halko);
+            rsvd->computeUSV(params.maxp, params.tol);
             data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, rsvd->V);
         }
     }

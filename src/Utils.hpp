@@ -44,13 +44,15 @@ M load_csv (const std::string & path) {
     return Eigen::Map<const Eigen::Matrix<typename M::Scalar, M::RowsAtCompileTime, M::ColsAtCompileTime, Eigen::RowMajor>>(values.data(), rows, values.size()/rows);
 }
 
+enum FileType {PLINK, CSV, BEAGLE, BGEN};
+
 struct Param {
-    std::string intype = ""; // bfile, bgen, beagle, csv
-    std::string bed_prefix;
-    std::string pgen_prefix;
-    std::string bgen;
-    std::string beagle;
-    std::string csvfile;
+    FileType intype; // bfile, bgen, beagle, csv
+    std::string bed_prefix = "";
+    std::string pgen_prefix = "";
+    std::string bgen = "";
+    std::string beagle = "";
+    std::string csvfile = "";
     std::string outfile = "pcaone";
     std::string tmpfile = "";
     //
@@ -65,7 +67,7 @@ struct Param {
     uint maxiter = 100;
     double alpha = 0.001;
     // can be tol_emu or tol_pcangsd
-    double tol = 1e-4;
+    double tolem = 1e-4;
     double tolmaf = 1e-4;
     // for arnoldi
     uint ncv = 20;   // max(20, 2*k + 1)
@@ -73,16 +75,16 @@ struct Param {
     double itol = 1e-6;
     // for halko
     uint oversamples = 10;
-    double tol_halko = 1e-4;
+    double tol = 1e-4;
     uint buffer = 2;
 
-    double memory = 2; // 2 G
+    double memory = 0; // 0 for disable
     bool cpmed = false;
     bool printv = false;
     bool runem = false;
     bool batch = true; // if load all matrix into RAM.
-    bool shuffle = true;
-    bool fast = false;
+    bool noshuffle = false;
+    bool fast = true;
     bool emu = false;
     bool pcangsd  = false; // read GP field for PCAngsd instead of GT.
     bool halko = false;
