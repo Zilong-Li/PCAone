@@ -111,8 +111,6 @@ std::string timestamp();
 
 void permute_plink(std::string& fin, const std::string& fout, uint gb = 2);
 
-// void permute_plink(std::string& fin, uint blocksize=1);
-
 void flip_UV(MyMatrix& U, MyMatrix& V, bool ubase = true);
 
 void flip_Omg(MyMatrix& Omg2, MyMatrix& Omg);

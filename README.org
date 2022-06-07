@@ -117,9 +117,9 @@ PCAone --bfile examples/asia -k 20 -n 10 -o out -m 2 -h
 - run PCA on *scRNAs* data
 #+begin_src shell
 # assume data is already normalized
-PCAone --csv examples/test.csv.zst -k 20 -a -n 10 -o out -m 2
+PCAone --csv examples/test.csv.zst -k 20 -n 10 -o out -m 2 -a
 # apply normalization by count per median(CPMED) use --cpmed option
-PCAone --csv examples/test.csv.zst -k 20 -a -n 10 -o out -m 2 --cpmed
+PCAone --csv examples/test.csv.zst -k 20 -n 10 -o out -m 2 -a --cpmed
 #+end_src
 
 - run *EMU* using *fancy RSVD* for data with lots of missingness

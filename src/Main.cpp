@@ -58,7 +58,6 @@ int main(int argc, char *argv[])
     }
     // start logging
     data->llog.clog.open(string(params.outfile + ".log").c_str(), ios::out | ios::trunc);
-    data->llog << timestamp() << commandargs << endl;
     // ready for run
     data->prepare(params.blocksize);
     // begin to run
@@ -73,6 +72,7 @@ int main(int argc, char *argv[])
     data->llog << timestamp() << "total elapsed reading time: " << data->readtime << " seconds" << endl;
     data->llog << timestamp() << "total elapsed wall time: " << duration.count() << " seconds" << endl;
     data->llog << timestamp() << "eigenvecs and eigenvals are saved. have a nice day. bye!\n";
+    data->llog << commandargs << endl;
 
     delete data;
 
@@ -125,7 +125,8 @@ string parse_params(int argc, char* argv[], struct Param* params)
 
     std::ostringstream ss;
     // print command line options
-    ss << "running with the follwing arguments:\n" << argv[0] << "\n";
+    ss << (string)"PCAone (v" + VERSION + ")    https://github.com/Zilong-Li/PCAone\n";
+    ss << "Options in effect:\n";
     try {
         auto vm = opts.parse(argc, argv);
         auto args = vm.arguments();
