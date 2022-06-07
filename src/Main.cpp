@@ -29,8 +29,7 @@ int main(int argc, char *argv[])
     // openblas_set_num_threads(params.threads);
     omp_set_num_threads(params.threads);
     Data *data;
-    if (params.bed_prefix != "") {
-        params.intype = PLINK;
+    if (params.intype == PLINK) {
         if (!params.batch && params.fast) {
             if (params.noshuffle) {
                 cout << timestamp() << "warning: running fast fancy RSVD without shuffling the data!" << endl;
@@ -48,17 +47,14 @@ int main(int argc, char *argv[])
             }
         }
         data = new FileBed(params);
-    } else if( params.bgen != "" ) {
-        params.intype = BGEN;
+    } else if( params.intype == BGEN ) {
         data = new FileBgen(params);
-    } else if( params.beagle != "" ) {
-        params.intype = BEAGLE;
+    } else if( params.intype == BEAGLE) {
         data = new FileBeagle(params);
-    } else if( params.csvfile != "" ) {
-        params.intype = CSV;
+    } else if( params.intype == CSV ) {
         data = new FileCsv(params);
     } else {
-        exit(EXIT_FAILURE);
+        throw std::invalid_argument("\nerror: please specify the input file using one of --bfile, --bgen, --beagle, --csv option!\n");
     }
     // start logging
     data->llog.clog.open(string(params.outfile + ".log").c_str(), ios::out | ios::trunc);
@@ -97,12 +93,12 @@ string parse_params(int argc, char *argv[], struct Param* params)
     opts.add<Switch>("e", "emu", "use EMU algorithm for data with lots of missingness", &params->emu);
     // opts.add<Switch>("f", "fast", "use fast RSVD algorithm with super power iterations", &params->fast);
     opts.add<Switch>("h", "halko", "use normal RSVD algorithm instead", &params->halko);
-    opts.add<Value<uint>>("k", "eigs", "top k components to be calculated", 10, &params->k);
-    opts.add<Value<double>>("m", "memory", "specify the RAM usage in GB unit", 0, &params->memory);
-    opts.add<Value<uint>>("n", "threads", "number of threads to use", 10, &params->threads);
+    opts.add<Value<uint>>("k", "eigs", "top k components to be calculated", params->k, &params->k);
+    opts.add<Value<double>>("m", "memory", "specify the RAM usage in GB unit", params->memory, &params->memory);
+    opts.add<Value<uint>>("n", "threads", "number of threads to use", params->threads, &params->threads);
     opts.add<Value<string>>("o", "out", "prefix of prefix of output files", params->outfile, &params->outfile);
     opts.add<Switch>("p", "pcangsd", "use PCAngsd algorithm for genotype likelihood input", &params->pcangsd);
-    opts.add<Value<uint>>("P", "maxp", "maximum number of power iteration for RSVD", 20, &params->maxp);
+    opts.add<Value<uint>>("P", "maxp", "maximum number of power iteration for RSVD", params->maxp, &params->maxp);
     opts.add<Switch>("V", "printv", "output another eigen vectors with suffix .loadings", &params->printv);
     opts.add<Value<string>>("T", "tmp", "prefix of temporary permuted data", "", &params->tmpfile);
     opts.add<Switch>("v", "verbose", "verbose message output", &params->verbose);
@@ -127,10 +123,20 @@ string parse_params(int argc, char *argv[], struct Param* params)
     try
     {
         opts.parse(argc, argv);
-        if (argc == 1)
-            cout << opts << "\n";
-        else if (help_opt->count() == 1)
+        if (params->bed_prefix != "") {
+            params->intype = PLINK;
+        } else if (params->bgen != "") {
+            params->intype = BGEN;
+        } else if (params->beagle != "") {
+            params->intype = BEAGLE;
+        } else if (params->csvfile != "") {
+            params->intype = CSV;
+        } else if (help_opt->count() == 1) {
             cout << opts.help(Attribute::advanced) << "\n";
+            exit(EXIT_SUCCESS);
+        } else {
+            cout << opts << "\n";
+        }
         params->ncv = fmax(20, 2 * params->k + 1);
         params->oversamples = fmax(10, params->k);
         if (params->emu || params->pcangsd) {

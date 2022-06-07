@@ -15,7 +15,7 @@ if [ $platform == "Darwin" ];then
     echo "Publishing PCAone without libiomp5 threading";
     export CC="gcc"
     export CXX="g++"
-    make clean && make MKLROOT=/opt/intel/oneapi/mkl/latest STATIC=1 && zip PCAone-avx2-Mac.zip PCAone && mv PCAone-avx2-Mac.zip $dir && echo "Publishing PCAone-x64-Mac.zip done";
+    make clean && make MKLROOT=/opt/intel/oneapi/mkl/latest STATIC=1 && zip PCAone-avx2-Mac.zip PCAone && mv PCAone-avx2-Mac.zip $dir && echo "Publishing PCAone-avx2-Mac.zip done";
 
     # echo "Publishing PCAone with libiomp5 threading";
     # export CC=$(find $(brew --prefix)/bin/ -name "gcc-[0-9]*" | tail -1)

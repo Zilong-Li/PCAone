@@ -30,9 +30,9 @@ $(info "building PCAone on ${Platform} -- version ${VERSION}")
 program       = PCAone
 # use default g++ only if not set in env
 CXX           ?= g++
-CXXFLAGS	  += -O3 -Wall -std=c++11 -ffast-math -m64 -fPIC -pipe
-MYFLAGS       = -DVERSION=\"$(VERSION)\" -DNDEBUG
-LINKFLAGS     = -s
+CXXFLAGS	  += -O3 -Wall -std=c++11 -ffast-math -m64 -Wno-c11-extensions -fPIC
+MYFLAGS        = -DVERSION=\"$(VERSION)\" -DNDEBUG
+LDFLAGS       += -s  # this is obsolete and igonored on mac
 # CURRENT_DIR   = $(shell pwd)
 INC           = -I./external -I./external/zstd/lib
 # LPATHS        = -L/usr/local/lib
@@ -55,7 +55,7 @@ ifeq ($(strip $(STATIC)),1)
 		else
 			SLIBS += /usr/local/lib/libomp.a  # clang needs libomp.a
 			CXXFLAGS += -stdlib=libc++
-			CFLAGS  += -Xpreprocessor -fopenmp
+			# CFLAGS += -Xpreprocessor -fopenmp
 		endif
 	else
 		SLIBS    += /usr/lib/x86_64-linux-gnu/libz.a
@@ -141,7 +141,7 @@ LIBS += ${SLIBS} ${DLIBS} -lm -ldl
 all: ${program}
 
 ${program}: zstdlib bgenlib pcaonelib src/Main.o
-	$(CXX) $(CXXFLAGS) $(CFLAGS) $(LINKFLAGS) -o $(program) src/Main.o ${PCALIB} ${LPATHS} ${LIBS} ${LDFLAGS}
+	$(CXX) $(CXXFLAGS) -o $(program) src/Main.o ${PCALIB} ${LPATHS} ${LIBS} ${LDFLAGS}
 
 %.o: %.cpp
 	${CXX} ${CXXFLAGS} ${MYFLAGS} -o $@ -c $< ${INC}

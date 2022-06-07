@@ -18,22 +18,20 @@ K=3
 
 chmod +x PCAone
 
-./PCAone --bfile examples/test -a -v -n 2 -k $K -o examples/test.arnoldi && echo "PCAone Arnoldi batch mode ok"
+./PCAone --bfile examples/asia -f -v -n 2 -k 3 -o out && cat out.eigvals && echo "PCAone batch mode ok"
 
-# ./PCAone --bfile examples/test -a -v -n 2 -k $K -o examples/test.arnoldi.m -m 1 && echo "PCAone Arnoldi block mode ok"
+./PCAone --bfile examples/asia -f -v -n 2 -k 3 -o out -m 2 && cat out.eigvals && echo "PCAone batch mode ok"
 
-./PCAone --bfile examples/test -v -n 2 -k $K -o examples/test.halko -h --maxp 10 && echo "PCAone Halko batch mode ok"
+./PCAone --bfile examples/asia -a -v -n 2 -k 3 -o out && cat out.eigvals && echo "PCAone Arnoldi batch mode ok"
 
-# ./PCAone --bfile examples/test -v -n 2 -k $K -o examples/test.halko.m -h -m 1 && echo "PCAone Halko block mode ok"
+./PCAone --bfile examples/asia -a -v -n 2 -k 3 -o out -m 2 && cat out.eigvals && echo "PCAone Arnoldi block mode ok"
 
-./PCAone --bfile examples/test -v -n 2 -k $K -o examples/test.fast.halko -f --maxp 10 --shuffle && echo "PCAone Fast Halko batch mode ok"
+./PCAone --bfile examples/asia -h -v -n 2 -k 3 -o out && cat out.eigvals && echo "PCAone RSVD batch mode ok"
 
-# ./PCAone --bfile examples/test -v -n 2 -k $K -o examples/test.fast.halko.m -f -m 1 && echo "PCAone Fast Halko block mode ok"
+./PCAone --bfile examples/asia -h -v -n 2 -k 3 -o out -m 2 && cat out.eigvals && echo "PCAone RSVD block mode ok"
 
-# ./PCAone --bgen examples/test.bgen -v -n 2 -k $K -a -o examples/test.bgen.arnoldi && echo "PCAone FileBgen batch mode ok"
+./PCAone --csv examples/test.csv.zst -k 20 -n 10 -o out -a --cpmed && cat out.eigvals && echo "PCAone CSV batch mode ok"
 
-./PCAone --beagle examples/test.bgl.gz -p -n 2 -v -a -k $K -o examples/test.bgl.arnoldi && echo "PCAone FileBeagle batch mode ok"
+./PCAone --bfile examples/test.emu -k 3 -n 10 -o out -m 2 --emu && cat out.eigvals && echo "PCAone EMU mode ok"
 
-# ./PCAone --csv examples/data.csv.zst -v -n 2 -a -k $K -o examples/test.csv.arnoldi && echo "PCAone FileCsv batch mode ok"
-
-# ./PCAone --csv examples/data.csv.zst -v -n 2 -a -k $K -o examples/test.csv.arnoldi -m 0.01 && echo "PCAone FileCsv out-of-core mode ok"
+./PCAone --beagle examples/test.bgl.gz -k 3 -n 10 -o out -a --pcangsd && cat out.eigvals && echo "PCAone PCAngsd batch mode ok"

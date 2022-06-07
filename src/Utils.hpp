@@ -47,7 +47,7 @@ M load_csv (const std::string & path) {
 enum FileType {PLINK, CSV, BEAGLE, BGEN};
 
 struct Param {
-    FileType intype; // bfile, bgen, beagle, csv
+    FileType intype; // PLINK, CSV, BEAGLE, BGEN
     std::string bed_prefix = "";
     std::string pgen_prefix = "";
     std::string bgen = "";

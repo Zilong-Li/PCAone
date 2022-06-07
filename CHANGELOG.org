@@ -1,94 +1,63 @@
+- v0.1.9
+  - command line options are updated, most should be compatible to old version
+  - upgrade to zstd v1.5.2
+  - add =--no-shuffle= option, remove =--shuffle= option
+  - default PCAone algorithm is chose.
+
 - v0.1.8
   - add -a, --tmp options
-
   - optimize makefile for conda
 
 - v0.1.7
   - two releases =x64= and =avx2= for linux
-
   - add =conda install -c bioconda pcaone=
-
   - upgrade Spectra to v1.0.1
-
   - change oversamples default as max(10, k)
-
   - add logger
 
 - v0.1.6
   - add --cpmed option to support raw counts for scRNAs
-
   - output elapsed I/O time and total wall time
-
   - remove pgenlib
 
 - v0.1.5
-
   - publish PCAone on mac with =libiomp5= support
-
   - update documentation
-
   - add --shuffle option
-
   - optimization of FileCsv
 
 - v0.1.4
-
   - add CSV format support for scRNAs data
-
   - add --printv to print out another eigen vectors
-
   - add -N and -M options
 
 - v0.1.3
-
   - refactor Halko implementation
-
   - use Arnoldi as default method
-
   - add external/zlib
-
   - upgrade to Eigen 3.4.0
-
   - add structured permutation
 
 - v0.1.2
-
   - use double instead of float to improve numerical accuracy
-
   - add --no-shuffle, --oversamples, --buffer options
-
   - disable checking padding region of plink bed
-
   - fix denominator too small
-
   - set band range as 4,8,16,32,64
 
 - v0.1.1
-
   - supports bfile, bgen as input for both batch and blockwise mode
-
   - implement super power iteration for Halko
-
-  - automatically permute plink bed file for fast halko 
-
+  - automatically permute plink bed file for fast halko
   - port [[https://github.com/jeremymcrae/bgen][jeremymcrae/bgen]] as bgen parser.
-
   - remove external BGEN v1.3 lib dependence
-
   - use libiomp5 instead of libgomp as multithreading RTL
-
-  - fix bugs for PCAngsd algorithm 
+  - fix bugs for PCAngsd algorithm
 
 - v0.1.0
-
   - supports bfile as input for both batch and blockwise mode
-
   - supports bgen as input for batch mode
-
   - supports both EMU and PCAngsd algorithm
-
   - supports beagle as input for PCAngsd
-
   - external dependecy: Eigen v3.3.8, Spectra v0.9.0, BGEN v1.3
-
   - release two pre-compiled binary for Linux and Mac OSX (libiomp5 required).
