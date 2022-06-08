@@ -6,7 +6,7 @@
 if [ `which curl` ];then
     curl -O http://popgen.dk/zilong/datahub/pca/examples.tar.gz
 elif [ `which wget` ];then
-    wget http://popgen.dk/zilong/datahub/pca/examples.tar.gz
+    wget -O examples.tar.gz http://popgen.dk/zilong/datahub/pca/examples.tar.gz
 else
     echo "please make sure curl or wget installed"
     exit 1
@@ -16,11 +16,19 @@ tar -xzf examples.tar.gz
 
 K=3
 
+if [ ! -x PCAone ]; then
+    curl -LO https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-avx2-Linux.zip && unzip PCAone-avx2-Linux.zip
+fi
+
 chmod +x PCAone
 
-./PCAone --bfile examples/asia -f -v -k 3 -o out && cat out.eigvals && echo "PCAone batch mode ok"
+./PCAone --bfile examples/asia -f -v -k 3 -o out && cat out.eigvals && echo "PCAone fancy batch mode ok"
 
-./PCAone --bfile examples/asia -f -v -k 3 -o out -m 2 && cat out.eigvals && echo "PCAone batch mode ok"
+./PCAone --bfile examples/asia -f -v -k 3 -o out --printv && cat out.eigvals && echo "PCAone fancy batch mode --printv ok"
+
+./PCAone --bfile examples/asia -f -v -k 3 -o out -m 2 && cat out.eigvals && echo "PCAone fancy block mode ok"
+
+./PCAone --bfile examples/asia -f -v -k 3 -o out -m 2 --printv && cat out.eigvals && echo "PCAone fancy block mode -- printv ok"
 
 ./PCAone --bfile examples/asia -a -v -k 3 -o out && cat out.eigvals && echo "PCAone Arnoldi batch mode ok"
 
