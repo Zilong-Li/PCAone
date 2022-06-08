@@ -1,12 +1,11 @@
-#include "Data.hpp"
-#include "FilePlink.hpp"
+#include <omp.h>
 #include "FileBeagle.hpp"
 #include "FileBgen.hpp"
 #include "FileCsv.hpp"
-#include "Halko.hpp"
+#include "FilePlink.hpp"
 #include "Arnoldi.hpp"
+#include "Halko.hpp"
 #include "popl/popl.hpp"
-#include <omp.h>
 
 #ifdef WITH_OPENBLAS
 #include "lapacke.h"
@@ -17,9 +16,9 @@
 using namespace std;
 using namespace popl;
 
-string parse_params(int argc, char *argv[], struct Param* params);
+string parse_params(int argc, char* argv[], struct Param* params);
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
     auto t1 = std::chrono::steady_clock::now();
     Param params;
@@ -28,32 +27,43 @@ int main(int argc, char *argv[])
     // set number of threads
     // openblas_set_num_threads(params.threads);
     omp_set_num_threads(params.threads);
-    Data *data;
-    if (params.intype == PLINK) {
-        if (!params.batch && params.fast) {
-            if (params.noshuffle) {
+    Data* data;
+    if (params.intype == PLINK)
+    {
+        if (!params.batch && params.fast)
+        {
+            if (params.noshuffle)
+            {
                 cout << timestamp() << "warning: running fast fancy RSVD without shuffling the data!" << endl;
-            } else {
+            }
+            else
+            {
                 auto ts = std::chrono::steady_clock::now();
                 string fout = params.outfile + ".perm";
                 if (params.tmpfile != "")
-                  fout = params.tmpfile;
+                    fout = params.tmpfile;
                 permute_plink(params.bed_prefix, fout, params.buffer);
                 auto te = std::chrono::steady_clock::now();
-                auto duration =
-                    std::chrono::duration_cast<std::chrono::seconds>(te - ts);
-                cout << timestamp() << "total elapsed time of permuting data: "
-                     << duration.count() << " seconds" << endl;
+                auto duration = std::chrono::duration_cast<std::chrono::seconds>(te - ts);
+                cout << timestamp() << "total elapsed time of permuting data: " << duration.count() << " seconds" << endl;
             }
         }
         data = new FileBed(params);
-    } else if( params.intype == BGEN ) {
+    }
+    else if (params.intype == BGEN)
+    {
         data = new FileBgen(params);
-    } else if( params.intype == BEAGLE) {
+    }
+    else if (params.intype == BEAGLE)
+    {
         data = new FileBeagle(params);
-    } else if( params.intype == CSV ) {
+    }
+    else if (params.intype == CSV)
+    {
         data = new FileCsv(params);
-    } else {
+    }
+    else
+    {
         throw std::invalid_argument("\nerror: please specify the input file using one of --bfile, --bgen, --beagle, --csv option!\n");
     }
     // start logging
@@ -64,7 +74,9 @@ int main(int argc, char *argv[])
     if (params.arnoldi)
     {
         run_pca_with_arnoldi(data, params);
-    } else {
+    }
+    else
+    {
         run_pca_with_halko(data, params);
     }
     auto t2 = std::chrono::steady_clock::now();
@@ -79,15 +91,16 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-string parse_params(int argc, char *argv[], struct Param* params)
+string parse_params(int argc, char* argv[], struct Param* params)
 {
-    string copyr{"PCA All In One (v" + (string)VERSION + ")        https://github.com/Zilong-Li/PCAone\n(C) 2021-2022 Zilong Li        GNU General Public License v3\n\nUsage: PCAone [OPTION]\n\n"};
+    string copyr{"PCA All In One (v" + (string)VERSION +
+                 ")        https://github.com/Zilong-Li/PCAone\n(C) 2021-2022 Zilong Li        GNU General Public License v3\n\nUsage: PCAone [OPTION]\n\n"};
     OptionParser opts(copyr + "Main options");
     auto help_opt = opts.add<Switch>("", "help", "Print list of all options");
     opts.add<Switch>("a", "arnoldi", "use IRAM algorithm instead", &params->arnoldi);
     opts.add<Value<string>>("b", "bfile", "prefix of PLINK .bed/.bim/.fam files", "", &params->bed_prefix);
     opts.add<Value<string>>("B", "bgen", "path of BGEN file", "", &params->bgen);
-    opts.add<Value<string>>("g", "beagle", "path of beagle file", "",&params->beagle);
+    opts.add<Value<string>>("g", "beagle", "path of beagle file", "", &params->beagle);
     opts.add<Value<string>>("c", "csv", "path of CSV file compressed by zstd", "", &params->csvfile);
     opts.add<Switch>("C", "cpmed", "normalize values by count per median (CPMED) for scRNAs", &params->cpmed);
     opts.add<Switch>("e", "emu", "use EMU algorithm for data with lots of missingness", &params->emu);
@@ -103,51 +116,69 @@ string parse_params(int argc, char *argv[], struct Param* params)
     opts.add<Value<string>>("T", "tmp", "prefix of temporary permuted data", "", &params->tmpfile);
     opts.add<Switch>("v", "verbose", "verbose message output", &params->verbose);
     opts.add<Switch>("", "no-shuffle", "do not shuffle the data if it is already permuted", &params->noshuffle);
-    opts.add<Value<uint64>, Attribute::advanced>("M", "", "number of features, eg. SNPs", 0,  &params->nsnps);
-    opts.add<Value<uint64>, Attribute::advanced>("N", "", "number of samples", 0,  &params->nsamples);
-    opts.add<Value<uint>, Attribute::advanced>("", "bands", "number of bands to use for fast RSVD", params->bands,  &params->bands);
-    opts.add<Value<uint>, Attribute::advanced>("", "buffer", "buffer in GB uint used for permuting the data", params->buffer,  &params->buffer);
-    opts.add<Value<uint>, Attribute::advanced>("", "imaxiter", "maximum number of IRAM interations", params->imaxiter,  &params->imaxiter);
-    opts.add<Value<double>, Attribute::advanced>("", "itol", "tolerance for IRAM algorithm", params->itol,  &params->itol);
-    opts.add<Value<uint>, Attribute::advanced>("", "ncv", "number of Lanzcos basis vectors for IRAM", params->ncv,  &params->ncv);
-    opts.add<Value<uint>, Attribute::advanced>("", "oversamples", "number of oversampling columns for RSVD", params->oversamples,  &params->oversamples);
-    opts.add<Value<double>, Attribute::advanced>("", "tol", "tolerance for RSVD algorithm", params->tol,  &params->tol);
-    opts.add<Value<double>, Attribute::advanced>("", "tol-em", "tolerance for EMU/PCAngsd algorithm", params->tolem,  &params->tolem);
-    opts.add<Value<double>, Attribute::advanced>("", "tol-maf", "Tolerance for minor allele frequencies estimation update by EM ", params->tolmaf,  &params->tolmaf);
+    opts.add<Value<uint64>, Attribute::advanced>("M", "", "number of features, eg. SNPs", 0, &params->nsnps);
+    opts.add<Value<uint64>, Attribute::advanced>("N", "", "number of samples", 0, &params->nsamples);
+    opts.add<Value<uint>, Attribute::advanced>("", "bands", "number of bands to use for fast RSVD", params->bands, &params->bands);
+    opts.add<Value<uint>, Attribute::advanced>("", "buffer", "buffer in GB uint used for permuting the data", params->buffer, &params->buffer);
+    opts.add<Value<uint>, Attribute::advanced>("", "imaxiter", "maximum number of IRAM interations", params->imaxiter, &params->imaxiter);
+    opts.add<Value<double>, Attribute::advanced>("", "itol", "tolerance for IRAM algorithm", params->itol, &params->itol);
+    opts.add<Value<uint>, Attribute::advanced>("", "ncv", "number of Lanzcos basis vectors for IRAM", params->ncv, &params->ncv);
+    opts.add<Value<uint>, Attribute::advanced>("", "oversamples", "number of oversampling columns for RSVD", params->oversamples, &params->oversamples);
+    opts.add<Value<double>, Attribute::advanced>("", "tol", "tolerance for RSVD algorithm", params->tol, &params->tol);
+    opts.add<Value<double>, Attribute::advanced>("", "tol-em", "tolerance for EMU/PCAngsd algorithm", params->tolem, &params->tolem);
+    opts.add<Value<double>, Attribute::advanced>("", "tol-maf", "Tolerance for minor allele frequencies estimation update by EM ", params->tolmaf,
+                                                 &params->tolmaf);
 
     std::ostringstream ss;
     // print command line options
-    ss << (string)"PCAone (v" + VERSION + ")    https://github.com/Zilong-Li/PCAone\n";
+    ss << (string) "PCAone (v" + VERSION + ")    https://github.com/Zilong-Li/PCAone\n";
     ss << "Options in effect:\n";
-    std::copy(argv, argv + argc, std::ostream_iterator<char *>(ss, " "));
+    std::copy(argv, argv + argc, std::ostream_iterator<char*>(ss, " "));
     try
     {
         opts.parse(argc, argv);
-        if (params->bed_prefix != "") {
+        if (params->bed_prefix != "")
+        {
             params->intype = PLINK;
-        } else if (params->bgen != "") {
+        }
+        else if (params->bgen != "")
+        {
             params->intype = BGEN;
-        } else if (params->beagle != "") {
+        }
+        else if (params->beagle != "")
+        {
             params->intype = BEAGLE;
-        } else if (params->csvfile != "") {
+        }
+        else if (params->csvfile != "")
+        {
             params->intype = CSV;
-        } else if (help_opt->count() == 1) {
+        }
+        else if (help_opt->count() == 1)
+        {
             cout << opts.help(Attribute::advanced) << "\n";
             exit(EXIT_SUCCESS);
-        } else {
+        }
+        else
+        {
             cout << opts << "\n";
         }
         params->ncv = fmax(20, 2 * params->k + 1);
         params->oversamples = fmax(10, params->k);
-        if (params->emu || params->pcangsd) {
+        if (params->emu || params->pcangsd)
+        {
             params->runem = true;
-        } else {
+        }
+        else
+        {
             params->maxiter = 0;
         }
-        if( params->memory > 0) params->batch = false;
-        if( params->halko || params->arnoldi) params->fast = false;
-
-    } catch (const popl::invalid_option& e) {
+        if (params->memory > 0)
+            params->batch = false;
+        if (params->halko || params->arnoldi)
+            params->fast = false;
+    }
+    catch (const popl::invalid_option& e)
+    {
         cerr << "Invalid Option Exception: " << e.what() << "\n";
         cerr << "error:  ";
         if (e.error() == invalid_option::Error::missing_argument)
@@ -159,17 +190,22 @@ string parse_params(int argc, char *argv[], struct Param* params)
         else if (e.error() == invalid_option::Error::missing_option)
             cerr << "missing_option\n";
 
-        if (e.error() == invalid_option::Error::missing_option) {
+        if (e.error() == invalid_option::Error::missing_option)
+        {
             string option_name(e.option()->name(OptionName::short_name, true));
             if (option_name.empty())
                 option_name = e.option()->name(OptionName::long_name, true);
             cerr << "option: " << option_name << "\n";
-        } else {
+        }
+        else
+        {
             cerr << "option: " << e.option()->name(e.what_name()) << "\n";
             cerr << "value:  " << e.value() << "\n";
         }
         exit(EXIT_FAILURE);
-    } catch (const std::exception &e) {
+    }
+    catch (const std::exception& e)
+    {
         cerr << "Exception: " << e.what() << "\n";
         exit(EXIT_FAILURE);
     }

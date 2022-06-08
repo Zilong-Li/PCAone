@@ -2,8 +2,10 @@
 
 using namespace std;
 
-void fcloseOrDie(FILE *file) {
-    if (!fclose(file)) {
+void fcloseOrDie(FILE* file)
+{
+    if (!fclose(file))
+    {
         return;
     };
     /* error */
@@ -11,15 +13,18 @@ void fcloseOrDie(FILE *file) {
     exit(1);
 }
 
-FILE *fopenOrDie(const char *filename, const char *instruction) {
-    FILE *const inFile = fopen(filename, instruction);
-    if (inFile) return inFile;
+FILE* fopenOrDie(const char* filename, const char* instruction)
+{
+    FILE* const inFile = fopen(filename, instruction);
+    if (inFile)
+        return inFile;
     /* error */
     perror(filename);
     exit(1);
 }
 
-size_t freadOrDie(void *buffer, size_t sizeToRead, FILE *file) {
+size_t freadOrDie(void* buffer, size_t sizeToRead, FILE* file)
+{
     size_t const readSize = fread(buffer, 1, sizeToRead, file);
     if (readSize == sizeToRead)
         return readSize; /* good */
@@ -35,7 +40,8 @@ size_t count_lines(const std::string& fpath)
     std::ifstream in(fpath);
     size_t count = 0;
     std::string line;
-    while (getline(in, line)) {
+    while (getline(in, line))
+    {
         count++;
     }
     return count;
@@ -46,7 +52,7 @@ std::string timestamp()
     auto t1 = std::chrono::system_clock::now();
     std::time_t tc = std::chrono::system_clock::to_time_t(t1);
     std::string str(std::ctime(&tc));
-    str.pop_back();    // str[str.size() - 1] = '.';
+    str.pop_back(); // str[str.size() - 1] = '.';
     str = std::string("[") + str + std::string("] ");
     return str;
 }
@@ -55,25 +61,26 @@ std::string timestamp()
 void permute_plink(std::string& fin, const std::string& fout, uint gb)
 {
     cout << timestamp() << "begin to permute plink data.\n";
-    uint   nbands = 64;
+    uint nbands = 64;
     uint64 nsnps = count_lines(fin + ".bim");
     uint64 nsamples = count_lines(fin + ".fam");
-    uint64 bed_bytes_per_snp = (nsamples+3)>>2;
+    uint64 bed_bytes_per_snp = (nsamples + 3) >> 2;
 
     // calculate the readin number of snps of certain big buffer like 2GB.
     // must be a multiple of nbands.
     uint64 twoGB = (uint64)1073741824 * gb;
-    uint64 twoGB_snps = (uint64)floor((double) twoGB / bed_bytes_per_snp);
-    if (twoGB_snps > nsnps) twoGB_snps = nsnps;
-    uint64 bufsize = (uint64)floor((double) twoGB_snps / nbands);
-    twoGB_snps = bufsize * nbands;     // initially twoGB_snps is a multiple of nbands
+    uint64 twoGB_snps = (uint64)floor((double)twoGB / bed_bytes_per_snp);
+    if (twoGB_snps > nsnps)
+        twoGB_snps = nsnps;
+    uint64 bufsize = (uint64)floor((double)twoGB_snps / nbands);
+    twoGB_snps = bufsize * nbands; // initially twoGB_snps is a multiple of nbands
     assert(nsnps >= twoGB_snps);
-    uint64 nblocks = (uint64)ceil((double) nsnps / twoGB_snps);
+    uint64 nblocks = (uint64)ceil((double)nsnps / twoGB_snps);
     uint modr2 = nsnps % twoGB_snps;
     uint64 bed_bytes_per_block = bed_bytes_per_snp * twoGB_snps;
-    vector<uchar> inbed;                      // keep the input buffer
+    vector<uchar> inbed; // keep the input buffer
     inbed.resize(bed_bytes_per_block);
-    vector<uchar> outbed;                     // keep the output buffer
+    vector<uchar> outbed; // keep the output buffer
     uint64 out_bytes_per_block = bed_bytes_per_snp * bufsize;
     outbed.resize(out_bytes_per_block);
 
@@ -81,16 +88,24 @@ void permute_plink(std::string& fin, const std::string& fout, uint gb)
     vector<uint64> bandidx;
     bandidx.resize(nbands);
     uint modr = nsnps % nbands;
-    uint64 bandsize = (uint64)ceil((double) nsnps / nbands);
-    if (modr == 0) {
-        for (uint i = 0; i < nbands; ++i) {
+    uint64 bandsize = (uint64)ceil((double)nsnps / nbands);
+    if (modr == 0)
+    {
+        for (uint i = 0; i < nbands; ++i)
+        {
             bandidx[i] = i * bandsize;
         }
-    } else {
-        for (uint i = 0; i < nbands; ++i) {
-            if (i < modr) {
+    }
+    else
+    {
+        for (uint i = 0; i < nbands; ++i)
+        {
+            if (i < modr)
+            {
                 bandidx[i] = i * bandsize;
-            } else {
+            }
+            else
+            {
                 bandidx[i] = modr * bandsize + (bandsize - 1) * (i - modr);
             }
         }
@@ -99,55 +114,68 @@ void permute_plink(std::string& fin, const std::string& fout, uint gb)
     ios_base::sync_with_stdio(false);
     std::ifstream in(fin + ".bed", std::ios::binary);
     std::ofstream out(fout + ".bed", std::ios::binary);
-    if (!in.is_open()) {
+    if (!in.is_open())
+    {
         throw std::invalid_argument("Cannot open bed file.\n");
     }
     uchar header[3];
-    in.read(reinterpret_cast<char *> (&header[0]), 3);
-    if ( (header[0] != 0x6c) || (header[1] != 0x1b) || (header[2] != 0x01) ) {
+    in.read(reinterpret_cast<char*>(&header[0]), 3);
+    if ((header[0] != 0x6c) || (header[1] != 0x1b) || (header[2] != 0x01))
+    {
         throw std::invalid_argument("Incorrect magic number in bed file.\n");
     }
-    out.write(reinterpret_cast<char *> (&header[0]), 3);
+    out.write(reinterpret_cast<char*>(&header[0]), 3);
     std::ifstream in_bim(fin + ".bim", std::ios::in);
     std::ofstream out_bim(fout + ".bim", std::ios::out);
-    vector<std::string> bims(std::istream_iterator<Line>{in_bim},
-                        std::istream_iterator<Line>{});
+    vector<std::string> bims(std::istream_iterator<Line>{in_bim}, std::istream_iterator<Line>{});
     vector<std::string> bims2;
     bims2.resize(nsnps);
-    uint64 b, i, j, twoGB_snps2, idx, bufidx=bufsize;
-    for(i = 0; i < nblocks; i++) {
-        if (i == nblocks - 1 && modr2 != 0) {
+    uint64 b, i, j, twoGB_snps2, idx, bufidx = bufsize;
+    for (i = 0; i < nblocks; i++)
+    {
+        if (i == nblocks - 1 && modr2 != 0)
+        {
             twoGB_snps2 = nsnps - (nblocks - 1) * twoGB_snps;
             bed_bytes_per_block = bed_bytes_per_snp * twoGB_snps2;
             inbed.resize(bed_bytes_per_block);
             // in last block, twoGB_snps is not neccessary a multiple of nbands and smaller than the previous
-            bufsize = (uint64)ceil((double) twoGB_snps2 / nbands);
+            bufsize = (uint64)ceil((double)twoGB_snps2 / nbands);
             modr2 = twoGB_snps2 % nbands;
             out_bytes_per_block = bed_bytes_per_snp * bufsize;
             outbed.resize(out_bytes_per_block);
         }
-        in.read(reinterpret_cast<char *> (&inbed[0]), bed_bytes_per_block);
-        for (b = 0; b < nbands; b++) {
+        in.read(reinterpret_cast<char*>(&inbed[0]), bed_bytes_per_block);
+        for (b = 0; b < nbands; b++)
+        {
             idx = 3 + (i * bufidx + bandidx[b]) * bed_bytes_per_snp;
-            for (j = 0; j < bufsize - 1; j++) {
-                std::copy(inbed.begin()+(j * nbands + b) * bed_bytes_per_snp, inbed.begin()+(j * nbands + b + 1) * bed_bytes_per_snp, outbed.begin() + j * bed_bytes_per_snp);
+            for (j = 0; j < bufsize - 1; j++)
+            {
+                std::copy(inbed.begin() + (j * nbands + b) * bed_bytes_per_snp, inbed.begin() + (j * nbands + b + 1) * bed_bytes_per_snp,
+                          outbed.begin() + j * bed_bytes_per_snp);
                 // cout << i * twoGB_snps + j * nbands + b << endl;
                 bims2[i * bufidx + bandidx[b] + j] = bims[i * twoGB_snps + j * nbands + b];
             }
-            if (i != nblocks - 1 || (i == nblocks - 1 && b < modr2) || modr2 == 0) {
-                std::copy(inbed.begin()+(j * nbands + b) * bed_bytes_per_snp, inbed.begin()+(j * nbands + b + 1) * bed_bytes_per_snp, outbed.begin() + j * bed_bytes_per_snp);
+            if (i != nblocks - 1 || (i == nblocks - 1 && b < modr2) || modr2 == 0)
+            {
+                std::copy(inbed.begin() + (j * nbands + b) * bed_bytes_per_snp, inbed.begin() + (j * nbands + b + 1) * bed_bytes_per_snp,
+                          outbed.begin() + j * bed_bytes_per_snp);
                 bims2[i * bufidx + bandidx[b] + j] = bims[i * twoGB_snps + j * nbands + b];
-            } else {
+            }
+            else
+            {
                 out_bytes_per_block = bed_bytes_per_snp * (bufsize - 1);
-
             }
             out.seekp(idx, std::ios_base::beg);
-            out.write(reinterpret_cast<char *> (&outbed[0]), out_bytes_per_block);
+            out.write(reinterpret_cast<char*>(&outbed[0]), out_bytes_per_block);
         }
-
     }
-    for(auto b : bims2) {out_bim << b << "\n";}
-    in.close(); out.close(); out_bim.close();
+    for (auto b : bims2)
+    {
+        out_bim << b << "\n";
+    }
+    in.close();
+    out.close();
+    out_bim.close();
 
     std::ifstream in_fam(fin + ".fam");
     std::ofstream out_fam(fout + ".fam");
@@ -172,15 +200,20 @@ void flip_UV(MyMatrix& U, MyMatrix& V, bool ubase)
                 if (V.cols() == U.cols())
                 {
                     V.col(i) *= -1;
-                } else if (V.rows() == U.cols()) {
+                }
+                else if (V.rows() == U.cols())
+                {
                     V.row(i) *= -1;
-                } else {
+                }
+                else
+                {
                     throw std::runtime_error("the dimention of U and V have different k ranks.\n");
                 }
             }
-
         }
-    } else {
+    }
+    else
+    {
         Eigen::Index x, i;
         for (i = 0; i < V.cols(); ++i)
         {
@@ -192,14 +225,18 @@ void flip_UV(MyMatrix& U, MyMatrix& V, bool ubase)
                     U.col(i) *= -1;
                     V.col(i) *= -1;
                 }
-            } else if (V.rows() == U.cols()) {
+            }
+            else if (V.rows() == U.cols())
+            {
                 V.row(i).cwiseAbs().maxCoeff(&x);
                 if (V(i, x) < 0)
                 {
                     U.col(i) *= -1;
                     V.row(i) *= -1;
                 }
-            } else {
+            }
+            else
+            {
                 throw std::runtime_error("the dimention of U and V have different k ranks.\n");
             }
         }
@@ -235,7 +272,7 @@ double rmse(const MyMatrix& X, const MyMatrix& Y)
 {
     MyMatrix Z = Y;
     flip_Y(X, Z);
-    return sqrt( (X - Z).array().square().sum() / (X.cols() * X.rows()) );
+    return sqrt((X - Z).array().square().sum() / (X.cols() * X.rows()));
 }
 
 double mev(const MyMatrix& X, const MyMatrix& Y)
@@ -252,21 +289,27 @@ void mev_rmse_byk(const MyMatrix& X, const MyMatrix& Y, MyVector& Vm, MyVector& 
 {
     for (Eigen::Index i = 0; i < X.cols(); ++i)
     {
-        Vm(i) = 1 - mev(X.leftCols(i+1), Y.leftCols(i+1));
-        Vr(i) = rmse(X.leftCols(i+1), Y.leftCols(i+1));
+        Vm(i) = 1 - mev(X.leftCols(i + 1), Y.leftCols(i + 1));
+        Vr(i) = rmse(X.leftCols(i + 1), Y.leftCols(i + 1));
     }
 }
 
-double get_median(std::vector<double>  v)
+double get_median(std::vector<double> v)
 {
     size_t n = v.size();
-    if (n == 0) {
+    if (n == 0)
+    {
         return 0;
-    } else {
+    }
+    else
+    {
         std::sort(v.begin(), v.end());
-        if (n % 2 == 0) {
+        if (n % 2 == 0)
+        {
             return (v[n / 2 - 1] + v[n / 2]) / 2.0;
-        } else {
+        }
+        else
+        {
             return v[n / 2];
         }
     }

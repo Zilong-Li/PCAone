@@ -23,5 +23,5 @@ jobs:
     - name: make
       run: make
 
-    - name: run test
-      run: sh test/test-examples.sh
+    - name: test
+      run: ./PCAone --help
