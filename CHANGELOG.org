@@ -1,8 +1,9 @@
 - v0.1.9
-  - command line options are updated, most should be compatible to old version
+  - command line options are re-designed
   - upgrade to zstd v1.5.2
+  - recover the original order of SNPs loading for fancy batch mode
   - add =--no-shuffle= option, remove =--shuffle= option
-  - default PCAone algorithm is chose.
+  - default PCAoneF (fancy RSVD) algorithm is chose.
 
 - v0.1.8
   - add -a, --tmp options

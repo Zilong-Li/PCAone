@@ -30,7 +30,7 @@ $(info "building PCAone on ${Platform} -- version ${VERSION}")
 program       = PCAone
 # use default g++ only if not set in env
 CXX           ?= g++
-CXXFLAGS	  += -O3 -Wall -std=c++11 -ffast-math -m64 -Wno-c11-extensions -fPIC
+CXXFLAGS	  += -O3 -Wall -std=c++11 -ffast-math -m64 -fPIC
 MYFLAGS        = -DVERSION=\"$(VERSION)\" -DNDEBUG
 LDFLAGS       += -s  # this is obsolete and igonored on mac
 # CURRENT_DIR   = $(shell pwd)
