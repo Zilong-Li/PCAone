@@ -143,7 +143,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
             blocksize = (unsigned int)ceil((double)data->nsnps / data->params.bands);
             // permute snps of G, see https://stackoverflow.com/questions/15858569/randomly-permute-rows-columns-of-a-matrix-with-eigen
             if (!data->params.noshuffle) {
-                Eigen::PermutationMatrix<Eigen::Dynamic,Eigen::Dynamic> perm(data->G.cols());
+                perm = Eigen::PermutationMatrix<Eigen::Dynamic,Eigen::Dynamic>(data->G.cols());
                 perm.setIdentity();
                 auto rng = std::default_random_engine {};
                 std::shuffle(perm.indices().data(), perm.indices().data()+perm.indices().size(), rng);
@@ -272,7 +272,12 @@ void run_pca_with_halko(Data* data, const Param& params)
             rsvd->setFlags(false, true, params.verbose);
         }
         rsvd->computeUSV(params.maxp, params.tol);
-        data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, rsvd->V);
+        if (params.fast) {
+            // recover original order
+            data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, rsvd->perm * rsvd->V);
+        } else {
+            data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, rsvd->V);
+        }
     } else {
         // for EM iteration
         rsvd->setFlags(false, false, false);

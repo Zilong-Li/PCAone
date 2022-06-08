@@ -11,6 +11,7 @@ public:
     bool update = false, standardize = false, verbose = false;
     MyMatrix U, V;
     MyVector S;
+    Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic> perm;
 
 public:
     virtual ~RsvdOpData() {}
