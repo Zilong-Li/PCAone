@@ -147,7 +147,7 @@ ${program}: zstdlib bgenlib pcaonelib src/Main.o
 	${CXX} ${CXXFLAGS} ${MYFLAGS} -o $@ -c $< ${INC}
 
 zstdlib:
-	(cd ./external/zstd/lib/; $(MAKE))
+	(cd ./external/zstd/lib/; $(MAKE) ZSTD_LIB_COMPRESSION=0 ZSTD_LIB_DICTBUILDER=0)
 
 bgenlib:
 	(cd ./external/bgen/; $(MAKE))
