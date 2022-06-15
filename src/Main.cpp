@@ -1,11 +1,11 @@
-#include <omp.h>
+#include "Arnoldi.hpp"
 #include "FileBeagle.hpp"
 #include "FileBgen.hpp"
 #include "FileCsv.hpp"
 #include "FilePlink.hpp"
-#include "Arnoldi.hpp"
 #include "Halko.hpp"
 #include "popl/popl.hpp"
+#include <omp.h>
 
 #ifdef WITH_OPENBLAS
 #include "lapacke.h"
@@ -64,7 +64,8 @@ int main(int argc, char* argv[])
     }
     else
     {
-        throw std::invalid_argument("\nerror: please specify the input file using one of --bfile, --bgen, --beagle, --csv option!\n");
+        throw std::invalid_argument(
+            "\nplease specify the input file using one of --bfile, --bgen, --beagle, --csv option!\nusing --help to show all options.\n");
     }
     // start logging
     data->llog.clog.open(string(params.outfile + ".log").c_str(), ios::out | ios::trunc);
@@ -158,9 +159,10 @@ string parse_params(int argc, char* argv[], struct Param* params)
             cout << opts.help(Attribute::advanced) << "\n";
             exit(EXIT_SUCCESS);
         }
-        else
+        else if (argc == 1)
         {
             cout << opts << "\n";
+            exit(EXIT_FAILURE);
         }
         params->ncv = fmax(20, 2 * params->k + 1);
         params->oversamples = fmax(10, params->k);
