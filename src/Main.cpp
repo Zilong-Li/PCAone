@@ -28,7 +28,7 @@ int main(int argc, char* argv[])
     // openblas_set_num_threads(params.threads);
     omp_set_num_threads(params.threads);
     Data* data;
-    if (params.intype == PLINK)
+    if (params.intype == FileType::PLINK)
     {
         if (!params.batch && params.fast)
         {
@@ -50,15 +50,15 @@ int main(int argc, char* argv[])
         }
         data = new FileBed(params);
     }
-    else if (params.intype == BGEN)
+    else if (params.intype == FileType::BGEN)
     {
         data = new FileBgen(params);
     }
-    else if (params.intype == BEAGLE)
+    else if (params.intype == FileType::BEAGLE)
     {
         data = new FileBeagle(params);
     }
-    else if (params.intype == CSV)
+    else if (params.intype == FileType::CSV)
     {
         data = new FileCsv(params);
     }
@@ -96,7 +96,7 @@ string parse_params(int argc, char* argv[], struct Param* params)
     string copyr{"PCA All In One (v" + (string)VERSION +
                  ")        https://github.com/Zilong-Li/PCAone\n(C) 2021-2022 Zilong Li        GNU General Public License v3\n\nUsage: PCAone [OPTION]\n\n"};
     OptionParser opts(copyr + "Main options");
-    auto help_opt = opts.add<Switch>("", "help", "Print list of all options");
+    auto help_opt = opts.add<Switch>("", "help", "print list of all options\n");
     opts.add<Switch>("a", "arnoldi", "use IRAM algorithm instead", &params->arnoldi);
     opts.add<Value<string>>("b", "bfile", "prefix of PLINK .bed/.bim/.fam files", "", &params->bed_prefix);
     opts.add<Value<string>>("B", "bgen", "path of BGEN file", "", &params->bgen);
@@ -109,7 +109,7 @@ string parse_params(int argc, char* argv[], struct Param* params)
     opts.add<Value<uint>>("k", "eigs", "top k components to be calculated", params->k, &params->k);
     opts.add<Value<double>>("m", "memory", "specify the RAM usage in GB unit", params->memory, &params->memory);
     opts.add<Value<uint>>("n", "threads", "number of threads to use", params->threads, &params->threads);
-    opts.add<Value<string>>("o", "out", "prefix of prefix of output files", params->outfile, &params->outfile);
+    opts.add<Value<string>>("o", "out", "prefix of output files", params->outfile, &params->outfile);
     opts.add<Switch>("p", "pcangsd", "use PCAngsd algorithm for genotype likelihood input", &params->pcangsd);
     opts.add<Value<uint>>("P", "maxp", "maximum number of power iteration for RSVD", params->maxp, &params->maxp);
     opts.add<Switch>("V", "printv", "output another eigen vectors with suffix .loadings", &params->printv);
@@ -126,7 +126,7 @@ string parse_params(int argc, char* argv[], struct Param* params)
     opts.add<Value<uint>, Attribute::advanced>("", "oversamples", "number of oversampling columns for RSVD", params->oversamples, &params->oversamples);
     opts.add<Value<double>, Attribute::advanced>("", "tol", "tolerance for RSVD algorithm", params->tol, &params->tol);
     opts.add<Value<double>, Attribute::advanced>("", "tol-em", "tolerance for EMU/PCAngsd algorithm", params->tolem, &params->tolem);
-    opts.add<Value<double>, Attribute::advanced>("", "tol-maf", "Tolerance for minor allele frequencies estimation update by EM ", params->tolmaf,
+    opts.add<Value<double>, Attribute::advanced>("", "tol-maf", "tolerance for minor allele frequencies estimation update by EM ", params->tolmaf,
                                                  &params->tolmaf);
 
     std::ostringstream ss;
@@ -139,19 +139,19 @@ string parse_params(int argc, char* argv[], struct Param* params)
         opts.parse(argc, argv);
         if (params->bed_prefix != "")
         {
-            params->intype = PLINK;
+            params->intype = FileType::PLINK;
         }
         else if (params->bgen != "")
         {
-            params->intype = BGEN;
+            params->intype = FileType::BGEN;
         }
         else if (params->beagle != "")
         {
-            params->intype = BEAGLE;
+            params->intype = FileType::BEAGLE;
         }
         else if (params->csvfile != "")
         {
-            params->intype = CSV;
+            params->intype = FileType::CSV;
         }
         else if (help_opt->count() == 1)
         {

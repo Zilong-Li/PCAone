@@ -48,7 +48,7 @@ M load_csv(const std::string& path)
                                                                                                                             values.size() / rows);
 }
 
-enum FileType
+enum class FileType
 {
     PLINK,
     CSV,

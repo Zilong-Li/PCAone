@@ -42,13 +42,13 @@ You can run the following on Linux to have a quick start.
 
 #+begin_src sh
 wget https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-avx2-Linux.zip
-unzip PCAone-avx2-Linux.zip
+unzip -o PCAone-avx2-Linux.zip
 wget http://popgen.dk/zilong/datahub/pca/examples.tar.gz
 tar -xzf examples.tar.gz
-# calculating top 10 PCs running in memory if having big RAM
-./PCAone --bfile examples/asia -k 10
+# in default calculating top 10 PCs running in memory if having big RAM
+./PCAone --bfile examples/asia
 # calculating top 10 PCs running out-of-core using only 2 GBs RAM
-./PCAone --bfile examples/asia -k 10 -m 2
+./PCAone --bfile examples/asia -m 2
 R -s -e 'df=read.table("pcaone.eigvecs", h=F);plot(df[,1:2], xlab="PC1", ylab="PC2");'
 #+end_src
 
@@ -71,20 +71,20 @@ You will find those files in your current directory.
 - Linux
 #+begin_src shell
 wget https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-avx2-Linux.zip || curl -LO https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-avx2-Linux.zip
-unzip PCAone-avx2-Linux.zip
+unzip -o PCAone-avx2-Linux.zip
 #+end_src
 
 If your server is too old to support =avx2= instruction, either upgrade the server or download the following version.
 
 #+begin_src shell
 wget https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-x64-Linux.zip || curl -LO https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-x64-Linux.zip
-unzip PCAone-x64-Linux.zip
+unzip -o PCAone-x64-Linux.zip
 #+end_src
 
 - Mac
 #+begin_src shell
 curl -LO https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-avx2-Mac.zip || wget https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-avx2-Mac.zip
-unzip PCAone-avx2-Mac.zip
+unzip -o PCAone-avx2-Mac.zip
 #+end_src
 
 Since you are using Mac, I suppose this version just works.
@@ -155,12 +155,12 @@ See [[file:CHANGELOG.org][change log]] here.
 
 * System requirements
 
-=PCAone= can be running on a normal computer with small amount of RAM and =x86-64= instruction set architecture. =PCAone= has been tested on both =MacOS= and =Linux= system. To build PCAone from the source code, the following dependencies are required:
+=PCAone= can be running on a normal computer/laptop with =x86-64= instruction set architecture. =PCAone= has been tested on both =MacOS= and =Linux= system. To build PCAone from the source code, the following dependencies are required:
 
 - GCC/Clang compiler with C++11 support
 - GNU make
 - zlib
-- libomp (optional on MacOS)
+- libomp (on MacOS)
 
 * Installation
 ** Download binary
@@ -175,6 +175,7 @@ PCAone is available from [[https://anaconda.org/bioconda/pcaone][bioconda]].
 #+begin_src sh
 conda config --add channels bioconda
 conda install pcaone
+PCAone --help
 #+end_src
 
 ** Build from source
@@ -185,10 +186,11 @@ Build PCAone dynamically with MKL can maximize the performance since the faster 
 - install =mkl= by conda
 
 #+begin_src sh
-conda install mkl mkl-include
+conda install -y mkl mkl-include
 git clone https://github.com/Zilong-Li/PCAone.git
 cd PCAone
 make MKLROOT=${CONDA_PREFIX} # if mkl is installed by conda and you are in conda
+./PCAone --help
 #+end_src
 
 - download =mkl= from [[https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl.html][the website]]
@@ -207,6 +209,7 @@ If you don't want any optimized math library as backend, just run:
 git clone https://github.com/Zilong-Li/PCAone.git
 cd PCAone
 make
+./PCAone --help
 #+end_src
 If this doesn't work because the server is too outdated, run =make clean && make AVX=0= instead. For Mac users, also run =brew install libomp=.
 
@@ -272,4 +275,3 @@ PCAone use [[https://eigen.tuxfamily.org/index.php?title=Main_Page][Eigen]] for 
 * Todo
 - Integrate PCAoneF into EMU and PCAngsd
 - Shuffle BGEN and CSV file for PCAoneF out-of-core
-- optimizing memory caching

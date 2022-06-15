@@ -84,7 +84,7 @@ ifeq ($(Platform),Linux)
 				SLIBS += -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_gnu_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -lgomp -lpthread
 			endif
 		else
-			DLIBS += -Wl,-rpath,${MKLROOT}/lib,-rpath,${MKLROOT}/lib/intel64 -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread
+			DLIBS += -Wl,--no-as-needed -Wl,-rpath,${MKLROOT}/lib,-rpath,${MKLROOT}/lib/intel64 -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread
 		endif
 
 	else ifneq ($(strip $(OPENBLAS_ROOT)),)
@@ -136,7 +136,7 @@ SLIBS += ./external/zstd/lib/libzstd.a ./external/bgen/bgenlib.a
 
 LIBS += ${SLIBS} ${DLIBS} -lm -ldl
 
-.PHONY: clean
+.PHONY: all clean
 
 all: ${program}
 
@@ -153,7 +153,7 @@ bgenlib:
 	(cd ./external/bgen/; $(MAKE))
 
 pcaonelib:$(OBJ)
-	ar -rcs $(PCALIB) $(OBJ)
+	ar -rcs $(PCALIB) $?
 
 rm:
 	(rm -f src/*.o $(program))

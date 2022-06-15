@@ -40,6 +40,6 @@ chmod +x PCAone
 
 ./PCAone --csv examples/test.csv.zst -k 20 -n 10 -o out -a --cpmed && cat out.eigvals && echo "PCAone CSV batch mode ok"
 
-./PCAone --bfile examples/test.emu -k 3 -n 10 -o out -m 2 --emu && cat out.eigvals && echo "PCAone EMU mode ok"
+./PCAone --bfile examples/test.emu -k 3 -n 10 -o out -h --emu && cat out.eigvals && echo "PCAone EMU mode ok"
 
 ./PCAone --beagle examples/test.bgl.gz -k 3 -n 10 -o out -a --pcangsd && cat out.eigvals && echo "PCAone PCAngsd batch mode ok"

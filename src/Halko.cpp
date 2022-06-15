@@ -327,7 +327,7 @@ void run_pca_with_halko(Data* data, const Param& params)
     if (!params.runem)
     {
         data->llog << timestamp() << "begin to do non-EM PCA." << endl;
-        if (params.intype == CSV)
+        if (params.intype == FileType::CSV)
         {
             rsvd->setFlags(false, false, params.verbose);
         }
