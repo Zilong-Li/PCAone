@@ -118,11 +118,11 @@ void NormalRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
                 auto t1 = std::chrono::steady_clock::now();
                 if (update)
                 {
-                    data->read_snp_block_update(start_idx, stop_idx, U, S, V.transpose(), standardize);
+                    data->read_block_update(start_idx, stop_idx, U, S, V.transpose(), standardize);
                 }
                 else
                 {
-                    data->read_snp_block_initial(start_idx, stop_idx, standardize);
+                    data->read_block_initial(start_idx, stop_idx, standardize);
                 }
                 auto t2 = std::chrono::steady_clock::now();
                 data->readtime +=
@@ -252,11 +252,11 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
                 auto t1 = std::chrono::steady_clock::now();
                 if (update)
                 {
-                    data->read_snp_block_update(start_idx, stop_idx, U, S, V.transpose(), standardize);
+                    data->read_block_update(start_idx, stop_idx, U, S, V.transpose(), standardize);
                 }
                 else
                 {
-                    data->read_snp_block_initial(start_idx, stop_idx, standardize);
+                    data->read_block_initial(start_idx, stop_idx, standardize);
                 }
                 auto t2 = std::chrono::steady_clock::now();
                 data->readtime +=

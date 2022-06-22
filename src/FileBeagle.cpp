@@ -24,7 +24,7 @@ neverUseGoto:
 
 
 // read all data and estimate F
-void FileBeagle::read_all_and_centering()
+void FileBeagle::read_all()
 {
     fp = gzopen(params.beagle.c_str(), "r");
     tgets(fp, &buffer, &bufsize);
@@ -91,13 +91,13 @@ void FileBeagle::read_all_and_centering()
     {
         if (F(nsnps) > params.maf)
             Ft(nsnps) = nsnps; // keep track of index of element > maf
-        else
-            Ft(nsnps) = -1;
+        // should be fine don't touch the left;
     }
     // resize P, only keep columns in the indecis of Ft(0:nsnps);
-    P = P(Eigen::all, Ft(Eigen::seq(0, nsnps)));
+    P = P(Eigen::all, Ft.head(nsnps));
     // initial E which is G
-    G = MyMatrix::Zero(nsamples, nsnps++);
+    G = MyMatrix::Zero(nsamples, nsnps);
+    llog << timestamp() << "number of SNPs after filtering by MAF > " << params.maf << ": " << nsnps << endl;
 #pragma omp parallel for
     for (uint j = 0; j < nsnps; j++)
     {

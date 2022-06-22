@@ -15,11 +15,11 @@ void ArnoldiOpData::perform_op(const double* x_in, double* y_out) const
     data->check_file_offset_first_var();
     if (update)
     {
-        data->read_snp_block_update(data->start[0], data->stop[0], U, S, VT, standardize);
+        data->read_block_update(data->start[0], data->stop[0], U, S, VT, standardize);
     }
     else
     {
-        data->read_snp_block_initial(data->start[0], data->stop[0], standardize);
+        data->read_block_initial(data->start[0], data->stop[0], standardize);
     }
     auto t2 = std::chrono::high_resolution_clock::now();
     data->readtime += std::chrono::duration<double>(t2 - t1).count() * std::chrono::duration<double>::period::num / std::chrono::duration<double>::period::den;
@@ -30,11 +30,11 @@ void ArnoldiOpData::perform_op(const double* x_in, double* y_out) const
         auto t1 = std::chrono::high_resolution_clock::now();
         if (update)
         {
-            data->read_snp_block_update(data->start[k], data->stop[k], U, S, VT, standardize);
+            data->read_block_update(data->start[k], data->stop[k], U, S, VT, standardize);
         }
         else
         {
-            data->read_snp_block_initial(data->start[k], data->stop[k], standardize);
+            data->read_block_initial(data->start[k], data->stop[k], standardize);
         }
         auto t2 = std::chrono::high_resolution_clock::now();
         data->readtime +=

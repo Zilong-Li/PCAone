@@ -2,7 +2,7 @@
 
 using namespace std;
 
-void FileCsv::read_all_and_centering()
+void FileCsv::read_all()
 {
     G = MyMatrix::Zero(nsamples, nsnps);
 
@@ -79,7 +79,7 @@ void FileCsv::check_file_offset_first_var()
     buffCur = "";
 }
 
-void FileCsv::read_snp_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize)
+void FileCsv::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize)
 {
 
     const uint actual_block_size = stop_idx - start_idx + 1;
@@ -164,6 +164,6 @@ void FileCsv::read_snp_block_initial(uint64 start_idx, uint64 stop_idx, bool sta
 
     if (lastSNP != actual_block_size)
     {
-        throw std::runtime_error("something wrong when read_snp_block_initial");
+        throw std::runtime_error("something wrong when read_block_initial");
     }
 }

@@ -17,7 +17,7 @@ void Data::prepare(uint& blocksize)
     if (params.batch)
     {
         auto t1 = std::chrono::high_resolution_clock::now();
-        read_all_and_centering();
+        read_all();
         auto t2 = std::chrono::high_resolution_clock::now();
         readtime += std::chrono::duration<double>(t2 - t1).count() * std::chrono::duration<double>::period::num / std::chrono::duration<double>::period::den;
     }
@@ -105,7 +105,7 @@ void Data::calcu_vt_initial(const MyMatrix& T, MyMatrix& VT)
     {
         actual_block_size = stop[i] - start[i] + 1;
         // G (nsamples, actual_block_size)
-        read_snp_block_initial(start[i], stop[i]);
+        read_block_initial(start[i], stop[i]);
         VT.block(0, start[i], T.rows(), actual_block_size) = T * G.leftCols(actual_block_size);
     }
 
@@ -125,7 +125,7 @@ void Data::calcu_vt_update(const MyMatrix& T, const MyMatrix& U, const MyVector&
     {
         actual_block_size = stop[i] - start[i] + 1;
         // G (nsamples, actual_block_size)
-        read_snp_block_update(start[i], stop[i], U, svals, VT, standardize);
+        read_block_update(start[i], stop[i], U, svals, VT, standardize);
         VT.block(0, start[i], T.rows(), actual_block_size) = T * G.leftCols(actual_block_size);
     }
 

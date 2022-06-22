@@ -2,8 +2,6 @@
 
 using namespace std;
 
-// https://stackoverflow.com/questions/5166263/how-to-get-iostream-to-perform-better
-// https://github.com/OpenGene/fastp/blame/master/src/fastareader.cpp#L11
 void FileBed::check_file_offset_first_var()
 {
     setlocale(LC_ALL, "C");
@@ -25,7 +23,7 @@ void FileBed::check_file_offset_first_var()
     }
 }
 
-void FileBed::read_all_and_centering()
+void FileBed::read_all()
 {
     F = MyVector::Zero(nsnps);
     check_file_offset_first_var();
@@ -87,7 +85,7 @@ void FileBed::read_all_and_centering()
     inbed.shrink_to_fit();
 }
 
-void FileBed::read_snp_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize)
+void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize)
 {
     uint actual_block_size = stop_idx - start_idx + 1;
     // if G is not initial then initial it
@@ -195,7 +193,7 @@ void FileBed::read_snp_block_initial(uint64 start_idx, uint64 stop_idx, bool sta
         frequency_was_estimated = true;
 }
 
-void FileBed::read_snp_block_update(uint64 start_idx, uint64 stop_idx, const MyMatrix& U, const MyVector& svals, const MyMatrix& VT, bool standardize)
+void FileBed::read_block_update(uint64 start_idx, uint64 stop_idx, const MyMatrix& U, const MyVector& svals, const MyMatrix& VT, bool standardize)
 {
     uint actual_block_size = stop_idx - start_idx + 1;
     if (G.cols() < params.blocksize || (actual_block_size < params.blocksize))
