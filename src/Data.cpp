@@ -196,9 +196,9 @@ void Data::update_batch_E(const MyMatrix& U, const MyVector& svals, const MyMatr
                 pt = (pt + 2.0 * F(j)) / 2.0;
                 pt = fmin(fmax(pt, 1e-4), 1.0 - 1e-4);
                 // update E, which is G here
-                p0 = P(j, 3 * i + 0) * (1.0 - pt) * (1.0 - pt);
-                p1 = P(j, 3 * i + 1) * 2 * pt * (1.0 - pt);
-                p2 = P(j, 3 * i + 2) * pt * pt;
+                p0 = P(3 * i + 0, j) * (1.0 - pt) * (1.0 - pt);
+                p1 = P(3 * i + 1, j) * 2 * pt * (1.0 - pt);
+                p2 = P(3 * i + 2, j) * pt * pt;
                 G(i, j) = (p1 + 2 * p2) / (p0 + p1 + p2) - 2.0 * F(j);
             }
         }
@@ -262,9 +262,9 @@ void Data::pcangsd_standardize_E(const MyMatrix& U, const MyVector& svals, const
                 pt = (pt + 2.0 * F(j)) / 2.0;
                 pt = fmin(fmax(pt, 1e-4), 1.0 - 1e-4);
                 // Update e
-                p0 = P(j, 3 * i + 0) * (1.0 - pt) * (1.0 - pt);
-                p1 = P(j, 3 * i + 1) * 2 * pt * (1.0 - pt);
-                p2 = P(j, 3 * i + 2) * pt * pt;
+                p0 = P(3 * i + 0, j) * (1.0 - pt) * (1.0 - pt);
+                p1 = P(3 * i + 1, j) * 2 * pt * (1.0 - pt);
+                p2 = P(3 * i + 2, j) * pt * pt;
                 pSum = p0 + p1 + p2;
                 G(i, j) = (p1 + 2 * p2) / pSum - 2.0 * F(j);
                 if (norm > VAR_TOL)

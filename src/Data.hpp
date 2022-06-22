@@ -57,7 +57,7 @@ public:
     uint nops = 0;
     std::vector<uint> start, stop;
     MyMatrix G;          // genotype matrix, can be initial E or centered E, which is nsamples x nsnps;
-    MyMatrix P;          // genotype probability, nsnps x nsamples x 3.
+    MyMatrix P;          // genotype probability, nsamples x 3 x nsnps.
     MyVector F;          // observed or estimated population allele frequency
     MyVector Dc;         // diagnal vector of covariance matrix
     std::vector<bool> C; // 1 or true indicates a ind's snp is missing and need to be predicted.

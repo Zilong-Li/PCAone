@@ -81,9 +81,9 @@ int main(int argc, char* argv[])
         run_pca_with_halko(data, params);
     }
     auto t2 = std::chrono::steady_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::seconds>(t2 - t1);
+    auto duration = std::chrono::duration<double>(t2 - t1).count() * std::chrono::duration<double>::period::num / std::chrono::duration<double>::period::den;
     data->llog << timestamp() << "total elapsed reading time: " << data->readtime << " seconds" << endl;
-    data->llog << timestamp() << "total elapsed wall time: " << duration.count() << " seconds" << endl;
+    data->llog << timestamp() << "total elapsed wall time: " << duration << " seconds" << endl;
     data->llog << timestamp() << "eigenvecs and eigenvals are saved. have a nice day. bye!\n";
     data->llog << commandargs << endl;
 

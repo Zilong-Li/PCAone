@@ -73,9 +73,9 @@ void FileBgen::read_all_and_centering()
 #pragma omp parallel for
                 for (i = 0; i < nsamples; i++)
                 {
-                    P(j, i * 3 + 0) = probs1d[i * 3 + 0];
-                    P(j, i * 3 + 1) = probs1d[i * 3 + 1];
-                    P(j, i * 3 + 2) = probs1d[i * 3 + 2];
+                    P(i * 3 + 0, j) = probs1d[i * 3 + 0];
+                    P(i * 3 + 1, j) = probs1d[i * 3 + 1];
+                    P(i * 3 + 2, j) = probs1d[i * 3 + 2];
                 }
             }
             catch (const std::out_of_range& e)
@@ -98,9 +98,9 @@ void FileBgen::read_all_and_centering()
                 double p0, p1, p2, pt = 0.0;
                 for (uint i = 0; i < nsamples; i++)
                 {
-                    p0 = P(j, 3 * i + 0) * (1.0 - F(j)) * (1.0 - F(j));
-                    p1 = P(j, 3 * i + 1) * 2 * F(j) * (1.0 - F(j));
-                    p2 = P(j, 3 * i + 2) * F(j) * F(j);
+                    p0 = P(3 * i + 0, j) * (1.0 - F(j)) * (1.0 - F(j));
+                    p1 = P(3 * i + 1, j) * 2 * F(j) * (1.0 - F(j));
+                    p2 = P(3 * i + 2, j) * F(j) * F(j);
                     pt += (p1 + 2 * p2) / (2 * (p0 + p1 + p2));
                 }
                 F(j) = pt / (double)nsamples;
@@ -126,9 +126,9 @@ void FileBgen::read_all_and_centering()
             double p0, p1, p2;
             for (i = 0; i < nsamples; i++)
             {
-                p0 = P(j, 3 * i + 0) * (1.0 - F(j)) * (1.0 - F(j));
-                p1 = P(j, 3 * i + 1) * 2 * F(j) * (1.0 - F(j));
-                p2 = P(j, 3 * i + 2) * F(j) * F(j);
+                p0 = P(3 * i + 0, j) * (1.0 - F(j)) * (1.0 - F(j));
+                p1 = P(3 * i + 1, j) * 2 * F(j) * (1.0 - F(j));
+                p2 = P(3 * i + 2, j) * F(j) * F(j);
                 G(i, j) = (p1 + 2 * p2) / (p0 + p1 + p2) - 2.0 * F(j);
             }
         }

@@ -44,7 +44,7 @@ void FileBeagle::read_all_and_centering()
         {
             tok = strtok_r(NULL, delims, &buffer);
             assert(tok != NULL);
-            P(j, i) = std::stod(std::string(tok));
+            P(i, j) = std::stod(std::string(tok));
         }
         buffer = original;
         j++;
@@ -66,9 +66,9 @@ void FileBeagle::read_all_and_centering()
             double p0, p1, p2, pt = 0.0;
             for (uint i = 0; i < nsamples; i++)
             {
-                p0 = P(j, 3 * i + 0) * (1.0 - F(j)) * (1.0 - F(j));
-                p1 = P(j, 3 * i + 1) * 2 * F(j) * (1.0 - F(j));
-                p2 = P(j, 3 * i + 2) * F(j) * F(j);
+                p0 = P(3 * i + 0, j) * (1.0 - F(j)) * (1.0 - F(j));
+                p1 = P(3 * i + 1, j) * 2 * F(j) * (1.0 - F(j));
+                p2 = P(3 * i + 2, j) * F(j) * F(j);
                 pt += (p1 + 2 * p2) / (2 * (p0 + p1 + p2));
             }
             F(j) = pt / (double)nsamples;
@@ -94,9 +94,9 @@ void FileBeagle::read_all_and_centering()
         double p0, p1, p2;
         for (uint i = 0; i < nsamples; i++)
         {
-            p0 = P(j, 3 * i + 0) * (1.0 - F(j)) * (1.0 - F(j));
-            p1 = P(j, 3 * i + 1) * 2 * F(j) * (1.0 - F(j));
-            p2 = P(j, 3 * i + 2) * F(j) * F(j);
+            p0 = P(3 * i + 0, j) * (1.0 - F(j)) * (1.0 - F(j));
+            p1 = P(3 * i + 1, j) * 2 * F(j) * (1.0 - F(j));
+            p2 = P(3 * i + 2, j) * F(j) * F(j);
             G(i, j) = (p1 + 2 * p2) / (p0 + p1 + p2) - 2.0 * F(j);
         }
     }
