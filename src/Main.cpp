@@ -108,6 +108,7 @@ string parse_params(int argc, char* argv[], struct Param* params)
     // opts.add<Switch>("f", "fast", "use fast RSVD algorithm with super power iterations", &params->fast);
     opts.add<Switch>("h", "halko", "use normal RSVD algorithm instead", &params->halko);
     opts.add<Value<uint>>("k", "eigs", "top k components to be calculated", params->k, &params->k);
+    opts.add<Value<double>>("", "maf", "remove variants with minor allele frequency below maf", params->maf, &params->maf);
     opts.add<Value<double>>("m", "memory", "specify the RAM usage in GB unit", params->memory, &params->memory);
     opts.add<Value<uint>>("n", "threads", "number of threads to use", params->threads, &params->threads);
     opts.add<Value<string>>("o", "out", "prefix of output files", params->outfile, &params->outfile);
@@ -166,6 +167,9 @@ string parse_params(int argc, char* argv[], struct Param* params)
         }
         params->ncv = fmax(20, 2 * params->k + 1);
         params->oversamples = fmax(10, params->k);
+        // beagle only represents genotype likelihood for pcangsd algorithm now
+        if (params->intype == FileType::BEAGLE)
+            params->pcangsd = true;
         if (params->emu || params->pcangsd)
         {
             params->runem = true;
@@ -176,9 +180,6 @@ string parse_params(int argc, char* argv[], struct Param* params)
         }
         if (params->halko || params->arnoldi)
             params->fast = false;
-        // beagle only represents genotype likelihood for pcangsd algorithm now
-        if ((params->intype == FileType::BEAGLE) && (!params->pcangsd))
-            params->pcangsd = true;
         if (params->memory > 0)
         {
             params->batch = false;

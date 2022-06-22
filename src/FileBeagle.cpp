@@ -53,7 +53,7 @@ void FileBeagle::read_all_and_centering()
     assert(j == nsnps);
 
     llog << timestamp() << "begin to estimate allele frequencies" << endl;
-    MyVector Ft(nsnps);
+    MyVector Ft = MyVector::Zero(nsnps);
     F = MyVector::Constant(nsnps, 0.25);
     // run EM to estimate allele frequencies
     double diff;
@@ -86,8 +86,18 @@ void FileBeagle::read_all_and_centering()
             llog << timestamp() << "EM (MAF) did not converge.\n";
         }
     }
+    // filter snps and resize G;
+    for (nsnps = 0; nsnps < F.size(); nsnps++)
+    {
+        if (F(nsnps) > params.maf)
+            Ft(nsnps) = nsnps; // keep track of index of element > maf
+        else
+            Ft(nsnps) = -1;
+    }
+    // resize P, only keep columns in the indecis of Ft(0:nsnps);
+    P = P(Eigen::all, Ft(Eigen::seq(0, nsnps)));
     // initial E which is G
-    G = MyMatrix(nsamples, nsnps);
+    G = MyMatrix::Zero(nsamples, nsnps++);
 #pragma omp parallel for
     for (uint j = 0; j < nsnps; j++)
     {
