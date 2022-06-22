@@ -4,7 +4,7 @@
 #include "Data.hpp"
 #include <zlib.h>
 
-int tgets(gzFile gz, char** buf, int* l);
+int tgets(gzFile gz, char** buf, uint64* l);
 
 class FileBeagle : public Data
 {
@@ -47,8 +47,9 @@ public:
             gzclose(fp);
         }
 
-        P = MyMatrix(nsamples * 3, nsnps);  // MyMatrix is column major
+        P = MyMatrix::Zero(nsamples * 3, nsnps);  // MyMatrix is column major
         llog << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << std::endl;
+        // bufsize = (uint64) nsamples * nsnps * 3 * 4;  // resize buffer size for faster reading in batch mode
     }
 
     ~FileBeagle()
@@ -74,7 +75,7 @@ public:
 private:
     gzFile fp = nullptr;
     char *original, *buffer;
-    int bufsize = 128000;
+    uint64 bufsize = (uint64)128 * 1024 * 1024;
     const char* delims = "\t \n";
 };
 

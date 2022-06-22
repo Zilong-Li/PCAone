@@ -3,7 +3,7 @@
 using namespace std;
 
 // inspired by Angsd
-int tgets(gzFile gz, char** buf, int* l)
+int tgets(gzFile gz, char** buf, uint64* l)
 {
     int rlen = 0;
 neverUseGoto:

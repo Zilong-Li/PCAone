@@ -275,3 +275,4 @@ PCAone use [[https://eigen.tuxfamily.org/index.php?title=Main_Page][Eigen]] for 
 * Todo
 - Integrate PCAoneF into EMU and PCAngsd
 - Shuffle BGEN and CSV file for PCAoneF out-of-core
+- filter SNPs by MAF (EMU, PCAngsd)

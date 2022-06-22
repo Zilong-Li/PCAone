@@ -9,7 +9,7 @@ void FileBgen::read_all_and_centering()
     if (!params.pcangsd)
     {
         F = MyVector::Zero(nsnps);
-        G = MyMatrix(nsamples, nsnps);
+        G = MyMatrix::Zero(nsamples, nsnps);
         if (params.runem)
             C.resize(nsnps * nsamples);
         for (j = 0; j < nsnps; j++)

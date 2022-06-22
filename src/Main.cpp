@@ -174,10 +174,17 @@ string parse_params(int argc, char* argv[], struct Param* params)
         {
             params->maxiter = 0;
         }
-        if (params->memory > 0)
-            params->batch = false;
         if (params->halko || params->arnoldi)
             params->fast = false;
+        // beagle only represents genotype likelihood for pcangsd algorithm now
+        if ((params->intype == FileType::BEAGLE) && (!params->pcangsd))
+            params->pcangsd = true;
+        if (params->memory > 0)
+        {
+            params->batch = false;
+            if (params->pcangsd)
+                throw std::invalid_argument("not support -m option for PCAngsd algorithm yet, but the feature is on the way!");
+        }
     }
     catch (const popl::invalid_option& e)
     {

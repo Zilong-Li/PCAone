@@ -4,7 +4,7 @@ using namespace std;
 
 void FileCsv::read_all_and_centering()
 {
-    G = MyMatrix(nsamples, nsnps);
+    G = MyMatrix::Zero(nsamples, nsnps);
 
     auto buffIn = const_cast<void*>(static_cast<const void*>(buffInTmp.c_str()));
     auto buffOut = const_cast<void*>(static_cast<const void*>(buffOutTmp.c_str()));

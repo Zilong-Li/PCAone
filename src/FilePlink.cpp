@@ -29,7 +29,7 @@ void FileBed::read_all_and_centering()
 {
     F = MyVector::Zero(nsnps);
     check_file_offset_first_var();
-    G = MyMatrix(nsamples, nsnps);
+    G = MyMatrix::Zero(nsamples, nsnps);
     // Begin to decode the plink bed
     inbed.reserve(bed_bytes_per_snp * nsnps);
     bed_ifstream.read(reinterpret_cast<char*>(&inbed[0]), bed_bytes_per_snp * nsnps);
