@@ -22,7 +22,9 @@ public:
         }
         else
         {
+            // http://dlib.net/dlib/external/zlib/zlib.h.html
             fp = gzopen(params.beagle.c_str(), "r");
+            // gzbuffer(fp, bufsize);
             tgets(fp, &buffer, &bufsize);
             int nCol = 1;
             if (buffer != original)
@@ -47,7 +49,7 @@ public:
             gzclose(fp);
         }
 
-        P = MyMatrix::Zero(nsamples * 3, nsnps);  // MyMatrix is column major
+        P = MyMatrix::Zero(nsamples * 3, nsnps); // MyMatrix is column major
         llog << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << std::endl;
         // bufsize = (uint64) nsamples * nsnps * 3 * 4;  // resize buffer size for faster reading in batch mode
     }
@@ -66,8 +68,7 @@ public:
     {
     }
 
-    virtual void read_block_update(uint64 start_idx, uint64 stop_idx, const MyMatrix& U, const MyVector& svals, const MyMatrix& VT,
-                                       bool standardize = false)
+    virtual void read_block_update(uint64 start_idx, uint64 stop_idx, const MyMatrix& U, const MyVector& svals, const MyMatrix& VT, bool standardize = false)
     {
     }
 
@@ -81,4 +82,4 @@ private:
 
 
 
-#endif  // PCAONE_FILEBEAGLE_
+#endif // PCAONE_FILEBEAGLE_

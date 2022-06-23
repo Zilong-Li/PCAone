@@ -40,6 +40,7 @@ void FileBeagle::read_all()
         tok = strtok_r(buffer, delims, &buffer);
         tok = strtok_r(NULL, delims, &buffer);
         tok = strtok_r(NULL, delims, &buffer);
+// #pragma omp parallel for num_threads(3)
         for (i = 0; i < nsamples * 3; i++)
         {
             tok = strtok_r(NULL, delims, &buffer);
@@ -53,61 +54,67 @@ void FileBeagle::read_all()
     assert(j == nsnps);
 
     llog << timestamp() << "begin to estimate allele frequencies" << endl;
-    MyVector Ft = MyVector::Zero(nsnps);
     F = MyVector::Constant(nsnps, 0.25);
-    // run EM to estimate allele frequencies
-    double diff;
-    for (uint it = 0; it < params.maxiter; it++)
-    {
+    { // out of scope: eigen object will be released;
+        MyVector Ft = MyVector::Zero(nsnps);
+        double diff;
+        // run EM to estimate allele frequencies
+        for (uint it = 0; it < params.maxiter; it++)
+        {
 #pragma omp parallel for
-        for (uint j = 0; j < nsnps; j++)
-        {
-            Ft(j) = F(j);
-            double p0, p1, p2, pt = 0.0;
-            for (uint i = 0; i < nsamples; i++)
+            for (uint j = 0; j < nsnps; j++)
             {
-                p0 = P(3 * i + 0, j) * (1.0 - F(j)) * (1.0 - F(j));
-                p1 = P(3 * i + 1, j) * 2 * F(j) * (1.0 - F(j));
-                p2 = P(3 * i + 2, j) * F(j) * F(j);
-                pt += (p1 + 2 * p2) / (2 * (p0 + p1 + p2));
+                Ft(j) = F(j);
+                double p0, p1, p2, pt = 0.0;
+                for (uint i = 0; i < nsamples; i++)
+                {
+                    p0 = P(3 * i + 0, j) * (1.0 - F(j)) * (1.0 - F(j));
+                    p1 = P(3 * i + 1, j) * 2 * F(j) * (1.0 - F(j));
+                    p2 = P(3 * i + 2, j) * F(j) * F(j);
+                    pt += (p1 + 2 * p2) / (2 * (p0 + p1 + p2));
+                }
+                F(j) = pt / (double)nsamples;
             }
-            F(j) = pt / (double)nsamples;
-        }
-        // calculate differences between iterations
-        diff = sqrt((F - Ft).array().square().sum() / nsnps);
-        // Check for convergence
-        if (diff < params.tolmaf)
-        {
-            llog << timestamp() << "EM (MAF) converged at iteration: " << it + 1 << endl;
-            break;
-        }
-        else if (it == (params.maxiter - 1))
-        {
-            llog << timestamp() << "EM (MAF) did not converge.\n";
+            // calculate differences between iterations
+            diff = sqrt((F - Ft).array().square().sum() / nsnps);
+            // Check for convergence
+            if (diff < params.tolmaf)
+            {
+                llog << timestamp() << "EM (MAF) converged at iteration: " << it + 1 << endl;
+                break;
+            }
+            else if (it == (params.maxiter - 1))
+            {
+                llog << timestamp() << "EM (MAF) did not converge.\n";
+            }
         }
     }
     // filter snps and resize G;
-    for (nsnps = 0; nsnps < F.size(); nsnps++)
+    std::vector<Eigen::Index> idx;
+    for (Eigen::Index j = 0; j < F.size(); j++)
     {
-        if (F(nsnps) > params.maf)
-            Ft(nsnps) = nsnps; // keep track of index of element > maf
-        // should be fine don't touch the left;
+        if (F(j) > params.maf)
+            idx.push_back(j); // keep track of index of element > maf
     }
-    // resize P, only keep columns in the indecis of Ft(0:nsnps);
-    P = P(Eigen::all, Ft.head(nsnps));
-    // initial E which is G
-    G = MyMatrix::Zero(nsamples, nsnps);
+    nsnps = idx.size();
     llog << timestamp() << "number of SNPs after filtering by MAF > " << params.maf << ": " << nsnps << endl;
+    if (nsnps < 1)
+    {
+        throw std::runtime_error("no SNPs left after filtering!\n");
+    }
+    // resize P, only keep columns in the indecis of idx;
+    P = P(Eigen::all, idx).eval(); // aliasing issue!!!
+    G = MyMatrix::Zero(nsamples, nsnps); // initial E which is G
 #pragma omp parallel for
     for (uint j = 0; j < nsnps; j++)
     {
         double p0, p1, p2;
         for (uint i = 0; i < nsamples; i++)
         {
-            p0 = P(3 * i + 0, j) * (1.0 - F(j)) * (1.0 - F(j));
-            p1 = P(3 * i + 1, j) * 2 * F(j) * (1.0 - F(j));
-            p2 = P(3 * i + 2, j) * F(j) * F(j);
-            G(i, j) = (p1 + 2 * p2) / (p0 + p1 + p2) - 2.0 * F(j);
+            p0 = P(3 * i + 0, j) * (1.0 - F(idx[j])) * (1.0 - F(idx[j]));
+            p1 = P(3 * i + 1, j) * 2 * F(idx[j]) * (1.0 - F(idx[j]));
+            p2 = P(3 * i + 2, j) * F(idx[j]) * F(idx[j]);
+            G(i, j) = (p1 + 2 * p2) / (p0 + p1 + p2) - 2.0 * F(idx[j]);
         }
     }
 }

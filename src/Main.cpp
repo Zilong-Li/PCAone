@@ -67,8 +67,6 @@ int main(int argc, char* argv[])
         throw std::invalid_argument(
             "\nplease specify the input file using one of --bfile, --bgen, --beagle, --csv option!\nusing --help to show all options.\n");
     }
-    // start logging
-    data->llog.clog.open(string(params.outfile + ".log").c_str(), ios::out | ios::trunc);
     // ready for run
     data->prepare(params.blocksize);
     // begin to run

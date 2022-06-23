@@ -32,6 +32,8 @@ class Data
 public:
     Data(const Param& params_) : params(params_)
     {
+        // start logging
+        llog.clog.open(std::string(params.outfile + ".log").c_str(), std::ios::out | std::ios::trunc);
     }
 
     virtual ~Data()
@@ -43,7 +45,7 @@ public:
     virtual void check_file_offset_first_var() = 0;
     virtual void read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize = false) = 0;
     virtual void read_block_update(uint64 start_idx, uint64 stop_idx, const MyMatrix& U, const MyVector& svals, const MyMatrix& VT,
-                                       bool standardize = false) = 0;
+                                   bool standardize = false) = 0;
 
     const Param& params;
     Logger llog;
@@ -77,4 +79,4 @@ public:
 };
 
 
-#endif  // PCAONE_DATA_
+#endif // PCAONE_DATA_
