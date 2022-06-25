@@ -64,11 +64,12 @@ public:
     MyVector Dc;         // diagnal vector of covariance matrix
     std::vector<bool> C; // 1 or true indicates a ind's snp is missing and need to be predicted.
     MyArrayX centered_geno_lookup;
+    std::vector<Eigen::Index> keepSNPs;  // store index of SNPs to keep
 
 
     void prepare(uint& blocksize);
-    void read_bed_batch();
     void standardize_E();
+    void filterSNPs_inall();
     void pcangsd_standardize_E(const MyMatrix& U, const MyVector& svals, const MyMatrix& VT);
     void update_batch_E(const MyMatrix& U, const MyVector& svals, const MyMatrix& VT);
     void write_eigs_files(const MyVector& S, const MyMatrix& U, const MyMatrix& V);

@@ -25,16 +25,14 @@ void FileBed::check_file_offset_first_var()
 
 void FileBed::read_all()
 {
-    F = MyVector::Zero(nsnps);
     check_file_offset_first_var();
-    G = MyMatrix::Zero(nsamples, nsnps);
     // Begin to decode the plink bed
     inbed.reserve(bed_bytes_per_snp * nsnps);
     bed_ifstream.read(reinterpret_cast<char*>(&inbed[0]), bed_bytes_per_snp * nsnps);
-    if (params.runem)
-        C.resize(nsnps * nsamples);
     uint64 c, i, j, b, k;
     uchar buf;
+    F = MyVector::Zero(nsnps);
+    // estimate allele frequency first
 #pragma omp parallel for private(i, j, b, c, k, buf)
     for (i = 0; i < nsnps; ++i)
     {
@@ -45,14 +43,42 @@ void FileBed::read_all()
             {
                 if (j < nsamples)
                 {
+                    if (BED2GENO[buf & 3] != BED_MISSING_VALUE)
+                    {
+                        F(i) += BED2GENO[buf & 3];
+                        c++;
+                    }
+                    buf >>= 2; // shift packed data and throw away genotype just processed.
+                }
+            }
+        }
+        if (c == 0)
+            F(i) = 0;
+        else
+            F(i) /= c;
+    }
+    // filter and resize nsnps
+    filterSNPs_inall();
+    // fill in G with new size
+    G = MyMatrix::Zero(nsamples, nsnps);
+    if (params.runem)
+        C.resize(nsnps * nsamples);
+#pragma omp parallel for private(i, j, b, c, k, buf)
+    for (i = 0; i < nsnps; ++i)
+    {
+        for (b = 0, c = 0, j = 0; b < bed_bytes_per_snp; ++b)
+        {
+            buf = inbed[keepSNPs[i] * bed_bytes_per_snp + b];
+            for (k = 0; k < 4; ++k, ++j)
+            {
+                if (j < nsamples)
+                {
                     G(j, i) = BED2GENO[buf & 3];
                     if (G(j, i) != BED_MISSING_VALUE)
                     {
                         // 0 indicate G(i,j) don't need to be predicted.
                         if (params.runem)
                             C[i * nsamples + j] = 0;
-                        F(i) += G(j, i);
-                        c++;
                     }
                     else
                     {
@@ -64,20 +90,13 @@ void FileBed::read_all()
                 }
             }
         }
-        if (c == 0)
-            throw std::runtime_error("Error: the allele frequency should not be 0. should do filtering first.");
-        F(i) /= c;
         // do centering and initialing
         for (j = 0; j < nsamples; ++j)
         {
             if (G(j, i) == BED_MISSING_VALUE)
-            {
                 G(j, i) = 0.0;
-            }
             else
-            {
                 G(j, i) -= F(i);
-            }
         }
     }
     // read bed to matrix G done and close bed_ifstream

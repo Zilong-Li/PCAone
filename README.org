@@ -249,7 +249,7 @@ run =./PCAone --help= to show all options. I feature some useful and important o
 | =-h,--halko=   | use normal RSVD algorithm  instead of PCAoneF                                        |
 | =-n,--threads= | number of threads                                                                    |
 | =-o,--out=     | prefix of output files                                                               |
-| =--bands=      | number of bands used by fancy RSVD algorithm. must be =2^x$=.                          |
+| =--bands=      | number of bands used by fancy RSVD algorithm. must be =2^x=.                           |
 | =--cpmed=      | normalize values by count per median (CPMED) for scRNAs.                             |
 | =--maxp=       | maximum number of iterations for RSVD algorithm.                                     |
 | =--no-shuffle= | do not shuffle the input data for fancy RSVD algorithm if it's already been shuffled |
@@ -275,4 +275,3 @@ PCAone use [[https://eigen.tuxfamily.org/index.php?title=Main_Page][Eigen]] for 
 * Todo
 - Integrate PCAoneF into EMU and PCAngsd
 - Shuffle BGEN and CSV file for PCAoneF out-of-core
-- filter SNPs by MAF (EMU, PCAngsd)

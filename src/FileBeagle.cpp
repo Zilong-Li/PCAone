@@ -40,12 +40,11 @@ void FileBeagle::read_all()
         tok = strtok_r(buffer, delims, &buffer);
         tok = strtok_r(NULL, delims, &buffer);
         tok = strtok_r(NULL, delims, &buffer);
-// #pragma omp parallel for num_threads(3)
         for (i = 0; i < nsamples * 3; i++)
         {
             tok = strtok_r(NULL, delims, &buffer);
             assert(tok != NULL);
-            P(i, j) = std::stod(std::string(tok));
+            P(i, j) = strtod(tok, NULL);
         }
         buffer = original;
         j++;
@@ -90,20 +89,9 @@ void FileBeagle::read_all()
         }
     }
     // filter snps and resize G;
-    std::vector<Eigen::Index> idx;
-    for (Eigen::Index j = 0; j < F.size(); j++)
-    {
-        if (F(j) > params.maf)
-            idx.push_back(j); // keep track of index of element > maf
-    }
-    nsnps = idx.size();
-    llog << timestamp() << "number of SNPs after filtering by MAF > " << params.maf << ": " << nsnps << endl;
-    if (nsnps < 1)
-    {
-        throw std::runtime_error("no SNPs left after filtering!\n");
-    }
-    // resize P, only keep columns in the indecis of idx;
-    P = P(Eigen::all, idx).eval(); // aliasing issue!!!
+    filterSNPs_inall();
+    // resize P, only keep columns matching the indecis in idx;
+    // P = P(Eigen::all, idx).eval(); // aliasing issue!!!
     G = MyMatrix::Zero(nsamples, nsnps); // initial E which is G
 #pragma omp parallel for
     for (uint j = 0; j < nsnps; j++)
@@ -111,10 +99,10 @@ void FileBeagle::read_all()
         double p0, p1, p2;
         for (uint i = 0; i < nsamples; i++)
         {
-            p0 = P(3 * i + 0, j) * (1.0 - F(idx[j])) * (1.0 - F(idx[j]));
-            p1 = P(3 * i + 1, j) * 2 * F(idx[j]) * (1.0 - F(idx[j]));
-            p2 = P(3 * i + 2, j) * F(idx[j]) * F(idx[j]);
-            G(i, j) = (p1 + 2 * p2) / (p0 + p1 + p2) - 2.0 * F(idx[j]);
+            p0 = P(3 * i + 0, keepSNPs[j]) * (1.0 - F(j)) * (1.0 - F(j));
+            p1 = P(3 * i + 1, keepSNPs[j]) * 2 * F(j) * (1.0 - F(j));
+            p2 = P(3 * i + 2, keepSNPs[j]) * F(j) * F(j);
+            G(i, j) = (p1 + 2 * p2) / (p0 + p1 + p2) - 2.0 * F(j);
         }
     }
 }

@@ -57,7 +57,7 @@ void FileBgen::read_all()
             }
             catch (const std::out_of_range& e)
             {
-                break;
+                throw e.what();
             }
         }
     }
@@ -118,18 +118,19 @@ void FileBgen::read_all()
                 llog << "EM (MAF) did not converge.\n";
             }
         }
+        filterSNPs_inall();
         // initial E which is G
-        G = MyMatrix(nsamples, nsnps);
+        G = MyMatrix::Zero(nsamples, nsnps);
 #pragma omp parallel for
         for (j = 0; j < nsnps; j++)
         {
             double p0, p1, p2;
             for (i = 0; i < nsamples; i++)
             {
-                p0 = P(3 * i + 0, j) * (1.0 - F(j)) * (1.0 - F(j));
-                p1 = P(3 * i + 1, j) * 2 * F(j) * (1.0 - F(j));
-                p2 = P(3 * i + 2, j) * F(j) * F(j);
-                G(i, j) = (p1 + 2 * p2) / (p0 + p1 + p2) - 2.0 * F(j);
+                p0 = P(3 * i + 0, keepSNPs[j]) * (1.0 - F(keepSNPs[j])) * (1.0 - F(keepSNPs[j]));
+                p1 = P(3 * i + 1, keepSNPs[j]) * 2 * F(keepSNPs[j]) * (1.0 - F(keepSNPs[j]));
+                p2 = P(3 * i + 2, keepSNPs[j]) * F(keepSNPs[j]) * F(keepSNPs[j]);
+                G(i, j) = (p1 + 2 * p2) / (p0 + p1 + p2) - 2.0 * F(keepSNPs[j]);
             }
         }
     }

@@ -22,9 +22,7 @@ public:
         }
         else
         {
-            // http://dlib.net/dlib/external/zlib/zlib.h.html
             fp = gzopen(params.beagle.c_str(), "r");
-            // gzbuffer(fp, bufsize);
             tgets(fp, &buffer, &bufsize);
             int nCol = 1;
             if (buffer != original)
@@ -40,18 +38,16 @@ public:
             // continue getting the number of sites
             // assume the number of columns of each line is the same. should check it first.
             buffer = original;
-            size_t nSites = 0;
+            nsnps = 0;
             while (tgets(fp, &buffer, &bufsize))
             {
-                nSites++;
+                nsnps++;
             }
-            nsnps = nSites;
             gzclose(fp);
         }
 
         P = MyMatrix::Zero(nsamples * 3, nsnps); // MyMatrix is column major
         llog << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << std::endl;
-        // bufsize = (uint64) nsamples * nsnps * 3 * 4;  // resize buffer size for faster reading in batch mode
     }
 
     ~FileBeagle()
