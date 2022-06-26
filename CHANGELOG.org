@@ -1,7 +1,7 @@
 - v0.2.0
-  - parse beagle file in parallel
+  - faster parser for beagle file
   - optimization for PCAngsd
-  - add =--maf= option for sites filtering
+  - add =--maf= option for SNPs filtering
 
 - v0.1.9
   - command line options are re-designed

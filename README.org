@@ -251,6 +251,7 @@ run =./PCAone --help= to show all options. I feature some useful and important o
 | =-o,--out=     | prefix of output files                                                               |
 | =--bands=      | number of bands used by fancy RSVD algorithm. must be =2^x=.                           |
 | =--cpmed=      | normalize values by count per median (CPMED) for scRNAs.                             |
+| =--maf=        | remove SNPs with minor allele frequency lower than =maf=, default is 0.0               |
 | =--maxp=       | maximum number of iterations for RSVD algorithm.                                     |
 | =--no-shuffle= | do not shuffle the input data for fancy RSVD algorithm if it's already been shuffled |
 | =--printv=     | print out another eigenvectors or loadings.                                          |
