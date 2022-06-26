@@ -62,7 +62,7 @@ void FileBed::read_all()
     // fill in G with new size
     G = MyMatrix::Zero(nsamples, nsnps);
     if (params.runem)
-        C.resize(nsnps * nsamples);
+        C(nsnps * nsamples);
 #pragma omp parallel for private(i, j, b, c, k, buf)
     for (i = 0; i < nsnps; ++i)
     {

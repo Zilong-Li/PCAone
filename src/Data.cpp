@@ -156,26 +156,6 @@ void Data::calcu_vt_update(const MyMatrix& T, const MyMatrix& U, const MyVector&
     return;
 }
 
-// MyMatrix Data::calcu_vt_from_Eb(const MyMatrix& T, const MyMatrix& U, bool standardize )
-// {
-//     if (nblocks == 1) {
-//         llog << "Warning: only one block exists. please use --batch mode instead.\n";
-//         exit(EXIT_SUCCESS);
-//     }
-//     uint nrow = T.rows();
-//     MyMatrix VT(nrow, nsnps);
-//     uint actual_block_size;
-//     check_file_offset_first_var();
-//     for(uint i = 0 ; i < nblocks ; ++i)
-//     {
-//         actual_block_size = stop[i] - start[i] + 1;
-//         // G (nsamples, actual_block_size)
-//         update_block_E(start[i], stop[i], U, standardize);
-//         VT.block(0, start[i], nrow, actual_block_size) = T * G.leftCols(actual_block_size);
-//     }
-
-//     return VT;
-// }
 
 void Data::write_eigs_files(const MyVector& S, const MyMatrix& U, const MyMatrix& V)
 {
@@ -235,7 +215,7 @@ void Data::update_batch_E(const MyMatrix& U, const MyVector& svals, const MyMatr
         {
             for (uint j = 0; j < nsamples; ++j)
             {
-                if (C[i * nsamples + j] & 1)
+                if (C[i * nsamples + j])  // no bool & 1
                 { // sites need to be predicted
                     G(j, i) = 0.0;
                     for (uint k = 0; k < ks; ++k)

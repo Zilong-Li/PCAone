@@ -4,15 +4,15 @@ using namespace std;
 
 void FileBgen::read_all()
 {
-    uint i, j, gc;
-    double gs;
+    uint i, j, k, gc;
+    double gs, af;
     if (!params.pcangsd)
     {
         F = MyVector::Zero(nsnps);
         G = MyMatrix::Zero(nsamples, nsnps);
         if (params.runem)
-            C.resize(nsnps * nsamples);
-        for (j = 0; j < nsnps; j++)
+            C(nsnps * nsamples);
+        for (j = 0, k = 0; j < nsnps; j++)
         {
             try
             {
@@ -24,42 +24,53 @@ void FileBgen::read_all()
 #pragma omp parallel for reduction(+ : gc) reduction(+ : gs)
                 for (i = 0; i < nsamples; i++)
                 {
-                    if (std::isnan(dosages[i]))
+                    if (!std::isnan(dosages[i]))
                     {
-                        if (params.runem)
-                            C[j * nsamples + i] = 1;
-                    }
-                    else
-                    {
-                        if (params.runem)
-                            C[j * nsamples + i] = 0;
-                        G(i, j) = dosages[i] / 2.0; // map to [0, 1];
-                        gs += G(i, j);
+                        gs += dosages[i] / 2.0; // map to [0, 1];
                         gc += 1;
                     }
                 }
                 if (gc == 0)
-                    throw std::runtime_error("Error: the allele frequency should not be 0. should do filtering first.");
-                F(j) = (double)gs / gc;
+                    af = 0.0;
+                else
+                    af = (double)gs / gc;
+                if (af > params.maf)
+                    F(k) = af;
+                else
+                    continue;
 // do centering and initialing
 #pragma omp parallel for
                 for (i = 0; i < nsamples; i++)
                 {
                     if (std::isnan(dosages[i]))
                     {
-                        G(i, j) = 0;
+                        if (params.runem)
+                            C[k * nsamples + i] = 1;
+                        G(i, k) = 0;
                     }
                     else
                     {
-                        G(i, j) -= F(j);
+                        if (params.runem)
+                            C[k * nsamples + i] = 0;
+                        G(i, j) = dosages[i] / 2.0 - F(k); // map to [0, 1];
                     }
                 }
+                k++;
             }
             catch (const std::out_of_range& e)
             {
                 throw e.what();
             }
         }
+        if (k == 0)
+            throw std::runtime_error("the number of SNPs after filtering should be 0!\n");
+        else
+            llog << timestamp() << "number of SNPs after filtering by MAF > " << params.maf << ": " << k << endl;
+        // resize G, F, C;
+        nsnps = k;  // resize nsnps;
+        G.conservativeResize(Eigen::NoChange, nsnps);
+        F.conservativeResize(nsnps);
+        C.conservativeResize(nsnps * nsamples);
     }
     else
     {

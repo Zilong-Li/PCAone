@@ -22,6 +22,7 @@ const double VAR_TOL = 1e-9;
 typedef Eigen::MatrixXd MyMatrix;
 typedef Eigen::VectorXd MyVector;
 typedef Eigen::ArrayXXd MyArrayX;
+typedef Eigen::Array<bool,Eigen::Dynamic,1> ArrayXb;
 
 typedef unsigned char uchar;
 typedef unsigned int uint;

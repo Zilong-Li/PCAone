@@ -62,7 +62,7 @@ public:
     MyMatrix P;          // genotype probability, nsamples x 3 x nsnps.
     MyVector F;          // observed or estimated population allele frequency
     MyVector Dc;         // diagnal vector of covariance matrix
-    std::vector<bool> C; // 1 or true indicates a ind's snp is missing and need to be predicted.
+    ArrayXb C;           // boolean array indicates if a ind's snp is missing and need to be predicted.
     MyArrayX centered_geno_lookup;
     std::vector<Eigen::Index> keepSNPs;  // store index of SNPs to keep
 
