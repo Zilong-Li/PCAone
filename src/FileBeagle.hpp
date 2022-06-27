@@ -46,7 +46,7 @@ public:
             gzclose(fp);
         }
 
-        P = MyMatrix::Zero(nsamples * 3, nsnps); // MyMatrix is column major
+        P = MyMatrix::Zero(nsamples * 2, nsnps); // MyMatrix is column major
         llog << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << std::endl;
     }
 

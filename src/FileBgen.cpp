@@ -84,9 +84,9 @@ void FileBgen::read_all()
 #pragma omp parallel for
                 for (i = 0; i < nsamples; i++)
                 {
-                    P(i * 3 + 0, j) = probs1d[i * 3 + 0];
-                    P(i * 3 + 1, j) = probs1d[i * 3 + 1];
-                    P(i * 3 + 2, j) = probs1d[i * 3 + 2];
+                    P(i * 2 + 0, j) = probs1d[i * 3 + 0];
+                    P(i * 2 + 1, j) = probs1d[i * 3 + 1];
+                    // no need to parse probs1d[i * 3 + 2]
                 }
             }
             catch (const std::out_of_range& e)
@@ -109,9 +109,9 @@ void FileBgen::read_all()
                 double p0, p1, p2, pt = 0.0;
                 for (uint i = 0; i < nsamples; i++)
                 {
-                    p0 = P(3 * i + 0, j) * (1.0 - F(j)) * (1.0 - F(j));
-                    p1 = P(3 * i + 1, j) * 2 * F(j) * (1.0 - F(j));
-                    p2 = P(3 * i + 2, j) * F(j) * F(j);
+                    p0 = P(2 * i + 0, j) * (1.0 - F(j)) * (1.0 - F(j));
+                    p1 = P(2 * i + 1, j) * 2 * F(j) * (1.0 - F(j));
+                    p2 = (1 - P(2 * i + 0, j) - P(2 * i + 1, j)) * F(j) * F(j);
                     pt += (p1 + 2 * p2) / (2 * (p0 + p1 + p2));
                 }
                 F(j) = pt / (double)nsamples;
@@ -138,10 +138,10 @@ void FileBgen::read_all()
             double p0, p1, p2;
             for (i = 0; i < nsamples; i++)
             {
-                p0 = P(3 * i + 0, keepSNPs[j]) * (1.0 - F(keepSNPs[j])) * (1.0 - F(keepSNPs[j]));
-                p1 = P(3 * i + 1, keepSNPs[j]) * 2 * F(keepSNPs[j]) * (1.0 - F(keepSNPs[j]));
-                p2 = P(3 * i + 2, keepSNPs[j]) * F(keepSNPs[j]) * F(keepSNPs[j]);
-                G(i, j) = (p1 + 2 * p2) / (p0 + p1 + p2) - 2.0 * F(keepSNPs[j]);
+                p0 = P(2 * i + 0, keepSNPs[j]) * (1.0 - F(j)) * (1.0 - F(j));
+                p1 = P(2 * i + 1, keepSNPs[j]) * 2 * F(j) * (1.0 - F(j));
+                p2 = (1 - P(2 * i + 0, keepSNPs[j]) - P(2 * i + 1, keepSNPs[j])) * F(j) * F(j);
+                G(i, j) = (p1 + 2 * p2) / (p0 + p1 + p2) - 2.0 * F(j);
             }
         }
     }

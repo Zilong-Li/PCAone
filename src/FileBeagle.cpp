@@ -67,9 +67,9 @@ void FileBeagle::read_all()
                 double p0, p1, p2, pt = 0.0;
                 for (uint i = 0; i < nsamples; i++)
                 {
-                    p0 = P(3 * i + 0, j) * (1.0 - F(j)) * (1.0 - F(j));
-                    p1 = P(3 * i + 1, j) * 2 * F(j) * (1.0 - F(j));
-                    p2 = P(3 * i + 2, j) * F(j) * F(j);
+                    p0 = P(2 * i + 0, j) * (1.0 - F(j)) * (1.0 - F(j));
+                    p1 = P(2 * i + 1, j) * 2 * F(j) * (1.0 - F(j));
+                    p2 = (1 - P(2 * i + 0, j) - P(2 * i + 1, j)) * F(j) * F(j);
                     pt += (p1 + 2 * p2) / (2 * (p0 + p1 + p2));
                 }
                 F(j) = pt / (double)nsamples;
@@ -99,9 +99,9 @@ void FileBeagle::read_all()
         double p0, p1, p2;
         for (uint i = 0; i < nsamples; i++)
         {
-            p0 = P(3 * i + 0, keepSNPs[j]) * (1.0 - F(j)) * (1.0 - F(j));
-            p1 = P(3 * i + 1, keepSNPs[j]) * 2 * F(j) * (1.0 - F(j));
-            p2 = P(3 * i + 2, keepSNPs[j]) * F(j) * F(j);
+            p0 = P(2 * i + 0, keepSNPs[j]) * (1.0 - F(j)) * (1.0 - F(j));
+            p1 = P(2 * i + 1, keepSNPs[j]) * 2 * F(j) * (1.0 - F(j));
+            p2 = (1 - P(2 * i + 0, keepSNPs[j]) - P(2 * i + 1, keepSNPs[j])) * F(j) * F(j);
             G(i, j) = (p1 + 2 * p2) / (p0 + p1 + p2) - 2.0 * F(j);
         }
     }
