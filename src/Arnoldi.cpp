@@ -82,7 +82,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
         if (!params.runem)
         {
             data->llog << timestamp() << "Final SVD done!\n";
-            evals = svals.array().square() / data->nsnps;
+            evals.noalias() = svals.array().square().matrix() / data->nsnps;
             data->write_eigs_files(evals, U, V);
             return;
         }
@@ -143,7 +143,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
         V = svds.matrix_V(params.k);
         flip_UV(U, V);
         data->llog << timestamp() << "Final SVD done!\n";
-        evals = svals.array().square() / data->nsnps;
+        evals.noalias() = svals.array().square().matrix() / data->nsnps;
         // write to files;
         data->write_eigs_files(evals, U, V);
     }
@@ -174,15 +174,15 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
             // T' = (U.array().rowwise() / eigs.eigenvalues().head(nv).transpose().array().sqrt()).matrix();
             T = (eigs->eigenvectors().leftCols(nu).transpose().array().colwise() / eigs->eigenvalues().head(nu).array().sqrt()).matrix();
             op->VT = MyMatrix::Zero(T.rows(), data->nsnps);
-            data->calcu_vt_initial(T, op->VT);
             if (!params.runem)
             {
+                data->calcu_vt_initial(T, op->VT, true);
                 data->llog << timestamp() << "Final SVD done!\n";
-                evals = eigs->eigenvalues() / data->nsnps;
-                MyMatrix V = op->VT.transpose();
-                data->write_eigs_files(evals, op->U, V);
+                evals.noalias() = eigs->eigenvalues() / data->nsnps;
+                data->write_eigs_files(evals, op->U, op->VT.transpose());
                 return;
             }
+            data->calcu_vt_initial(T, op->VT, false);
             flip_UV(op->U, op->VT);
             data->llog << timestamp() << "begin to do EM iteration.\n";
             op->setFlags(true, false, params.pcangsd);
@@ -238,9 +238,8 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
                 data->calcu_vt_update(T, op->U, op->S, op->VT, true);
                 op->U = eigs->eigenvectors().leftCols(nu);
                 flip_UV(op->U, op->VT);
-                evals = eigs->eigenvalues() / data->nsnps;
-                MyMatrix V = op->VT.transpose();
-                data->write_eigs_files(evals, op->U, V);
+                evals.noalias() = eigs->eigenvalues() / data->nsnps;
+                data->write_eigs_files(evals, op->U, op->VT.transpose());
             }
             else
             {

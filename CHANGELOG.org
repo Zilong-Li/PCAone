@@ -1,7 +1,8 @@
 - v0.2.0
+  - add =--maf= option for SNPs filtering
   - faster parser for beagle file
   - optimization for PCAngsd
-  - add =--maf= option for SNPs filtering
+  - fix printing loadings for PCAoneA blockwise mode
 
 - v0.1.9
   - command line options are re-designed

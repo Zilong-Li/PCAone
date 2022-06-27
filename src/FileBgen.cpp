@@ -129,7 +129,7 @@ void FileBgen::read_all()
                 llog << "EM (MAF) did not converge.\n";
             }
         }
-        filterSNPs_inall();
+        filterSNPs_resizeF();
         // initial E which is G
         G = MyMatrix::Zero(nsamples, nsnps);
 #pragma omp parallel for

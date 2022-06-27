@@ -89,7 +89,7 @@ void FileBeagle::read_all()
         }
     }
     // filter snps and resize G;
-    filterSNPs_inall();
+    filterSNPs_resizeF();
     // resize P, only keep columns matching the indecis in idx;
     // P = P(Eigen::all, idx).eval(); // aliasing issue!!!
     G = MyMatrix::Zero(nsamples, nsnps); // initial E which is G

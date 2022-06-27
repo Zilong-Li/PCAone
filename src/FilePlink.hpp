@@ -52,9 +52,9 @@ public:
     // for blockwise
     virtual void check_file_offset_first_var();
 
-    virtual void read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize = false);
+    virtual void read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize);
 
-    virtual void read_block_update(uint64 start_idx, uint64 stop_idx, const MyMatrix& U, const MyVector& svals, const MyMatrix& VT, bool standardize = false);
+    virtual void read_block_update(uint64 start_idx, uint64 stop_idx, const MyMatrix& U, const MyVector& svals, const MyMatrix& VT, bool standardize);
 
 private:
     std::ifstream bed_ifstream;

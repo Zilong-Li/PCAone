@@ -58,7 +58,7 @@ void FileBed::read_all()
             F(i) /= c;
     }
     // filter and resize nsnps
-    filterSNPs_inall();
+    filterSNPs_resizeF();
     // fill in G with new size
     G = MyMatrix::Zero(nsamples, nsnps);
     if (params.runem)
@@ -172,12 +172,6 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
                             c++;
                         }
                         buf >>= 2; // shift packed data and throw away genotype just processed.
-                        // } else {
-                        //     if (buf != 0)
-                        //     {
-                        //         cerr << "Row " << snp_idx + 1 << "padding is non-zero. Either the specified number of individuals is incorrect or the input
-                        //         file is corrupt!\n"; exit(EXIT_FAILURE);
-                        //     }
                     }
                 }
             }

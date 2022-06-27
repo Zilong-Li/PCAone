@@ -85,7 +85,7 @@ void Data::prepare(uint& blocksize)
     }
 }
 
-void Data::filterSNPs_inall()
+void Data::filterSNPs_resizeF()
 {
     // make a temp F
     MyVector Fnew(F.size());
@@ -116,7 +116,7 @@ void Data::filterSNPs_inall()
   V = G' * (U/s) // calculate V is not a good idea
  **/
 
-void Data::calcu_vt_initial(const MyMatrix& T, MyMatrix& VT)
+void Data::calcu_vt_initial(const MyMatrix& T, MyMatrix& VT, bool standardize)
 {
     if (nblocks == 1)
     {
@@ -129,7 +129,7 @@ void Data::calcu_vt_initial(const MyMatrix& T, MyMatrix& VT)
     {
         actual_block_size = stop[i] - start[i] + 1;
         // G (nsamples, actual_block_size)
-        read_block_initial(start[i], stop[i]);
+        read_block_initial(start[i], stop[i], standardize);
         VT.block(0, start[i], T.rows(), actual_block_size) = T * G.leftCols(actual_block_size);
     }
 
