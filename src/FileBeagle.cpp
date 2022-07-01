@@ -26,32 +26,29 @@ neverUseGoto:
 // read all data and estimate F
 void FileBeagle::read_all()
 {
-    fp = gzopen(params.beagle.c_str(), "r");
-    tgets(fp, &buffer, &bufsize);
-    char* tok;
-    uint i = 0, j = 0;
-    // read all GP data into P
-    while (tgets(fp, &buffer, &bufsize))
-    {
-        if (buffer != original)
+    // read all GP data into P. parsing in parallel to speedup
+#pragma omp parallel for
+    for (uint64 j = 0; j < nsnps; j++) {
+        size_t p;
+        for(uint t = 0; t < 3; t++)
         {
-            original = buffer;
+            p = bgls[j].find("\t");
+            bgls[j].erase(0, p + 1);
         }
-        tok = strtok_r(buffer, delims, &buffer);
-        tok = strtok_r(NULL, delims, &buffer);
-        tok = strtok_r(NULL, delims, &buffer);
-        for (i = 0; i < nsamples * 3; i++)
-        {
-            tok = strtok_r(NULL, delims, &buffer);
-            assert(tok != NULL);
-            P(i, j) = strtod(tok, NULL);
+        for (uint64 i = 0; i < nsamples; i++) {
+            for (uint t = 0; t < 2; t++)
+            {
+                p = bgls[j].find("\t");
+                if(p != std::string::npos) P(2 * i + t, j) = std::stod(bgls[j].substr(0, p));
+                bgls[j].erase(0, p + 1);
+            }
+            p = bgls[j].find("\t");
+            if(p != std::string::npos) bgls[j].erase(0, p + 1);
         }
-        buffer = original;
-        j++;
     }
-    gzclose(fp);
-    assert(j == nsnps);
 
+    bgls.clear();
+    bgls.shrink_to_fit();
     llog << timestamp() << "begin to estimate allele frequencies" << endl;
     F = MyVector::Constant(nsnps, 0.25);
     { // out of scope: eigen object will be released;

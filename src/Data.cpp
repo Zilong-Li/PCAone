@@ -103,9 +103,7 @@ void Data::filterSNPs_resizeF()
     nsnps = keepSNPs.size(); // new number of SNPs
     llog << timestamp() << "number of SNPs after filtering by MAF > " << params.maf << ": " << nsnps << endl;
     if (nsnps < 1)
-    {
         throw std::runtime_error("no SNPs left after filtering!\n");
-    }
     // resize F
     F.noalias() = Fnew.head(nsnps);
 }

@@ -14,38 +14,38 @@ public:
         llog << timestamp() << "start parsing BEAGLE format" << std::endl;
         original = buffer = (char*)calloc(bufsize, sizeof(char));
 
-        if (params.nsnps > 0 && params.nsamples > 0)
+        fp = gzopen(params.beagle.c_str(), "r");
+        tgets(fp, &buffer, &bufsize);
+        int nCol = 1;
+        if (buffer != original)
+            original = buffer;
+        strtok_r(buffer, delims, &buffer);
+        while (strtok_r(NULL, delims, &buffer))
+            nCol++;
+        if (nCol % 3)
         {
-            llog << timestamp() << "use nsamples and nsnps given by user." << std::endl;
-            nsamples = params.nsamples;
-            nsnps = params.nsnps;
+            throw std::runtime_error("number of columns should be a multiple of 3.\n");
         }
-        else
+        nsamples = nCol / 3 - 1;
+        // continue getting the number of sites
+        // assume the number of columns of each line is the same. should check it first.
+        buffer = original;
+        nsnps = 0;
+        while (tgets(fp, &buffer, &bufsize))
         {
-            fp = gzopen(params.beagle.c_str(), "r");
-            tgets(fp, &buffer, &bufsize);
-            int nCol = 1;
             if (buffer != original)
                 original = buffer;
-            strtok_r(buffer, delims, &buffer);
-            while (strtok_r(NULL, delims, &buffer))
-                nCol++;
-            if (nCol % 3)
-            {
-                throw std::runtime_error("Number of columns should be a multiple of 3.\n");
-            }
-            nsamples = nCol / 3 - 1;
-            // continue getting the number of sites
-            // assume the number of columns of each line is the same. should check it first.
+            bgls.emplace_back((std::string)buffer);
             buffer = original;
-            nsnps = 0;
-            while (tgets(fp, &buffer, &bufsize))
-            {
-                nsnps++;
-            }
-            gzclose(fp);
+            nsnps++;
         }
+        gzclose(fp);
 
+        if (params.nsnps > 0 && params.nsamples > 0 && (params.nsamples != nsamples || params.nsnps != nsnps))
+        {
+            llog << timestamp() << "nsamples and nsnps given by user does not match the file!" << std::endl;
+            throw std::runtime_error("something wrong!\n");
+        }
         P = MyMatrix::Zero(nsamples * 2, nsnps); // MyMatrix is column major
         llog << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << std::endl;
     }
@@ -74,6 +74,7 @@ private:
     char *original, *buffer;
     uint64 bufsize = (uint64)128 * 1024 * 1024;
     const char* delims = "\t \n";
+    std::vector<std::string> bgls;
 };
 
 
