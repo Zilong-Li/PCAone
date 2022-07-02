@@ -1,3 +1,6 @@
+- v0.2.1
+  - bug fix for PCAngsd
+
 - v0.2.0
   - add =--maf= option for SNPs filtering
   - faster parser for beagle file

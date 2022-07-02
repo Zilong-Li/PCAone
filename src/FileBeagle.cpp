@@ -34,17 +34,17 @@ void FileBeagle::read_all()
     while (tgets(fp, &buffer, &bufsize))
     {
         if (buffer != original)
-        {
             original = buffer;
-        }
         tok = strtok_r(buffer, delims, &buffer);
         tok = strtok_r(NULL, delims, &buffer);
         tok = strtok_r(NULL, delims, &buffer);
-        for (i = 0; i < nsamples * 3; i++)
+        for (i = 0; i < nsamples; i++)
         {
             tok = strtok_r(NULL, delims, &buffer);
-            assert(tok != NULL);
-            P(i, j) = strtod(tok, NULL);
+            P(2 * i + 0, j) = strtod(tok, NULL);
+            tok = strtok_r(NULL, delims, &buffer);
+            P(2 * i + 1, j) = strtod(tok, NULL);
+            tok = strtok_r(NULL, delims, &buffer);
         }
         buffer = original;
         j++;
