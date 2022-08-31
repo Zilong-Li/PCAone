@@ -145,7 +145,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
     if (pi == 0)
     {
         auto rng = std::default_random_engine{};
-        Omg = UniformRandom<MyMatrix, std::default_random_engine>(data->nsamples, size, rng);
+        Omg = StandardNormalRandom<MyMatrix, std::default_random_engine>(data->nsamples, size, rng);
         Omg2 = Omg;
     }
     if (data->params.batch)
