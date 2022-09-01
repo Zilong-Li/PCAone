@@ -170,6 +170,8 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
             }
             band = 2;
             blocksize = (unsigned int)ceil((double)data->nsnps / data->params.bands);
+            if (blocksize < data->params.bands)
+                throw std::runtime_error("data and blocksize is too small. please consider IRAM method by using -a option");
             // permute snps of G, see https://stackoverflow.com/questions/15858569/randomly-permute-rows-columns-of-a-matrix-with-eigen
             if (!data->params.noshuffle)
             {
