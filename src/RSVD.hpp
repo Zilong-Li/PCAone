@@ -4,6 +4,7 @@
 #include <Eigen/Dense>
 #include <Eigen/SVD>
 #include <random>
+#include <stdexcept>
 
 template <typename MatrixType>
 using RealType = typename Eigen::NumTraits<typename MatrixType::Scalar>::Real;
@@ -45,7 +46,6 @@ struct StandardNormalRandomHelper<MatrixType, std::complex<RealType<MatrixType>>
     }
 };
 
-// @see: https://github.com/mp4096/rsvd/blob/master/include/rsvd/StandardNormalRandom.hpp
 template <typename MatrixType, typename RandomEngineType>
 inline MatrixType StandardNormalRandom(const Eigen::Index numRows, const Eigen::Index numCols, RandomEngineType& engine)
 {
@@ -59,43 +59,44 @@ class RsvdOpOnePass
 {
 private:
     using Index = Eigen::Index;
+    using ConstGenericMatrix = const Eigen::Ref<const MatrixType>;
+
+    ConstGenericMatrix mat;
+    Index nrow, ncol;
+    MatrixType Omg;
+    int k, os, size, rand;
+    bool trans; // if matrix is wide then flip the matrix dimension
 
 public:
-    virtual Index rows() const = 0;
-    virtual Index cols() const = 0;
-    virtual Index ranks() const = 0;
-    virtual Index oversamples() const = 0;
+    RsvdOpOnePass(ConstGenericMatrix& mat_, int k_, int os_ = 10, int rand_ = 1) : mat(mat_), k(k_), os(os_), size(k_ + os_), rand(rand_)
+    {
+        if (mat.rows() >= mat.cols())
+        {
+            trans = false;
+            nrow = mat.rows();
+            ncol = mat.cols();
+        }
+        else
+        {
+            trans = true;
+            nrow = mat.cols();
+            ncol = mat.rows();
+        }
 
-    virtual void computeGandH(MatrixType& G, MatrixType& H, int p) = 0;
+        auto randomEngine = std::default_random_engine{};
+        if (rand == 1)
+        {
+            Omg = StandardNormalRandom<MatrixType, std::default_random_engine>(ncol, size, randomEngine);
+        }
+        else
+        {
+            Omg = UniformRandom<MatrixType, std::default_random_engine>(ncol, size, randomEngine);
+        }
+    }
 
     virtual ~RsvdOpOnePass()
     {
     }
-};
-
-
-template <typename MatrixType>
-class RsvdOpTallMat : public RsvdOpOnePass<MatrixType>
-{
-private:
-    using Index = Eigen::Index;
-    using ConstGenericMatrix = const Eigen::Ref<const MatrixType>;
-
-    ConstGenericMatrix mat;
-    const Index nrow, ncol, nk, os, size;
-    MatrixType Omg;
-
-public:
-    RsvdOpTallMat(ConstGenericMatrix& mat_, int k_, int os_ = 10) : mat(mat_), nrow(mat_.rows()), ncol(mat_.cols()), nk(k_), os(os_), size(k_ + os_)
-    {
-        std::mt19937_64 randomEngine{};
-        randomEngine.seed(111);
-        Omg = StandardNormalRandom<MatrixType, std::mt19937_64>(ncol, size, randomEngine);
-    }
-
-    ~RsvdOpTallMat()
-    {
-    }
 
     Index rows() const
     {
@@ -107,7 +108,7 @@ public:
     }
     Index ranks() const
     {
-        return nk;
+        return k;
     }
     Index oversamples() const
     {
@@ -116,80 +117,97 @@ public:
 
     void computeGandH(MatrixType& G, MatrixType& H, int p)
     {
-        G.noalias() = mat * Omg;
-        H.noalias() = mat.transpose() * G;
+        if (trans)
+        {
+            G.noalias() = mat.transpose() * Omg;
+            H.noalias() = mat * G;
+        }
+        else
+        {
+            G.noalias() = mat * Omg;
+            H.noalias() = mat.transpose() * G;
+        }
         if (p > 0)
         {
-            for (int i = 0; i < p; ++i)
+            for (int i = 0; i < p; i++)
             {
-                // Eigen::ColPivHouseholderQR<Eigen::Ref<MatrixType>> qr(H);
                 Eigen::HouseholderQR<Eigen::Ref<MatrixType>> qr(H);
                 H.noalias() = qr.householderQ() * MatrixType::Identity(cols(), size);
-                G.noalias() = mat * H;
-                H.noalias() = mat.transpose() * G;
+                if (trans)
+                {
+                    G.noalias() = mat.transpose() * Omg;
+                    H.noalias() = mat * G;
+                }
+                else
+                {
+                    G.noalias() = mat * Omg;
+                    H.noalias() = mat.transpose() * G;
+                }
+            }
+        }
+    }
+
+    void computeGandH(MatrixType& G, MatrixType& H, int p, int windows)
+    {
+        if (windows % 2 != 0)
+            throw std::runtime_error("windows must be a power of 2, ie. windows=2^x.\n");
+        uint blocksize = (unsigned int)std::ceil((double)nrow / windows);
+        if (blocksize < windows)
+            throw std::runtime_error("window size is smaller than number of windows because given matrix is too small. please consider other methods or adjust "
+                                     "parameter windows.\n");
+        uint start_idx, stop_idx, actual_block_size;
+        MatrixType H1, H2;
+        uint band = 2;
+        for (int pi = 0; pi <= p; pi++)
+        {
+            band = std::fmin(band * 2, windows);
+            H1 = MatrixType::Zero(ncol, size);
+            H2 = MatrixType::Zero(ncol, size);
+            for (uint b = 0, i = 1; b < windows; ++b, ++i)
+            {
+                start_idx = b * blocksize;
+                stop_idx = (b + 1) * blocksize >= nrow ? nrow - 1 : (b + 1) * blocksize - 1;
+                actual_block_size = stop_idx - start_idx + 1;
+                if (trans)
+                    G.middleRows(start_idx, actual_block_size).noalias() = mat.middleCols(start_idx, actual_block_size).transpose() * Omg;
+                else
+                    G.middleRows(start_idx, actual_block_size).noalias() = mat.middleRows(start_idx, actual_block_size) * Omg;
+                if (i <= band / 2)
+                {
+                    if (trans)
+                        H1.noalias() += mat.middleCols(start_idx, actual_block_size) * G.middleRows(start_idx, actual_block_size);
+                    else
+                        H1.noalias() += mat.middleRows(start_idx, actual_block_size).transpose() * G.middleRows(start_idx, actual_block_size);
+                }
+                else if (i > band / 2 && i <= band)
+                {
+                    if (trans)
+                        H2.noalias() += mat.middleCols(start_idx, actual_block_size) * G.middleRows(start_idx, actual_block_size);
+                    else
+                        H2.noalias() += mat.middleRows(start_idx, actual_block_size).transpose() * G.middleRows(start_idx, actual_block_size);
+                }
+                if ((b + 1) >= band)
+                {
+                    if (i == band)
+                    {
+                        H = H1 + H2;
+                        Eigen::HouseholderQR<MatrixType> qr(H);
+                        Omg.noalias() = qr.householderQ() * MatrixType::Identity(cols(), size);
+                        H1 = MatrixType::Zero(cols(), size);
+                        i = 0;
+                    }
+                    else if (i == band / 2)
+                    {
+                        H = H1 + H2;
+                        Eigen::HouseholderQR<MatrixType> qr(H);
+                        Omg.noalias() = qr.householderQ() * MatrixType::Identity(cols(), size);
+                        H2 = MatrixType::Zero(cols(), size);
+                    }
+                }
             }
         }
     }
 };
-
-template <typename MatrixType>
-class RsvdOpWideMat : public RsvdOpOnePass<MatrixType>
-{
-private:
-    using Index = Eigen::Index;
-    using ConstGenericMatrix = const Eigen::Ref<const MatrixType>;
-
-    ConstGenericMatrix mat;
-    const Index nrow, ncol, nk, os, size;
-    MatrixType Omg;
-
-public:
-    RsvdOpWideMat(ConstGenericMatrix& mat_, int k_, int os_ = 10) : mat(mat_), nrow(mat_.cols()), ncol(mat_.rows()), nk(k_), os(os_), size(k_ + os_)
-    {
-        std::mt19937_64 randomEngine{};
-        randomEngine.seed(111);
-        Omg = StandardNormalRandom<MatrixType, std::mt19937_64>(ncol, size, randomEngine);
-    }
-
-    ~RsvdOpWideMat()
-    {
-    }
-
-    Index rows() const
-    {
-        return nrow;
-    }
-    Index cols() const
-    {
-        return ncol;
-    }
-    Index ranks() const
-    {
-        return nk;
-    }
-    Index oversamples() const
-    {
-        return os;
-    }
-
-    void computeGandH(MatrixType& G, MatrixType& H, int p)
-    {
-        G.noalias() = mat.transpose() * Omg;
-        H.noalias() = mat * G;
-        if (p > 0)
-        {
-            for (int i = 0; i < p; ++i)
-            {
-                // Eigen::ColPivHouseholderQR<Eigen::Ref<MatrixType>> qr(H);
-                Eigen::HouseholderQR<Eigen::Ref<MatrixType>> qr(H);
-                H.noalias() = qr.householderQ() * MatrixType::Identity(cols(), size);
-                G.noalias() = mat.transpose() * H;
-                H.noalias() = mat * G;
-            }
-        }
-    }
-};
-
 
 template <typename MatrixType, typename RsvdOp>
 class RsvdOnePass
@@ -233,7 +251,7 @@ public:
     }
 
     // G = D * Omega; H = D.transpose() * G;
-    void computeUSV(int p = 1)
+    void computeUSV(int p, int windows = 0)
     {
         const Eigen::Index nrow{b_op.rows()};
         const Eigen::Index ncol{b_op.cols()};
@@ -241,7 +259,10 @@ public:
         const Eigen::Index k{b_op.ranks()};
         MatrixType H(ncol, size), G(nrow, size), R(size, size), Rt(size, size);
 
-        b_op.computeGandH(G, H, p);
+        if (windows > 0)
+            b_op.computeGandH(G, H, p, windows);
+        else
+            b_op.computeGandH(G, H, p);
 
         {
             Eigen::HouseholderQR<Eigen::Ref<MatrixType>> qr(G);
@@ -273,38 +294,38 @@ private:
 };
 
 template <typename MatrixType>
-class Rsvd
+class RsvdOne
 {
 private:
     using ConstGenericMatrix = const Eigen::Ref<const MatrixType>;
 
     ConstGenericMatrix mat;
-    int k, p, os;
-    bool trans = false;
+    uint k, os, rand;
+    bool trans;
 
     RsvdOpOnePass<MatrixType>* op;
     RsvdOnePass<MatrixType, RsvdOpOnePass<MatrixType>>* rsvd;
 
 public:
-    Rsvd(ConstGenericMatrix& mat_, int k_, int p_, int os_ = 10) : mat(mat_), k(k_), p(p_), os(os_)
+    RsvdOne(ConstGenericMatrix& mat_, uint k_, uint os_ = 10, uint rand_ = 1) : mat(mat_), k(k_), os(os_), rand(rand_)
     {
         if (mat.rows() >= mat.cols())
-        {
-            op = new RsvdOpTallMat<MatrixType>(mat, k, os);
-        }
+            trans = false;
         else
-        {
-            op = new RsvdOpWideMat<MatrixType>(mat, k, os);
             trans = true;
-        }
+        op = new RsvdOpOnePass<MatrixType>(mat, k, os, rand);
         rsvd = new RsvdOnePass<MatrixType, RsvdOpOnePass<MatrixType>>(*op);
-        rsvd->computeUSV(p);
     }
 
-    ~Rsvd()
+    ~RsvdOne()
     {
         delete op;
         delete rsvd;
+    }
+
+    inline void compute(int p, int windows = 0)
+    {
+        rsvd->computeUSV(p, windows);
     }
 
     inline MatrixType matrixU() const
@@ -323,5 +344,4 @@ public:
     }
 };
 
-
-#endif  // PCAONE_RSVD_
+#endif // PCAONE_RSVD_
