@@ -44,7 +44,6 @@ public:
 class NormalRsvdOpData : public RsvdOpData
 {
 private:
-    Data* data;
     const Index nk, os, size;
     uint64 actual_block_size, start_idx, stop_idx;
     MyMatrix Omg;
@@ -81,13 +80,12 @@ public:
 class FancyRsvdOpData : public RsvdOpData
 {
 private:
-    Data* data;
     const Index nk, os, size;
     uint64 band, blocksize, actual_block_size, start_idx, stop_idx;
     MyMatrix Omg, Omg2;
 
 public:
-    FancyRsvdOpData(Data* data_, int k_, int os_ = 10) :RsvdOpData(data_), data(data_), nk(k_), os(os_), size(k_ + os_)
+    FancyRsvdOpData(Data* data_, int k_, int os_ = 10) :RsvdOpData(data_), nk(k_), os(os_), size(k_ + os_)
     {
     }
 
