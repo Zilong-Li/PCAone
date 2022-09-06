@@ -8,19 +8,19 @@ class Logger
 {
 public:
     std::ofstream clog;
-    bool stdout = true;
+    bool isstdout = true;
     template <class S>
     Logger& operator<<(const S& val)
     {
         clog << val;
-        if (stdout) std::cout << val;
+        if (isstdout) std::cout << val;
         return *this;
     }
 
     Logger& operator<<(std::ostream& (*pfun)(std::ostream&))
     {
         pfun(clog);
-        if (stdout) pfun(std::cout);
+        if (isstdout) pfun(std::cout);
         return *this;
     };
 
@@ -35,7 +35,7 @@ public:
     {
         // start logging
         llog.clog.open(std::string(params.outfile + ".log").c_str(), std::ios::out | std::ios::trunc);
-        if (params.printu) llog.stdout = false;
+        if (params.printu) llog.isstdout = false;
     }
 
     virtual ~Data()
