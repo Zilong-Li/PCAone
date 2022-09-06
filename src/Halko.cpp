@@ -36,12 +36,12 @@ void RsvdOpData::computeUSV(int p, double tol)
         if (pi > 0)
         {
             diff_mev = 1 - mev(Upre, U);
-            verbose&& cout << timestamp() << "running of epoch=" << pi << ", 1-MEV=" << diff_mev << endl;
+            if (verbose) data->llog << timestamp() << "running of epoch=" << pi << ", 1-MEV=" << diff_mev << endl;
             if (diff_mev < tol || pi == p)
             {
                 V.noalias() = G * svd.matrixU().leftCols(k);
                 S = svd.singularValues().head(k);
-                verbose&& cout << timestamp() << "stops at epoch=" << pi + 1 << endl;
+                if(verbose) data->llog << timestamp() << "stops at epoch=" << pi + 1 << endl;
                 break;
             }
             else
