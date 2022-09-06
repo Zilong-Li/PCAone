@@ -7,6 +7,7 @@
 class RsvdOpData
 {
 public:
+    Data* data;
     using Index = Eigen::Index;
     bool update = false, standardize = false, verbose = false;
     MyMatrix U, V;
@@ -14,6 +15,10 @@ public:
     Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic> perm;
 
 public:
+    RsvdOpData(Data* data_) : data(data_)
+    {
+    }
+
     virtual ~RsvdOpData()
     {
     }
@@ -45,7 +50,7 @@ private:
     MyMatrix Omg;
 
 public:
-    NormalRsvdOpData(Data* data_, int k_, int os_ = 10) : data(data_), nk(k_), os(os_), size(k_ + os_)
+    NormalRsvdOpData(Data* data_, int k_, int os_ = 10) : RsvdOpData(data_), nk(k_), os(os_), size(k_ + os_)
     {
     }
 
@@ -82,7 +87,7 @@ private:
     MyMatrix Omg, Omg2;
 
 public:
-    FancyRsvdOpData(Data* data_, int k_, int os_ = 10) : data(data_), nk(k_), os(os_), size(k_ + os_)
+    FancyRsvdOpData(Data* data_, int k_, int os_ = 10) :RsvdOpData(data_), data(data_), nk(k_), os(os_), size(k_ + os_)
     {
     }
 
@@ -113,4 +118,4 @@ public:
 // void print_summary_table(const MyMatrix& Upre, const MyMatrix& Ucur);
 void run_pca_with_halko(Data* data, const Param& params);
 
-#endif  // PCAONE_HALKO_
+#endif // PCAONE_HALKO_

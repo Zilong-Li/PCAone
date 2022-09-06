@@ -126,8 +126,9 @@ string parse_params(int argc, char* argv[], struct Param* params)
     opts.add<Value<uint>, Attribute::advanced>("", "oversamples", "number of oversampling columns for RSVD", params->oversamples, &params->oversamples);
     opts.add<Value<double>, Attribute::advanced>("", "tol", "tolerance for RSVD algorithm", params->tol, &params->tol);
     opts.add<Value<double>, Attribute::advanced>("", "tol-em", "tolerance for EMU/PCAngsd algorithm", params->tolem, &params->tolem);
-    opts.add<Value<double>, Attribute::advanced>("", "tol-maf", "tolerance for minor allele frequencies estimation update by EM ", params->tolmaf,
+    opts.add<Value<double>, Attribute::advanced>("", "tol-maf", "tolerance for minor allele frequencies estimation update by EM", params->tolmaf,
                                                  &params->tolmaf);
+    opts.add<Switch, Attribute::advanced>("", "printu", "print out eigenvector matrix for each epoch for tests", &params->printu);
 
     std::ostringstream ss;
     // print command line options

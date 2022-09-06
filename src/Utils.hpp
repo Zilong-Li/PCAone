@@ -28,27 +28,6 @@ typedef unsigned char uchar;
 typedef unsigned int uint;
 typedef unsigned long long uint64;
 
-template <typename M>
-M load_csv(const std::string& path)
-{
-    std::ifstream in(path);
-    std::string line;
-    std::vector<double> values;
-    uint rows = 0;
-    while (std::getline(in, line))
-    {
-        std::stringstream lineStream(line);
-        std::string cell;
-        while (std::getline(lineStream, cell, ' '))
-        {
-            values.push_back(std::stof(cell));
-        }
-        ++rows;
-    }
-    return Eigen::Map<const Eigen::Matrix<typename M::Scalar, M::RowsAtCompileTime, M::ColsAtCompileTime, Eigen::RowMajor>>(values.data(), rows,
-                                                                                                                            values.size() / rows);
-}
-
 enum class FileType
 {
     None,
@@ -104,6 +83,7 @@ struct Param
     bool halko = false;
     bool arnoldi = false;
     bool verbose = false;
+    bool printu = false;
 };
 
 struct Line

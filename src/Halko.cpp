@@ -30,6 +30,9 @@ void RsvdOpData::computeUSV(int p, double tol)
         B.noalias() = R.transpose().colPivHouseholderQr().solve(H.transpose());
         Eigen::JacobiSVD<MyMatrix> svd(B, Eigen::ComputeThinU | Eigen::ComputeThinV);
         U = svd.matrixV().leftCols(k);
+        if (data->params.printu) {
+            data->llog << "eigenvector matrix of epoch " << pi << ":\n" << U << "\n";
+        }
         if (pi > 0)
         {
             diff_mev = 1 - mev(Upre, U);
