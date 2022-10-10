@@ -212,7 +212,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
                         Eigen::HouseholderQR<MyMatrix> qr(H);
                         Omg.noalias() = qr.householderQ() * MyMatrix::Identity(cols(), size);
                         flip_Omg(Omg2, Omg);
-                        H1 = MyMatrix::Zero(cols(), size);
+                        H1.setZero();
                         i = 0;
                     }
                     else if (i == band / 2)
@@ -221,7 +221,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
                         Eigen::HouseholderQR<MyMatrix> qr(H);
                         Omg.noalias() = qr.householderQ() * MyMatrix::Identity(cols(), size);
                         flip_Omg(Omg2, Omg);
-                        H2 = MyMatrix::Zero(cols(), size);
+                        H2.setZero();
                     }
                     else if ((b + 1) == data->nblocks)
                     {
