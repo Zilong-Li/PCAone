@@ -122,6 +122,7 @@ string parse_params(int argc, char* argv[], struct Param* params)
     opts.add<Value<uint>, Attribute::advanced>("", "buffer", "buffer in GB uint used for permuting the data", params->buffer, &params->buffer);
     opts.add<Value<uint>, Attribute::advanced>("", "imaxiter", "maximum number of IRAM interations", params->imaxiter, &params->imaxiter);
     opts.add<Value<double>, Attribute::advanced>("", "itol", "tolerance for IRAM algorithm", params->itol, &params->itol);
+    opts.add<Switch>("", "mev", "use mev measurement instead of default minRMSE", &params->mev);
     opts.add<Value<uint>, Attribute::advanced>("", "ncv", "number of Lanzcos basis vectors for IRAM", params->ncv, &params->ncv);
     opts.add<Value<uint>, Attribute::advanced>("", "oversamples", "number of oversampling columns for RSVD", params->oversamples, &params->oversamples);
     opts.add<Value<double>, Attribute::advanced>("", "tol", "tolerance for RSVD algorithm", params->tol, &params->tol);

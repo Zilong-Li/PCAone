@@ -9,7 +9,7 @@ void RsvdOpData::computeUSV(int p, double tol)
     const Index nrow{rows()};
     const Index ncol{cols()};
     MyMatrix Upre, H(ncol, size), G(nrow, size), R(size, size), Rt(size, size), B(size, ncol);
-    double diff_mev;
+    double diff;
     for (int pi = 0; pi <= p; ++pi)
     {
         computeGandH(G, H, pi);
@@ -35,9 +35,12 @@ void RsvdOpData::computeUSV(int p, double tol)
         }
         if (pi > 0)
         {
-            diff_mev = 1 - mev(Upre, U);
-            if (verbose) data->llog << timestamp() << "running of epoch=" << pi << ", 1-MEV=" << diff_mev << endl;
-            if (diff_mev < tol || pi == p)
+            if (data->params.mev)
+                diff = 1 - mev(U, Upre);
+            else
+                diff = minRMSE(U, Upre).minCoeff();
+            if (verbose) data->llog << timestamp() << "running of epoch=" << pi << ", diff=" << diff << endl;
+            if (diff < tol || pi == p)
             {
                 V.noalias() = G * svd.matrixU().leftCols(k);
                 S = svd.singularValues().head(k);
@@ -365,8 +368,11 @@ void run_pca_with_halko(Data* data, const Param& params)
             Vpre = rsvd->V;
             rsvd->computeUSV(params.maxp, params.tol);
             // flip_UV(rsvd->U, rsvd->V, false);
-            diff = 1.0 - mev(rsvd->V, Vpre);
-            data->llog << timestamp() << "Individual allele frequencies estimated (iter=" << i + 1 << "), 1-MEV=" << diff << endl;
+            if (params.mev)
+                diff = 1.0 - mev(rsvd->V, Vpre);
+            else
+                diff = minRMSE(rsvd->V, Vpre).minCoeff();
+            data->llog << timestamp() << "Individual allele frequencies estimated (iter=" << i + 1 << "), diff=" << diff << endl;
             if (diff < params.tolem)
             {
                 data->llog << timestamp() << "Come to convergence!" << endl;

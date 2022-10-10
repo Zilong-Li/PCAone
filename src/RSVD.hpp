@@ -193,7 +193,7 @@ public:
                         H = H1 + H2;
                         Eigen::HouseholderQR<MatrixType> qr(H);
                         Omg.noalias() = qr.householderQ() * MatrixType::Identity(cols(), size);
-                        H1 = MatrixType::Zero(cols(), size);
+                        H1.setZero();
                         i = 0;
                     }
                     else if (i == band / 2)
@@ -201,7 +201,7 @@ public:
                         H = H1 + H2;
                         Eigen::HouseholderQR<MatrixType> qr(H);
                         Omg.noalias() = qr.householderQ() * MatrixType::Identity(cols(), size);
-                        H2 = MatrixType::Zero(cols(), size);
+                        H2.setZero();
                     }
                 }
             }

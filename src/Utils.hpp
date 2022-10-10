@@ -84,6 +84,7 @@ struct Param
     bool arnoldi = false;
     bool verbose = false;
     bool printu = false;
+    bool mev = false;
 };
 
 struct Line
