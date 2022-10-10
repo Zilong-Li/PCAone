@@ -275,6 +275,29 @@ double rmse(const MyMatrix& X, const MyMatrix& Y)
     return sqrt((X - Z).array().square().sum() / (X.cols() * X.rows()));
 }
 
+// Y is the truth matrix, X is the test matrix
+Eigen::VectorXd minRMSE(const MyMatrix& X, const MyMatrix& Y)
+{
+    Eigen::Index w1, w2;
+    Eigen::VectorXd res(X.cols());
+    for (Eigen::Index i = 0; i < X.cols(); ++i)
+    {
+        // test against the original matrix to find the index with mincoeff
+        ((-Y).colwise() + X.col(i)).array().square().colwise().sum().minCoeff(&w1);
+        // test against the flipped matrix with the opposite sign
+        (Y.colwise() + X.col(i)).array().square().colwise().sum().minCoeff(&w2);
+        // get the minRMSE value for X.col(i) against -Y.col(w1)
+        auto val1 = sqrt((-Y.col(w1) + X.col(i)).array().square().sum());
+        // get the minRMSE value for X.col(i) against Y.col(w2)
+        auto val2 = sqrt((Y.col(w2) + X.col(i)).array().square().sum());
+        if (w1 != w2 && val1 > val2)
+            res[i] = val2;
+        else
+            res[i] = val1;
+    }
+    return res;
+}
+
 double mev(const MyMatrix& X, const MyMatrix& Y)
 {
     double res = 0;

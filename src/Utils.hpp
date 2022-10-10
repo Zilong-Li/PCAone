@@ -119,6 +119,8 @@ void flip_Y(const MyMatrix& X, MyMatrix& Y);
 
 double rmse(const MyMatrix& X, const MyMatrix& Y);
 
+Eigen::VectorXd minRMSE(const MyMatrix& X, const MyMatrix& Y);
+
 double mev(const MyMatrix& X, const MyMatrix& Y);
 
 void mev_rmse_byk(const MyMatrix& X, const MyMatrix& Y, MyVector& Vm, MyVector& Vr);
