@@ -167,6 +167,8 @@ string parse_params(int argc, char* argv[], struct Param* params)
         }
         params->ncv = fmax(20, 2 * params->k + 1);
         params->oversamples = fmax(10, params->k);
+        if (!params->mev && params->tol == 1e-4)
+            params->tol = 0.001; // for minRMSE per PC;
         // beagle only represents genotype likelihood for pcangsd algorithm now
         if (params->intype == FileType::BEAGLE)
             params->pcangsd = true;
