@@ -276,7 +276,7 @@ double rmse(const MyMatrix& X, const MyMatrix& Y)
 }
 
 // Y is the truth matrix, X is the test matrix
-Eigen::VectorXd minRMSE(const MyMatrix& X, const MyMatrix& Y)
+Eigen::VectorXd minSSE(const MyMatrix& X, const MyMatrix& Y)
 {
     Eigen::Index w1, w2;
     Eigen::VectorXd res(X.cols());
@@ -286,10 +286,10 @@ Eigen::VectorXd minRMSE(const MyMatrix& X, const MyMatrix& Y)
         ((-Y).colwise() + X.col(i)).array().square().colwise().sum().minCoeff(&w1);
         // test against the flipped matrix with the opposite sign
         (Y.colwise() + X.col(i)).array().square().colwise().sum().minCoeff(&w2);
-        // get the minRMSE value for X.col(i) against -Y.col(w1)
-        auto val1 = sqrt((-Y.col(w1) + X.col(i)).array().square().sum());
-        // get the minRMSE value for X.col(i) against Y.col(w2)
-        auto val2 = sqrt((Y.col(w2) + X.col(i)).array().square().sum());
+        // get the minSSE value for X.col(i) against -Y.col(w1)
+        auto val1 = (-Y.col(w1) + X.col(i)).array().square().sum();
+        // get the minSSE value for X.col(i) against Y.col(w2)
+        auto val2 = (Y.col(w2) + X.col(i)).array().square().sum();
         if (w1 != w2 && val1 > val2)
             res[i] = val2;
         else

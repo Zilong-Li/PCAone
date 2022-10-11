@@ -278,7 +278,7 @@ public:
 
         R = Rt * R;
         // R.T * B = H.T => lapack dtrtrs()
-        MatrixType B = R.transpose().colPivHouseholderQr().solve(H.transpose());
+        MatrixType B = R.transpose().fullPivHouseholderQr().solve(H.transpose());
         Eigen::JacobiSVD<MatrixType> svd(B, Eigen::ComputeThinU | Eigen::ComputeThinV);
         b_leftSingularVectors.noalias() = G * svd.matrixU().leftCols(k);
         b_rightSingularVectors = svd.matrixV().leftCols(k);

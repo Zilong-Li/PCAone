@@ -122,7 +122,7 @@ string parse_params(int argc, char* argv[], struct Param* params)
     opts.add<Value<uint>, Attribute::advanced>("", "buffer", "buffer in GB uint used for permuting the data", params->buffer, &params->buffer);
     opts.add<Value<uint>, Attribute::advanced>("", "imaxiter", "maximum number of IRAM interations", params->imaxiter, &params->imaxiter);
     opts.add<Value<double>, Attribute::advanced>("", "itol", "tolerance for IRAM algorithm", params->itol, &params->itol);
-    opts.add<Switch>("", "mev", "use mev measurement instead of default minRMSE", &params->mev);
+    opts.add<Switch, Attribute::advanced>("", "mev", "use mev measurement instead of default minSSE", &params->mev);
     opts.add<Value<uint>, Attribute::advanced>("", "ncv", "number of Lanzcos basis vectors for IRAM", params->ncv, &params->ncv);
     opts.add<Value<uint>, Attribute::advanced>("", "oversamples", "number of oversampling columns for RSVD", params->oversamples, &params->oversamples);
     opts.add<Value<double>, Attribute::advanced>("", "tol", "tolerance for RSVD algorithm", params->tol, &params->tol);
@@ -167,8 +167,6 @@ string parse_params(int argc, char* argv[], struct Param* params)
         }
         params->ncv = fmax(20, 2 * params->k + 1);
         params->oversamples = fmax(10, params->k);
-        if (!params->mev && params->tol == 1e-4)
-            params->tol = 0.001; // for minRMSE per PC;
         // beagle only represents genotype likelihood for pcangsd algorithm now
         if (params->intype == FileType::BEAGLE)
             params->pcangsd = true;
