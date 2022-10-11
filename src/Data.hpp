@@ -35,7 +35,6 @@ public:
     {
         // start logging
         llog.clog.open(std::string(params.outfile + ".log").c_str(), std::ios::out | std::ios::trunc);
-        if (params.printu) llog.isstdout = false;
     }
 
     virtual ~Data()

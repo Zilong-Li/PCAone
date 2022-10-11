@@ -31,14 +31,15 @@ void RsvdOpData::computeUSV(int p, double tol)
         Eigen::JacobiSVD<MyMatrix> svd(B, Eigen::ComputeThinU | Eigen::ComputeThinV);
         U = svd.matrixV().leftCols(k);
         if (data->params.printu) {
-            data->llog << "eigenvector matrix of epoch " << pi << ":\n" << U << "\n";
+            std::ofstream ulog(std::string(data->params.outfile + ".epoch." + std::to_string(pi) + ".eigvecs").c_str());
+            ulog << U;
         }
         if (pi > 0)
         {
             if (data->params.mev)
                 diff = 1 - mev(U, Upre);
             else
-                diff = minRMSE(U, Upre).minCoeff();
+                diff = minRMSE(U, Upre).sum() / U.cols();
             if (verbose) data->llog << timestamp() << "running of epoch=" << pi << ", diff=" << diff << endl;
             if (diff < tol || pi == p)
             {
@@ -371,7 +372,7 @@ void run_pca_with_halko(Data* data, const Param& params)
             if (params.mev)
                 diff = 1.0 - mev(rsvd->V, Vpre);
             else
-                diff = minRMSE(rsvd->V, Vpre).minCoeff();
+                diff = minRMSE(rsvd->V, Vpre).sum() / Vpre.cols();
             data->llog << timestamp() << "Individual allele frequencies estimated (iter=" << i + 1 << "), diff=" << diff << endl;
             if (diff < params.tolem)
             {
