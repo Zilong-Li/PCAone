@@ -66,7 +66,10 @@ void NormalRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
     if (pi == 0)
     {
         auto rng = std::default_random_engine{};
-        Omg = StandardNormalRandom<MyMatrix, std::default_random_engine>(data->nsamples, size, rng);
+        if (data->params.rand)
+            Omg = StandardNormalRandom<MyMatrix, std::default_random_engine>(data->nsamples, size, rng);
+        else
+            Omg = UniformRandom<MyMatrix, std::default_random_engine>(data->nsamples, size, rng);
     }
     if (data->params.batch)
     {
@@ -152,7 +155,10 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
     if (pi == 0)
     {
         auto rng = std::default_random_engine{};
-        Omg = StandardNormalRandom<MyMatrix, std::default_random_engine>(data->nsamples, size, rng);
+        if (data->params.rand)
+            Omg = StandardNormalRandom<MyMatrix, std::default_random_engine>(data->nsamples, size, rng);
+        else
+            Omg = UniformRandom<MyMatrix, std::default_random_engine>(data->nsamples, size, rng);
         Omg2 = Omg;
     }
     if (data->params.batch)

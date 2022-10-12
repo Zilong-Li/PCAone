@@ -85,6 +85,7 @@ struct Param
     bool verbose = false;
     bool printu = false;
     bool mev = false;
+    uint rand = 0;
 };
 
 struct Line

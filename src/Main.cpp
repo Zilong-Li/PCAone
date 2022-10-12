@@ -125,6 +125,7 @@ string parse_params(int argc, char* argv[], struct Param* params)
     opts.add<Switch, Attribute::advanced>("", "mev", "use mev measurement instead of default minSSE", &params->mev);
     opts.add<Value<uint>, Attribute::advanced>("", "ncv", "number of Lanzcos basis vectors for IRAM", params->ncv, &params->ncv);
     opts.add<Value<uint>, Attribute::advanced>("", "oversamples", "number of oversampling columns for RSVD", params->oversamples, &params->oversamples);
+    opts.add<Value<uint>, Attribute::advanced>("", "rand", "the random matrix type. 0: uniform, 1: guassian", params->rand, &params->rand);
     opts.add<Value<double>, Attribute::advanced>("", "tol", "tolerance for RSVD algorithm", params->tol, &params->tol);
     opts.add<Value<double>, Attribute::advanced>("", "tol-em", "tolerance for EMU/PCAngsd algorithm", params->tolem, &params->tolem);
     opts.add<Value<double>, Attribute::advanced>("", "tol-maf", "tolerance for MAF estimation updated by EM", params->tolmaf,
