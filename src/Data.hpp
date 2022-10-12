@@ -2,6 +2,7 @@
 #define PCAONE_DATA_
 
 #include "Utils.hpp"
+#include "Cmd.hpp"
 
 
 class Logger

@@ -128,7 +128,7 @@ endif
 
 # OBJ = $(patsubst %.cpp, %.o, $(wildcard ./src/*.cpp))
 # tar OBJ as libpcaone.a
-OBJ = src/Arnoldi.o src/Halko.o src/Data.o src/Utils.o \
+OBJ = src/Arnoldi.o src/Halko.o src/Data.o src/Utils.o src/Cmd.o \
 		src/FileBeagle.o src/FileCsv.o src/FileBgen.o src/FilePlink.o
 
 
