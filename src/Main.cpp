@@ -93,31 +93,31 @@ int main(int argc, char* argv[])
 string parse_params(int argc, char* argv[], struct Param* params)
 {
     string copyr{"PCA All In One (v" + (string)VERSION +
-                 ")        https://github.com/Zilong-Li/PCAone\n(C) 2021-2022 Zilong Li        GNU General Public License v3\n\nUsage: PCAone [OPTION]\n\n"};
+                 ")        https://github.com/Zilong-Li/PCAone\n(C) 2021-2022 Zilong Li        GNU General Public License v3\n\n\x1B[33mUsage: PCAone [OPTION]. Use --help to see all hidden options\033[0m\n\n"};
     OptionParser opts(copyr + "Main options");
-    auto help_opt = opts.add<Switch>("", "help", "print list of all options\n");
-    opts.add<Switch>("a", "arnoldi", "use IRAM algorithm instead", &params->arnoldi);
+    auto help_opt = opts.add<Switch>("h", "help", "print list of all options including hidden advanced options\n");
+    opts.add<Switch>("a", "arnoldi", "use Implicitly Restarted Arnoldi Method instead", &params->arnoldi);
     opts.add<Value<string>>("b", "bfile", "prefix of PLINK .bed/.bim/.fam files", "", &params->bed_prefix);
-    opts.add<Value<string>>("B", "bgen", "path of BGEN file", "", &params->bgen);
-    opts.add<Value<string>>("g", "beagle", "path of beagle file", "", &params->beagle);
     opts.add<Value<string>>("c", "csv", "path of CSV file compressed by zstd", "", &params->csvfile);
     opts.add<Switch>("C", "cpmed", "normalize values by count per median (CPMED) for scRNAs", &params->cpmed);
-    opts.add<Switch>("e", "emu", "use EMU algorithm for data with lots of missingness", &params->emu);
-    // opts.add<Switch>("f", "fast", "use fast RSVD algorithm with super power iterations", &params->fast);
-    opts.add<Switch>("h", "halko", "use normal RSVD algorithm instead", &params->halko);
+    opts.add<Switch>("e", "emu", "use EMU algorithm for genotype data with lots of missingness", &params->emu);
+    opts.add<Value<double>>("f", "maf", "remove variants with minor allele frequency below maf", params->maf, &params->maf);
+    opts.add<Value<string>>("g", "bgen", "path of BGEN file", "", &params->bgen);
     opts.add<Value<uint>>("k", "eigs", "top k components to be calculated", params->k, &params->k);
-    opts.add<Value<double>>("", "maf", "remove variants with minor allele frequency below maf", params->maf, &params->maf);
+    opts.add<Value<string>>("l", "beagle", "path of beagle file", "", &params->beagle);
     opts.add<Value<double>>("m", "memory", "specify the RAM usage in GB unit", params->memory, &params->memory);
-    opts.add<Value<uint>>("n", "threads", "number of threads to use", params->threads, &params->threads);
+    opts.add<Value<uint>>("n", "threads", "number of threads to be used", params->threads, &params->threads);
+    opts.add<Switch>("y", "halko", "use Yu RSVD + Halko power iteration algorithm instead", &params->halko);
+    opts.add<Switch>("S", "no-shuffle", "do not shuffle the data if it is already permuted", &params->noshuffle);
+    opts.add<Value<uint64>, Attribute::advanced>("M", "", "number of features (eg. SNPs) if already known", 0, &params->nsnps);
+    opts.add<Value<uint64>, Attribute::advanced>("N", "", "number of samples if already known", 0, &params->nsamples);
     opts.add<Value<string>>("o", "out", "prefix of output files", params->outfile, &params->outfile);
     opts.add<Switch>("p", "pcangsd", "use PCAngsd algorithm for genotype likelihood input", &params->pcangsd);
     opts.add<Value<uint>>("P", "maxp", "maximum number of power iteration for RSVD", params->maxp, &params->maxp);
-    opts.add<Switch>("V", "printv", "output another eigen vectors with suffix .loadings", &params->printv);
     opts.add<Value<string>>("T", "tmp", "prefix of temporary permuted data", "", &params->tmpfile);
+    opts.add<Switch>("U", "printu", "output eigen vector of each epoch (for tests)", &params->printu);
     opts.add<Switch>("v", "verbose", "verbose message output", &params->verbose);
-    opts.add<Switch>("", "no-shuffle", "do not shuffle the data if it is already permuted", &params->noshuffle);
-    opts.add<Value<uint64>, Attribute::advanced>("M", "", "number of features, eg. SNPs", 0, &params->nsnps);
-    opts.add<Value<uint64>, Attribute::advanced>("N", "", "number of samples", 0, &params->nsamples);
+    opts.add<Switch>("V", "printv", "output the right eigen vectors with suffix .loadings", &params->printv);
     opts.add<Value<uint>, Attribute::advanced>("", "bands", "number of bands to use for fast RSVD", params->bands, &params->bands);
     opts.add<Value<uint>, Attribute::advanced>("", "buffer", "buffer in GB uint used for permuting the data", params->buffer, &params->buffer);
     opts.add<Value<uint>, Attribute::advanced>("", "imaxiter", "maximum number of IRAM interations", params->imaxiter, &params->imaxiter);
@@ -127,9 +127,8 @@ string parse_params(int argc, char* argv[], struct Param* params)
     opts.add<Value<uint>, Attribute::advanced>("", "oversamples", "number of oversampling columns for RSVD", params->oversamples, &params->oversamples);
     opts.add<Value<double>, Attribute::advanced>("", "tol", "tolerance for RSVD algorithm", params->tol, &params->tol);
     opts.add<Value<double>, Attribute::advanced>("", "tol-em", "tolerance for EMU/PCAngsd algorithm", params->tolem, &params->tolem);
-    opts.add<Value<double>, Attribute::advanced>("", "tol-maf", "tolerance for minor allele frequencies estimation update by EM", params->tolmaf,
+    opts.add<Value<double>, Attribute::advanced>("", "tol-maf", "tolerance for MAF estimation updated by EM", params->tolmaf,
                                                  &params->tolmaf);
-    opts.add<Switch, Attribute::advanced>("", "printu", "print out eigenvector matrix for each epoch for tests", &params->printu);
 
     std::ostringstream ss;
     // print command line options

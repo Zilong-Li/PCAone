@@ -21,7 +21,7 @@ jobs:
         sudo apt-get -y install libzstd-dev
 
     - name: make
-      run: make
+      run: make -j4
 
     - name: test
       run: ./PCAone --help
