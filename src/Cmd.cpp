@@ -40,7 +40,7 @@ Param::Param(int argc, char** argv)
     opts.add<Value<double>, Attribute::advanced>("", "tol-em", "tolerance for EMU/PCAngsd algorithm", tolem, &tolem);
     opts.add<Value<double>, Attribute::advanced>("", "tol-maf", "tolerance for MAF estimation updated by EM", tolmaf,
                                                  &tolmaf);
-
+    opts.add<Switch, Attribute::hidden>("", "groff", "print groff formatted help message", &groff);
     // collect command line options acutal in effect
     ss << (std::string) "PCAone (v" + VERSION + ")    https://github.com/Zilong-Li/PCAone\n";
     ss << "Options in effect:\n";
@@ -48,6 +48,12 @@ Param::Param(int argc, char** argv)
     try
     {
         opts.parse(argc, argv);
+        if (groff)
+        {
+            GroffOptionPrinter groff_printer(&opts);
+            std::cout << groff_printer.print(Attribute::advanced);
+            exit(EXIT_SUCCESS);
+        }
         if (bed_prefix != "")
         {
             intype = FileType::PLINK;

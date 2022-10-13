@@ -7,7 +7,6 @@ GPATH
 .Rhistory
 *.pdf
 *.o
-PCAone*
 *.makefile
 external/*/*.a
 *.dylib

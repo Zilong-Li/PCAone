@@ -34,7 +34,7 @@ public:
     std::string csvfile = "";
     std::string outfile = "pcaone";
     std::string tmpfile = "";
-    //
+    double memory = 0; // 0 for disable
     uint64 nsamples = 0;
     uint64 nsnps = 0;
     uint k = 10;
@@ -57,8 +57,9 @@ public:
     uint oversamples = 10;
     double tol = 1e-4;
     uint buffer = 2;
+    uint rand = 0;
 
-    double memory = 0; // 0 for disable
+    bool groff = false;
     bool cpmed = false;
     bool printv = false;
     bool runem = false;
@@ -72,7 +73,6 @@ public:
     bool verbose = false;
     bool printu = false;
     bool mev = false;
-    uint rand = 0;
 
     std::ostringstream ss;
 

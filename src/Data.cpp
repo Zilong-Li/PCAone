@@ -66,7 +66,7 @@ void Data::prepare(uint& blocksize)
             }
             nblocks = (unsigned int)ceil((double)nsnps / blocksize);
             if (params.verbose)
-                llog << timestamp() << "after adjustment by -f/--fast: blocksize=" << blocksize << ", nblocks=" << nblocks << ", bandFactor=" << bandFactor
+                llog << timestamp() << "after adjustment by PCAone bands: blocksize=" << blocksize << ", nblocks=" << nblocks << ", bandFactor=" << bandFactor
                      << ".\n";
         }
         start.resize(nblocks);
