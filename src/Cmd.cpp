@@ -3,7 +3,7 @@
 Param::Param(int argc, char** argv)
 {
     std::string copyr{"PCA All In One (v" + (std::string)VERSION +
-                 ")        https://github.com/Zilong-Li/PCAone\n(C) 2021-2022 Zilong Li        GNU General Public License v3\n\n\x1B[33mUsage: PCAone [OPTION]. Use --help to see all hidden options\033[0m\n\n"};
+                 ")        https://github.com/Zilong-Li/PCAone\n(C) 2021-2022 Zilong Li        GNU General Public License v3\n\n\x1B[32mUsage: PCAone [OPTION]. Use --help to see all hidden options\033[0m\n\n"};
     OptionParser opts(copyr + "Main options");
     auto help_opt = opts.add<Switch>("h", "help", "print list of all options including hidden advanced options\n");
     opts.add<Switch>("a", "arnoldi", "use Implicitly Restarted Arnoldi Method instead", &arnoldi);
@@ -16,7 +16,7 @@ Param::Param(int argc, char** argv)
     opts.add<Value<uint>>("k", "eigs", "top k components to be calculated", k, &k);
     opts.add<Value<std::string>>("l", "beagle", "path of beagle file", "", &beagle);
     opts.add<Value<double>>("m", "memory", "specify the RAM usage in GB unit", memory, &memory);
-    opts.add<Value<uint>>("n", "threads", "number of threads to be used", threads, &threads);
+    opts.add<Value<uint>>("n", "threads", "number of threads for multithreading", threads, &threads);
     opts.add<Switch>("y", "halko", "use Yu RSVD + Halko power iteration algorithm instead", &halko);
     opts.add<Switch>("S", "no-shuffle", "do not shuffle the data if it is already permuted", &noshuffle);
     opts.add<Value<uint64>, Attribute::advanced>("M", "", "number of features (eg. SNPs) if already known", 0, &nsnps);
@@ -28,7 +28,6 @@ Param::Param(int argc, char** argv)
     opts.add<Switch>("U", "printu", "output eigen vector of each epoch (for tests)", &printu);
     opts.add<Switch>("v", "verbose", "verbose message output", &verbose);
     opts.add<Switch>("V", "printv", "output the right eigen vectors with suffix .loadings", &printv);
-    opts.add<Value<uint>, Attribute::advanced>("", "bands", "number of bands to use for fast RSVD", bands, &bands);
     opts.add<Value<uint>, Attribute::advanced>("", "buffer", "buffer in GB uint used for permuting the data", buffer, &buffer);
     opts.add<Value<uint>, Attribute::advanced>("", "imaxiter", "maximum number of IRAM interations", imaxiter, &imaxiter);
     opts.add<Value<double>, Attribute::advanced>("", "itol", "tolerance for IRAM algorithm", itol, &itol);
@@ -40,6 +39,7 @@ Param::Param(int argc, char** argv)
     opts.add<Value<double>, Attribute::advanced>("", "tol-em", "tolerance for EMU/PCAngsd algorithm", tolem, &tolem);
     opts.add<Value<double>, Attribute::advanced>("", "tol-maf", "tolerance for MAF estimation updated by EM", tolmaf,
                                                  &tolmaf);
+    opts.add<Value<uint>, Attribute::advanced>("", "windows", "number of windows to use for PCAone (algorithm2)", bands, &bands);
     opts.add<Switch, Attribute::hidden>("", "groff", "print groff formatted help message", &groff);
     // collect command line options acutal in effect
     ss << (std::string) "PCAone (v" + VERSION + ")    https://github.com/Zilong-Li/PCAone\n";

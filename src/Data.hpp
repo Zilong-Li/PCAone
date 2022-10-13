@@ -4,6 +4,7 @@
 #include "Utils.hpp"
 #include "Cmd.hpp"
 
+const double VAR_TOL = 1e-9;
 
 class Logger
 {

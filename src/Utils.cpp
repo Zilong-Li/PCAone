@@ -58,10 +58,9 @@ std::string timestamp()
 }
 
 // structured permutation with cached buffer
-void permute_plink(std::string& fin, const std::string& fout, uint gb)
+void permute_plink(std::string& fin, const std::string& fout, uint gb, uint nbands)
 {
     cout << timestamp() << "begin to permute plink data.\n";
-    uint nbands = 64;
     uint64 nsnps = count_lines(fin + ".bim");
     uint64 nsamples = count_lines(fin + ".fam");
     uint64 bed_bytes_per_snp = (nsamples + 3) >> 2;

@@ -165,7 +165,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
     {
         if (pi == 0)
         {
-            data->llog << timestamp() << "running in batch mode with fancy RSVD." << endl;
+            data->llog << timestamp() << "running in memory mode with PCAone (algorithm2)." << endl;
             if (update)
             {
                 data->update_batch_E(U, S, V.transpose());
@@ -250,7 +250,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
         if (pi == 0)
         {
             if (verbose)
-                data->llog << timestamp() << "running in blockwise mode with fancy RSVD." << endl;
+                data->llog << timestamp() << "running in out-of-core mode with PCAone (algorithm 2)." << endl;
             band = 2 * data->bandFactor;
         }
         {
@@ -322,11 +322,11 @@ void run_pca_with_halko(Data* data, const Param& params)
 {
     if (params.batch)
     {
-        data->llog << timestamp() << "begin to run_pca_with_rsvd batch mode" << endl;
+        data->llog << timestamp() << "begin to run PCAone RSVD in memory mode" << endl;
     }
     else
     {
-        data->llog << timestamp() << "begin to run_pca_with_rsvd blockwise mode" << endl;
+        data->llog << timestamp() << "begin to PCAone RSVD in out-of-core mode" << endl;
     }
     MyMatrix Vpre;
     MyVector S;
@@ -379,14 +379,14 @@ void run_pca_with_halko(Data* data, const Param& params)
                 diff = 1.0 - mev(rsvd->V, Vpre);
             else
                 diff = minSSE(rsvd->V, Vpre).sum() / Vpre.cols();
-            data->llog << timestamp() << "Individual allele frequencies estimated (iter=" << i + 1 << "), diff=" << diff << endl;
+            data->llog << timestamp() << "individual allele frequencies estimated (iter=" << i + 1 << "), diff=" << diff << endl;
             if (diff < params.tolem)
             {
-                data->llog << timestamp() << "Come to convergence!" << endl;
+                data->llog << timestamp() << "come to convergence!" << endl;
                 break;
             }
         }
-        data->llog << timestamp() << "Begin to standardize the matrix." << endl;
+        data->llog << timestamp() << "begin to standardize the matrix." << endl;
 
         // if pcangsd, estimate GRM.
         if (params.pcangsd)

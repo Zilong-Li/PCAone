@@ -14,7 +14,6 @@
 #include <iostream>
 #include <iterator>
 
-const double VAR_TOL = 1e-9;
 
 
 typedef Eigen::MatrixXd MyMatrix;
@@ -49,7 +48,7 @@ size_t count_lines(const std::string& fpath);
 
 std::string timestamp();
 
-void permute_plink(std::string& fin, const std::string& fout, uint gb = 2);
+void permute_plink(std::string& fin, const std::string& fout, uint gb, uint nbands);
 
 void flip_UV(MyMatrix& U, MyMatrix& V, bool ubase = true);
 

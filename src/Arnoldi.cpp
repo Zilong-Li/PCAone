@@ -51,11 +51,11 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
 {
     if (params.batch)
     {
-        data->llog << timestamp() << "begin to run_pca_with_arnoldi batch mode\n";
+        data->llog << timestamp() << "begin to PCAone IRAM in memory mode\n";
     }
     else
     {
-        data->llog << timestamp() << "begin to run_pca_with_arnoldi blockwise mode\n";
+        data->llog << timestamp() << "begin to PCAone IRAM in out-of-core mode\n";
     }
     MyVector svals, evals;
     uint nconv, nu;
@@ -73,7 +73,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
         if (nconv != params.k)
         {
             if (params.verbose)
-                data->llog << "Warning: the nconv is not equal to k.\n";
+                data->llog << "warning: the nconv is not equal to k.\n";
             exit(EXIT_FAILURE);
         }
         U = svds.matrix_U(params.k);
@@ -81,7 +81,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
         svals = svds.singular_values();
         if (!params.runem)
         {
-            data->llog << timestamp() << "Final SVD done!\n";
+            data->llog << timestamp() << "final SVD done!\n";
             evals.noalias() = svals.array().square().matrix() / data->nsnps;
             data->write_eigs_files(evals, U, V);
             return;
@@ -98,11 +98,11 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
             flip_UV(U, V2);
             diff = rmse(V2, V);
             if (params.verbose)
-                data->llog << timestamp() << "Individual allele frequencies estimated (iter=" << i << "), RMSE=" << diff << ".\n";
+                data->llog << timestamp() << "individual allele frequencies estimated (iter=" << i << "), RMSE=" << diff << ".\n";
             V = V2;
             if (diff < params.tol)
             {
-                data->llog << timestamp() << "Come to convergence!\n";
+                data->llog << timestamp() << "iome to convergence!\n";
                 break;
             }
         }
@@ -142,7 +142,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
         U = svds.matrix_U(params.k);
         V = svds.matrix_V(params.k);
         flip_UV(U, V);
-        data->llog << timestamp() << "Final SVD done!\n";
+        data->llog << timestamp() << "final SVD done!\n";
         evals.noalias() = svals.array().square().matrix() / data->nsnps;
         // write to files;
         data->write_eigs_files(evals, U, V);
@@ -161,7 +161,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
         if (nconv < params.k)
         {
             if (params.verbose)
-                data->llog << "Warning: the nconv is not equal to k.\n";
+                data->llog << "warning: the nconv is not equal to k.\n";
         }
         nu = min(params.k, nconv);
         if (eigs->info() == CompInfo::Successful)
@@ -177,7 +177,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
             if (!params.runem)
             {
                 data->calcu_vt_initial(T, op->VT, true);
-                data->llog << timestamp() << "Final SVD done!\n";
+                data->llog << timestamp() << "final SVD done!\n";
                 evals.noalias() = eigs->eigenvalues() / data->nsnps;
                 data->write_eigs_files(evals, op->U, op->VT.transpose());
                 return;
@@ -194,7 +194,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
                 if (nconv < params.k)
                 {
                     if (params.verbose)
-                        data->llog << "Warning: the nconv is not equal to k.\n";
+                        data->llog << "warning: the nconv is not equal to k.\n";
                 }
                 if (eigs->info() == CompInfo::Successful)
                 {
@@ -207,16 +207,16 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
                     flip_UV(op->U, op->VT);
                     diff = rmse(op->VT, VT);
                     if (params.verbose)
-                        data->llog << timestamp() << "Individual allele frequencies estimated (iter=" << i << "), RMSE=" << diff << ".\n";
+                        data->llog << timestamp() << "individual allele frequencies estimated (iter=" << i << "), RMSE=" << diff << ".\n";
                     if (diff < params.tol)
                     {
-                        data->llog << timestamp() << "Come to convergence!\n";
+                        data->llog << timestamp() << "come to convergence!\n";
                         break;
                     }
                 }
                 else
                 {
-                    data->llog << "Error: something wrong with Spectra SymEigsSolver\n";
+                    data->llog << "error: something wrong with Spectra SymEigsSolver\n";
                     exit(EXIT_FAILURE);
                 }
             }
@@ -228,7 +228,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
             if (nconv < params.k)
             {
                 if (params.verbose)
-                    data->llog << "Warning: the nconv is not equal to k.\n";
+                    data->llog << "warning: the nconv is not equal to k.\n";
             }
             if (eigs->info() == CompInfo::Successful)
             {

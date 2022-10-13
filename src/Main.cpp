@@ -14,15 +14,12 @@
 #endif
 
 using namespace std;
-using namespace popl;
 
 int main(int argc, char* argv[])
 {
     auto t1 = std::chrono::steady_clock::now();
     Param params(argc, argv);
     string commandargs = params.ss.str();
-    // parse params and check before run
-    // string commandargs = parse_params(argc, argv, &params);
     // set number of threads
     // openblas_set_num_threads(params.threads);
     omp_set_num_threads(params.threads);
@@ -33,7 +30,7 @@ int main(int argc, char* argv[])
         {
             if (params.noshuffle)
             {
-                cout << timestamp() << "warning: running fast fancy RSVD without shuffling the data!" << endl;
+                cerr << timestamp() << "warning: running PCAone (algorithm2) without shuffling the data!" << endl;
             }
             else
             {
@@ -41,7 +38,7 @@ int main(int argc, char* argv[])
                 string fout = params.outfile + ".perm";
                 if (params.tmpfile != "")
                     fout = params.tmpfile;
-                permute_plink(params.bed_prefix, fout, params.buffer);
+                permute_plink(params.bed_prefix, fout, params.buffer, params.bands);
                 auto te = std::chrono::steady_clock::now();
                 auto duration = std::chrono::duration_cast<std::chrono::seconds>(te - ts);
                 cout << timestamp() << "total elapsed time of permuting data: " << duration.count() << " seconds" << endl;
