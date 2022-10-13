@@ -73,7 +73,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
         if (nconv != params.k)
         {
             if (params.verbose)
-                data->llog << "warning: the nconv is not equal to k.\n";
+                data->llog << colwarn + "the nconv is not equal to k." + colend << endl;
             exit(EXIT_FAILURE);
         }
         U = svds.matrix_U(params.k);
@@ -161,7 +161,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
         if (nconv < params.k)
         {
             if (params.verbose)
-                data->llog << "warning: the nconv is not equal to k.\n";
+                data->llog << colwarn + "the nconv is not equal to k." + colend << endl;
         }
         nu = min(params.k, nconv);
         if (eigs->info() == CompInfo::Successful)
@@ -194,7 +194,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
                 if (nconv < params.k)
                 {
                     if (params.verbose)
-                        data->llog << "warning: the nconv is not equal to k.\n";
+                        data->llog << colwarn + "the nconv is not equal to k.\n" + colend;
                 }
                 if (eigs->info() == CompInfo::Successful)
                 {
@@ -228,7 +228,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params)
             if (nconv < params.k)
             {
                 if (params.verbose)
-                    data->llog << "warning: the nconv is not equal to k.\n";
+                    data->llog << colwarn + "the nconv is not equal to k.\n" + colend;
             }
             if (eigs->info() == CompInfo::Successful)
             {

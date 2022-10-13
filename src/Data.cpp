@@ -2,13 +2,6 @@
 
 using namespace std;
 
-Logger::Logger()
-{
-}
-Logger::~Logger()
-{
-}
-
 void Data::prepare(uint& blocksize)
 {
     if (nsamples > nsnps)
@@ -40,7 +33,7 @@ void Data::prepare(uint& blocksize)
             }
             else
             {
-                llog << timestamp() << "\x1B[33m" << "warning: minimum RAM required is " << m << " GB. trying to allocate more RAM." << "\033[0m" << endl;
+                llog << timestamp() << colwarn + "minimum RAM required is " << m << " GB. trying to allocate more RAM." + colend << endl;
             }
             blocksize = (unsigned int)ceil((double)((m + params.memory) * 134217728 - 3 * nsamples * l - 2 * nsnps * l - 5 * nsnps) / nsamples);
         }
@@ -50,7 +43,7 @@ void Data::prepare(uint& blocksize)
                  << ".\n";
         if (nblocks == 1)
         {
-            throw std::invalid_argument("warning: only one block exists. please remove -m / --memory option instead.\n");
+            throw std::invalid_argument(colerror + "only one block exists. please remove -m / --memory option instead.\n");
         }
         if (params.fast)
         {
@@ -120,7 +113,7 @@ void Data::calcu_vt_initial(const MyMatrix& T, MyMatrix& VT, bool standardize)
 {
     if (nblocks == 1)
     {
-        llog << "warning: only one block exists. please use --batch mode instead.\n";
+        llog << colwarn + "only one block exists. please use --batch mode instead." + colend << endl;
         exit(EXIT_SUCCESS);
     }
     uint actual_block_size;
@@ -140,7 +133,7 @@ void Data::calcu_vt_update(const MyMatrix& T, const MyMatrix& U, const MyVector&
 {
     if (nblocks == 1)
     {
-        llog << "Warning: only one block exists. please use --batch mode instead.\n";
+        llog << colwarn + "only one block exists. please use --batch mode instead." + colend << endl;
         exit(EXIT_SUCCESS);
     }
     uint actual_block_size;

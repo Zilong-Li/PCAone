@@ -33,14 +33,14 @@ public:
         bed_ifstream.open(fbed, std::ios::in | std::ios::binary);
         if (!bed_ifstream.is_open())
         {
-            throw std::invalid_argument("ERROR: Cannot open bed file.\n");
+            throw std::invalid_argument(colerror + "Cannot open bed file.\n");
         }
         // check magic number of bed file
         uchar header[3];
         bed_ifstream.read(reinterpret_cast<char*>(&header[0]), 3);
         if ((header[0] != 0x6c) || (header[1] != 0x1b) || (header[2] != 0x01))
         {
-            throw std::invalid_argument("ERROR: Incorrect magic number in plink bed file.\n");
+            throw std::invalid_argument(colerror + "Incorrect magic number in plink bed file.\n");
         }
     }
 

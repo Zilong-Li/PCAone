@@ -30,7 +30,7 @@ int main(int argc, char* argv[])
         {
             if (params.noshuffle)
             {
-                cerr << timestamp() << "warning: running PCAone (algorithm2) without shuffling the data!" << endl;
+                cerr << timestamp() << colwarn + "running PCAone (algorithm2) without shuffling the data!" + colend << endl;
             }
             else
             {
@@ -61,7 +61,7 @@ int main(int argc, char* argv[])
     else
     {
         throw std::invalid_argument(
-            "\nplease specify the input file using one of --bfile, --bgen, --beagle, --csv option!\nusing --help to show all options.\n");
+            colerror + "\nplease specify the input file using one of --bfile, --bgen, --beagle, --csv option!\nusing --help to show all options.\n");
     }
     // ready for run
     data->prepare(params.blocksize);

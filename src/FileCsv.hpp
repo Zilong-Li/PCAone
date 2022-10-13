@@ -84,7 +84,7 @@ public:
 
                         if (nsnps > 2 && (lastCol != ncol))
                         {
-                            throw std::invalid_argument("the csv file has unaligned columns\n");
+                            throw std::invalid_argument(colerror + "the csv file has unaligned columns\n");
                         }
                     }
                 }
@@ -92,7 +92,7 @@ public:
 
             if (isEmpty)
             {
-                throw std::invalid_argument("input file is empty.\n");
+                throw std::invalid_argument(colerror + "input file is empty.\n");
             }
 
             if (lastRet != 0)

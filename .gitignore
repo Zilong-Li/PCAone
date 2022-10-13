@@ -22,3 +22,5 @@ lib*.a
 out.*
 tutorial
 .ccls
+pcaone.*
+releases

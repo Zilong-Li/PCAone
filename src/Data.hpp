@@ -3,32 +3,9 @@
 
 #include "Utils.hpp"
 #include "Cmd.hpp"
+#include "Logger.hpp"
 
 const double VAR_TOL = 1e-9;
-
-class Logger
-{
-public:
-    std::ofstream clog;
-    bool isstdout = true;
-    template <class S>
-    Logger& operator<<(const S& val)
-    {
-        clog << val;
-        if (isstdout) std::cout << val;
-        return *this;
-    }
-
-    Logger& operator<<(std::ostream& (*pfun)(std::ostream&))
-    {
-        pfun(clog);
-        if (isstdout) pfun(std::cout);
-        return *this;
-    };
-
-    Logger(void);
-    ~Logger(void);
-};
 
 class Data
 {

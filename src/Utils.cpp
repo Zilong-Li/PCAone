@@ -115,13 +115,13 @@ void permute_plink(std::string& fin, const std::string& fout, uint gb, uint nban
     std::ofstream out(fout + ".bed", std::ios::binary);
     if (!in.is_open())
     {
-        throw std::invalid_argument("Cannot open bed file.\n");
+        throw std::invalid_argument(colerror + "Cannot open bed file.\n");
     }
     uchar header[3];
     in.read(reinterpret_cast<char*>(&header[0]), 3);
     if ((header[0] != 0x6c) || (header[1] != 0x1b) || (header[2] != 0x01))
     {
-        throw std::invalid_argument("Incorrect magic number in bed file.\n");
+        throw std::invalid_argument(colerror + "Incorrect magic number in bed file.\n");
     }
     out.write(reinterpret_cast<char*>(&header[0]), 3);
     std::ifstream in_bim(fin + ".bim", std::ios::in);

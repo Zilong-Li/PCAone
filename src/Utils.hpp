@@ -15,6 +15,10 @@
 #include <iterator>
 
 
+const std::string colwarn = "\x1B[33mwarning: ";
+const std::string colerror = "\x1B[31merror: ";
+const std::string coldone = "\x1B[32m";
+const std::string colend = "\033[0m";
 
 typedef Eigen::MatrixXd MyMatrix;
 typedef Eigen::VectorXd MyVector;

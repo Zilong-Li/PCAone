@@ -135,7 +135,6 @@ Param::Param(int argc, char** argv)
         exit(EXIT_FAILURE);
     }
 
-    // return ss.str()
 }
 
 Param::~Param()
