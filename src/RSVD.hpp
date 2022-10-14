@@ -157,7 +157,7 @@ public:
                                      "parameter windows.\n");
         uint start_idx, stop_idx, actual_block_size;
         MatrixType H1, H2;
-        uint band = 2;
+        uint band = 1;
         for (int pi = 0; pi <= p; pi++)
         {
             band = std::fmin(band * 2, windows);

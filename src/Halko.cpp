@@ -251,7 +251,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
         {
             if (verbose)
                 data->llog << timestamp() << "running in out-of-core mode with PCAone (algorithm 2)." << endl;
-            band = 2 * data->bandFactor;
+            band = data->bandFactor;
         }
         {
             // band : 4, 8, 16, 32, 64, 128
