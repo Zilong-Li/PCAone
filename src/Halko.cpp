@@ -181,7 +181,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
                     data->standardize_E();
                 }
             }
-            band = 2;
+            band = 1;
             blocksize = (unsigned int)ceil((double)data->nsnps / data->params.bands);
             if (blocksize < data->params.bands)
                 throw std::runtime_error("data and blocksize is too small. please consider IRAM method by using -a option");
