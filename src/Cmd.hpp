@@ -57,7 +57,7 @@ public:
     uint oversamples = 10;
     double tol = 1e-4;
     uint buffer = 2;
-    uint rand = 0;
+    uint rand = 1;
 
     bool groff = false;
     bool cpmed = false;
