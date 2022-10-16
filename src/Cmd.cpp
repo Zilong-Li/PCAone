@@ -23,7 +23,7 @@ Param::Param(int argc, char** argv)
     opts.add<Value<uint64>, Attribute::advanced>("N", "", "number of samples if already known", 0, &nsamples);
     opts.add<Value<std::string>>("o", "out", "prefix of output files", outfile, &outfile);
     opts.add<Switch>("p", "pcangsd", "use PCAngsd algorithm for genotype likelihood input", &pcangsd);
-    opts.add<Value<uint>>("P", "maxp", "maximum number of power iteration for RSVD", maxp, &maxp);
+    opts.add<Value<uint>>("P", "maxp", "maximum number of power iterations for RSVD algorithm", maxp, &maxp);
     opts.add<Value<std::string>>("T", "tmp", "prefix of temporary permuted data", "", &tmpfile);
     opts.add<Switch>("U", "printu", "output eigen vector of each epoch (for tests)", &printu);
     opts.add<Switch>("v", "verbose", "verbose message output", &verbose);

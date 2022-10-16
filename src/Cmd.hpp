@@ -38,7 +38,7 @@ public:
     uint64 nsamples = 0;
     uint64 nsnps = 0;
     uint k = 10;
-    uint maxp = 20; // maximum number of power iterations
+    uint maxp = 40; // maximum number of power iterations
     uint threads = 10;
     uint blocksize = 0;
     uint bands = 64;
