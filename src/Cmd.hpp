@@ -72,7 +72,7 @@ public:
     bool arnoldi = false;
     bool verbose = false;
     bool printu = false;
-    bool mev = false;
+    bool mev = true;
 
     std::ostringstream ss;
 
