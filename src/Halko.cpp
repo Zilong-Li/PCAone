@@ -30,7 +30,8 @@ void RsvdOpData::computeUSV(int p, double tol)
         B.noalias() = R.transpose().fullPivHouseholderQr().solve(H.transpose());
         Eigen::JacobiSVD<MyMatrix> svd(B, Eigen::ComputeThinU | Eigen::ComputeThinV);
         U = svd.matrixV().leftCols(k);
-        if (data->params.printu) {
+        if (data->params.printu)
+        {
             std::ofstream ulog(std::string(data->params.outfile + ".epoch." + std::to_string(pi) + ".eigvecs").c_str());
             ulog << U;
         }
@@ -40,12 +41,20 @@ void RsvdOpData::computeUSV(int p, double tol)
                 diff = 1 - mev(U, Upre);
             else
                 diff = minSSE(U, Upre).sum() / Upre.cols();
-            if (verbose) data->llog << timestamp() << "running of epoch=" << pi << ", diff=" << diff << endl;
+            if (verbose)
+                data->llog << timestamp() << "running of epoch=" << pi << ", diff=" << diff << endl;
             if (diff < tol || pi == p)
             {
                 V.noalias() = G * svd.matrixU().leftCols(k);
                 S = svd.singularValues().head(k);
-                if(verbose) data->llog << timestamp() << "stops at epoch=" << pi + 1 << endl;
+                if (verbose)
+                    data->llog << timestamp() << "stops at epoch=" << pi + 1 << endl;
+                if (data->params.fast && std::pow(2, pi + 1) < data->params.bands)
+                    data->llog
+                        << timestamp() << colwarn
+                        << "the algorithm2 converged but the window size is not reaching the whole data. the eigen values doesn't mean anything but the PCs still reflect the structure." +
+                               colend
+                        << endl;
                 break;
             }
             else
@@ -210,7 +219,8 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
                 {
                     H1.noalias() += data->G.middleCols(start_idx, actual_block_size) * G.middleRows(start_idx, actual_block_size);
                     // additional complementary power iteration for last read
-                    if (j == std::pow(2, pi - 1)){
+                    if (j == std::pow(2, pi - 1))
+                    {
                         H = H1 + H2;
                         Eigen::HouseholderQR<MyMatrix> qr(H);
                         Omg.noalias() = qr.householderQ() * MyMatrix::Identity(cols(), size);
@@ -293,7 +303,8 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
                 {
                     H1.noalias() += data->G * G.middleRows(start_idx, actual_block_size);
                     // additional complementary power iteration for last read
-                    if (j == std::pow(2, pi - 1)){
+                    if (j == std::pow(2, pi - 1))
+                    {
                         H = H1 + H2;
                         Eigen::HouseholderQR<MyMatrix> qr(H);
                         Omg.noalias() = qr.householderQ() * MyMatrix::Identity(cols(), size);
