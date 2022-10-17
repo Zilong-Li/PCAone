@@ -266,12 +266,12 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
             band = data->bandFactor;
         }
         {
-            // band : 2, 4, 8, 16, 32, 64
-            band = fmin(band * 2, data->nblocks);
             H1 = MyMatrix::Zero(cols(), size);
             H2 = MyMatrix::Zero(cols(), size);
             data->check_file_offset_first_var();
-            for (uint b = 0, i = 1; b < data->nblocks; ++b, ++i)
+            // band : 2, 4, 8, 16, 32, 64
+            band = fmin(band * 2, data->nblocks);
+            for (uint b = 0, i = 1, j = 0; b < data->nblocks; ++b, ++i, ++j)
             {
                 start_idx = data->start[b];
                 stop_idx = data->stop[b];
@@ -289,7 +289,18 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
                 data->readtime +=
                     std::chrono::duration<double>(t2 - t1).count() * std::chrono::duration<double>::period::num / std::chrono::duration<double>::period::den;
                 G.middleRows(start_idx, actual_block_size).noalias() = data->G.transpose() * Omg;
-                if (i <= band / 2)
+                if (pi > 0 && j <= std::pow(2, pi - 1) * data->bandFactor && std::pow(2, pi) < data->params.bands)
+                {
+                    H1.noalias() += data->G * G.middleRows(start_idx, actual_block_size);
+                    // additional complementary power iteration for last read
+                    if (j == std::pow(2, pi - 1)){
+                        H = H1 + H2;
+                        Eigen::HouseholderQR<MyMatrix> qr(H);
+                        Omg.noalias() = qr.householderQ() * MyMatrix::Identity(cols(), size);
+                        flip_Omg(Omg2, Omg);
+                    }
+                }
+                else if (i <= band / 2)
                 {
                     H1.noalias() += data->G * G.middleRows(start_idx, actual_block_size);
                 }

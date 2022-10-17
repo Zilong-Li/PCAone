@@ -163,7 +163,7 @@ public:
             band = std::fmin(band * 2, windows);
             H1 = MatrixType::Zero(ncol, size);
             H2 = MatrixType::Zero(ncol, size);
-            for (uint b = 0, i = 1; b < windows; ++b, ++i)
+            for (uint b = 0, i = 1, j = 0; b < windows; ++b, ++i, ++j)
             {
                 start_idx = b * blocksize;
                 stop_idx = (b + 1) * blocksize >= nrow ? nrow - 1 : (b + 1) * blocksize - 1;
@@ -172,7 +172,21 @@ public:
                     G.middleRows(start_idx, actual_block_size).noalias() = mat.middleCols(start_idx, actual_block_size).transpose() * Omg;
                 else
                     G.middleRows(start_idx, actual_block_size).noalias() = mat.middleRows(start_idx, actual_block_size) * Omg;
-                if (i <= band / 2)
+                if (pi > 0 && j <= std::pow(2, pi - 1) && std::pow(2, pi) < windows)
+                {
+                    if (trans)
+                        H1.noalias() += mat.middleCols(start_idx, actual_block_size) * G.middleRows(start_idx, actual_block_size);
+                    else
+                        H1.noalias() += mat.middleRows(start_idx, actual_block_size).transpose() * G.middleRows(start_idx, actual_block_size);
+                    // additional complementary power iteration for last read
+                    if (j == std::pow(2, pi - 1)){
+                        H = H1 + H2;
+                        Eigen::HouseholderQR<MatrixType> qr(H);
+                        Omg.noalias() = qr.householderQ() * MatrixType::Identity(cols(), size);
+                        // flip_Omg(Omg2, Omg);
+                    }
+                }
+                else if (i <= band / 2)
                 {
                     if (trans)
                         H1.noalias() += mat.middleCols(start_idx, actual_block_size) * G.middleRows(start_idx, actual_block_size);
