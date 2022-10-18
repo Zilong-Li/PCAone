@@ -50,11 +50,10 @@ void RsvdOpData::computeUSV(int p, double tol)
                 if (verbose)
                     data->llog << timestamp() << "stops at epoch=" << pi + 1 << endl;
                 if (data->params.fast && std::pow(2, pi + 1) < data->params.bands)
-                    data->llog
-                        << timestamp() << colwarn
-                        << "the algorithm2 converged but the window size is not reaching the whole data. the eigen values doesn't mean anything but the PCs still reflect the structure." +
-                               colend
-                        << endl;
+                    data->llog << colwarn
+                               << "the algorithm2 converged but the window size is not reaching the whole data. the eigen values doesn't mean anything but the "
+                                  "PCs still reflect the structure." +
+                                      colend + "\n";
                 break;
             }
             else

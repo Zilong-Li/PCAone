@@ -30,7 +30,7 @@ int main(int argc, char* argv[])
         {
             if (params.noshuffle)
             {
-                cerr << timestamp() << colwarn + "running PCAone (algorithm2) without shuffling the data!" + colend << endl;
+                cerr << colwarn + "running PCAone (algorithm2) without shuffling the data!" + colend << endl;
             }
             else
             {

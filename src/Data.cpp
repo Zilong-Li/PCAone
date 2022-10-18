@@ -33,7 +33,7 @@ void Data::prepare(uint& blocksize)
             }
             else
             {
-                llog << timestamp() << colwarn + "minimum RAM required is " << m << " GB. trying to allocate more RAM." + colend << endl;
+                llog << colwarn + "minimum RAM required is " << m << " GB. trying to allocate more RAM." + colend << endl;
             }
             blocksize = (unsigned int)ceil((double)((m + params.memory) * 134217728 - 3 * nsamples * l - 2 * nsnps * l - 5 * nsnps) / nsamples);
         }
