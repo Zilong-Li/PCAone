@@ -73,7 +73,9 @@ void FileCsv::check_file_offset_first_var()
     }
     else
     {
-        throw std::runtime_error("no eof detected. something wrong.\n");
+        rewind(fin);
+        if (params.verbose)
+            std::cout << colwarn + "make sure you are runing PCAone algorithm2" + colend << std::endl;
     }
     lastRet = 1;
     buffCur = "";

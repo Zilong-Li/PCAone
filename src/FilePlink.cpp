@@ -18,8 +18,9 @@ void FileBed::check_file_offset_first_var()
     }
     else
     {
-        llog << bed_ifstream.tellg() << ".\n";
-        throw std::runtime_error("Warning: the bed_ifstream is pointing an unexpected position.\n");
+        bed_ifstream.seekg(3, std::ios_base::beg);
+        if (params.verbose)
+            std::cout << colwarn + "make sure you are runing PCAone algorithm2" + colend << std::endl;
     }
 }
 
