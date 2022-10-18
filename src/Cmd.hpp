@@ -41,7 +41,7 @@ public:
     uint maxp = 40; // maximum number of power iterations
     uint threads = 10;
     uint blocksize = 0;
-    int bands = 64;
+    uint bands = 64;
     // for emu iteration
     uint maxiter = 100;
     double alpha = 0.001;

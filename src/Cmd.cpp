@@ -39,7 +39,7 @@ Param::Param(int argc, char** argv)
     opts.add<Value<double>, Attribute::advanced>("", "tol-em", "tolerance for EMU/PCAngsd algorithm", tolem, &tolem);
     opts.add<Value<double>, Attribute::advanced>("", "tol-maf", "tolerance for MAF estimation updated by EM", tolmaf,
                                                  &tolmaf);
-    opts.add<Value<int>, Attribute::advanced>("", "windows", "number of windows to use for PCAone (algorithm2)", bands, &bands);
+    opts.add<Value<uint>, Attribute::advanced>("", "windows", "number of windows to use for PCAone (algorithm2)", bands, &bands);
     opts.add<Switch, Attribute::hidden>("", "groff", "print groff formatted help message", &groff);
     // collect command line options acutal in effect
     ss << (std::string) "PCAone (v" + VERSION + ")    https://github.com/Zilong-Li/PCAone\n";

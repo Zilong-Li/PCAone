@@ -128,7 +128,7 @@ void NormalRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
             }
             H = MyMatrix::Zero(cols(), size);
             data->check_file_offset_first_var();
-            for (int i = 0; i < data->nblocks; ++i)
+            for (uint i = 0; i < data->nblocks; ++i)
             {
                 start_idx = data->start[i];
                 stop_idx = data->stop[i];
@@ -190,7 +190,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
                 }
             }
             band = 1;
-            blocksize = ceil((double)data->nsnps / data->params.bands);
+            blocksize = (unsigned int)ceil((double)data->nsnps / data->params.bands);
             if (blocksize < data->params.bands)
                 throw std::runtime_error("data and blocksize is too small. please consider IRAM method by using -a option");
             // permute snps of G, see https://stackoverflow.com/questions/15858569/randomly-permute-rows-columns-of-a-matrix-with-eigen
@@ -208,7 +208,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
             H2 = MyMatrix::Zero(cols(), size);
             // band : 2, 8, 16, 32, 64, 128
             band = fmin(band * 2, data->params.bands);
-            for (int b = 0, i = 1, j = 0; b < data->params.bands; ++b, ++i, ++j)
+            for (uint b = 0, i = 1, j = 0; b < data->params.bands; ++b, ++i, ++j)
             {
                 start_idx = b * blocksize;
                 stop_idx = (b + 1) * blocksize >= data->nsnps ? data->nsnps - 1 : (b + 1) * blocksize - 1;
@@ -224,13 +224,11 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
                         Eigen::HouseholderQR<MyMatrix> qr(H);
                         Omg.noalias() = qr.householderQ() * MyMatrix::Identity(cols(), size);
                         flip_Omg(Omg2, Omg);
-                        // start over reading the data for next power iteration using new Omg
-                        b = -1;
-                        i = 0;
                     }
                 }
                 else if (i <= band / 2)
                 {
+                    // continues to add in data based on current band
                     H1.noalias() += data->G.middleCols(start_idx, actual_block_size) * G.middleRows(start_idx, actual_block_size);
                 }
                 else if (i > band / 2 && i <= band)
@@ -282,7 +280,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
             data->check_file_offset_first_var();
             // band : 2, 4, 8, 16, 32, 64
             band = fmin(band * 2, data->nblocks);
-            for (int b = 0, i = 1, j = 0; b < data->nblocks; ++b, ++i, ++j)
+            for (uint b = 0, i = 1, j = 0; b < data->nblocks; ++b, ++i, ++j)
             {
                 start_idx = data->start[b];
                 stop_idx = data->stop[b];
@@ -310,10 +308,6 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
                         Eigen::HouseholderQR<MyMatrix> qr(H);
                         Omg.noalias() = qr.householderQ() * MyMatrix::Identity(cols(), size);
                         flip_Omg(Omg2, Omg);
-                        // start over reading the data for next power iteration using new Omg
-                        data->check_file_offset_first_var();
-                        b = -1;
-                        i = 0;
                     }
                 }
                 else if (i <= band / 2)

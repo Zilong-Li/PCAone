@@ -43,9 +43,9 @@ public:
     bool initialFonly = false;
     uint64 nsamples, nsnps; // prevent from potential integer overflow
     double readtime = 0;
-    int nblocks = 1;
-    int bandFactor = 1;
-    int nops = 0;
+    uint nblocks = 1;
+    uint bandFactor = 1;
+    uint nops = 0;
     std::vector<uint> start, stop;
     MyMatrix G;  // genotype matrix, can be initial E or centered E, which is nsamples x nsnps;
     MyMatrix P;  // genotype probability, nsamples x 3 x nsnps.
