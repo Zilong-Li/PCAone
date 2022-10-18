@@ -64,7 +64,7 @@ void Data::prepare(uint& blocksize)
         }
         start.resize(nblocks);
         stop.resize(nblocks);
-        for (uint i = 0; i < nblocks; i++)
+        for (int i = 0; i < nblocks; i++)
         {
             start[i] = i * blocksize;
             stop[i] = start[i] + blocksize - 1;
@@ -118,7 +118,7 @@ void Data::calcu_vt_initial(const MyMatrix& T, MyMatrix& VT, bool standardize)
     }
     uint actual_block_size;
     check_file_offset_first_var();
-    for (uint i = 0; i < nblocks; ++i)
+    for (int i = 0; i < nblocks; ++i)
     {
         actual_block_size = stop[i] - start[i] + 1;
         // G (nsamples, actual_block_size)
@@ -138,7 +138,7 @@ void Data::calcu_vt_update(const MyMatrix& T, const MyMatrix& U, const MyVector&
     }
     uint actual_block_size;
     check_file_offset_first_var();
-    for (uint i = 0; i < nblocks; ++i)
+    for (int i = 0; i < nblocks; ++i)
     {
         actual_block_size = stop[i] - start[i] + 1;
         // G (nsamples, actual_block_size)

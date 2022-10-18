@@ -81,7 +81,8 @@ class FancyRsvdOpData : public RsvdOpData
 {
 private:
     const Index nk, os, size;
-    uint64 band, blocksize, actual_block_size, start_idx, stop_idx;
+    uint64 actual_block_size, start_idx, stop_idx, blocksize;
+    int band;
     MyMatrix Omg, Omg2;
 
 public:

@@ -25,7 +25,7 @@ void ArnoldiOpData::perform_op(const double* x_in, double* y_out) const
     data->readtime += std::chrono::duration<double>(t2 - t1).count() * std::chrono::duration<double>::period::num / std::chrono::duration<double>::period::den;
 
     y.noalias() = data->G * (data->G.transpose() * x);
-    for (uint k = 1; k < data->nblocks; ++k)
+    for (int k = 1; k < data->nblocks; ++k)
     {
         auto t1 = std::chrono::high_resolution_clock::now();
         if (update)
