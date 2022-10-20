@@ -1,10 +1,10 @@
 #include "Arnoldi.hpp"
+#include "Cmd.hpp"
 #include "FileBeagle.hpp"
 #include "FileBgen.hpp"
 #include "FileCsv.hpp"
 #include "FilePlink.hpp"
 #include "Halko.hpp"
-#include "Cmd.hpp"
 #include <omp.h>
 
 #ifdef WITH_OPENBLAS
@@ -26,25 +26,25 @@ int main(int argc, char* argv[])
     Data* data;
     if (params.intype == FileType::PLINK)
     {
-        if (!params.batch && params.fast)
+        if (!params.batch && params.fast && !params.noshuffle)
         {
-            if (params.noshuffle)
-            {
-                cerr << colwarn + "running PCAone (algorithm2) without shuffling the data!" + colend << endl;
-            }
-            else
-            {
-                auto ts = std::chrono::steady_clock::now();
-                string fout = params.outfile + ".perm";
-                if (params.tmpfile != "")
-                    fout = params.tmpfile;
-                permute_plink(params.bed_prefix, fout, params.buffer, params.bands);
-                auto te = std::chrono::steady_clock::now();
-                auto duration = std::chrono::duration_cast<std::chrono::seconds>(te - ts);
-                cout << timestamp() << "total elapsed time of permuting data: " << duration.count() << " seconds" << endl;
-            }
+            auto ts = std::chrono::steady_clock::now();
+            string fout = params.outfile + ".perm";
+            if (params.tmpfile != "")
+                fout = params.tmpfile;
+            permute_plink(params.bed_prefix, fout, params.buffer, params.bands);
+            auto te = std::chrono::steady_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::seconds>(te - ts);
+            data = new FileBed(params);
+            data->llog << timestamp() << "total elapsed time of permuting data: " << duration.count() << " seconds" << endl;
         }
-        data = new FileBed(params);
+        else
+        {
+            data = new FileBed(params);
+            if (params.fast)
+                data->llog << timestamp() << colwarn + "running PCAone (algorithm2) without shuffuling the input data. make sure it's permuted." + colend
+                           << endl;
+        }
     }
     else if (params.intype == FileType::BGEN)
     {
@@ -85,4 +85,3 @@ int main(int argc, char* argv[])
 
     return 0;
 }
-
