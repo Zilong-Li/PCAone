@@ -41,7 +41,7 @@ int main(int argc, char* argv[])
         else
         {
             data = new FileBed(params);
-            if (params.fast)
+            if (!params.batch && params.fast)
                 data->llog << timestamp() << colwarn + "running PCAone (algorithm2) without shuffuling the input data. make sure it's permuted." + colend
                            << endl;
         }

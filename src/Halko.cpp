@@ -208,7 +208,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
             H2 = MyMatrix::Zero(cols(), size);
             // band : 2, 8, 16, 32, 64, 128
             band = fmin(band * 2, data->params.bands);
-            for (uint b = 0, i = 1, j = 0; b < data->params.bands; ++b, ++i, ++j)
+            for (uint b = 0, i = 1, j = 1; b < data->params.bands; ++b, ++i, ++j)
             {
                 start_idx = b * blocksize;
                 stop_idx = (b + 1) * blocksize >= data->nsnps ? data->nsnps - 1 : (b + 1) * blocksize - 1;
@@ -280,7 +280,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
             data->check_file_offset_first_var();
             // band : 2, 4, 8, 16, 32, 64
             band = fmin(band * 2, data->nblocks);
-            for (uint b = 0, i = 1, j = 0; b < data->nblocks; ++b, ++i, ++j)
+            for (uint b = 0, i = 1, j = 1; b < data->nblocks; ++b, ++i, ++j)
             {
                 start_idx = data->start[b];
                 stop_idx = data->stop[b];
