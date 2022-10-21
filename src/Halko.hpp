@@ -82,11 +82,13 @@ class FancyRsvdOpData : public RsvdOpData
 private:
     const Index nk, os, size;
     uint64 band, blocksize, actual_block_size, start_idx, stop_idx;
-    MyMatrix Omg, Omg2;
+    MyMatrix Omg, Omg2, H1, H2;
 
 public:
     FancyRsvdOpData(Data* data_, int k_, int os_ = 10) :RsvdOpData(data_), nk(k_), os(os_), size(k_ + os_)
     {
+        H1 = MyMatrix::Zero(cols(), size);
+        H2 = MyMatrix::Zero(cols(), size);
     }
 
     ~FancyRsvdOpData()

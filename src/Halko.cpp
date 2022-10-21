@@ -159,7 +159,6 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
     {
         throw std::runtime_error("Error: the size of G or H doesn't match.\n");
     }
-    MyMatrix H1, H2;
     if (pi == 0)
     {
         auto rng = std::default_random_engine{};
@@ -168,6 +167,12 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
         else
             Omg = UniformRandom<MyMatrix, std::default_random_engine>(data->nsamples, size, rng);
         Omg2 = Omg;
+    }
+    if (std::pow(2, pi) == data->params.bands)
+    {
+        // reset H1, H2 to zero
+        H1.setZero();
+        H2.setZero();
     }
     if (data->params.batch)
     {
@@ -204,9 +209,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
             }
         }
         {
-            H1 = MyMatrix::Zero(cols(), size);
-            H2 = MyMatrix::Zero(cols(), size);
-            // band : 2, 8, 16, 32, 64, 128
+            // band : 2, 4, 8, 16, 32, 64, 128
             band = fmin(band * 2, data->params.bands);
             for (uint b = 0, i = 1, j = 1; b < data->params.bands; ++b, ++i, ++j)
             {
@@ -224,6 +227,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
                         Eigen::HouseholderQR<MyMatrix> qr(H);
                         Omg.noalias() = qr.householderQ() * MyMatrix::Identity(cols(), size);
                         flip_Omg(Omg2, Omg);
+                        H2.setZero();
                     }
                 }
                 else if (i <= band / 2)
@@ -256,7 +260,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
                     }
                     else if ((b + 1) == data->nblocks)
                     {
-                        // shouldn't go here if the bands is proper, ie. 2^{x}
+                        data->llog << timestamp() << colwarn + "shouldn't go here if the bands is proper, ie. 2^{x}" + colend << endl;
                         H = H1 + H2;
                         Eigen::HouseholderQR<MyMatrix> qr(H);
                         Omg.noalias() = qr.householderQ() * MyMatrix::Identity(cols(), size);
@@ -275,8 +279,6 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
             band = data->bandFactor;
         }
         {
-            H1 = MyMatrix::Zero(cols(), size);
-            H2 = MyMatrix::Zero(cols(), size);
             data->check_file_offset_first_var();
             // band : 2, 4, 8, 16, 32, 64
             band = fmin(band * 2, data->nblocks);
@@ -308,6 +310,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
                         Eigen::HouseholderQR<MyMatrix> qr(H);
                         Omg.noalias() = qr.householderQ() * MyMatrix::Identity(cols(), size);
                         flip_Omg(Omg2, Omg);
+                        H2.setZero();
                     }
                 }
                 else if (i <= band / 2)
