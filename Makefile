@@ -29,7 +29,7 @@ $(info "building PCAone on ${Platform} -- version ${VERSION}")
 ####### INC, LPATHS, LIBS, MYFLAGS
 program       = PCAone
 CXX           ?= g++    # use default g++ only if not set in env
-CXXSTD        ?= c++17  # default c++17 if not set by the user
+CXXSTD         = c++17  # default c++17 if not set by the user
 CXXFLAGS	  += -O3 -Wall -std=$(CXXSTD) -ffast-math -m64 -fPIC
 MYFLAGS        = -DVERSION=\"$(VERSION)\" -DNDEBUG
 LDFLAGS       += -s  # this is obsolete and igonored on mac
@@ -99,6 +99,7 @@ ifeq ($(Platform),Linux)
 else ifeq ($(Platform),Darwin)
 ###### for mac
 	MYFLAGS  += -Xpreprocessor -fopenmp
+	INC      += -I/usr/local/include
 	ifneq ($(strip $(MKLROOT)),)
 		MYFLAGS += -DWITH_MKL -DEIGEN_USE_MKL_ALL
 		INC     += -I${MKLROOT}/include/
