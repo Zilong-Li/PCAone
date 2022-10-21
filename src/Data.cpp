@@ -39,8 +39,7 @@ void Data::prepare(uint& blocksize)
         }
         nblocks = (unsigned int)ceil((double)nsnps / blocksize);
         if (params.verbose)
-            llog << timestamp() << "initial setting by -m/--memory: blocksize=" << blocksize << ", nblocks=" << nblocks << ", factor=" << bandFactor
-                 << ".\n";
+            llog << timestamp() << "initial setting by -m/--memory: blocksize=" << blocksize << ", nblocks=" << nblocks << ", factor=" << bandFactor << ".\n";
         if (nblocks == 1)
         {
             throw std::invalid_argument(colerror + "only one block exists. please remove -m / --memory option instead.\n");
@@ -90,7 +89,6 @@ void Data::filterSNPs_resizeF()
         {
             keepSNPs.push_back(j); // keep track of index of element > maf
             Fnew(i++) = F(j);
-
         }
     }
     nsnps = keepSNPs.size(); // new number of SNPs
@@ -208,8 +206,8 @@ void Data::update_batch_E(const MyMatrix& U, const MyVector& svals, const MyMatr
         {
             for (uint j = 0; j < nsamples; ++j)
             {
-                if (C[i * nsamples + j])  // no bool & 1
-                { // sites need to be predicted
+                if (C[i * nsamples + j]) // no bool & 1
+                {                        // sites need to be predicted
                     G(j, i) = 0.0;
                     for (uint k = 0; k < ks; ++k)
                     {
