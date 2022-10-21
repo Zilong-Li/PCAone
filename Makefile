@@ -19,7 +19,7 @@ IOMP5         = 0
 
 ########################### end ###########################
 
-VERSION=0.2.2
+VERSION=0.3.0
 # detect OS architecture and add flags
 Platform     := $(shell uname -s)
 
@@ -28,14 +28,13 @@ $(info "building PCAone on ${Platform} -- version ${VERSION}")
 
 ####### INC, LPATHS, LIBS, MYFLAGS
 program       = PCAone
-# use default g++ only if not set in env
-CXX           ?= g++
-CXXFLAGS	  += -O3 -Wall -std=c++11 -ffast-math -m64 -fPIC
+CXX           ?= g++    # use default g++ only if not set in env
+CXXSTD        ?= c++17  # default c++17 if not set by the user
+CXXFLAGS	  += -O3 -Wall -std=$(CXXSTD) -ffast-math -m64 -fPIC
 MYFLAGS        = -DVERSION=\"$(VERSION)\" -DNDEBUG
 LDFLAGS       += -s  # this is obsolete and igonored on mac
 # CURRENT_DIR   = $(shell pwd)
 INC           = -I./external -I./external/zstd/lib
-# LPATHS        = -L/usr/local/lib
 PCALIB = libpcaone.a
 AVX = 1
 
@@ -121,7 +120,7 @@ else ifeq ($(Platform),Darwin)
 		DLIBS   += -llapack -llapacke -lopenblas -lgfortran -lgomp -lpthread
 
 	else
-		DLIBS += -lomp -lpthread
+		DLIBS += -lomp -lpthread -L/usr/local/lib
 	endif
 
 endif
@@ -150,7 +149,7 @@ zstdlib:
 	(cd ./external/zstd/lib/; $(MAKE) ZSTD_LIB_COMPRESSION=0 ZSTD_LIB_DICTBUILDER=0)
 
 bgenlib:
-	(cd ./external/bgen/; $(MAKE))
+	(cd ./external/bgen/; $(MAKE) CXXFLAGS='-std=${CXXSTD}')
 
 pcaonelib:$(OBJ)
 	ar -rcs $(PCALIB) $?
