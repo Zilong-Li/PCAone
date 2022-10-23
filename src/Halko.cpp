@@ -75,9 +75,9 @@ void NormalRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
     {
         auto rng = std::default_random_engine{};
         if (data->params.rand)
-            Omg = StandardNormalRandom<MyMatrix, std::default_random_engine>(data->nsamples, size, rng);
+            Omg = PCAone::StandardNormalRandom<MyMatrix, std::default_random_engine>(data->nsamples, size, rng);
         else
-            Omg = UniformRandom<MyMatrix, std::default_random_engine>(data->nsamples, size, rng);
+            Omg = PCAone::UniformRandom<MyMatrix, std::default_random_engine>(data->nsamples, size, rng);
     }
     if (data->params.batch)
     {
@@ -163,12 +163,12 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
     {
         auto rng = std::default_random_engine{};
         if (data->params.rand)
-            Omg = StandardNormalRandom<MyMatrix, std::default_random_engine>(data->nsamples, size, rng);
+            Omg = PCAone::StandardNormalRandom<MyMatrix, std::default_random_engine>(data->nsamples, size, rng);
         else
-            Omg = UniformRandom<MyMatrix, std::default_random_engine>(data->nsamples, size, rng);
+            Omg = PCAone::UniformRandom<MyMatrix, std::default_random_engine>(data->nsamples, size, rng);
         Omg2 = Omg;
     }
-    if (std::pow(2, pi) == data->params.bands)
+    if (std::pow(2, pi) >= data->params.bands)
     {
         // reset H1, H2 to zero
         H1.setZero();
