@@ -84,7 +84,7 @@ void NormalRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
         if (pi == 0)
         {
             if (verbose)
-                data->llog << timestamp() << "running in batch mode with one-pass rsvd." << endl;
+                data->llog << timestamp() << "running in memory mode with PCAone RSVD (algorithm1)." << endl;
             if (update)
             {
                 data->update_batch_E(U, S, V.transpose());
@@ -116,7 +116,7 @@ void NormalRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
     {
         // for block version
         if (pi == 0 && verbose)
-            data->llog << timestamp() << "running in blockwise mode with one-pass rsvd." << endl;
+            data->llog << timestamp() << "running in out-of-core mode with PCAone RSVD (algorithm1)." << endl;
         // data->G is always nsamples x nsnps;
         if (data->snpmajor || true)
         {

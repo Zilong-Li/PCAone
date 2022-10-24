@@ -7,9 +7,9 @@
 [[https://anaconda.org/bioconda/pcaone][https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat]]
 [[https://github.com/Zilong-Li/PCAone/releases/latest][https://img.shields.io/github/v/release/Zilong-Li/PCAone.svg]]
 [[https://lgtm.com/projects/g/Zilong-Li/PCAone/context:cpp][https://img.shields.io/lgtm/grade/cpp/g/Zilong-Li/PCAone.svg?logo=lgtm&logoWidth=18]]
-[[https://github.com/Zilong-Li/PCAone/releases][https://img.shields.io/github/downloads/Zilong-Li/PCAone/total.svg]]
+[[https://anaconda.org/bioconda/pcaone/badges/downloads.svg]]
 
-PCAone is a fast and memory efficient PCA tool implemented in C++ aiming at providing comprehensive features and algorithms for different scenarios. PCAone implements 3 fast PCA algorithms for finding the top eigenvectors of large datasets, which are [[https://en.wikipedia.org/wiki/Arnoldi_iteration][Implicitly Restarted Arnoldi Method]] (IRAM, PCAoneA), [[https://www.ijcai.org/proceedings/2017/468][single pass Randomized SVD]] (RSVD, PCAoneH) and our own fancy RSVD method with window based power iterations (PCAoneF). PCAone supports multiple different input formats, such as [[https://www.cog-genomics.org/plink/1.9/formats#bed][PLINK]], [[https://www.well.ox.ac.uk/~gav/bgen_format][BGEN]], [[http://www.popgen.dk/angsd/index.php/Input#Beagle_format][Beagle]] genetic data formats and a general CSV format for scRNAs data. For genetics data, PCAone also implements [[https://github.com/Rosemeis/emu][EMU]] and [[https://github.com/Rosemeis/pcangsd][PCAngsd]] algorithm for data with missingness and uncertainty.
+PCAone is a fast and memory efficient PCA tool implemented in C++ aiming at providing comprehensive features and algorithms for different scenarios. PCAone implements 3 fast PCA algorithms for finding the top eigenvectors of large datasets, which are [[https://en.wikipedia.org/wiki/Arnoldi_iteration][Implicitly Restarted Arnoldi Method]] (IRAM, PCAoneArnoldi), [[https://www.ijcai.org/proceedings/2017/468][single pass Randomized SVD]] but with power iteration scheme (RSVD, PCAoneAlg1) and our own RSVD method with window based power iteration scheme (PCAoneAlg2). PCAone supports multiple different input formats, such as [[https://www.cog-genomics.org/plink/1.9/formats#bed][PLINK]], [[https://www.well.ox.ac.uk/~gav/bgen_format][BGEN]], [[http://www.popgen.dk/angsd/index.php/Input#Beagle_format][Beagle]] genetic data formats and a general CSV format for scRNAs data. For genetics data, PCAone also implements [[https://github.com/Rosemeis/emu][EMU]] and [[https://github.com/Rosemeis/pcangsd][PCAngsd]] algorithm for data with missingness and uncertainty.
 
 [[file:misc/architecture.png]]
 
@@ -21,11 +21,11 @@ PCAone is a fast and memory efficient PCA tool implemented in C++ aiming at prov
   - [[#examples][Examples]]
   - [[#make-pca-plots][Make PCA plots]]
 - [[#features][Features]]
-- [[#system-requirements][System requirements]]
 - [[#installation][Installation]]
-  - [[#download-binary][Download binary]]
-  - [[#via-conda][Via conda]]
+  - [[#system-requirements][System requirements]]
   - [[#build-from-source][Build from source]]
+  - [[#via-conda][Via conda]]
+  - [[#download-precompiled-binary][Download precompiled binary]]
 - [[#documentation][Documentation]]
   - [[#input-formats][Input formats]]
   - [[#output-files][Output files]]
@@ -33,7 +33,6 @@ PCAone is a fast and memory efficient PCA tool implemented in C++ aiming at prov
   - [[#running-mode][Running mode]]
 - [[#citation][Citation]]
 - [[#acknowledgements][Acknowledgements]]
-- [[#todo][Todo]]
 #+END_QUOTE
 
 * Quickstart
@@ -97,7 +96,7 @@ tar -xzf examples.tar.gz
 You should find a fold named =examples= with some test data.
 ** Examples
 
-- use *default fast fancy RSVD* algorithm for large datasets
+- use =PCAone Algorithm2= for large datasets, which is *the default fast window based RSVD*
 #+begin_src shell
 # running in RAM using 10 threads to calculate top 10 PCs
 ./PCAone --bfile examples/asia -k 10 -n 10 -o out
@@ -105,32 +104,32 @@ You should find a fold named =examples= with some test data.
 ./PCAone --bfile examples/asia -k 10 -n 10 -o out -m 2
 #+end_src
 
-- use *IRAM* algorithm for small or medium datasets
+- use =PCAone Arnoldi= algorithm for datasets with small sample size leveraging multithreading
 #+begin_src shell
 # running out-of-core using only 2GB memory
 ./PCAone --bfile examples/asia -k 10 -n 10 -o out -m 2 -a
 #+end_src
 
-- use *normal RSVD* algorithm for large datasets
+- use =PCAone Algorithm1= for large datasets using only 2GB memory
 #+begin_src shell
 # running out-of-core using only 2GB memory
 ./PCAone --bfile examples/asia -k 10 -n 10 -o out -m 2 -h
 #+end_src
 
-- run PCA on *scRNAs* data
+- run PCA on *Single-Cell RNA-seq* data using =PCAone Algorithm2=
 #+begin_src shell
 # assume data is already normalized
-./PCAone --csv examples/test.csv.zst -k 10 -n 10 -o out -m 2 -a
+./PCAone --csv examples/test.csv.zst -k 10 -n 10 -o out -m 2
 # apply normalization by count per median(CPMED) use --cpmed option
-./PCAone --csv examples/test.csv.zst -k 10 -n 10 -o out -m 2 -a --cpmed
+./PCAone --csv examples/test.csv.zst -k 10 -n 10 -o out -m 2 --cpmed
 #+end_src
 
-- run *EMU* using *RSVD* for data with lots of missingness
+- run *EMU* using =PCAone Algorithm1= for data with lots of missingness
 #+begin_src shell
 ./PCAone --bfile examples/test.emu -k 3 -o out -h --emu
 #+end_src
 
-- run *PCAngsd* using *IRAM* for genotype likelihoods
+- run *PCAngsd* using =PCAone Arnoldi= for genotype likelihoods
 #+begin_src shell
 ./PCAone --beagle examples/test.bgl.gz -k 3 -o out -a --pcangsd
 #+end_src
@@ -153,32 +152,20 @@ See [[file:CHANGELOG.org][change log]] here.
 - Supports [[https://github.com/Rosemeis/emu][EMU]] algorithm for scenario with large proportion of missingness.
 - Supports [[https://github.com/Rosemeis/pcangsd][PCAngsd]] algorithm for low coverage sequencing scenario with genotype likelihood as input.
 
-* System requirements
+* Installation
+** System requirements
 
 =PCAone= can be running on a normal computer/laptop with =x86-64= instruction set architecture. =PCAone= has been tested on both =MacOS= and =Linux= system. To build PCAone from the source code, the following dependencies are required:
 
 - GCC/Clang compiler with C++11 support
 - GNU make
 - zlib
-- libomp (on MacOS)
-
-* Installation
-** Download binary
-
-There are compiled binaries provided for both Linux and Mac platform. Check [[https://github.com/Zilong-Li/PCAone/releases][the releases page]] to download one or find commands for downloading the latest version in [[#Quickstart][Quickstart]].
-
-** Via conda
-
-PCAone is available from [[https://anaconda.org/bioconda/pcaone][bioconda]].
-
-
-#+begin_src sh
-conda config --add channels bioconda
-conda install pcaone
-PCAone --help
-#+end_src
+- llvm or libomp (on MacOS)
 
 ** Build from source
+
+We *recommend* building the software from source with MKL as backend to maximize the performance. For MacOS users, we recommend using =llvm= or =gcc= by =brew install llvm= or =brew install gcc= instead of the default =clang= shipped with MacOS. One should run =export CC=$(find $(brew --prefix)/bin/ -name "gcc-[0-9]*" | tail -1); export CXX=$(find $(brew --prefix)/bin/ -name "g++-[0-9]*" | tail -1)= and check the similar [[https://github.com/Zilong-Li/PCAone/blob/dev/.github/workflows/mac.yml#L21][mac workflow]].
+
 *** With MKL or OpenBLAS as backend
 
 Build PCAone dynamically with MKL can maximize the performance since the faster threading layer =libiomp5= will be linked at runtime. One can obtain the MKL by one of the following option:
@@ -189,7 +176,7 @@ Build PCAone dynamically with MKL can maximize the performance since the faster 
 conda install -y mkl mkl-include
 git clone https://github.com/Zilong-Li/PCAone.git
 cd PCAone
-make MKLROOT=${CONDA_PREFIX} # if mkl is installed by conda and you are in conda
+make -j4 MKLROOT=${CONDA_PREFIX} # if mkl is installed by conda and you are in conda
 ./PCAone --help
 #+end_src
 
@@ -197,7 +184,7 @@ make MKLROOT=${CONDA_PREFIX} # if mkl is installed by conda and you are in conda
 
 After having =mkl= installed, find the =mkl= root path and replace the path below with your own.
 #+begin_src shell
-make MKLROOT=/path/to/mklroot # if mkl is downloaded from the website
+make -j4 MKLROOT=/path/to/mklroot # if mkl is downloaded from the website
 #+end_src
 
 Alternatively, for advanced user, modify variables directly in =Makefile= and run =make= to use MKL or OpenBlas as backend.
@@ -208,10 +195,25 @@ If you don't want any optimized math library as backend, just run:
 #+begin_src shell
 git clone https://github.com/Zilong-Li/PCAone.git
 cd PCAone
-make
+make -j4
 ./PCAone --help
 #+end_src
-If this doesn't work because the server is too outdated, run =make clean && make AVX=0= instead. For Mac users, also run =brew install libomp=.
+If this doesn't work because the server is too outdated, run =make clean && make -j4 AVX=0= instead.
+
+** Via conda
+
+PCAone is also available from [[https://anaconda.org/bioconda/pcaone][bioconda]].
+
+
+#+begin_src sh
+conda config --add channels bioconda
+conda install pcaone
+PCAone --help
+#+end_src
+
+** Download precompiled binary
+
+There are compiled binaries provided for both Linux and Mac platform. Check [[https://github.com/Zilong-Li/PCAone/releases][the releases page]] to download one or find commands for downloading the latest version in [[#Quickstart][Quickstart]].
 
 * Documentation
 ** Input formats
@@ -246,20 +248,21 @@ run =./PCAone --help= to show all options. I feature some useful and important o
 | Option       | Descrition                                                                           |
 |--------------+--------------------------------------------------------------------------------------|
 | =-a,--arnoldi= | use IRAM algorithm instead of PCAoneF                                                |
-| =-h,--halko=   | use normal RSVD algorithm  instead of PCAoneF                                        |
+| =-y,--halko=   | use PCAone RSVD algorithm1 instead of default algorithm2                             |
 | =-n,--threads= | number of threads                                                                    |
 | =-o,--out=     | prefix of output files                                                               |
-| =--bands=      | number of bands used by fancy RSVD algorithm. must be =2^x=.                           |
+| =--windows=    | number of bands used by PCAone algorithm2. must be a power of 2.                     |
 | =--cpmed=      | normalize values by count per median (CPMED) for scRNAs.                             |
 | =--maf=        | remove SNPs with minor allele frequency lower than =maf=, default is 0.0               |
 | =--maxp=       | maximum number of iterations for RSVD algorithm.                                     |
 | =--no-shuffle= | do not shuffle the input data for fancy RSVD algorithm if it's already been shuffled |
+| =--printu=     | output eigenvectors of each epoch (for tests mainly).                                |
 | =--printv=     | print out another eigenvectors or loadings.                                          |
 |--------------+--------------------------------------------------------------------------------------|
 
 ** Running mode
 
-PCAone has both in-core and out-of-core mode for each algorithm. In default, PCAone will load all data in memory, which is the fastest way to do calculation. However, it is usually not feasible to keep the whole large matrix in memory. In contrast, PCAone allows user to specify the amount of memory using =-m= option.
+PCAone has both in-core and out-of-core mode for each algorithm. In default, PCAone will load all data in memory, which is the fastest way to do calculation. However, it is usually not feasible to keep the whole large matrix in memory. In contrast, PCAone allows user to specify the amount of memory using =-m/--memory= option.
 
 * Citation
 
@@ -272,7 +275,3 @@ PCAone has both in-core and out-of-core mode for each algorithm. In default, PCA
 * Acknowledgements
 
 PCAone use [[https://eigen.tuxfamily.org/index.php?title=Main_Page][Eigen]] for linear algebra operation. The IRAM method is based on [[https://github.com/yixuan/spectra][yixuan/spectra]]. The bgen lib is ported from [[https://github.com/jeremymcrae/bgen][jeremymcrae/bgen]]. The EMU and PCAngsd algorithms are modified from [[https://github.com/Rosemeis][@Jonas]] packages.
-
-* Todo
-- Integrate PCAoneF into EMU and PCAngsd
-- Shuffle BGEN and CSV file for PCAoneF out-of-core
