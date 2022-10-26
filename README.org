@@ -157,7 +157,7 @@ See [[file:CHANGELOG.org][change log]] here.
 
 =PCAone= can be running on a normal computer/laptop with =x86-64= instruction set architecture. =PCAone= has been tested on both =MacOS= and =Linux= system. To build PCAone from the source code, the following dependencies are required:
 
-- GCC/Clang compiler with C++11 support
+- GCC/Clang compiler with C++11/14/17 support
 - GNU make
 - zlib
 - llvm or libomp (on MacOS)
@@ -173,7 +173,7 @@ Build PCAone dynamically with MKL can maximize the performance since the faster 
 - install =mkl= by conda
 
 #+begin_src sh
-conda install -y mkl mkl-include
+conda install -c conda-forge -c anaconda -y mkl mkl-include intel-openmp
 git clone https://github.com/Zilong-Li/PCAone.git
 cd PCAone
 make -j4 MKLROOT=${CONDA_PREFIX} # if mkl is installed by conda and you are in conda
