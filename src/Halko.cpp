@@ -362,7 +362,7 @@ void run_pca_with_halko(Data* data, const Param& params)
     }
     else
     {
-        data->llog << timestamp() << "begin to PCAone RSVD in out-of-core mode" << endl;
+        data->llog << timestamp() << "begin to run PCAone RSVD in out-of-core mode" << endl;
     }
     MyMatrix Vpre;
     MyVector S;

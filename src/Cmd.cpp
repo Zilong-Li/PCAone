@@ -3,7 +3,8 @@
 Param::Param(int argc, char** argv)
 {
     std::string copyr{"PCA All In One (v" + (std::string)VERSION +
-                 ")        https://github.com/Zilong-Li/PCAone\n(C) 2021-2022 Zilong Li        GNU General Public License v3\n\n\x1B[32mUsage: PCAone [OPTION]. Use --help to see all hidden options\033[0m\n\n"};
+                      ")        https://github.com/Zilong-Li/PCAone\n(C) 2021-2022 Zilong Li        GNU General Public License v3\n\n\x1B[32mUsage: PCAone "
+                      "[OPTION]. Use --help to see all hidden options\033[0m\n\n"};
     OptionParser opts(copyr + "Main options");
     auto help_opt = opts.add<Switch>("h", "help", "print list of all options including hidden advanced options\n");
     opts.add<Switch>("a", "arnoldi", "use Implicitly Restarted Arnoldi Method instead", &arnoldi);
@@ -37,8 +38,7 @@ Param::Param(int argc, char** argv)
     opts.add<Value<uint>, Attribute::advanced>("", "rand", "the random matrix type. 0: uniform, 1: guassian", rand, &rand);
     opts.add<Value<double>, Attribute::advanced>("", "tol", "tolerance for RSVD algorithm", tol, &tol);
     opts.add<Value<double>, Attribute::advanced>("", "tol-em", "tolerance for EMU/PCAngsd algorithm", tolem, &tolem);
-    opts.add<Value<double>, Attribute::advanced>("", "tol-maf", "tolerance for MAF estimation updated by EM", tolmaf,
-                                                 &tolmaf);
+    opts.add<Value<double>, Attribute::advanced>("", "tol-maf", "tolerance for MAF estimation updated by EM", tolmaf, &tolmaf);
     opts.add<Value<uint>, Attribute::advanced>("", "windows", "number of windows to use for PCAone (algorithm2)", bands, &bands);
     opts.add<Switch, Attribute::hidden>("", "groff", "print groff formatted help message", &groff);
     // collect command line options acutal in effect
@@ -101,6 +101,8 @@ Param::Param(int argc, char** argv)
             if (pcangsd)
                 throw std::invalid_argument("not support -m option for PCAngsd algorithm yet, but the feature is on the way!");
         }
+        if (bands < 4 || bands % 2 != 0)
+            throw std::invalid_argument("the --windows must be a power of 2 and the minimun is 4\n");
     }
     catch (const popl::invalid_option& e)
     {
@@ -134,7 +136,6 @@ Param::Param(int argc, char** argv)
         std::cerr << "Exception: " << e.what() << "\n";
         exit(EXIT_FAILURE);
     }
-
 }
 
 Param::~Param()

@@ -251,7 +251,7 @@ run =./PCAone --help= to show all options. I feature some useful and important o
 | =-y,--halko=   | use PCAone RSVD algorithm1 instead of default algorithm2                             |
 | =-n,--threads= | number of threads                                                                    |
 | =-o,--out=     | prefix of output files                                                               |
-| =--windows=    | number of bands used by PCAone algorithm2. must be a power of 2.                     |
+| =--windows=    | number of blocks used by PCAone algorithm2. must be a power of 2. the minimum is 4.  |
 | =--cpmed=      | normalize values by count per median (CPMED) for scRNAs.                             |
 | =--maf=        | remove SNPs with minor allele frequency lower than =maf=, default is 0.0               |
 | =--maxp=       | maximum number of iterations for RSVD algorithm.                                     |
