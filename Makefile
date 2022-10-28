@@ -20,7 +20,7 @@ IOMP5         = 0
 
 ########################### end ###########################
 
-VERSION=0.3.0
+VERSION=0.3.1
 # detect OS architecture and add flags
 Platform     := $(shell uname -s)
 
@@ -151,7 +151,7 @@ zstdlib:
 	(cd ./external/zstd/lib/; $(MAKE) lib-nomt)
 
 bgenlib:
-	(cd ./external/bgen/; $(MAKE) CXXFLAGS='-std=${CXXSTD}')
+	(cd ./external/bgen/; $(MAKE))
 
 pcaonelib:$(OBJ)
 	ar -rcs $(PCALIB) $?

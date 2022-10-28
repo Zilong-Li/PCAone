@@ -2,7 +2,7 @@
 # Makefile to compile bgen library
 #
 CXX         ?= g++
-CXXFLAGS    += -O3 -Wall
+CXXFLAGS    += -O3 -Wall -std=c++11
 AVX = 1
 
 ifeq ($(strip $(AVX)), 1)

@@ -1,3 +1,6 @@
+- v0.3.1
+  - fix makefile for bioconda can't find zlib
+
 - v0.3.0
   - version after first manuscript revision corresponding to the third version manuscript on biorxiv
   - fix algorithm2 to use one more omega updates between epoch.
