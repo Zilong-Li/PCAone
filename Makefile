@@ -1,9 +1,10 @@
 ######################### configure ################
 
 # for mkl
-# make sure libiomp5 can be found
-# MKLROOT=/home/zilong/intel/oneapi/mkl/latest
-# MKLROOT=/opt/intel/oneapi/mkl/latest
+# MKLROOT=$HOME/intel/oneapi/mkl/latest # for linux
+# MKLROOT=/opt/intel/oneapi/mkl/latest  # for mac
+# make sure libiomp5 can be found on mac
+# ln -s /opt/intel/oneapi/compiler/latest/mac/compiler/lib/libiomp5.dylib /opt/intel/oneapi/mkl/latest/lib/
 MKLROOT       =
 
 # install openblas lapack on mac with brew install openblas lapack

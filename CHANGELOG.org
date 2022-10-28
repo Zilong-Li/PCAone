@@ -1,3 +1,11 @@
+- v0.3.0
+  - version after first manuscript revision corresponding to the third version manuscript on biorxiv
+  - fix algorithm2 to use one more omega updates between epoch.
+  - parameter =--band= changed to =--windows=
+  - support =CXXSTD= compiling option to use =c++17= standard. default =CXXSTD=c++11=
+  - add =PCAoneR=, which implement the idea of PCAone in R but without out-of-core
+  - colorful warning and error message. more checks and warnings.
+
 - v0.2.1
   - bug fix for PCAngsd
 
