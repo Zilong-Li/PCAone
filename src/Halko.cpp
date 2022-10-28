@@ -387,7 +387,7 @@ void run_pca_with_halko(Data* data, const Param& params)
             rsvd->setFlags(false, true, params.verbose);
         }
         rsvd->computeUSV(params.maxp, params.tol);
-        if (params.fast && params.batch)
+        if (params.fast && params.batch && !params.noshuffle)
         {
             // recover original order for V
             data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, rsvd->perm * rsvd->V);

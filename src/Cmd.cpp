@@ -10,7 +10,7 @@ Param::Param(int argc, char** argv)
     opts.add<Switch>("a", "arnoldi", "use Implicitly Restarted Arnoldi Method instead", &arnoldi);
     opts.add<Value<std::string>>("b", "bfile", "prefix of PLINK .bed/.bim/.fam files", "", &bed_prefix);
     opts.add<Value<std::string>>("c", "csv", "path of CSV file compressed by zstd", "", &csvfile);
-    opts.add<Switch>("C", "cpmed", "normalize values by count per median (CPMED) for scRNAs", &cpmed);
+    opts.add<Switch>("C", "cpmed", "normalize values by count per median (CPMED) and log transformation for scRNAs", &cpmed);
     opts.add<Switch>("e", "emu", "use EMU algorithm for genotype data with lots of missingness", &emu);
     opts.add<Value<double>>("f", "maf", "remove variants with minor allele frequency below maf", maf, &maf);
     opts.add<Value<std::string>>("g", "bgen", "path of BGEN file", "", &bgen);
