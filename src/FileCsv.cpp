@@ -42,8 +42,9 @@ void FileCsv::read_all()
                         G(i, lastSNP) = log10(G(i, lastSNP) * median_libsize / libsize[i] + 1);
                 }
 
-                G.col(lastSNP).array() -= G.col(lastSNP).mean(); // only do centering
                 lastSNP++;
+                if (params.center)
+                    G.col(lastSNP).array() -= G.col(lastSNP).mean(); // do centering
             }
         }
     }

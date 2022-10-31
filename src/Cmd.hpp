@@ -59,6 +59,8 @@ public:
     uint buffer = 2;
     uint rand = 1;
 
+    // general
+    uint center = 1;  // do centering for csv file
     bool groff = false;
     bool cpmed = false;
     bool printv = false;

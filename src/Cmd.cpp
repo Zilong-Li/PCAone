@@ -29,7 +29,9 @@ Param::Param(int argc, char** argv)
     opts.add<Switch>("U", "printu", "output eigen vector of each epoch (for tests)", &printu);
     opts.add<Switch>("v", "verbose", "verbose message output", &verbose);
     opts.add<Switch>("V", "printv", "output the right eigen vectors with suffix .loadings", &printv);
+    opts.add<Value<uint>>("", "windows", "number of windows to use for PCAone (algorithm2)", bands, &bands);
     opts.add<Value<uint>, Attribute::advanced>("", "buffer", "buffer in GB uint used for permuting the data", buffer, &buffer);
+    opts.add<Value<uint>, Attribute::advanced>("", "center", "do centering for csv input file. 0: disabled, 1: enabled", center, &center);
     opts.add<Value<uint>, Attribute::advanced>("", "imaxiter", "maximum number of IRAM interations", imaxiter, &imaxiter);
     opts.add<Value<double>, Attribute::advanced>("", "itol", "tolerance for IRAM algorithm", itol, &itol);
     // opts.add<Switch, Attribute::advanced>("", "mev", "use mev measurement instead of default minSSE", &mev);
@@ -39,7 +41,6 @@ Param::Param(int argc, char** argv)
     opts.add<Value<double>, Attribute::advanced>("", "tol", "tolerance for RSVD algorithm", tol, &tol);
     opts.add<Value<double>, Attribute::advanced>("", "tol-em", "tolerance for EMU/PCAngsd algorithm", tolem, &tolem);
     opts.add<Value<double>, Attribute::advanced>("", "tol-maf", "tolerance for MAF estimation updated by EM", tolmaf, &tolmaf);
-    opts.add<Value<uint>, Attribute::advanced>("", "windows", "number of windows to use for PCAone (algorithm2)", bands, &bands);
     opts.add<Switch, Attribute::hidden>("", "groff", "print groff formatted help message", &groff);
     // collect command line options acutal in effect
     ss << (std::string) "PCAone (v" + VERSION + ")    https://github.com/Zilong-Li/PCAone\n";
