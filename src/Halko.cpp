@@ -405,7 +405,7 @@ void run_pca_with_halko(Data* data, const Param& params)
         // flip_UV(rsvd->U, rsvd->V, false);
         double diff;
         rsvd->setFlags(true, false, false);
-        data->llog << timestamp() << "begin to do EM PCA." << endl;
+        data->llog << timestamp() << "begin to do EM PCA with PCAone RSVD (algorithm1)." << endl;
         for (uint i = 0; i < params.maxiter; ++i)
         {
             Vpre = rsvd->V;

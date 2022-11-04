@@ -11,7 +11,7 @@ void FileBgen::read_all()
         F = MyVector::Zero(nsnps);
         G = MyMatrix::Zero(nsamples, nsnps);
         if (params.runem)
-            C(nsnps * nsamples);
+            C = ArrayXb::Zero(nsnps * nsamples);
         for (j = 0, k = 0; j < nsnps; j++)
         {
             try
