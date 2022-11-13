@@ -1,4 +1,7 @@
 #include "Cmd.hpp"
+#include "popl/popl.hpp"
+
+using namespace popl;
 
 Param::Param(int argc, char** argv)
 {

@@ -3,9 +3,7 @@
 
 #include <iostream>
 #include <iterator>
-#include "popl/popl.hpp"
-
-using namespace popl;
+#include <sstream>
 
 typedef unsigned int uint;
 typedef unsigned long long uint64;
