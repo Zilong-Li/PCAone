@@ -152,20 +152,21 @@ void Data::write_eigs_files(const MyVector& S, const MyMatrix& U, const MyMatrix
 {
     std::ofstream outs(params.outfile + ".eigvals");
     std::ofstream outu(params.outfile + ".eigvecs");
+    Eigen::IOFormat fmt(6, Eigen::DontAlignCols, "\t", "\n");
     if (outs.is_open())
     {
-        outs << S << '\n';
+        outs << S.format(fmt) << '\n';
     }
     if (outu.is_open())
     {
-        outu << U << '\n';
+        outu << U.format(fmt) << '\n';
     }
     if (params.printv)
     {
         std::ofstream outv(params.outfile + ".loadings");
         if (outv.is_open())
         {
-            outv << V << '\n';
+            outv << V.format(fmt) << '\n';
         }
     }
 }
