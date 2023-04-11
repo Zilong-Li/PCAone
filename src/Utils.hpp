@@ -10,9 +10,9 @@
 #include <cstdio>
 #include <cstring>
 #include <fstream>
-#include <random>
 #include <iostream>
 #include <iterator>
+#include <random>
 
 
 const std::string colwarn = "\x1B[33mwarning: ";
@@ -23,7 +23,7 @@ const std::string colend = "\033[0m";
 typedef Eigen::MatrixXd MyMatrix;
 typedef Eigen::VectorXd MyVector;
 typedef Eigen::ArrayXXd MyArrayX;
-typedef Eigen::Array<bool,Eigen::Dynamic,1> ArrayXb;
+typedef Eigen::Array<bool, Eigen::Dynamic, 1> ArrayXb;
 
 typedef unsigned char uchar;
 typedef unsigned int uint;
@@ -51,8 +51,6 @@ size_t freadOrDie(void* buffer, size_t sizeToRead, FILE* file);
 size_t count_lines(const std::string& fpath);
 
 std::string timestamp();
-
-void permute_plink(std::string& fin, const std::string& fout, uint gb, uint nbands);
 
 void flip_UV(MyMatrix& U, MyMatrix& V, bool ubase = true);
 

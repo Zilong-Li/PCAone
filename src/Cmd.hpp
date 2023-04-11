@@ -29,6 +29,7 @@ public:
     std::string pgen_prefix = "";
     std::string bgen = "";
     std::string beagle = "";
+    std::string binfile = "";
     std::string csvfile = "";
     std::string outfile = "pcaone";
     std::string tmpfile = "";

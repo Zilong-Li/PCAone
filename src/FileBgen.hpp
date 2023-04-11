@@ -48,5 +48,6 @@ private:
 };
 
 
+void shuffle_bgen_to_bin(std::string bgenfile, std::string binfile);
 
 #endif // PCAONE_FILEBGEN_

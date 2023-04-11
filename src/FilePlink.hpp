@@ -63,4 +63,6 @@ private:
     std::vector<uchar> inbed;
 };
 
+void permute_plink(std::string& fin, const std::string& fout, uint gb, uint nbands);
+
 #endif // PCAONE_FILEPLINK_
