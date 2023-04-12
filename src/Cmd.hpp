@@ -17,11 +17,10 @@ enum class FileType
     BGEN
 };
 
-
 class Param
 {
-public:
-    Param(int argc, char** argv);
+  public:
+    Param(int argc, char ** argv);
     ~Param();
 
     FileType intype = FileType::None; // PLINK, CSV, BEAGLE, BGEN
@@ -59,7 +58,7 @@ public:
     uint rand = 1;
 
     // general
-    uint center = 1;  // do centering for csv file
+    uint center = 1; // do centering for csv file
     bool groff = false;
     bool cpmed = false;
     bool printv = false;
@@ -76,8 +75,6 @@ public:
     bool mev = true;
 
     std::ostringstream ss;
-
 };
-
 
 #endif // CMD_H_

@@ -2,22 +2,22 @@
 
 using namespace std;
 
-void Data::prepare(uint& blocksize)
+void Data::prepare(uint & blocksize)
 {
-    if (nsamples > nsnps)
-        nsamples_ge_nsnps = true;
+    if(nsamples > nsnps) nsamples_ge_nsnps = true;
 
-    if (params.batch)
+    if(params.batch)
     {
         auto t1 = std::chrono::high_resolution_clock::now();
         read_all();
         auto t2 = std::chrono::high_resolution_clock::now();
-        readtime += std::chrono::duration<double>(t2 - t1).count() * std::chrono::duration<double>::period::num / std::chrono::duration<double>::period::den;
+        readtime += std::chrono::duration<double>(t2 - t1).count()
+                    * std::chrono::duration<double>::period::num / std::chrono::duration<double>::period::den;
     }
     else
     {
         // some common settings
-        if (params.arnoldi)
+        if(params.arnoldi)
         {
             // ram of arnoldi = n * b * 8 / 1024 kb
             blocksize = (unsigned int)ceil((double)params.memory * 134217728 / nsamples);
@@ -27,27 +27,32 @@ void Data::prepare(uint& blocksize)
             // ram of halko = (3*n*l + 2*m*l + 5*m + n*b)*8/1024 Kb
             uint64 l = params.k + params.oversamples;
             double m = (double)(3 * nsamples * l + 2 * nsnps * l + 5 * nsnps) / 134217728;
-            if (params.memory > 1.1 * m)
+            if(params.memory > 1.1 * m)
             {
                 m = 0;
             }
             else
             {
-                llog << colwarn + "minimum RAM required is " << m << " GB. trying to allocate more RAM." + colend << endl;
+                llog << colwarn + "minimum RAM required is " << m
+                     << " GB. trying to allocate more RAM." + colend << endl;
             }
-            blocksize = (unsigned int)ceil((double)((m + params.memory) * 134217728 - 3 * nsamples * l - 2 * nsnps * l - 5 * nsnps) / nsamples);
+            blocksize = (unsigned int)ceil(
+                (double)((m + params.memory) * 134217728 - 3 * nsamples * l - 2 * nsnps * l - 5 * nsnps)
+                / nsamples);
         }
         nblocks = (unsigned int)ceil((double)nsnps / blocksize);
-        if (params.verbose)
-            llog << timestamp() << "initial setting by -m/--memory: blocksize=" << blocksize << ", nblocks=" << nblocks << ", factor=" << bandFactor << ".\n";
-        if (nblocks == 1)
+        if(params.verbose)
+            llog << timestamp() << "initial setting by -m/--memory: blocksize=" << blocksize
+                 << ", nblocks=" << nblocks << ", factor=" << bandFactor << ".\n";
+        if(nblocks == 1)
         {
-            throw std::invalid_argument(colerror + "only one block exists. please remove -m / --memory option instead.\n");
+            throw std::invalid_argument(
+                colerror + "only one block exists. please remove -m / --memory option instead.\n");
         }
-        if (params.fast)
+        if(params.fast)
         {
             // decrease blocksize to fit the fancy halko
-            if (nblocks < params.bands)
+            if(nblocks < params.bands)
             {
                 blocksize = (unsigned int)ceil((double)nsnps / params.bands);
             }
@@ -57,22 +62,21 @@ void Data::prepare(uint& blocksize)
                 blocksize = (unsigned int)ceil((double)nsnps / (params.bands * bandFactor));
             }
             nblocks = (unsigned int)ceil((double)nsnps / blocksize);
-            if (params.verbose)
-                llog << timestamp() << "after adjustment by PCAone windows: blocksize=" << blocksize << ", nblocks=" << nblocks << ", factor=" << bandFactor
-                     << ".\n";
+            if(params.verbose)
+                llog << timestamp() << "after adjustment by PCAone windows: blocksize=" << blocksize
+                     << ", nblocks=" << nblocks << ", factor=" << bandFactor << ".\n";
         }
         start.resize(nblocks);
         stop.resize(nblocks);
-        for (uint i = 0; i < nblocks; i++)
+        for(uint i = 0; i < nblocks; i++)
         {
             start[i] = i * blocksize;
             stop[i] = start[i] + blocksize - 1;
             stop[i] = stop[i] >= nsnps ? nsnps - 1 : stop[i];
         }
         // initial some variables for blockwise for specific files here.
-        if (params.intype != FileType::CSV)
-            F = MyVector::Zero(nsnps);
-        if (params.intype == FileType::PLINK)
+        if(params.intype != FileType::CSV) F = MyVector::Zero(nsnps);
+        if(params.intype == FileType::PLINK)
             centered_geno_lookup = MyArrayX::Zero(4, nsnps); // for plink input
     }
 }
@@ -83,9 +87,9 @@ void Data::filterSNPs_resizeF()
     MyVector Fnew(F.size());
     // filter snps and reassign nsnps;
     Eigen::Index i = 0;
-    for (Eigen::Index j = 0; j < F.size(); j++)
+    for(Eigen::Index j = 0; j < F.size(); j++)
     {
-        if (F(j) > params.maf)
+        if(F(j) > params.maf)
         {
             keepSNPs.push_back(j); // keep track of index of element > maf
             Fnew(i++) = F(j);
@@ -93,7 +97,7 @@ void Data::filterSNPs_resizeF()
     }
     nsnps = keepSNPs.size(); // new number of SNPs
     llog << timestamp() << "number of SNPs after filtering by MAF > " << params.maf << ": " << nsnps << endl;
-    if (nsnps < 1)
+    if(nsnps < 1)
     {
         throw std::runtime_error("no SNPs left after filtering!\n");
     }
@@ -107,16 +111,16 @@ void Data::filterSNPs_resizeF()
   V = G' * (U/s) // calculate V is not a good idea
  **/
 
-void Data::calcu_vt_initial(const MyMatrix& T, MyMatrix& VT, bool standardize)
+void Data::calcu_vt_initial(const MyMatrix & T, MyMatrix & VT, bool standardize)
 {
-    if (nblocks == 1)
+    if(nblocks == 1)
     {
         llog << colwarn + "only one block exists. please use --batch mode instead." + colend << endl;
         exit(EXIT_SUCCESS);
     }
     uint actual_block_size;
     check_file_offset_first_var();
-    for (uint i = 0; i < nblocks; ++i)
+    for(uint i = 0; i < nblocks; ++i)
     {
         actual_block_size = stop[i] - start[i] + 1;
         // G (nsamples, actual_block_size)
@@ -127,16 +131,20 @@ void Data::calcu_vt_initial(const MyMatrix& T, MyMatrix& VT, bool standardize)
     return;
 }
 
-void Data::calcu_vt_update(const MyMatrix& T, const MyMatrix& U, const MyVector& svals, MyMatrix& VT, bool standardize)
+void Data::calcu_vt_update(const MyMatrix & T,
+                           const MyMatrix & U,
+                           const MyVector & svals,
+                           MyMatrix & VT,
+                           bool standardize)
 {
-    if (nblocks == 1)
+    if(nblocks == 1)
     {
         llog << colwarn + "only one block exists. please use --batch mode instead." + colend << endl;
         exit(EXIT_SUCCESS);
     }
     uint actual_block_size;
     check_file_offset_first_var();
-    for (uint i = 0; i < nblocks; ++i)
+    for(uint i = 0; i < nblocks; ++i)
     {
         actual_block_size = stop[i] - start[i] + 1;
         // G (nsamples, actual_block_size)
@@ -147,45 +155,44 @@ void Data::calcu_vt_update(const MyMatrix& T, const MyMatrix& U, const MyVector&
     return;
 }
 
-
-void Data::write_eigs_files(const MyVector& S, const MyMatrix& U, const MyMatrix& V)
+void Data::write_eigs_files(const MyVector & S, const MyMatrix & U, const MyMatrix & V)
 {
     std::ofstream outs(params.outfile + ".eigvals");
     std::ofstream outu(params.outfile + ".eigvecs");
     Eigen::IOFormat fmt(6, Eigen::DontAlignCols, "\t", "\n");
-    if (outs.is_open())
+    if(outs.is_open())
     {
         outs << S.format(fmt) << '\n';
     }
-    if (outu.is_open())
+    if(outu.is_open())
     {
         outu << U.format(fmt) << '\n';
     }
-    if (params.printv)
+    if(params.printv)
     {
         std::ofstream outv(params.outfile + ".loadings");
-        if (outv.is_open())
+        if(outv.is_open())
         {
             outv << V.format(fmt) << '\n';
         }
     }
 }
 
-void Data::update_batch_E(const MyMatrix& U, const MyVector& svals, const MyMatrix& VT)
+void Data::update_batch_E(const MyMatrix & U, const MyVector & svals, const MyMatrix & VT)
 {
     uint ks = svals.size();
-    if (params.pcangsd)
+    if(params.pcangsd)
     {
 // for gp
 #pragma omp parallel for
-        for (uint j = 0; j < nsnps; ++j)
+        for(uint j = 0; j < nsnps; ++j)
         {
             double p0, p1, p2;
-            for (uint i = 0; i < nsamples; ++i)
+            for(uint i = 0; i < nsamples; ++i)
             {
                 // Rescale individual allele frequencies
                 double pt = 0.0;
-                for (uint k = 0; k < ks; ++k)
+                for(uint k = 0; k < ks; ++k)
                 {
                     pt += U(i, k) * svals(k) * VT(k, j);
                 }
@@ -203,14 +210,14 @@ void Data::update_batch_E(const MyMatrix& U, const MyVector& svals, const MyMatr
     {
 // for gt
 #pragma omp parallel for
-        for (uint i = 0; i < nsnps; ++i)
+        for(uint i = 0; i < nsnps; ++i)
         {
-            for (uint j = 0; j < nsamples; ++j)
+            for(uint j = 0; j < nsamples; ++j)
             {
-                if (C[i * nsamples + j]) // no bool & 1
-                {                        // sites need to be predicted
+                if(C[i * nsamples + j]) // no bool & 1
+                { // sites need to be predicted
                     G(j, i) = 0.0;
-                    for (uint k = 0; k < ks; ++k)
+                    for(uint k = 0; k < ks; ++k)
                     {
                         G(j, i) += U(j, k) * svals(k) * VT(k, i);
                     }
@@ -224,18 +231,17 @@ void Data::update_batch_E(const MyMatrix& U, const MyVector& svals, const MyMatr
 void Data::standardize_E()
 {
 #pragma omp parallel for
-    for (uint i = 0; i < nsnps; ++i)
+    for(uint i = 0; i < nsnps; ++i)
     {
-        for (uint j = 0; j < nsamples; ++j)
+        for(uint j = 0; j < nsamples; ++j)
         {
             // in case denominator is too small.
-            if (sqrt(F(i) * (1 - F(i))) > VAR_TOL)
-                G(j, i) /= sqrt(F(i) * (1 - F(i)));
+            if(sqrt(F(i) * (1 - F(i))) > VAR_TOL) G(j, i) /= sqrt(F(i) * (1 - F(i)));
         }
     }
 }
 
-void Data::pcangsd_standardize_E(const MyMatrix& U, const MyVector& svals, const MyMatrix& VT)
+void Data::pcangsd_standardize_E(const MyMatrix & U, const MyVector & svals, const MyMatrix & VT)
 {
     uint ks = svals.size();
     Dc = MyVector::Zero(nsamples);
@@ -243,15 +249,15 @@ void Data::pcangsd_standardize_E(const MyMatrix& U, const MyVector& svals, const
     {
         MyVector diag_private = MyVector::Zero(nsamples); // Thread private vector;
 #pragma omp for
-        for (uint j = 0; j < nsnps; j++)
+        for(uint j = 0; j < nsnps; j++)
         {
             double p0, p1, p2, pt, pSum, tmp;
             double norm = sqrt(2.0 * F(j) * (1.0 - F(j)));
-            for (uint i = 0; i < nsamples; i++)
+            for(uint i = 0; i < nsamples; i++)
             {
                 // Rescale individual allele frequencies
                 pt = 0.0;
-                for (uint k = 0; k < ks; ++k)
+                for(uint k = 0; k < ks; ++k)
                 {
                     pt += U(i, k) * svals(k) * VT(k, j);
                 }
@@ -263,8 +269,7 @@ void Data::pcangsd_standardize_E(const MyMatrix& U, const MyVector& svals, const
                 p2 = (1 - P(2 * i + 0, keepSNPs[j]) - P(2 * i + 1, keepSNPs[j])) * pt * pt;
                 pSum = p0 + p1 + p2;
                 G(i, j) = (p1 + 2 * p2) / pSum - 2.0 * F(j);
-                if (norm > VAR_TOL)
-                    G(i, j) /= norm;
+                if(norm > VAR_TOL) G(i, j) /= norm;
 
                 // Update diag
                 tmp = (0.0 - 2.0 * F(j)) * (0.0 - 2.0 * F(j)) * (p0 / pSum);
@@ -275,7 +280,7 @@ void Data::pcangsd_standardize_E(const MyMatrix& U, const MyVector& svals, const
         }
 #pragma omp critical
         {
-            for (uint i = 0; i < nsamples; i++)
+            for(uint i = 0; i < nsamples; i++)
             {
                 Dc[i] += diag_private[i]; // Sum arrays for threads
             }

@@ -4,38 +4,30 @@
 #include <fstream>
 #include <iostream>
 
-
 class Logger
 {
-public:
+  public:
     std::ofstream clog;
     bool isprint = true;
 
-    template <class S>
-    Logger& operator<<(const S& val)
+    template<class S>
+    Logger & operator<<(const S & val)
     {
         clog << val;
-        if (isprint)
-            std::cout << val;
+        if(isprint) std::cout << val;
         return *this;
     }
 
-    Logger& operator<<(std::ostream& (*pfun)(std::ostream&))
+    Logger & operator<<(std::ostream & (*pfun)(std::ostream &))
     {
         pfun(clog);
-        if (isprint)
-            pfun(std::cout);
+        if(isprint) pfun(std::cout);
         return *this;
     };
 
-    Logger()
-    {
-    }
+    Logger() {}
 
-    ~Logger()
-    {
-    }
+    ~Logger() {}
 };
-
 
 #endif // LOGGER_H_

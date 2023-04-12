@@ -36,7 +36,7 @@ MYFLAGS        = -DVERSION=\"$(VERSION)\" -DNDEBUG
 LDFLAGS       += -s  # this is obsolete and will be igonored on mac
 # CURRENT_DIR   = $(shell pwd)
 INC           = -I./external -I./external/zstd/lib
-PCALIB = src/libpcaone.a
+PCALIB = libpcaone.a
 AVX = 1
 
 ifeq ($(strip $(AVX)),1)
@@ -130,8 +130,8 @@ endif
 # OBJ = $(patsubst %.cpp, %.o, $(wildcard ./src/*.cpp))
 # tar OBJ as libpcaone.a
 OBJ = src/Arnoldi.o src/Halko.o src/Data.o src/Utils.o src/Cmd.o \
-		src/FileBeagle.o src/FileCsv.o src/FileBgen.o src/FilePlink.o
-
+		src/FileBeagle.o src/FileCsv.o src/FileBgen.o src/FilePlink.o \
+		src/FileBinary.o
 
 SLIBS += ./external/zstd/lib/libzstd.a ./external/bgen/bgenlib.a
 

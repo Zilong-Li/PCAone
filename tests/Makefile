@@ -18,7 +18,7 @@ else ifeq ($(Platform),Darwin)
 	DLIBS   += -lomp -lpthread -L/usr/local/lib
 endif
 
-SLIBS += ../external/zstd/lib/libzstd.a ../external/bgen/bgenlib.a ../src/libpcaone.a
+SLIBS += ../external/zstd/lib/libzstd.a ../external/bgen/bgenlib.a ../libpcaone.a
 LIBS  += ${SLIBS} ${DLIBS} -lm -ldl
 
 OBJS     = $(patsubst %.cpp, %.o, $(wildcard *.cpp))

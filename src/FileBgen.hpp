@@ -10,15 +10,16 @@
 
 class FileBgen : public Data
 {
-public:
+  public:
     // using Data::Data;
-    FileBgen(const Param& params_) : Data(params_)
+    FileBgen(const Param & params_) : Data(params_)
     {
         llog << timestamp() << "start parsing BGEN format" << std::endl;
         bg = new bgen::Bgen(params.bgen, "", true);
         nsamples = bg->header.nsamples;
         nsnps = bg->header.nvariants;
-        llog << timestamp() << "the layout of bgen file is " << bg->header.layout << ". N samples is " << nsamples << ". M snps is " << nsnps << std::endl;
+        llog << timestamp() << "the layout of bgen file is " << bg->header.layout << ". N samples is "
+             << nsamples << ". M snps is " << nsnps << std::endl;
     }
 
     ~FileBgen()
@@ -35,18 +36,22 @@ public:
 
     virtual void read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize = false);
 
-    virtual void read_block_update(uint64 start_idx, uint64 stop_idx, const MyMatrix& U, const MyVector& svals, const MyMatrix& VT, bool standardize)
+    virtual void read_block_update(uint64 start_idx,
+                                   uint64 stop_idx,
+                                   const MyMatrix & U,
+                                   const MyVector & svals,
+                                   const MyMatrix & VT,
+                                   bool standardize)
     {
     }
 
-private:
-    bgen::Bgen* bg;
+  private:
+    bgen::Bgen * bg;
     bgen::Variant var;
-    float* dosages;
-    float* probs1d;
+    float * dosages;
+    float * probs1d;
     bool frequency_was_estimated = false;
 };
-
 
 void shuffle_bgen_to_bin(std::string bgenfile, std::string binfile);
 

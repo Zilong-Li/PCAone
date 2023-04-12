@@ -5,15 +5,13 @@
 
 class ArnoldiOpData
 {
-public:
-    ArnoldiOpData(Data* data_) : data(data_), n(data_->nsamples)
+  public:
+    ArnoldiOpData(Data * data_) : data(data_), n(data_->nsamples)
     {
         data->nops = 1;
     }
 
-    ~ArnoldiOpData()
-    {
-    }
+    ~ArnoldiOpData() {}
 
     // The line below is new for spectra v1.0.0
     using Scalar = double;
@@ -27,7 +25,7 @@ public:
         return n;
     }
     // y = G * G' * x ; data.G is n x m;
-    void perform_op(const double* x_in, double* y_out) const;
+    void perform_op(const double * x_in, double * y_out) const;
     inline void setFlags(bool is_update, bool is_standardize, bool is_pcangsd)
     {
         update = is_update;
@@ -38,13 +36,12 @@ public:
     MyMatrix U, VT;
     MyVector S;
 
-private:
-    Data* data;
+  private:
+    Data * data;
     const uint64 n;
     bool update = false, standardize = false, pcangsd = false;
 };
 
+void run_pca_with_arnoldi(Data * data, const Param & params);
 
-void run_pca_with_arnoldi(Data* data, const Param& params);
-
-#endif  // PCAONE_ARNOLDI_
+#endif // PCAONE_ARNOLDI_

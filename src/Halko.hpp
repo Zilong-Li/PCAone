@@ -6,29 +6,25 @@
 
 class RsvdOpData
 {
-public:
-    Data* data;
+  public:
+    Data * data;
     using Index = Eigen::Index;
     bool update = false, standardize = false, verbose = false;
     MyMatrix U, V;
     MyVector S;
     Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic> perm;
 
-public:
-    RsvdOpData(Data* data_) : data(data_)
-    {
-    }
+  public:
+    RsvdOpData(Data * data_) : data(data_) {}
 
-    virtual ~RsvdOpData()
-    {
-    }
+    virtual ~RsvdOpData() {}
 
     virtual Index rows() const = 0;
     virtual Index cols() const = 0;
     virtual Index ranks() const = 0;
     virtual Index oversamples() const = 0;
 
-    virtual void computeGandH(MyMatrix& G, MyMatrix& H, int pi) = 0;
+    virtual void computeGandH(MyMatrix & G, MyMatrix & H, int pi) = 0;
 
     inline void setFlags(bool is_update, bool is_standardize, bool is_verbose)
     {
@@ -40,22 +36,19 @@ public:
     void computeUSV(int p, double tol);
 };
 
-
 class NormalRsvdOpData : public RsvdOpData
 {
-private:
+  private:
     const Index nk, os, size;
     uint64 actual_block_size, start_idx, stop_idx;
     MyMatrix Omg;
 
-public:
-    NormalRsvdOpData(Data* data_, int k_, int os_ = 10) : RsvdOpData(data_), nk(k_), os(os_), size(k_ + os_)
+  public:
+    NormalRsvdOpData(Data * data_, int k_, int os_ = 10) : RsvdOpData(data_), nk(k_), os(os_), size(k_ + os_)
     {
     }
 
-    ~NormalRsvdOpData()
-    {
-    }
+    ~NormalRsvdOpData() {}
 
     Index rows() const
     {
@@ -74,26 +67,24 @@ public:
         return os;
     }
 
-    void computeGandH(MyMatrix& G, MyMatrix& H, int pi = 0);
+    void computeGandH(MyMatrix & G, MyMatrix & H, int pi = 0);
 };
 
 class FancyRsvdOpData : public RsvdOpData
 {
-private:
+  private:
     const Index nk, os, size;
     uint64 band, blocksize, actual_block_size, start_idx, stop_idx;
     MyMatrix Omg, Omg2, H1, H2;
 
-public:
-    FancyRsvdOpData(Data* data_, int k_, int os_ = 10) :RsvdOpData(data_), nk(k_), os(os_), size(k_ + os_)
+  public:
+    FancyRsvdOpData(Data * data_, int k_, int os_ = 10) : RsvdOpData(data_), nk(k_), os(os_), size(k_ + os_)
     {
         H1 = MyMatrix::Zero(cols(), size);
         H2 = MyMatrix::Zero(cols(), size);
     }
 
-    ~FancyRsvdOpData()
-    {
-    }
+    ~FancyRsvdOpData() {}
 
     Index rows() const
     {
@@ -112,10 +103,10 @@ public:
         return os;
     }
 
-    void computeGandH(MyMatrix& G, MyMatrix& H, int pi = 0);
+    void computeGandH(MyMatrix & G, MyMatrix & H, int pi = 0);
 };
 
 // void print_summary_table(const MyMatrix& Upre, const MyMatrix& Ucur);
-void run_pca_with_halko(Data* data, const Param& params);
+void run_pca_with_halko(Data * data, const Param & params);
 
 #endif // PCAONE_HALKO_

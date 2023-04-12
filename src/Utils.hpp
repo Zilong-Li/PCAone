@@ -14,7 +14,6 @@
 #include <iterator>
 #include <random>
 
-
 const std::string colwarn = "\x1B[33mwarning: ";
 const std::string colerror = "\x1B[31merror: ";
 const std::string coldone = "\x1B[32m";
@@ -29,10 +28,12 @@ typedef unsigned char uchar;
 typedef unsigned int uint;
 typedef unsigned long long uint64;
 
-template <typename MatrixType>
-inline void permute_matrix(MatrixType& G, Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic>& P, bool bycol = true)
+template<typename MatrixType>
+inline void permute_matrix(MatrixType & G,
+                           Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic> & P,
+                           bool bycol = true)
 {
-    if (bycol)
+    if(bycol)
     {
         P = Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic>(G.cols());
         P.setIdentity();
@@ -53,39 +54,39 @@ inline void permute_matrix(MatrixType& G, Eigen::PermutationMatrix<Eigen::Dynami
 struct Line
 {
     std::string data;
-    operator std::string const&() const
+    operator std::string const &() const
     {
         return data;
     }
-    friend std::istream& operator>>(std::istream& is, Line& line)
+    friend std::istream & operator>>(std::istream & is, Line & line)
     {
         return std::getline(is, line.data);
     }
 };
 
-void fcloseOrDie(FILE* file);
+void fcloseOrDie(FILE * file);
 
-FILE* fopenOrDie(const char* filename, const char* instruction);
+FILE * fopenOrDie(const char * filename, const char * instruction);
 
-size_t freadOrDie(void* buffer, size_t sizeToRead, FILE* file);
+size_t freadOrDie(void * buffer, size_t sizeToRead, FILE * file);
 
-size_t count_lines(const std::string& fpath);
+size_t count_lines(const std::string & fpath);
 
 std::string timestamp();
 
-void flip_UV(MyMatrix& U, MyMatrix& V, bool ubase = true);
+void flip_UV(MyMatrix & U, MyMatrix & V, bool ubase = true);
 
-void flip_Omg(MyMatrix& Omg2, MyMatrix& Omg);
+void flip_Omg(MyMatrix & Omg2, MyMatrix & Omg);
 
-void flip_Y(const MyMatrix& X, MyMatrix& Y);
+void flip_Y(const MyMatrix & X, MyMatrix & Y);
 
-double rmse(const MyMatrix& X, const MyMatrix& Y);
+double rmse(const MyMatrix & X, const MyMatrix & Y);
 
-Eigen::VectorXd minSSE(const MyMatrix& X, const MyMatrix& Y);
+Eigen::VectorXd minSSE(const MyMatrix & X, const MyMatrix & Y);
 
-double mev(const MyMatrix& X, const MyMatrix& Y);
+double mev(const MyMatrix & X, const MyMatrix & Y);
 
-void mev_rmse_byk(const MyMatrix& X, const MyMatrix& Y, MyVector& Vm, MyVector& Vr);
+void mev_rmse_byk(const MyMatrix & X, const MyMatrix & Y, MyVector & Vm, MyVector & Vr);
 
 double get_median(std::vector<double> v);
 

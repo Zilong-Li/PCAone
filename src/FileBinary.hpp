@@ -5,22 +5,21 @@
 
 class FileBin : public Data
 {
-public:
-    FileBin(const Param& params_) : Data(params_)
+  public:
+    FileBin(const Param & params_) : Data(params_)
     {
         llog << timestamp() << "start parsing binary format" << std::endl;
         ifs_bin.open(params.binfile, std::ios::in | std::ios::binary);
-        ifs_bin.read((char*)&nsamples, sizeof(uint64));
-        ifs_bin.read((char*)&nsnps, sizeof(uint64));
+        ifs_bin.read((char *)&nsamples, sizeof(uint64));
+        ifs_bin.read((char *)&nsnps, sizeof(uint64));
+        llog << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << std::endl;
         // ifs_bin.read((char*)&nimpute, sizeof(uint64));
         bytes_per_snp = nsamples * sizeof(double);
         // for (uint64 i = 0; i < nimpute; i++)
         //     ifs_bin.read((char*)&missing_points[i], sizeof(uint64));
     }
 
-    ~FileBin()
-    {
-    }
+    ~FileBin() {}
 
     virtual void read_all();
     // for blockwise
@@ -28,11 +27,18 @@ public:
 
     virtual void read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize);
 
-    virtual void read_block_update(uint64 start_idx, uint64 stop_idx, const MyMatrix& U, const MyVector& svals, const MyMatrix& VT, bool standardize);
+    virtual void read_block_update(uint64 start_idx,
+                                   uint64 stop_idx,
+                                   const MyMatrix & U,
+                                   const MyVector & svals,
+                                   const MyMatrix & VT,
+                                   bool standardize)
+    {
+    }
 
-private:
+  private:
     std::ifstream ifs_bin;
-    uint64 bytes_per_snp, nimpute;
+    uint64 bytes_per_snp;
     std::vector<double> inbed;
     // std::vector<uint64> missing_points;
     uint64 magic = sizeof(uint64) * 2;
