@@ -24,3 +24,5 @@ tutorial
 .ccls
 pcaone.*
 releases
+*.bin
+PCAone

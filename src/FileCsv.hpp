@@ -7,6 +7,11 @@
 
 struct ZstdBuffer
 {
+    ZstdBuffer()
+    {
+        buffInTmp.reserve(buffInSize);
+        buffOutTmp.reserve(buffOutSize);
+    }
     ~ZstdBuffer()
     {
         ZSTD_freeDCtx(dctx);
@@ -16,8 +21,9 @@ struct ZstdBuffer
     size_t const buffInSize = ZSTD_DStreamInSize();
     size_t const buffOutSize = ZSTD_DStreamOutSize();
     ZSTD_DCtx* const dctx = ZSTD_createDCtx();
-    std::string buffCur, buffLine, buffInTmp, buffOutTmp;
     size_t lastRet = 1;
+    std::string buffCur = "";
+    std::string buffLine, buffInTmp, buffOutTmp;
 };
 
 void parse_csvzstd(ZstdBuffer& zbuf, uint64& nsamples, uint64& nsnps, bool cpmed, std::vector<double>& libsize, std::vector<size_t>& tidx,
@@ -36,10 +42,6 @@ public:
     FileCsv(const Param& params_) : Data(params_)
     {
         llog << timestamp() << "start parsing CSV format compressed by ZSTD" << std::endl;
-        zbuf.buffInTmp.reserve(zbuf.buffInSize);
-        zbuf.buffOutTmp.reserve(zbuf.buffOutSize);
-        zbuf.buffCur = "";
-
         if (params.nsnps > 0 && params.nsamples > 0 && !params.cpmed)
         {
             llog << timestamp() << "use nsamples and nsnps given by user." << std::endl;
@@ -51,11 +53,9 @@ public:
             zbuf.fin = fopenOrDie(params.csvfile.c_str(), "rb");
             parse_csvzstd(zbuf, nsamples, nsnps, params.cpmed, libsize, tidx, median_libsize);
         }
-
         tidx.resize(nsamples + 1); // tidx[0] = 0;
         llog << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << std::endl;
     }
-
 
     ~FileCsv()
     {

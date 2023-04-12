@@ -56,6 +56,27 @@ inline MatrixType StandardNormalRandom(const Eigen::Index numRows, const Eigen::
 }
 
 template <typename MatrixType>
+inline void permute_matrix(MatrixType& G, Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic>& P, bool bycol = true)
+{
+    if (bycol)
+    {
+        P = Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic>(G.cols());
+        P.setIdentity();
+        auto rng = std::default_random_engine{};
+        std::shuffle(P.indices().data(), P.indices().data() + P.indices().size(), rng);
+        G = G * P; // permute columns in-place
+    }
+    else
+    {
+        P = Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic>(G.rows());
+        P.setIdentity();
+        auto rng = std::default_random_engine{};
+        std::shuffle(P.indices().data(), P.indices().data() + P.indices().size(), rng);
+        G = P * G; // permute rows in-place
+    }
+}
+
+template <typename MatrixType>
 void flipOmg(MatrixType& Omg2, MatrixType& Omg)
 {
     for (Eigen::Index i = 0; i < Omg.cols(); ++i)

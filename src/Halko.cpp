@@ -201,11 +201,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi)
             // permute snps of G, see https://stackoverflow.com/questions/15858569/randomly-permute-rows-columns-of-a-matrix-with-eigen
             if (!data->params.noshuffle)
             {
-                perm = Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic>(data->G.cols());
-                perm.setIdentity();
-                auto rng = std::default_random_engine{};
-                std::shuffle(perm.indices().data(), perm.indices().data() + perm.indices().size(), rng);
-                data->G = data->G * perm; // permute columns in-place
+                permute_matrix(data->G, perm);
             }
         }
         {
