@@ -24,7 +24,7 @@ LIBS  += ${SLIBS} ${DLIBS} -lm -ldl
 OBJS     = $(patsubst %.cpp, %.o, $(wildcard *.cpp))
 # OBJS = test-main.o test-io.o test-phaseless.o test-fastphase.o test-forward-backward.o
 
-BINS = test-shuffle-csvzstd.bin
+BINS = test-shuffle-data2bin.bin
 
 .PHONY: all test clean
 
@@ -43,7 +43,7 @@ bgenlib:
 	(cd ../external/bgen/; $(MAKE))
 
 test: $(BINS)
-	./test-shuffle-csvzstd.bin --success
+	./test-shuffle-data2bin.bin --success
 
 clean:
 	rm -f *.o *.bin

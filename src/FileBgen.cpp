@@ -147,9 +147,27 @@ void FileBgen::read_all()
 
 void FileBgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize)
 {
+    read_bgen_block(G, F, var, bg, dosages, probs1d, frequency_was_estimated, nsamples, nsnps,
+                    params.blocksize, start_idx, stop_idx, standardize);
+}
+
+void read_bgen_block(MyMatrix & G,
+                     MyVector & F,
+                     bgen::Variant & var,
+                     bgen::Bgen * bg,
+                     float * dosages,
+                     float * probs1d,
+                     bool & frequency_was_estimated,
+                     uint64 nsamples,
+                     uint64 nsnps,
+                     uint blocksize,
+                     uint64 start_idx,
+                     uint64 stop_idx,
+                     bool standardize)
+{
     uint actual_block_size = stop_idx - start_idx + 1;
     uint i, j, snp_idx;
-    if(G.cols() < params.blocksize || (actual_block_size < params.blocksize))
+    if(G.cols() < blocksize || (actual_block_size < blocksize))
     {
         G = MyMatrix::Zero(nsamples, actual_block_size);
     }
@@ -223,4 +241,45 @@ void FileBgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standa
         }
         if(stop_idx + 1 == nsnps) frequency_was_estimated = true;
     }
+}
+
+int shuffle_bgen_to_bin(std::string bgenfile, std::string binfile, uint gb, bool standardize)
+{
+    bgen::Bgen * bg = new bgen::Bgen(bgenfile, "", true);
+    uint64 nsamples = bg->header.nsamples;
+    uint64 nsnps = bg->header.nvariants;
+    uint64 twoGB = (uint64)1073741824 * gb;
+    uint64 blocksize = twoGB / (nsamples * sizeof(double));
+    uint nblocks = (nsnps + blocksize - 1) / blocksize;
+    std::ofstream ofs(binfile, std::ios::binary);
+    ofs.write((char *)&nsamples, sizeof(nsamples));
+    ofs.write((char *)&nsnps, sizeof(nsnps));
+    bgen::Variant var;
+    float * dosages = nullptr;
+    float * probs1d = nullptr;
+    bool frequency_was_estimated = false;
+    std::vector<uint64> perm(nsnps);
+    std::iota(perm.begin(), perm.end(), 0);
+    auto rng = std::default_random_engine{};
+    std::shuffle(perm.begin(), perm.end(), rng);
+    MyMatrix G;
+    MyVector F(nsnps);
+    uint64 idx, cur = 0;
+    uint64 bytes_per_snp = nsamples * sizeof(double);
+    for(uint i = 0; i < nblocks; i++)
+    {
+        auto start_idx = i * blocksize;
+        auto stop_idx = start_idx + blocksize - 1;
+        stop_idx = stop_idx >= nsnps ? nsnps - 1 : stop_idx;
+        read_bgen_block(G, F, var, bg, dosages, probs1d, frequency_was_estimated, nsamples, nsnps, blocksize,
+                        start_idx, stop_idx, standardize);
+        for(size_t p = 0; p < G.cols(); p++, cur++)
+        {
+            // std::cerr << cur << "," << perm[cur] << "\n";
+            idx = 2 * sizeof(nsamples) + perm[cur] * bytes_per_snp;
+            ofs.seekp(idx, std::ios_base::beg);
+            ofs.write((char *)G.col(p).data(), bytes_per_snp);
+        }
+    }
+    return (nsnps == cur);
 }

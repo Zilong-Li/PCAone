@@ -8,6 +8,22 @@
 // const double BGEN_MISSING_VALUE = -9;
 // const double BGEN2GENO[4] = {0, 0.5, 1, BGEN_MISSING_VALUE};
 
+void read_bgen_block(MyMatrix & G,
+                     MyVector & F,
+                     bgen::Variant & var,
+                     bgen::Bgen * bg,
+                     float * dosages,
+                     float * probs1d,
+                     bool & frequency_was_estimated,
+                     uint64 nsamples,
+                     uint64 nsnps,
+                     uint blocksize,
+                     uint64 start_idx,
+                     uint64 stop_idx,
+                     bool standardize);
+
+int shuffle_bgen_to_bin(std::string bgenfile, std::string binfile, uint gb, bool standardize);
+
 class FileBgen : public Data
 {
   public:
@@ -48,11 +64,9 @@ class FileBgen : public Data
   private:
     bgen::Bgen * bg;
     bgen::Variant var;
-    float * dosages;
-    float * probs1d;
+    float * dosages = nullptr;
+    float * probs1d = nullptr;
     bool frequency_was_estimated = false;
 };
-
-void shuffle_bgen_to_bin(std::string bgenfile, std::string binfile);
 
 #endif // PCAONE_FILEBGEN_
