@@ -14,6 +14,7 @@ enum class FileType
     PLINK,
     CSV,
     BEAGLE,
+    BINARY,
     BGEN
 };
 

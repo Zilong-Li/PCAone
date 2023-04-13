@@ -266,9 +266,11 @@ int shuffle_csvzstd_to_bin(std::string csvfile, std::string binfile, uint gb, bo
     uint64 twoGB = (uint64)1073741824 * gb;
     uint64 blocksize = twoGB / (nsamples * sizeof(double));
     uint nblocks = (nsnps + blocksize - 1) / blocksize;
-    std::ofstream ofs(binfile, std::ios::binary);
+    std::ofstream ofs(binfile + ".bin", std::ios::binary);
+    std::ofstream ofs2(binfile + ".idx");
     ofs.write((char *)&nsamples, sizeof(nsamples));
     ofs.write((char *)&nsnps, sizeof(nsnps));
+    uint64 magic = sizeof(nsamples) + sizeof(nsnps);
     zbuf.fin = fopenOrDie(csvfile.c_str(), "rb");
     zbuf.lastRet = 1;
     zbuf.buffCur = "";
@@ -277,7 +279,8 @@ int shuffle_csvzstd_to_bin(std::string csvfile, std::string binfile, uint gb, bo
     std::iota(perm.begin(), perm.end(), 0);
     auto rng = std::default_random_engine{};
     std::shuffle(perm.begin(), perm.end(), rng);
-    uint64 bytes_per_snp = nsamples * sizeof(double);
+    uint64 bytes_per_snp = nsamples * sizeof(float);
+    Eigen::VectorXf fg;
     for(uint i = 0; i < nblocks; i++)
     {
         auto start_idx = i * blocksize;
@@ -287,10 +290,11 @@ int shuffle_csvzstd_to_bin(std::string csvfile, std::string binfile, uint gb, bo
                            cpmed, center);
         for(size_t p = 0; p < G.cols(); p++, cur++)
         {
-            // std::cerr << cur << "," << perm[cur] << "\n";
-            idx = 2 * sizeof(nsamples) + perm[cur] * bytes_per_snp;
+            ofs2 << perm[cur] << "\n";
+            idx = magic + perm[cur] * bytes_per_snp;
             ofs.seekp(idx, std::ios_base::beg);
-            ofs.write((char *)G.col(p).data(), bytes_per_snp);
+            fg = G.col(p).cast<float>();
+            ofs.write((char *)fg.data(), bytes_per_snp);
         }
     }
     return (nsnps == cur);

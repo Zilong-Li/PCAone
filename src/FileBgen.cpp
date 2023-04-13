@@ -251,9 +251,11 @@ int shuffle_bgen_to_bin(std::string bgenfile, std::string binfile, uint gb, bool
     uint64 twoGB = (uint64)1073741824 * gb;
     uint64 blocksize = twoGB / (nsamples * sizeof(double));
     uint nblocks = (nsnps + blocksize - 1) / blocksize;
-    std::ofstream ofs(binfile, std::ios::binary);
+    std::ofstream ofs(binfile + ".bin", std::ios::binary);
+    std::ofstream ofs2(binfile + ".idx");
     ofs.write((char *)&nsamples, sizeof(nsamples));
     ofs.write((char *)&nsnps, sizeof(nsnps));
+    uint64 magic = sizeof(nsamples) + sizeof(nsnps);
     bgen::Variant var;
     float * dosages = nullptr;
     float * probs1d = nullptr;
@@ -265,7 +267,7 @@ int shuffle_bgen_to_bin(std::string bgenfile, std::string binfile, uint gb, bool
     MyMatrix G;
     MyVector F(nsnps);
     uint64 idx, cur = 0;
-    uint64 bytes_per_snp = nsamples * sizeof(double);
+    uint64 bytes_per_snp = nsamples * sizeof(float);
     for(uint i = 0; i < nblocks; i++)
     {
         auto start_idx = i * blocksize;
@@ -275,8 +277,8 @@ int shuffle_bgen_to_bin(std::string bgenfile, std::string binfile, uint gb, bool
                         start_idx, stop_idx, standardize);
         for(size_t p = 0; p < G.cols(); p++, cur++)
         {
-            // std::cerr << cur << "," << perm[cur] << "\n";
-            idx = 2 * sizeof(nsamples) + perm[cur] * bytes_per_snp;
+            ofs2 << perm[cur] << "\n";
+            idx = magic + perm[cur] * bytes_per_snp;
             ofs.seekp(idx, std::ios_base::beg);
             ofs.write((char *)G.col(p).data(), bytes_per_snp);
         }
