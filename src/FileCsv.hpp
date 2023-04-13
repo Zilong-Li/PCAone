@@ -34,17 +34,18 @@ void parse_csvzstd(ZstdBuffer & zbuf,
                    double & median_libsize);
 
 void read_csvzstd_block(ZstdBuffer & zbuf,
+                        int blocksize,
                         uint64 start_idx,
                         uint64 stop_idx,
                         MyMatrix & G,
-                        int blocksize,
                         uint64 nsamples,
-                        bool cpmed,
                         std::vector<double> & libsize,
                         std::vector<size_t> & tidx,
-                        double median_libsize);
+                        double median_libsize,
+                        bool cpmed,
+                        bool center);
 
-int shuffle_csvzstd_to_bin(std::string csvfile, std::string binfile, uint gb, bool cpmed);
+int shuffle_csvzstd_to_bin(std::string csvfile, std::string binfile, uint gb, bool cpmed, bool center);
 
 // assume data is already noralized
 // only do centering

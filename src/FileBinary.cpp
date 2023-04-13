@@ -46,7 +46,6 @@ void FileBin::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
     long long offset = magic + start_idx * bytes_per_snp;
     if(ifs_bin.tellg() != offset) throw std::runtime_error("Error: something wrong with read_snp_block!\n");
     uint actual_block_size = stop_idx - start_idx + 1;
-    G = MyMatrix(actual_block_size, nsamples);
+    G = MyMatrix(nsamples, actual_block_size);
     ifs_bin.read((char *)G.data(), bytes_per_snp * actual_block_size);
-    G.transposeInPlace(); // we want column-major
 }

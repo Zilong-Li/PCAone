@@ -41,7 +41,8 @@ int main(int argc, char * argv[])
         }
         else if(params.intype == FileType::CSV)
         {
-            shuffle_csvzstd_to_bin(params.csvfile, params.binfile, params.buffer, params.cpmed);
+            shuffle_csvzstd_to_bin(params.csvfile, params.binfile, params.buffer, params.cpmed,
+                                   params.center);
         }
         data = new FileBin(params);
     }

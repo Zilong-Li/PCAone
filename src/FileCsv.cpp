@@ -75,8 +75,8 @@ void FileCsv::check_file_offset_first_var()
 
 void FileCsv::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize)
 {
-    read_csvzstd_block(zbuf, start_idx, stop_idx, G, params.blocksize, nsamples, params.cpmed, libsize, tidx,
-                       median_libsize);
+    read_csvzstd_block(zbuf, params.blocksize, start_idx, stop_idx, G, nsamples, libsize, tidx,
+                       median_libsize, params.cpmed, params.center);
 }
 
 void parse_csvzstd(ZstdBuffer & zbuf,
@@ -159,15 +159,16 @@ void parse_csvzstd(ZstdBuffer & zbuf,
 }
 
 void read_csvzstd_block(ZstdBuffer & zbuf,
+                        int blocksize,
                         uint64 start_idx,
                         uint64 stop_idx,
                         MyMatrix & G,
-                        int blocksize,
                         uint64 nsamples,
-                        bool cpmed,
                         std::vector<double> & libsize,
                         std::vector<size_t> & tidx,
-                        double median_libsize)
+                        double median_libsize,
+                        bool cpmed,
+                        bool center)
 {
     const uint actual_block_size = stop_idx - start_idx + 1;
 
@@ -200,7 +201,7 @@ void read_csvzstd_block(ZstdBuffer & zbuf,
                 if(cpmed) G(i, lastSNP) = log10(G(i, lastSNP) * median_libsize / libsize[i] + 1);
             }
 
-            G.col(lastSNP).array() -= G.col(lastSNP).mean(); // only do centering
+            if(center) G.col(lastSNP).array() -= G.col(lastSNP).mean(); // only do centering
             lastSNP++;
         }
     }
@@ -236,7 +237,7 @@ void read_csvzstd_block(ZstdBuffer & zbuf,
                         if(cpmed) G(i, lastSNP) = log10(G(i, lastSNP) * median_libsize / libsize[i] + 1);
                     }
 
-                    G.col(lastSNP).array() -= G.col(lastSNP).mean(); // only do centering
+                    if(center) G.col(lastSNP).array() -= G.col(lastSNP).mean(); // only do centering
                     lastSNP++;
                 }
             }
@@ -250,7 +251,7 @@ void read_csvzstd_block(ZstdBuffer & zbuf,
     }
 }
 
-int shuffle_csvzstd_to_bin(std::string csvfile, std::string binfile, uint gb, bool cpmed)
+int shuffle_csvzstd_to_bin(std::string csvfile, std::string binfile, uint gb, bool cpmed, bool center)
 {
     std::vector<size_t> tidx;
     std::vector<double> libsize;
@@ -273,20 +274,21 @@ int shuffle_csvzstd_to_bin(std::string csvfile, std::string binfile, uint gb, bo
     zbuf.buffCur = "";
     MyMatrix G;
     std::vector<uint64> perm(nsnps);
+    std::iota(perm.begin(), perm.end(), 0);
     auto rng = std::default_random_engine{};
-    std::uniform_int_distribution<> dis(0, nsnps - 1);
-    for(auto & p : perm) p = dis(rng);
+    std::shuffle(perm.begin(), perm.end(), rng);
     uint64 bytes_per_snp = nsamples * sizeof(double);
     for(uint i = 0; i < nblocks; i++)
     {
         auto start_idx = i * blocksize;
         auto stop_idx = start_idx + blocksize - 1;
         stop_idx = stop_idx >= nsnps ? nsnps - 1 : stop_idx;
-        read_csvzstd_block(zbuf, start_idx, stop_idx, G, blocksize, nsamples, cpmed, libsize, tidx,
-                           median_libsize);
+        read_csvzstd_block(zbuf, blocksize, start_idx, stop_idx, G, nsamples, libsize, tidx, median_libsize,
+                           cpmed, center);
         for(size_t p = 0; p < G.cols(); p++, cur++)
         {
-            idx = 2 * sizeof(uint64) + perm[cur] * bytes_per_snp;
+            // std::cerr << cur << "," << perm[cur] << "\n";
+            idx = 2 * sizeof(nsamples) + perm[cur] * bytes_per_snp;
             ofs.seekp(idx, std::ios_base::beg);
             ofs.write((char *)G.col(p).data(), bytes_per_snp);
         }
