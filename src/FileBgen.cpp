@@ -15,7 +15,7 @@ void FileBgen::read_all()
         {
             try
             {
-                var = bg->next_var();
+                auto var = bg->next_var();
                 dosages = var.minor_allele_dosage();
                 gc = 0;
                 gs = 0.0;
@@ -77,7 +77,7 @@ void FileBgen::read_all()
         {
             try
             {
-                var = bg->next_var();
+                auto var = bg->next_var();
                 probs1d = var.probs_1d();
 #pragma omp parallel for
                 for(i = 0; i < nsamples; i++)
@@ -147,13 +147,12 @@ void FileBgen::read_all()
 
 void FileBgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize)
 {
-    read_bgen_block(G, F, var, bg, dosages, probs1d, frequency_was_estimated, nsamples, nsnps,
+    read_bgen_block(G, F, bg, dosages, probs1d, frequency_was_estimated, nsamples, nsnps,
                     params.blocksize, start_idx, stop_idx, standardize);
 }
 
 void read_bgen_block(MyMatrix & G,
                      MyVector & F,
-                     bgen::Variant & var,
                      bgen::Bgen * bg,
                      float * dosages,
                      float * probs1d,
@@ -176,7 +175,7 @@ void read_bgen_block(MyMatrix & G,
         for(i = 0; i < actual_block_size; ++i)
         {
             snp_idx = start_idx + i;
-            var = bg->next_var();
+            auto var = bg->next_var();
             dosages = var.minor_allele_dosage();
 #pragma omp parallel for
             for(j = 0; j < nsamples; j++)
@@ -201,7 +200,7 @@ void read_bgen_block(MyMatrix & G,
         for(i = 0; i < actual_block_size; ++i)
         {
             snp_idx = start_idx + i;
-            var = bg->next_var();
+            auto var = bg->next_var();
             dosages = var.minor_allele_dosage();
             gc = 0;
             gs = 0.0;
@@ -256,7 +255,6 @@ int shuffle_bgen_to_bin(std::string bgenfile, std::string binfile, uint gb, bool
     ofs.write((char *)&nsamples, sizeof(nsamples));
     ofs.write((char *)&nsnps, sizeof(nsnps));
     uint64 magic = sizeof(nsamples) + sizeof(nsnps);
-    bgen::Variant var;
     float * dosages = nullptr;
     float * probs1d = nullptr;
     bool frequency_was_estimated = false;
@@ -273,7 +271,7 @@ int shuffle_bgen_to_bin(std::string bgenfile, std::string binfile, uint gb, bool
         auto start_idx = i * blocksize;
         auto stop_idx = start_idx + blocksize - 1;
         stop_idx = stop_idx >= nsnps ? nsnps - 1 : stop_idx;
-        read_bgen_block(G, F, var, bg, dosages, probs1d, frequency_was_estimated, nsamples, nsnps, blocksize,
+        read_bgen_block(G, F, bg, dosages, probs1d, frequency_was_estimated, nsamples, nsnps, blocksize,
                         start_idx, stop_idx, standardize);
         for(size_t p = 0; p < G.cols(); p++, cur++)
         {

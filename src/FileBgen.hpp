@@ -10,7 +10,6 @@
 
 void read_bgen_block(MyMatrix & G,
                      MyVector & F,
-                     bgen::Variant & var,
                      bgen::Bgen * bg,
                      float * dosages,
                      float * probs1d,
@@ -63,7 +62,6 @@ class FileBgen : public Data
 
   private:
     bgen::Bgen * bg;
-    bgen::Variant var;
     float * dosages = nullptr;
     float * probs1d = nullptr;
     bool frequency_was_estimated = false;
