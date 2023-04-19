@@ -1,10 +1,10 @@
 
-#include "bgen.h"
+#include "reader.h"
 
 namespace bgen {
 
-Bgen::Bgen(std::string path, std::string sample_path, bool delay_parsing) {
-  handle.open(path, std::ios::binary);
+CppBgenReader::CppBgenReader(std::string path, std::string sample_path, bool delay_parsing) {
+  handle.open(path, std::ios::in | std::ios::binary);
   if (!handle) {
     throw std::invalid_argument("error reading from '" + path + "'");
   }
@@ -28,17 +28,17 @@ Bgen::Bgen(std::string path, std::string sample_path, bool delay_parsing) {
   }
 }
 
-Variant Bgen::next_var() {
+Variant CppBgenReader::next_var() {
   if (handle.eof() | (offset >= fsize)) {
     throw std::out_of_range("reached end of file");
   }
-  Variant var(handle, offset, header.layout, header.compression, header.nsamples);
-  offset = var.next_variant_offset();
+  Variant var(handle, offset, header.layout, header.compression, header.nsamples, fsize);
+  offset = var.next_variant_offset;
   return var;
 }
 
 /// load all variants into memory at once
-void Bgen::parse_all_variants() {
+void CppBgenReader::parse_all_variants() {
   offset = header.offset + 4;
   variants.clear();
   variants.resize(header.nvariants);
@@ -57,7 +57,7 @@ void Bgen::parse_all_variants() {
 }
 
 /// drop a subset of variants passed in by indexes
-void Bgen::drop_variants(std::vector<int> indices) {
+void CppBgenReader::drop_variants(std::vector<int> indices) {
   // sort indices in descending order, so dropping elemtns doesn't affect later items
   std::sort(indices.rbegin(), indices.rend());
   
@@ -78,36 +78,36 @@ void Bgen::drop_variants(std::vector<int> indices) {
 }
 
 /// get all the IDs for the variants in the bgen file
-std::vector<std::string> Bgen::varids() {
+std::vector<std::string> CppBgenReader::varids() {
   std::vector<std::string> varid(variants.size());
-  for (uint x=0; x<variants.size(); x++) {
+  for (std::uint32_t x=0; x<variants.size(); x++) {
     varid[x] = variants[x].varid;
   }
   return varid;
 }
 
 /// get all the rsIDs for the variants in the bgen file
-std::vector<std::string> Bgen::rsids() {
+std::vector<std::string> CppBgenReader::rsids() {
   std::vector<std::string> rsid(variants.size());
-  for (uint x=0; x<variants.size(); x++) {
+  for (std::uint32_t x=0; x<variants.size(); x++) {
     rsid[x] = variants[x].rsid;
   }
   return rsid;
 }
 
 /// get all the chroms for the variants in the bgen file
-std::vector<std::string> Bgen::chroms() {
+std::vector<std::string> CppBgenReader::chroms() {
   std::vector<std::string> chrom(variants.size());
-  for (uint x=0; x<variants.size(); x++) {
+  for (std::uint32_t x=0; x<variants.size(); x++) {
     chrom[x] = variants[x].chrom;
   }
   return chrom;
 }
 
 /// get all the positions for the variants in the bgen file
-std::vector<std::uint32_t> Bgen::positions() {
+std::vector<std::uint32_t> CppBgenReader::positions() {
   std::vector<std::uint32_t> position(variants.size());
-  for (uint x=0; x<variants.size(); x++) {
+  for (std::uint32_t x=0; x<variants.size(); x++) {
     position[x] = variants[x].pos;
   }
   return position;

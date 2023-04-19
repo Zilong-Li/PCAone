@@ -9,11 +9,9 @@
 #include <sstream>
 #include <vector>
 
-
 namespace bgen {
 
-typedef unsigned int uint;
-uint n_choose_k(int n, int k);
+std::uint32_t n_choose_k(int n, int k);
 bool minor_certain(double freq, int n_checked, double z);
 
 } // namespace bgen

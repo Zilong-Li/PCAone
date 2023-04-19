@@ -1,5 +1,5 @@
-#ifndef BGEN_BGEN_H_
-#define BGEN_BGEN_H_
+#ifndef BGEN_READER_H_
+#define BGEN_READER_H_
 
 #include <fstream>
 #include <stdexcept>
@@ -11,14 +11,10 @@
 
 namespace bgen {
 
-class Bgen {
+class CppBgenReader {
   std::ifstream handle;
-  std::uint64_t fsize;
-  std::uint64_t offset;
 public:
-  Bgen(std::string path, std::string sample_path="", bool delay_parsing=false);
-  inline void set_offset_first_var() { offset = header.offset + 4;}
-
+  CppBgenReader(std::string path, std::string sample_path = "", bool delay_parsing = false);
   void parse_all_variants();
   Variant next_var();
   void drop_variants(std::vector<int> indices);
@@ -31,8 +27,10 @@ public:
   std::vector<Variant> variants;
   Header header;
   Samples samples;
+  std::uint64_t offset;
+  std::uint64_t fsize;
 };
 
 } // namespace bgen
 
-#endif  // BGEN_BGEN_H_
+#endif  // BGEN_READER_H_

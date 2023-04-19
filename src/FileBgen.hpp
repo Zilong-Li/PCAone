@@ -2,7 +2,8 @@
 #define PCAONE_FILEBGEN_
 
 #include "Data.hpp"
-#include "bgen/bgen.h"
+#include "bgen/reader.h"
+#include "bgen/writer.h"
 
 // const double GENOTYPE_THRESHOLD = 0.9;
 // const double BGEN_MISSING_VALUE = -9;
@@ -10,7 +11,7 @@
 
 void read_bgen_block(MyMatrix & G,
                      MyVector & F,
-                     bgen::Bgen * bg,
+                     bgen::CppBgenReader * bg,
                      float * dosages,
                      float * probs1d,
                      bool & frequency_was_estimated,
@@ -23,6 +24,8 @@ void read_bgen_block(MyMatrix & G,
 
 int shuffle_bgen_to_bin(std::string bgenfile, std::string binfile, uint gb, bool standardize);
 
+void permute_bgen(std::string & fin, std::string & fout);
+
 class FileBgen : public Data
 {
   public:
@@ -30,7 +33,7 @@ class FileBgen : public Data
     FileBgen(const Param & params_) : Data(params_)
     {
         llog << timestamp() << "start parsing BGEN format" << std::endl;
-        bg = new bgen::Bgen(params.bgen, "", true);
+        bg = new bgen::CppBgenReader(params.bgen, "", true);
         nsamples = bg->header.nsamples;
         nsnps = bg->header.nvariants;
         llog << timestamp() << "the layout of bgen file is " << bg->header.layout << ". N samples is "
@@ -46,7 +49,7 @@ class FileBgen : public Data
     // for blockwise
     virtual void check_file_offset_first_var()
     {
-        bg->set_offset_first_var();
+        bg->offset = bg->header.offset + 4;
     }
 
     virtual void read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize = false);
@@ -61,7 +64,7 @@ class FileBgen : public Data
     }
 
   private:
-    bgen::Bgen * bg;
+    bgen::CppBgenReader * bg;
     float * dosages = nullptr;
     float * probs1d = nullptr;
     bool frequency_was_estimated = false;

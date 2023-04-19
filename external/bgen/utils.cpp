@@ -4,8 +4,8 @@
 namespace bgen {
 
 // Returns value of Binomial Coefficient C(n, k)
-uint n_choose_k(int n, int k) {
-  uint res = 1;
+std::uint32_t n_choose_k(int n, int k) {
+  std::uint32_t res = 1;
 
   // Since C(n, k) = C(n, n-k)
   if ( k > n - k ) {
@@ -14,7 +14,7 @@ uint n_choose_k(int n, int k) {
 
   // Calculate value of
   // [n * (n-1) *---* (n-k+1)] / [k * (k-1) *----* 1]
-  for (uint i = 0; i < (uint) k; ++i) {
+  for (std::uint32_t i = 0; i < (std::uint32_t) k; ++i) {
     res *= (n - i);
     res /= (i + 1);
   }

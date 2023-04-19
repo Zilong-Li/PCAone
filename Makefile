@@ -20,7 +20,7 @@ IOMP5         = 0
 
 ########################### end ###########################
 
-VERSION=0.3.2
+VERSION=0.3.3
 # detect OS architecture and add flags
 Platform     := $(shell uname -s)
 
@@ -133,7 +133,7 @@ OBJ = src/Arnoldi.o src/Halko.o src/Data.o src/Utils.o src/Cmd.o \
 		src/FileBeagle.o src/FileCsv.o src/FileBgen.o src/FilePlink.o \
 		src/FileBinary.o
 
-SLIBS += ./external/zstd/lib/libzstd.a ./external/bgen/bgenlib.a
+SLIBS += ./external/bgen/bgenlib.a ./external/zstd/lib/libzstd.a
 
 LIBS += ${SLIBS} ${DLIBS} -lm -ldl
 

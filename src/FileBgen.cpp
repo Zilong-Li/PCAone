@@ -147,13 +147,13 @@ void FileBgen::read_all()
 
 void FileBgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize)
 {
-    read_bgen_block(G, F, bg, dosages, probs1d, frequency_was_estimated, nsamples, nsnps,
-                    params.blocksize, start_idx, stop_idx, standardize);
+    read_bgen_block(G, F, bg, dosages, probs1d, frequency_was_estimated, nsamples, nsnps, params.blocksize,
+                    start_idx, stop_idx, standardize);
 }
 
 void read_bgen_block(MyMatrix & G,
                      MyVector & F,
-                     bgen::Bgen * bg,
+                     bgen::CppBgenReader * bg,
                      float * dosages,
                      float * probs1d,
                      bool & frequency_was_estimated,
@@ -244,7 +244,7 @@ void read_bgen_block(MyMatrix & G,
 
 int shuffle_bgen_to_bin(std::string bgenfile, std::string binfile, uint gb, bool standardize)
 {
-    bgen::Bgen * bg = new bgen::Bgen(bgenfile, "", true);
+    bgen::CppBgenReader * bg = new bgen::CppBgenReader(bgenfile, "", true);
     uint64 nsamples = bg->header.nsamples;
     uint64 nsnps = bg->header.nvariants;
     uint64 twoGB = (uint64)1073741824 * gb;
@@ -281,5 +281,35 @@ int shuffle_bgen_to_bin(std::string bgenfile, std::string binfile, uint gb, bool
             ofs.write((char *)G.col(p).data(), bytes_per_snp);
         }
     }
+    delete bg;
     return (nsnps == cur);
+}
+
+void permute_bgen(std::string & fin, std::string & fout)
+{
+    cout << timestamp() << "begin to permute BGEN file.\n";
+    bgen::CppBgenReader br(fin, "", true);
+    uint nsamples = br.header.nsamples;
+    uint nsnps = br.header.nvariants;
+    std::vector<uint> perm(nsnps);
+    std::iota(perm.begin(), perm.end(), 0);
+    auto rng = std::default_random_engine{};
+    std::shuffle(perm.begin(), perm.end(), rng);
+    uint compress_flag = 2, layout = 2, ploidy_n = 2; // 1:zlib, 2:zstd
+    string metadata;
+    bool phased = false;
+    uint8_t bit_depth = 8;
+    vector<string> sampleids;
+    float * probs = nullptr;
+    uint geno_len;
+    bgen::CppBgenWriter bw(fout, nsamples, metadata, compress_flag, layout, sampleids);
+    br.parse_all_variants();
+    for(auto idx : perm)
+    {
+        auto var = br.variants[idx];
+        probs = var.probs_1d();
+        geno_len = nsamples * var.probs_per_sample();
+        bw.write_variant_header(var.varid, var.rsid, var.chrom, var.pos, var.alleles, var.n_samples);
+        bw.add_genotype_data(var.alleles.size(), probs, geno_len, ploidy_n, phased, bit_depth);
+    }
 }

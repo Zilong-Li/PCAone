@@ -15,7 +15,6 @@ namespace bgen {
 class Header {
   std::uint32_t header_length;
   std::string magic;
-  std::string extra;
 public:
   Header(std::ifstream & handle);
   Header() {};
@@ -25,6 +24,7 @@ public:
   int compression;
   int layout;
   bool has_sample_ids;
+  std::string extra;
 };
 
 } // namespace bgen
