@@ -262,19 +262,18 @@ void FileBed::read_block_update(uint64 start_idx,
 void permute_plink(std::string & fin, const std::string & fout, uint gb, uint nbands)
 {
     cout << timestamp() << "begin to permute plink data.\n";
-    uint64 nsnps = count_lines(fin + ".bim");
-    uint64 nsamples = count_lines(fin + ".fam");
-    uint64 bed_bytes_per_snp = (nsamples + 3) >> 2;
+    uint nsnps = count_lines(fin + ".bim");
+    uint nsamples = count_lines(fin + ".fam");
+    uint bed_bytes_per_snp = (nsamples + 3) >> 2;
 
     // calculate the readin number of snps of certain big buffer like 2GB.
     // must be a multiple of nbands.
-    uint64 twoGB = (uint64)1073741824 * gb;
-    uint64 twoGB_snps = (uint64)floor((double)twoGB / bed_bytes_per_snp);
+    uint twoGB_snps = (uint)floor((double)1073741824 * gb / bed_bytes_per_snp);
     if(twoGB_snps > nsnps) twoGB_snps = nsnps;
-    uint64 bufsize = (uint64)floor((double)twoGB_snps / nbands);
+    uint bufsize = (uint)floor((double)twoGB_snps / nbands);
     twoGB_snps = bufsize * nbands; // initially twoGB_snps is a multiple of nbands
     assert(nsnps >= twoGB_snps);
-    uint64 nblocks = (uint64)ceil((double)nsnps / twoGB_snps);
+    uint nblocks = (nsnps + twoGB_snps - 1) / twoGB_snps;
     uint modr2 = nsnps % twoGB_snps;
     uint64 bed_bytes_per_block = bed_bytes_per_snp * twoGB_snps;
     vector<uchar> inbed; // keep the input buffer
@@ -287,7 +286,7 @@ void permute_plink(std::string & fin, const std::string & fout, uint gb, uint nb
     vector<uint64> bandidx;
     bandidx.resize(nbands);
     uint modr = nsnps % nbands;
-    uint64 bandsize = (uint64)ceil((double)nsnps / nbands);
+    uint bandsize = (nsnps + nbands - 1) / nbands;
     if(modr == 0)
     {
         for(uint i = 0; i < nbands; ++i)
@@ -312,7 +311,7 @@ void permute_plink(std::string & fin, const std::string & fout, uint gb, uint nb
 
     ios_base::sync_with_stdio(false);
     std::ifstream in(fin + ".bed", std::ios::binary);
-    std::ofstream out(fout + ".bed", std::ios::binary);
+    std::ofstream out(fout + ".perm.bed", std::ios::binary);
     if(!in.is_open())
     {
         throw std::invalid_argument(colerror + "Cannot open bed file.\n");
@@ -325,7 +324,7 @@ void permute_plink(std::string & fin, const std::string & fout, uint gb, uint nb
     }
     out.write(reinterpret_cast<char *>(&header[0]), 3);
     std::ifstream in_bim(fin + ".bim", std::ios::in);
-    std::ofstream out_bim(fout + ".bim", std::ios::out);
+    std::ofstream out_bim(fout + ".perm.bim", std::ios::out);
     vector<std::string> bims(std::istream_iterator<Line>{in_bim}, std::istream_iterator<Line>{});
     vector<std::string> bims2;
     bims2.resize(nsnps);
@@ -338,7 +337,7 @@ void permute_plink(std::string & fin, const std::string & fout, uint gb, uint nb
             bed_bytes_per_block = bed_bytes_per_snp * twoGB_snps2;
             inbed.resize(bed_bytes_per_block);
             // in last block, twoGB_snps is not neccessary a multiple of nbands and smaller than the previous
-            bufsize = (uint64)ceil((double)twoGB_snps2 / nbands);
+            bufsize = (uint64) (twoGB_snps2 + nbands - 1) / nbands;
             modr2 = twoGB_snps2 % nbands;
             out_bytes_per_block = bed_bytes_per_snp * bufsize;
             outbed.resize(out_bytes_per_block);
@@ -379,7 +378,7 @@ void permute_plink(std::string & fin, const std::string & fout, uint gb, uint nb
     out_bim.close();
 
     std::ifstream in_fam(fin + ".fam");
-    std::ofstream out_fam(fout + ".fam");
+    std::ofstream out_fam(fout + ".perm.fam");
     out_fam << in_fam.rdbuf();
-    fin = fout;
+    fin = fout + ".perm";
 }

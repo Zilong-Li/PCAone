@@ -21,21 +21,15 @@ class FileBed : public Data
     //
     FileBed(const Param & params_) : Data(params_)
     {
-        if(!params.batch && params.fast)
-            llog << colwarn
-                        + "running PCAone without shuffuling the input data. make"
-                          "sure it's permuted."
-                        + colend
-                 << std::endl;
         llog << timestamp() << "start parsing PLINK format" << std::endl;
-        std::string fbim = params.bed_prefix + ".bim";
-        std::string ffam = params.bed_prefix + ".fam";
+        std::string fbim = params.filein + ".bim";
+        std::string ffam = params.filein + ".fam";
         nsamples = count_lines(ffam);
         nsnps = count_lines(fbim);
         snpmajor = true;
         llog << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << std::endl;
         bed_bytes_per_snp = (nsamples + 3) >> 2;
-        std::string fbed = params.bed_prefix + ".bed";
+        std::string fbed = params.filein + ".bed";
         bed_ifstream.open(fbed, std::ios::in | std::ios::binary);
         if(!bed_ifstream.is_open())
         {

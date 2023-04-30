@@ -24,7 +24,7 @@ neverUseGoto:
 // read all data and estimate F
 void FileBeagle::read_all()
 {
-    fp = gzopen(params.beagle.c_str(), "r");
+    fp = gzopen(params.filein.c_str(), "r");
     tgets(fp, &buffer, &bufsize);
     char * tok;
     uint i = 0, j = 0;

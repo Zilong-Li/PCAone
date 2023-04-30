@@ -2,6 +2,24 @@
 
 using namespace std;
 
+bool isZstdCompressed(const char * filename)
+{
+    FILE * file = fopen(filename, "rb");
+    if(!file) return false;
+
+    char magicNumber[4];
+    if(fread(magicNumber, 1, 4, file) != 4)
+    {
+        fclose(file);
+        return false;
+    }
+
+    bool isCompressed = (ZSTD_isFrame(magicNumber, 4) != 0);
+
+    fclose(file);
+    return isCompressed;
+}
+
 void FileBin::check_file_offset_first_var()
 {
     setlocale(LC_ALL, "C");
@@ -34,7 +52,7 @@ void FileBin::read_all()
     {
         ifs_bin.read((char *)fg.data(), bytes_per_snp);
         G.col(i) = fg.cast<double>();
-        if(params.center) G.col(i).array() -= G.col(i).mean();
+        G.col(i).array() -= G.col(i).mean();
     }
 }
 
@@ -51,6 +69,6 @@ void FileBin::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
     {
         ifs_bin.read((char *)fg.data(), bytes_per_snp);
         G.col(i) = fg.cast<double>();
-        if(params.center) G.col(i).array() -= G.col(i).mean();
+        G.col(i).array() -= G.col(i).mean();
     }
 }

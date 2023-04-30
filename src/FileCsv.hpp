@@ -26,9 +26,9 @@ struct ZstdBuffer
 };
 
 void parse_csvzstd(ZstdBuffer & zbuf,
-                   uint64 & nsamples,
-                   uint64 & nsnps,
-                   bool cpmed,
+                   uint & nsamples,
+                   uint & nsnps,
+                   uint scale,
                    std::vector<double> & libsize,
                    std::vector<size_t> & tidx,
                    double & median_libsize);
@@ -38,14 +38,13 @@ void read_csvzstd_block(ZstdBuffer & zbuf,
                         uint64 start_idx,
                         uint64 stop_idx,
                         MyMatrix & G,
-                        uint64 nsamples,
+                        uint nsamples,
                         std::vector<double> & libsize,
                         std::vector<size_t> & tidx,
                         double median_libsize,
-                        bool cpmed,
-                        bool center);
+                        uint scale);
 
-int shuffle_csvzstd_to_bin(std::string csvfile, std::string binfile, uint gb, bool cpmed, bool center);
+int shuffle_csvzstd_to_bin(std::string & fin, std::string fout, uint gb, uint scale);
 
 // assume data is already noralized
 // only do centering
@@ -63,8 +62,8 @@ class FileCsv : public Data
         }
         else
         {
-            zbuf.fin = fopenOrDie(params.csvfile.c_str(), "rb");
-            parse_csvzstd(zbuf, nsamples, nsnps, params.cpmed, libsize, tidx, median_libsize);
+            zbuf.fin = fopenOrDie(params.filein.c_str(), "rb");
+            parse_csvzstd(zbuf, nsamples, nsnps, params.scale, libsize, tidx, median_libsize);
         }
         llog << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << std::endl;
     }

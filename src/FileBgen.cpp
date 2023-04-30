@@ -245,27 +245,27 @@ void read_bgen_block(MyMatrix & G,
 int shuffle_bgen_to_bin(std::string bgenfile, std::string binfile, uint gb, bool standardize)
 {
     bgen::CppBgenReader * bg = new bgen::CppBgenReader(bgenfile, "", true);
-    uint64 nsamples = bg->header.nsamples;
-    uint64 nsnps = bg->header.nvariants;
-    uint64 twoGB = (uint64)1073741824 * gb;
-    uint64 blocksize = twoGB / (nsamples * sizeof(double));
+    uint nsamples = bg->header.nsamples;
+    uint nsnps = bg->header.nvariants;
+    const uint ibyte = 4;
+    uint64 bytes_per_snp = nsamples * ibyte;
+    uint blocksize = 1073741824 * gb / bytes_per_snp;
     uint nblocks = (nsnps + blocksize - 1) / blocksize;
     std::ofstream ofs(binfile + ".bin", std::ios::binary);
     std::ofstream ofs2(binfile + ".idx");
-    ofs.write((char *)&nsamples, sizeof(nsamples));
-    ofs.write((char *)&nsnps, sizeof(nsnps));
-    uint64 magic = sizeof(nsamples) + sizeof(nsnps);
+    ofs.write((char *)&nsamples, ibyte);
+    ofs.write((char *)&nsnps, ibyte);
+    uint magic = ibyte * 2;
     float * dosages = nullptr;
     float * probs1d = nullptr;
     bool frequency_was_estimated = false;
-    std::vector<uint64> perm(nsnps);
+    std::vector<uint> perm(nsnps);
     std::iota(perm.begin(), perm.end(), 0);
     auto rng = std::default_random_engine{};
     std::shuffle(perm.begin(), perm.end(), rng);
     MyMatrix G;
     MyVector F(nsnps);
     uint64 idx, cur = 0;
-    uint64 bytes_per_snp = nsamples * sizeof(float);
     for(uint i = 0; i < nblocks; i++)
     {
         auto start_idx = i * blocksize;
@@ -285,7 +285,7 @@ int shuffle_bgen_to_bin(std::string bgenfile, std::string binfile, uint gb, bool
     return (nsnps == cur);
 }
 
-void permute_bgen(std::string & fin, std::string & fout)
+void permute_bgen(std::string & fin, std::string fout)
 {
     cout << timestamp() << "begin to permute BGEN file.\n";
     bgen::CppBgenReader br(fin, "", true);
@@ -302,6 +302,7 @@ void permute_bgen(std::string & fin, std::string & fout)
     vector<string> sampleids;
     float * probs = nullptr;
     uint geno_len;
+    fout = fout + ".perm.bgen";
     bgen::CppBgenWriter bw(fout, nsamples, metadata, compress_flag, layout, sampleids);
     br.parse_all_variants();
     for(auto idx : perm)
@@ -312,4 +313,5 @@ void permute_bgen(std::string & fin, std::string & fout)
         bw.write_variant_header(var.varid, var.rsid, var.chrom, var.pos, var.alleles, var.n_samples);
         bw.add_genotype_data(var.alleles.size(), probs, geno_len, ploidy_n, phased, bit_depth);
     }
+    fin = fout;
 }

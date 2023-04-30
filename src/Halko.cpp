@@ -35,7 +35,7 @@ void RsvdOpData::computeUSV(int p, double tol)
         if(data->params.printu)
         {
             std::ofstream ulog(
-                std::string(data->params.outfile + ".epoch." + std::to_string(pi) + ".eigvecs").c_str());
+                std::string(data->params.fileout + ".epoch." + std::to_string(pi) + ".eigvecs").c_str());
             ulog << U;
         }
         if(pi > 0)
@@ -50,7 +50,7 @@ void RsvdOpData::computeUSV(int p, double tol)
                 V.noalias() = G * svd.matrixU().leftCols(k);
                 S = svd.singularValues().head(k);
                 if(verbose) data->llog << timestamp() << "stops at epoch=" << pi + 1 << endl;
-                if(data->params.fast && std::pow(2, pi + 1) < data->params.bands)
+                if(data->params.svd_t == SvdType::PCAoneAlg2 && std::pow(2, pi + 1) < data->params.bands)
                     data->llog << colwarn
                                << "the algorithm2 converged but the window size is not reaching the whole "
                                   "data. the eigen values doesn't mean anything but the "
@@ -82,7 +82,7 @@ void NormalRsvdOpData::computeGandH(MyMatrix & G, MyMatrix & H, int pi)
         else
             Omg = PCAone::UniformRandom<MyMatrix, std::default_random_engine>(data->nsamples, size, rng);
     }
-    if(data->params.batch)
+    if(!data->params.out_of_core)
     {
         if(pi == 0)
         {
@@ -179,7 +179,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix & G, MyMatrix & H, int pi)
         H1.setZero();
         H2.setZero();
     }
-    if(data->params.batch)
+    if(!data->params.out_of_core)
     {
         if(pi == 0)
         {
@@ -366,18 +366,18 @@ void FancyRsvdOpData::computeGandH(MyMatrix & G, MyMatrix & H, int pi)
 
 void run_pca_with_halko(Data * data, const Param & params)
 {
-    if(params.batch)
+    if(params.out_of_core)
     {
-        data->llog << timestamp() << "begin to run PCAone RSVD in memory mode" << endl;
+        data->llog << timestamp() << "begin to run PCAone RSVD in out-of-core mode" << endl;
     }
     else
     {
-        data->llog << timestamp() << "begin to run PCAone RSVD in out-of-core mode" << endl;
+        data->llog << timestamp() << "begin to run PCAone RSVD in memory mode" << endl;
     }
     MyMatrix Vpre;
     MyVector S;
     RsvdOpData * rsvd;
-    if(!params.runem && params.fast)
+    if(!params.runem && params.svd_t == SvdType::PCAoneAlg2)
     {
         rsvd = new FancyRsvdOpData(data, params.k, params.oversamples);
     }
@@ -388,16 +388,16 @@ void run_pca_with_halko(Data * data, const Param & params)
     if(!params.runem)
     {
         data->llog << timestamp() << "begin to do non-EM PCA." << endl;
-        if(params.intype == FileType::CSV)
-        {
-            rsvd->setFlags(false, false, params.verbose);
-        }
-        else
+        if(params.file_t == FileType::PLINK || params.file_t == FileType::BGEN)
         {
             rsvd->setFlags(false, true, params.verbose);
         }
+        else
+        {
+            rsvd->setFlags(false, false, params.verbose);
+        }
         rsvd->computeUSV(params.maxp, params.tol);
-        if(params.fast && params.batch && !params.noshuffle)
+        if(params.svd_t == SvdType::PCAoneAlg2 && !params.out_of_core && !params.noshuffle)
         {
             // recover original order for V
             data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, rsvd->perm * rsvd->V);
@@ -442,11 +442,8 @@ void run_pca_with_halko(Data * data, const Param & params)
             MyMatrix C = data->G * data->G.transpose();
             C.array() /= (double)data->nsnps;
             C.diagonal() = data->Dc.array() / (double)data->nsnps;
-            std::ofstream out_cov(params.outfile + ".cov");
-            if(out_cov.is_open())
-            {
-                out_cov << C << "\n";
-            }
+            std::ofstream out_cov(params.fileout + ".cov");
+            if(out_cov.is_open()) out_cov << C << "\n";
             // use Eigen::JacobiSVD to get eigenvecs
             Eigen::JacobiSVD<MyMatrix> svd(C, Eigen::ComputeThinU | Eigen::ComputeThinV);
             data->write_eigs_files(svd.singularValues().head(params.k), svd.matrixU().leftCols(params.k),

@@ -22,7 +22,7 @@ class FileBeagle : public Data
         }
         else
         {
-            fp = gzopen(params.beagle.c_str(), "r");
+            fp = gzopen(params.filein.c_str(), "r");
             tgets(fp, &buffer, &bufsize);
             int nCol = 1;
             if(buffer != original) original = buffer;

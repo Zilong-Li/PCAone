@@ -24,7 +24,7 @@ void read_bgen_block(MyMatrix & G,
 
 int shuffle_bgen_to_bin(std::string bgenfile, std::string binfile, uint gb, bool standardize);
 
-void permute_bgen(std::string & fin, std::string & fout);
+void permute_bgen(std::string & fin, std::string fout);
 
 class FileBgen : public Data
 {
@@ -33,7 +33,7 @@ class FileBgen : public Data
     FileBgen(const Param & params_) : Data(params_)
     {
         llog << timestamp() << "start parsing BGEN format" << std::endl;
-        bg = new bgen::CppBgenReader(params.bgen, "", true);
+        bg = new bgen::CppBgenReader(params.filein, "", true);
         nsamples = bg->header.nsamples;
         nsnps = bg->header.nvariants;
         llog << timestamp() << "the layout of bgen file is " << bg->header.layout << ". N samples is "

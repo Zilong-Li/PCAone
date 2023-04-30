@@ -25,25 +25,22 @@ int main(int argc, char * argv[])
     // openblas_set_num_threads(params.threads);
     omp_set_num_threads(params.threads);
     Data * data;
-    if(!params.noshuffle && !params.batch)
+    if(params.svd_t == SvdType::PCAoneAlg2 && !params.noshuffle && params.out_of_core)
     {
-        params.binfile = params.outfile + ".perm";
-        if(params.tmpfile != "") params.binfile = params.tmpfile;
         auto ts = std::chrono::steady_clock::now();
-        if(params.intype == FileType::PLINK)
+        if(params.file_t == FileType::PLINK)
         {
-            permute_plink(params.bed_prefix, params.binfile, params.buffer, params.bands);
+            permute_plink(params.filein, params.fileout, params.buffer, params.bands);
             data = new FileBed(params);
         }
-        else if(params.intype == FileType::CSV)
+        else if(params.file_t == FileType::BGEN)
         {
-            shuffle_csvzstd_to_bin(params.csvfile, params.binfile, params.buffer, params.cpmed,
-                                   params.center);
-            data = new FileBin(params);
+            permute_bgen(params.filein, params.fileout);
+            data = new FileBgen(params);
         }
-        else if(params.intype == FileType::BGEN)
+        else if(params.file_t == FileType::CSV)
         {
-            shuffle_bgen_to_bin(params.bgen, params.binfile, params.buffer, true);
+            shuffle_csvzstd_to_bin(params.filein, params.fileout, params.buffer, params.scale);
             data = new FileBin(params);
         }
         else
@@ -57,36 +54,46 @@ int main(int argc, char * argv[])
     }
     else
     {
-        if(params.intype == FileType::PLINK)
+        if(params.file_t == FileType::PLINK)
         {
             data = new FileBed(params);
         }
-        else if(params.intype == FileType::BGEN)
+        else if(params.file_t == FileType::BGEN)
         {
             data = new FileBgen(params);
         }
-        else if(params.intype == FileType::BEAGLE)
+        else if(params.file_t == FileType::BEAGLE)
         {
             data = new FileBeagle(params);
         }
-        else if(params.intype == FileType::CSV)
+        else if(params.file_t == FileType::BINARY)
+        {
+            data = new FileBin(params);
+        }
+        else if(params.file_t == FileType::CSV)
         {
             data = new FileCsv(params);
         }
         else
         {
-            throw std::invalid_argument(colerror
-                                        + "\nplease specify the input file using one of --bfile, --bgen, "
-                                          "--beagle, --csv option!\nusing --help to show all options.\n");
+            throw std::invalid_argument(colerror + "invalid input files" + colend);
         }
     }
     // ready for run
     data->prepare(params.blocksize);
     // begin to run
-    if(params.arnoldi)
+    if(params.svd_t == SvdType::IRAM)
         run_pca_with_arnoldi(data, params);
-    else
+    else if(params.svd_t == SvdType::PCAoneAlg1 || params.svd_t == SvdType::PCAoneAlg2)
         run_pca_with_halko(data, params);
+    else if(params.svd_t == SvdType::FULL)
+    {
+        Eigen::JacobiSVD<MyMatrix> svd(data->G, Eigen::ComputeThinU | Eigen::ComputeThinV);
+        data->write_eigs_files(svd.singularValues().head(params.k), svd.matrixU().leftCols(params.k),
+                               svd.matrixU().leftCols(params.k));
+    }
+    else
+        throw invalid_argument("unsupported PCA method to apply");
     auto t2 = std::chrono::steady_clock::now();
     auto duration = std::chrono::duration<double>(t2 - t1).count()
                     * std::chrono::duration<double>::period::num / std::chrono::duration<double>::period::den;

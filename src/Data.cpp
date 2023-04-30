@@ -6,7 +6,7 @@ void Data::prepare(uint & blocksize)
 {
     if(nsamples > nsnps) nsamples_ge_nsnps = true;
 
-    if(params.batch)
+    if(!params.out_of_core)
     {
         auto t1 = std::chrono::high_resolution_clock::now();
         read_all();
@@ -17,15 +17,15 @@ void Data::prepare(uint & blocksize)
     else
     {
         // some common settings
-        if(params.arnoldi)
+        if(params.svd_t == SvdType::IRAM)
         {
             // ram of arnoldi = n * b * 8 / 1024 kb
-            blocksize = (unsigned int)ceil((double)params.memory * 134217728 / nsamples);
+            blocksize = (uint)ceil((double)params.memory * 134217728 / nsamples);
         }
         else
         {
             // ram of halko = (3*n*l + 2*m*l + 5*m + n*b)*8/1024 Kb
-            uint64 l = params.k + params.oversamples;
+            uint l = params.k + params.oversamples;
             double m = (double)(3 * nsamples * l + 2 * nsnps * l + 5 * nsnps) / 134217728;
             if(params.memory > 1.1 * m)
             {
@@ -49,7 +49,7 @@ void Data::prepare(uint & blocksize)
             throw std::invalid_argument(
                 colerror + "only one block exists. please remove -m / --memory option instead.\n");
         }
-        if(params.fast)
+        if(params.svd_t == SvdType::PCAoneAlg2)
         {
             // decrease blocksize to fit the fancy halko
             if(nblocks < params.bands)
@@ -75,8 +75,8 @@ void Data::prepare(uint & blocksize)
             stop[i] = stop[i] >= nsnps ? nsnps - 1 : stop[i];
         }
         // initial some variables for blockwise for specific files here.
-        if(params.intype != FileType::CSV) F = MyVector::Zero(nsnps);
-        if(params.intype == FileType::PLINK)
+        if(params.file_t != FileType::CSV) F = MyVector::Zero(nsnps);
+        if(params.file_t == FileType::PLINK)
             centered_geno_lookup = MyArrayX::Zero(4, nsnps); // for plink input
     }
 }
@@ -157,8 +157,8 @@ void Data::calcu_vt_update(const MyMatrix & T,
 
 void Data::write_eigs_files(const MyVector & S, const MyMatrix & U, const MyMatrix & V)
 {
-    std::ofstream outs(params.outfile + ".eigvals");
-    std::ofstream outu(params.outfile + ".eigvecs");
+    std::ofstream outs(params.fileout + ".eigvals");
+    std::ofstream outu(params.fileout + ".eigvecs");
     Eigen::IOFormat fmt(6, Eigen::DontAlignCols, "\t", "\n");
     if(outs.is_open())
     {
@@ -170,7 +170,7 @@ void Data::write_eigs_files(const MyVector & S, const MyMatrix & U, const MyMatr
     }
     if(params.printv)
     {
-        std::ofstream outv(params.outfile + ".loadings");
+        std::ofstream outv(params.fileout + ".loadings");
         if(outv.is_open())
         {
             outv << V.format(fmt) << '\n';

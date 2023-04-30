@@ -13,7 +13,7 @@ class Data
     Data(const Param & params_) : params(params_)
     {
         // start logging
-        llog.clog.open(std::string(params.outfile + ".log").c_str(), std::ios::out);
+        llog.clog.open(std::string(params.fileout + ".log").c_str(), std::ios::out);
         llog.clog << timestamp() << "program started" << std::endl;
         if(!llog.clog.good())
             throw std::invalid_argument(
@@ -52,7 +52,7 @@ class Data
     bool snpmajor = true;
     bool nsamples_ge_nsnps = false; // if nsamples greater than or equal to nsnps
     bool initialFonly = false;
-    uint64 nsamples, nsnps; // prevent from potential integer overflow
+    uint nsamples, nsnps;
     double readtime = 0;
     uint nblocks = 1;
     uint bandFactor = 1;

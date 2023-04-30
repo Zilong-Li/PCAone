@@ -51,23 +51,19 @@ void ArnoldiOpData::perform_op(const double * x_in, double * y_out) const
 
 void run_pca_with_arnoldi(Data * data, const Param & params)
 {
-    if(params.batch)
-    {
-        data->llog << timestamp() << "begin to PCAone IRAM in memory mode\n";
-    }
+    if(params.out_of_core)
+        data->llog << timestamp() << "begin to PCAone IRAM in out-of-core mode" << endl;
     else
-    {
-        data->llog << timestamp() << "begin to PCAone IRAM in out-of-core mode\n";
-    }
+        data->llog << timestamp() << "begin to PCAone IRAM in memory mode" << endl;
     MyVector svals, evals;
     uint nconv, nu;
     double diff;
-    if(params.batch)
+    if(!params.out_of_core)
     {
         MyMatrix U, V, V2;
         // SpMatrix sG = data->G.sparseView();
         PartialSVDSolver<MyMatrix> svds(data->G, params.k, params.ncv);
-        if(!params.runem && params.intype != FileType::CSV)
+        if(!params.runem && (params.file_t == FileType::PLINK || params.file_t == FileType::BGEN))
         {
             data->standardize_E();
         }
@@ -116,7 +112,7 @@ void run_pca_with_arnoldi(Data * data, const Param & params)
             MyMatrix C = data->G * data->G.transpose();
             C.array() /= (double)data->nsnps;
             C.diagonal() = data->Dc.array() / (double)data->nsnps;
-            std::ofstream out_cov(params.outfile + ".cov");
+            std::ofstream out_cov(params.fileout + ".cov");
             if(out_cov.is_open())
             {
                 out_cov << C << "\n";

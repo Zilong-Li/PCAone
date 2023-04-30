@@ -10,12 +10,19 @@ typedef unsigned long long uint64;
 
 enum class FileType
 {
-    None,
     PLINK,
     CSV,
     BEAGLE,
     BINARY,
     BGEN
+};
+
+enum class SvdType
+{
+    IRAM,
+    PCAoneAlg1,
+    PCAoneAlg2,
+    FULL
 };
 
 class Param
@@ -24,18 +31,13 @@ class Param
     Param(int argc, char ** argv);
     ~Param();
 
-    FileType intype = FileType::None; // PLINK, CSV, BEAGLE, BGEN
-    std::string bed_prefix = "";
-    std::string pgen_prefix = "";
-    std::string bgen = "";
-    std::string beagle = "";
-    std::string binfile = "";
-    std::string csvfile = "";
-    std::string outfile = "pcaone";
-    std::string tmpfile = "";
+    FileType file_t; // PLINK, CSV, BEAGLE, BGEN
+    SvdType svd_t;
+    std::string filein;
+    std::string fileout = "pcaone";
     double memory = 0; // 0 for disable
-    uint64 nsamples = 0;
-    uint64 nsnps = 0;
+    uint nsamples = 0;
+    uint nsnps = 0;
     uint k = 10;
     uint maxp = 40; // maximum number of power iterations
     uint threads = 10;
@@ -59,21 +61,18 @@ class Param
     uint rand = 1;
 
     // general
-    uint center = 1; // do centering for csv file
+    uint scale = 0; // do scaling. 0: just centering. 1: log scaling. 2: cpmed
     bool groff = false;
     bool cpmed = false;
     bool printv = false;
+    bool printu = false;
     bool runem = false;
-    bool batch = true; // if load all matrix into RAM.
     bool noshuffle = false;
-    bool fast = true;
     bool emu = false;
     bool pcangsd = false; // read GP field for PCAngsd instead of GT.
-    bool halko = false;
-    bool arnoldi = false;
     bool verbose = false;
-    bool printu = false;
     bool mev = true;
+    bool out_of_core = false; // otherwise load all matrix into RAM.
 
     std::ostringstream ss;
 };
