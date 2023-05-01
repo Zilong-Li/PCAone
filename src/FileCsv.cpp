@@ -206,8 +206,8 @@ void read_csvzstd_block(ZstdBuffer & zbuf,
                     G(i, lastSNP) = log10(G(i, lastSNP) * median_libsize / libsize[i] + 1);
             }
 
-            G.col(lastSNP).array() -= G.col(lastSNP).mean(); // only do centering
             lastSNP++;
+            G.col(lastSNP).array() -= G.col(lastSNP).mean(); // only do centering
         }
     }
 
@@ -239,7 +239,10 @@ void read_csvzstd_block(ZstdBuffer & zbuf,
                     for(size_t i = 0; i < nsamples; i++)
                     {
                         G(i, lastSNP) = std::stod(zbuf.buffLine.substr(tidx[i], tidx[i + 1] - tidx[i] - 1));
-                        if(scale == 2) G(i, lastSNP) = log10(G(i, lastSNP) * median_libsize / libsize[i] + 1);
+                        if(scale == 1)
+                            G(i, lastSNP) = log10(G(i, lastSNP) + 0.01);
+                        else if(scale == 2)
+                            G(i, lastSNP) = log10(G(i, lastSNP) * median_libsize / libsize[i] + 1);
                     }
 
                     G.col(lastSNP).array() -= G.col(lastSNP).mean(); // only do centering
