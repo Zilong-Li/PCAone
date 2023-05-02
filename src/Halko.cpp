@@ -86,8 +86,8 @@ void NormalRsvdOpData::computeGandH(MyMatrix & G, MyMatrix & H, int pi)
     {
         if(pi == 0)
         {
-            if(verbose)
-                data->llog << timestamp() << "running in memory mode with PCAone RSVD (algorithm1)." << endl;
+            data->llog << timestamp() << "running Yu+Halko RSVD (PCAone algorithm1) with in-core mode."
+                       << endl;
             if(update)
             {
                 data->update_batch_E(U, S, V.transpose());
@@ -118,8 +118,9 @@ void NormalRsvdOpData::computeGandH(MyMatrix & G, MyMatrix & H, int pi)
     else
     {
         // for block version
-        if(pi == 0 && verbose)
-            data->llog << timestamp() << "running in out-of-core mode with PCAone RSVD (algorithm1)." << endl;
+        if(pi == 0)
+            data->llog << timestamp() << "running Yu+Halko RSVD (PCAone algorithm1) with out-of-core mode."
+                       << endl;
         // data->G is always nsamples x nsnps;
         if(data->snpmajor || true)
         {
@@ -283,8 +284,8 @@ void FancyRsvdOpData::computeGandH(MyMatrix & G, MyMatrix & H, int pi)
     {
         if(pi == 0)
         {
-            if(verbose)
-                data->llog << timestamp() << "running in out-of-core mode with PCAone (algorithm 2)." << endl;
+            data->llog << timestamp()
+                       << "running the window-based RSVD (PCAone algorithm 2) with out-of-core mode." << endl;
             band = data->bandFactor;
         }
         {
@@ -368,11 +369,11 @@ void run_pca_with_halko(Data * data, const Param & params)
 {
     if(params.out_of_core)
     {
-        data->llog << timestamp() << "begin to run PCAone RSVD in out-of-core mode" << endl;
+        data->llog << timestamp() << "begin to run PCAone RSVD with out-of-core mode" << endl;
     }
     else
     {
-        data->llog << timestamp() << "begin to run PCAone RSVD in memory mode" << endl;
+        data->llog << timestamp() << "begin to run PCAone RSVD with in-core mode" << endl;
     }
     MyMatrix Vpre;
     MyVector S;
@@ -387,14 +388,13 @@ void run_pca_with_halko(Data * data, const Param & params)
     }
     if(!params.runem)
     {
-        data->llog << timestamp() << "begin to do non-EM PCA." << endl;
         if(params.file_t == FileType::PLINK || params.file_t == FileType::BGEN)
         {
-            rsvd->setFlags(false, true, params.verbose);
+            rsvd->setFlags(false, true, true);
         }
         else
         {
-            rsvd->setFlags(false, false, params.verbose);
+            rsvd->setFlags(false, false, true);
         }
         rsvd->computeUSV(params.maxp, params.tol);
         if(params.svd_t == SvdType::PCAoneAlg2 && !params.out_of_core && !params.noshuffle)
@@ -415,7 +415,7 @@ void run_pca_with_halko(Data * data, const Param & params)
         // flip_UV(rsvd->U, rsvd->V, false);
         double diff;
         rsvd->setFlags(true, false, false);
-        data->llog << timestamp() << "begin to do EM PCA with PCAone RSVD (algorithm1)." << endl;
+        data->llog << timestamp() << "begin to do EM-PCA with PCAone RSVD." << endl;
         for(uint i = 0; i < params.maxiter; ++i)
         {
             Vpre = rsvd->V;
@@ -444,6 +444,7 @@ void run_pca_with_halko(Data * data, const Param & params)
             C.diagonal() = data->Dc.array() / (double)data->nsnps;
             std::ofstream out_cov(params.fileout + ".cov");
             if(out_cov.is_open()) out_cov << C << "\n";
+            // Eigen::SelfAdjointEigenSolver<MyMatrix> eig(C);
             // use Eigen::JacobiSVD to get eigenvecs
             Eigen::JacobiSVD<MyMatrix> svd(C, Eigen::ComputeThinU | Eigen::ComputeThinV);
             data->write_eigs_files(svd.singularValues().head(params.k), svd.matrixU().leftCols(params.k),

@@ -52,9 +52,9 @@ void ArnoldiOpData::perform_op(const double * x_in, double * y_out) const
 void run_pca_with_arnoldi(Data * data, const Param & params)
 {
     if(params.out_of_core)
-        data->llog << timestamp() << "begin to PCAone IRAM in out-of-core mode" << endl;
+        data->llog << timestamp() << "running PCAone IRAM with out-of-core mode" << endl;
     else
-        data->llog << timestamp() << "begin to PCAone IRAM in memory mode" << endl;
+        data->llog << timestamp() << "running PCAone IRAM with in-core mode" << endl;
     MyVector svals, evals;
     uint nconv, nu;
     double diff;

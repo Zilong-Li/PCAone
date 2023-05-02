@@ -88,9 +88,10 @@ int main(int argc, char * argv[])
         run_pca_with_halko(data, params);
     else if(params.svd_t == SvdType::FULL)
     {
+        data->llog << timestamp() << "running the Full SVD with in-core mode." << endl;
         Eigen::JacobiSVD<MyMatrix> svd(data->G, Eigen::ComputeThinU | Eigen::ComputeThinV);
-        data->write_eigs_files(svd.singularValues().head(params.k), svd.matrixU().leftCols(params.k),
-                               svd.matrixU().leftCols(params.k));
+        data->write_eigs_files(svd.singularValues().head(params.k).array().square() / data->nsnps,
+                               svd.matrixU().leftCols(params.k), svd.matrixU().leftCols(params.k));
     }
     else
         throw invalid_argument("unsupported PCA method to apply");

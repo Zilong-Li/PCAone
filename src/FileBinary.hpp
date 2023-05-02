@@ -48,15 +48,11 @@ class FileBin : public Data
         }
         else
         {
-
             ifs_bin.read((char *)&nsamples, ibyte);
             ifs_bin.read((char *)&nsnps, ibyte);
             llog << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << std::endl;
             bytes_per_snp = nsamples * ibyte;
         }
-        // ifs_bin.read((char*)&nimpute, sizeof(uint64));
-        // for (uint64 i = 0; i < nimpute; i++)
-        //     ifs_bin.read((char*)&missing_points[i], sizeof(uint64));
     }
 
     ~FileBin()
@@ -90,7 +86,7 @@ class FileBin : public Data
     const uint ibyte = 4;
     uint64 bytes_per_snp;
     uint64 magic = ibyte * 2;
-    uint in, im;
+    // uint in, im;
     bool is_zstd = false, is_magic_read = false;
     float * dat = nullptr;
 };
