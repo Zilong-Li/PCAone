@@ -1,5 +1,7 @@
 #include "Utils.hpp"
 
+#include <stdexcept>
+
 using namespace std;
 
 void fcloseOrDie(FILE * file)
@@ -35,6 +37,7 @@ size_t freadOrDie(void * buffer, size_t sizeToRead, FILE * file)
 size_t count_lines(const std::string & fpath)
 {
     std::ifstream in(fpath);
+    if(!in.is_open()) throw invalid_argument("can not open " + fpath);
     size_t count = 0;
     std::string line;
     while(getline(in, line))

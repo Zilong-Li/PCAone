@@ -1,5 +1,7 @@
 #include "FilePlink.hpp"
 
+#include "Utils.hpp"
+
 using namespace std;
 
 void FileBed::check_file_offset_first_var()
@@ -171,9 +173,14 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
             }
             // calculate F and centered_geno_lookup
             if(c == 0)
-                throw std::runtime_error(
-                    "Error: the allele frequency should not be 0. should do filtering first.");
-            F(snp_idx) /= c;
+            {
+                llog << colwarn << "the allele frequency should not be 0. snp index:" << snp_idx << colend;
+                F(snp_idx) = 0;
+            }
+            else
+            {
+                F(snp_idx) /= c;
+            }
             // do centering and initialing
             centered_geno_lookup(1, snp_idx) = 0.0; // missing
             centered_geno_lookup(0, snp_idx) = BED2GENO[0] - F(snp_idx); // minor hom
@@ -261,10 +268,10 @@ void FileBed::read_block_update(uint64 start_idx,
 // structured permutation with cached buffer
 void permute_plink(std::string & fin, const std::string & fout, uint gb, uint nbands)
 {
-    cout << timestamp() << "begin to permute plink data.\n";
     uint nsnps = count_lines(fin + ".bim");
     uint nsamples = count_lines(fin + ".fam");
     uint bed_bytes_per_snp = (nsamples + 3) >> 2;
+    cout << timestamp() << "permute plink files. nsnps:" << nsnps << ", nsamples:" << nsamples << endl;
 
     // calculate the readin number of snps of certain big buffer like 2GB.
     // must be a multiple of nbands.
@@ -337,7 +344,7 @@ void permute_plink(std::string & fin, const std::string & fout, uint gb, uint nb
             bed_bytes_per_block = bed_bytes_per_snp * twoGB_snps2;
             inbed.resize(bed_bytes_per_block);
             // in last block, twoGB_snps is not neccessary a multiple of nbands and smaller than the previous
-            bufsize = (uint64) (twoGB_snps2 + nbands - 1) / nbands;
+            bufsize = (uint64)(twoGB_snps2 + nbands - 1) / nbands;
             modr2 = twoGB_snps2 % nbands;
             out_bytes_per_block = bed_bytes_per_snp * bufsize;
             outbed.resize(out_bytes_per_block);
