@@ -80,7 +80,7 @@ int main(int argc, char * argv[])
         }
     }
     // ready for run
-    data->prepare(params.blocksize);
+    data->prepare();
     // begin to run
     if(params.svd_t == SvdType::IRAM)
         run_pca_with_arnoldi(data, params);
@@ -94,7 +94,7 @@ int main(int argc, char * argv[])
                                svd.matrixU().leftCols(params.k), svd.matrixU().leftCols(params.k));
     }
     else
-        throw invalid_argument("unsupported PCA method to apply");
+        throw invalid_argument("unsupported PCA method was applied");
     auto t2 = std::chrono::steady_clock::now();
     auto duration = std::chrono::duration<double>(t2 - t1).count()
                     * std::chrono::duration<double>::period::num / std::chrono::duration<double>::period::den;

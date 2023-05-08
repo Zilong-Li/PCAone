@@ -9,7 +9,7 @@ int tgets(gzFile gz, char ** buf, uint64 * l);
 class FileBeagle : public Data
 {
   public:
-    FileBeagle(const Param & params_) : Data(params_)
+    FileBeagle(Param & params_) : Data(params_)
     {
         llog << timestamp() << "start parsing BEAGLE format" << std::endl;
         original = buffer = (char *)calloc(bufsize, sizeof(char));

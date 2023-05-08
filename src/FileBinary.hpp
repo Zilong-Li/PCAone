@@ -10,7 +10,7 @@ bool isZstdCompressed(const char * filename);
 class FileBin : public Data
 {
   public:
-    FileBin(const Param & params_) : Data(params_)
+    FileBin(Param & params_) : Data(params_)
     {
         llog << timestamp() << "start parsing binary format" << std::endl;
         ifs_bin.open(params.filein, std::ios::in | std::ios::binary);
@@ -50,7 +50,8 @@ class FileBin : public Data
         {
             ifs_bin.read((char *)&nsamples, ibyte);
             ifs_bin.read((char *)&nsnps, ibyte);
-            llog << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << std::endl;
+            llog << timestamp() << "shape of input matrix(samples x features) is (" << nsamples << ", "
+                 << nsnps << ")" << std::endl;
             bytes_per_snp = nsamples * ibyte;
         }
     }

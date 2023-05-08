@@ -1,8 +1,10 @@
 #include "Data.hpp"
 
+#include "Utils.hpp"
+
 using namespace std;
 
-void Data::prepare(uint & blocksize)
+void Data::prepare()
 {
     if(nsamples > nsnps) nsamples_ge_nsnps = true;
 
@@ -20,7 +22,7 @@ void Data::prepare(uint & blocksize)
         if(params.svd_t == SvdType::IRAM)
         {
             // ram of arnoldi = n * b * 8 / 1024 kb
-            blocksize = (uint)ceil((double)params.memory * 134217728 / nsamples);
+            params.blocksize = (uint)ceil((double)params.memory * 134217728 / nsamples);
         }
         else
         {
@@ -36,43 +38,46 @@ void Data::prepare(uint & blocksize)
                 llog << colwarn + "minimum RAM required is " << m
                      << " GB. trying to allocate more RAM." + colend << endl;
             }
-            blocksize = (unsigned int)ceil(
+            params.blocksize = (unsigned int)ceil(
                 (double)((m + params.memory) * 134217728 - 3 * nsamples * l - 2 * nsnps * l - 5 * nsnps)
                 / nsamples);
         }
-        nblocks = (unsigned int)ceil((double)nsnps / blocksize);
-        if(params.verbose)
-            llog << timestamp() << "initial setting by -m/--memory: blocksize=" << blocksize
-                 << ", nblocks=" << nblocks << ", factor=" << bandFactor << ".\n";
+        nblocks = (unsigned int)ceil((double)nsnps / params.blocksize);
+        llog << timestamp() << "initial setting by -m/--memory: blocksize=" << params.blocksize
+             << ", nblocks=" << nblocks << ", factor=" << bandFactor << ".\n";
         if(nblocks == 1)
         {
-            throw std::invalid_argument(
-                colerror + "only one block exists. please remove -m / --memory option instead.\n");
+            params.out_of_core = false;
+            llog << colwarn << "only one block exists. will run with in-core mode" << colend << endl;
         }
-        if(params.svd_t == SvdType::PCAoneAlg2)
+        else
         {
-            // decrease blocksize to fit the fancy halko
-            if(nblocks < params.bands)
+            if(params.svd_t == SvdType::PCAoneAlg2)
             {
-                blocksize = (unsigned int)ceil((double)nsnps / params.bands);
+                // decrease blocksize to fit the fancy halko
+                if(nblocks < params.bands)
+                {
+                    params.blocksize = (unsigned int)ceil((double)nsnps / params.bands);
+                }
+                else
+                {
+                    bandFactor = (unsigned int)ceil((double)nblocks / params.bands);
+                    params.blocksize = (unsigned int)ceil((double)nsnps / (params.bands * bandFactor));
+                }
+                nblocks = (unsigned int)ceil((double)nsnps / params.blocksize);
+                if(params.verbose)
+                    llog << timestamp()
+                         << "after adjustment by PCAone windows: blocksize=" << params.blocksize
+                         << ", nblocks=" << nblocks << ", factor=" << bandFactor << ".\n";
             }
-            else
+            start.resize(nblocks);
+            stop.resize(nblocks);
+            for(uint i = 0; i < nblocks; i++)
             {
-                bandFactor = (unsigned int)ceil((double)nblocks / params.bands);
-                blocksize = (unsigned int)ceil((double)nsnps / (params.bands * bandFactor));
+                start[i] = i * params.blocksize;
+                stop[i] = start[i] + params.blocksize - 1;
+                stop[i] = stop[i] >= nsnps ? nsnps - 1 : stop[i];
             }
-            nblocks = (unsigned int)ceil((double)nsnps / blocksize);
-            if(params.verbose)
-                llog << timestamp() << "after adjustment by PCAone windows: blocksize=" << blocksize
-                     << ", nblocks=" << nblocks << ", factor=" << bandFactor << ".\n";
-        }
-        start.resize(nblocks);
-        stop.resize(nblocks);
-        for(uint i = 0; i < nblocks; i++)
-        {
-            start[i] = i * blocksize;
-            stop[i] = start[i] + blocksize - 1;
-            stop[i] = stop[i] >= nsnps ? nsnps - 1 : stop[i];
         }
         // initial some variables for blockwise for specific files here.
         if(params.file_t != FileType::CSV) F = MyVector::Zero(nsnps);

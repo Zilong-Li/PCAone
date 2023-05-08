@@ -10,7 +10,7 @@ const double VAR_TOL = 1e-9;
 class Data
 {
   public:
-    Data(const Param & params_) : params(params_)
+    Data(Param & params_) : params(params_)
     {
         // start logging
         llog.clog.open(std::string(params.fileout + ".log").c_str(), std::ios::out);
@@ -33,7 +33,7 @@ class Data
                                    const MyMatrix & VT,
                                    bool standardize) = 0;
 
-    void prepare(uint & blocksize);
+    void prepare();
     void standardize_E();
     void filterSNPs_resizeF();
     void pcangsd_standardize_E(const MyMatrix & U, const MyVector & svals, const MyMatrix & VT);
@@ -47,7 +47,7 @@ class Data
                          MyMatrix & VT,
                          bool standardize);
 
-    const Param & params;
+    Param & params;
     Logger llog;
     bool snpmajor = true;
     bool nsamples_ge_nsnps = false; // if nsamples greater than or equal to nsnps

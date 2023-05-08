@@ -51,7 +51,7 @@ int shuffle_csvzstd_to_bin(std::string & fin, std::string fout, uint gb, uint sc
 class FileCsv : public Data
 {
   public:
-    FileCsv(const Param & params_) : Data(params_)
+    FileCsv(Param & params_) : Data(params_)
     {
         llog << timestamp() << "start parsing CSV format compressed by ZSTD" << std::endl;
         if(params.nsnps > 0 && params.nsamples > 0 && !params.cpmed)
@@ -65,7 +65,8 @@ class FileCsv : public Data
             zbuf.fin = fopenOrDie(params.filein.c_str(), "rb");
             parse_csvzstd(zbuf, nsamples, nsnps, params.scale, libsize, tidx, median_libsize);
         }
-        llog << timestamp() << "N samples is " << nsamples << ". M snps is " << nsnps << std::endl;
+        llog << timestamp() << "shape of input matrix(samples x features) is (" << nsamples << ", " << nsnps
+             << ")" << std::endl;
     }
 
     ~FileCsv() {}

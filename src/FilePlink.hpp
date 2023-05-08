@@ -19,7 +19,7 @@ class FileBed : public Data
 {
   public:
     //
-    FileBed(const Param & params_) : Data(params_)
+    FileBed(Param & params_) : Data(params_)
     {
         llog << timestamp() << "start parsing PLINK format" << std::endl;
         std::string fbim = params.filein + ".bim";

@@ -30,7 +30,7 @@ class FileBgen : public Data
 {
   public:
     // using Data::Data;
-    FileBgen(const Param & params_) : Data(params_)
+    FileBgen(Param & params_) : Data(params_)
     {
         llog << timestamp() << "start parsing BGEN format" << std::endl;
         bg = new bgen::CppBgenReader(params.filein, "", true);
