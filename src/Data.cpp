@@ -48,6 +48,7 @@ void Data::prepare()
         if(nblocks == 1)
         {
             params.out_of_core = false;
+            read_all();
             llog << colwarn << "only one block exists. will run with in-core mode" << colend << endl;
         }
         else
