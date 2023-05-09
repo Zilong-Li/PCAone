@@ -174,7 +174,9 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
             // calculate F and centered_geno_lookup
             if(c == 0)
             {
-                llog << colwarn << "the allele frequency should not be 0. snp index:" << snp_idx << colend;
+                if(params.verbose)
+                    llog << colwarn << "the allele frequency should not be 0. snp index:" << snp_idx << colend
+                         << endl;
                 F(snp_idx) = 0;
             }
             else
