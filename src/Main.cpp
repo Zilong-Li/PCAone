@@ -43,6 +43,10 @@ int main(int argc, char * argv[])
             shuffle_csvzstd_to_bin(params.filein, params.fileout, params.buffer, params.scale);
             data = new FileBin(params);
         }
+        else if(params.file_t == FileType::BINARY)
+        {
+            data = new FileBin(params);
+        }
         else
         {
             throw runtime_error("wrong file type used!\n");
