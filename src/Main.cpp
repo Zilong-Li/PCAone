@@ -89,9 +89,10 @@ int main(int argc, char * argv[])
     else if(params.svd_t == SvdType::FULL)
     {
         data->llog << timestamp() << "running the Full SVD with in-core mode." << endl;
+        if(params.file_t == FileType::PLINK || params.file_t == FileType::BGEN) data->standardize_E();
         Eigen::JacobiSVD<MyMatrix> svd(data->G, Eigen::ComputeThinU | Eigen::ComputeThinV);
-        data->write_eigs_files(svd.singularValues().head(params.k).array().square() / data->nsnps,
-                               svd.matrixU().leftCols(params.k), svd.matrixU().leftCols(params.k));
+        data->write_eigs_files(svd.singularValues().array().square() / data->nsnps, svd.matrixU(),
+                               svd.matrixV());
     }
     else
         throw invalid_argument("unsupported PCA method was applied");

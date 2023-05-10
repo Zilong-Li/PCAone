@@ -21,7 +21,7 @@ Param::Param(int argc, char ** argv)
                                          "0: the proposed window-based PCAone method\n"
                                          "1: the Yu RSVD + Halko power iterations\n"
                                          "2: the Implicitly Restarted Arnoldi Method\n"
-                                         "3: the full Singular Value Decomposition. use this only for small data", 0);
+                                         "3: the full Singular Value Decomposition.", 0);
     auto plinkfile = opts.add<Value<std::string>>("b", "bfile", "prefix to PLINK .bed/.bim/.fam files", "", &filein);
     auto binfile = opts.add<Value<std::string>>("B", "binary", "path of binary file which can be compressed by zstd", "", &filein);
     auto csvfile = opts.add<Value<std::string>>("c", "csv", "path of comma seperated CSV file compressed by zstd", "", &filein);
