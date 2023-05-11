@@ -242,17 +242,18 @@ void read_bgen_block(MyMatrix & G,
     }
 }
 
-int shuffle_bgen_to_bin(std::string bgenfile, std::string binfile, uint gb, bool standardize)
+// this would be fast
+int shuffle_bgen_to_bin(std::string & fin, std::string fout, uint gb, bool standardize)
 {
-    bgen::CppBgenReader * bg = new bgen::CppBgenReader(bgenfile, "", true);
+    bgen::CppBgenReader * bg = new bgen::CppBgenReader(fin, "", true);
     uint nsamples = bg->header.nsamples;
     uint nsnps = bg->header.nvariants;
     const uint ibyte = 4;
     uint64 bytes_per_snp = nsamples * ibyte;
     uint blocksize = 1073741824 * gb / bytes_per_snp;
     uint nblocks = (nsnps + blocksize - 1) / blocksize;
-    std::ofstream ofs(binfile + ".bin", std::ios::binary);
-    std::ofstream ofs2(binfile + ".idx");
+    std::ofstream ofs(fout + ".perm.bin", std::ios::binary);
+    std::ofstream ofs2(fout + ".perm.txt");
     ofs.write((char *)&nsamples, ibyte);
     ofs.write((char *)&nsnps, ibyte);
     uint magic = ibyte * 2;
@@ -282,9 +283,11 @@ int shuffle_bgen_to_bin(std::string bgenfile, std::string binfile, uint gb, bool
         }
     }
     delete bg;
+    fin = fout + ".perm.bin";
     return (nsnps == cur);
 }
 
+// this would be slow
 void permute_bgen(std::string & fin, std::string fout)
 {
     cout << timestamp() << "begin to permute BGEN file.\n";

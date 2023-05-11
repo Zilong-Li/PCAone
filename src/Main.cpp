@@ -35,8 +35,8 @@ int main(int argc, char * argv[])
         }
         else if(params.file_t == FileType::BGEN)
         {
-            permute_bgen(params.filein, params.fileout);
-            data = new FileBgen(params);
+            shuffle_bgen_to_bin(params.filein, params.fileout, params.buffer, params.scale);
+            data = new FileBin(params);
         }
         else if(params.file_t == FileType::CSV)
         {

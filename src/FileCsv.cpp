@@ -307,6 +307,5 @@ int shuffle_csvzstd_to_bin(std::string & fin, std::string fout, uint gb, uint sc
         }
     }
     fin = fout + ".perm.bin";
-    cout << fin << endl;
     return (nsnps == cur);
 }
