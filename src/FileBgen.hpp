@@ -22,7 +22,7 @@ void read_bgen_block(MyMatrix & G,
                      uint64 stop_idx,
                      bool standardize);
 
-int shuffle_bgen_to_bin(std::string bgenfile, std::string binfile, uint gb, bool standardize);
+int shuffle_bgen_to_bin(std::string & fin, std::string fout, uint gb, bool standardize);
 
 void permute_bgen(std::string & fin, std::string fout);
 

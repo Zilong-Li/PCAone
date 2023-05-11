@@ -36,11 +36,13 @@ int main(int argc, char * argv[])
         else if(params.file_t == FileType::BGEN)
         {
             shuffle_bgen_to_bin(params.filein, params.fileout, params.buffer, params.scale);
+            params.file_t = FileType::BINARY;
             data = new FileBin(params);
         }
         else if(params.file_t == FileType::CSV)
         {
             shuffle_csvzstd_to_bin(params.filein, params.fileout, params.buffer, params.scale);
+            params.file_t = FileType::BINARY;
             data = new FileBin(params);
         }
         else if(params.file_t == FileType::BINARY)
