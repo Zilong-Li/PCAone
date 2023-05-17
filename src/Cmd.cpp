@@ -33,7 +33,7 @@ Param::Param(int argc, char ** argv)
     opts.add<Value<std::string>>("o", "out", "prefix to output files. default [pcaone]", fileout, &fileout);
     opts.add<Switch>("S", "no-shuffle", "do not shuffle the data if it is already permuted", &noshuffle);
     opts.add<Switch>("v", "verbose", "verbose message output", &verbose);
-    opts.add<Value<uint>>("w", "windows", "number of initial windows to use for PCAone (algorithm2)", bands, &bands);
+    opts.add<Value<uint>>("w", "batches", "number of mini-batches to be splited into for PCAone (algorithm2)", bands, &bands);
     opts.add<Value<uint>>("C", "scale", "do scaling for input file.\n"
                           "0: do just centering\n"
                           "1: do log transformation eg. log(x+0.01) for RNA-seq data\n"
@@ -118,7 +118,7 @@ Param::Param(int argc, char ** argv)
                     "not support -m option for PCAngsd algorithm yet, but the feature is on the way!");
         }
         if(bands < 4 || bands % 2 != 0)
-            throw std::invalid_argument("the --windows must be a power of 2 and the minimun is 4\n");
+            throw std::invalid_argument("the --batches must be a power of 2 and the minimun is 4. the recommended is 64\n");
     }
     catch(const popl::invalid_option & e)
     {
