@@ -174,9 +174,7 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
             // calculate F and centered_geno_lookup
             if(c == 0)
             {
-                if(params.verbose)
-                    llog << colwarn << "the allele frequency should not be 0. snp index:" << snp_idx << colend
-                         << endl;
+                if(params.verbose) cao.warning("the allele frequency should not be 0.");
                 F(snp_idx) = 0;
             }
             else
@@ -273,7 +271,7 @@ void permute_plink(std::string & fin, const std::string & fout, uint gb, uint nb
     uint nsnps = count_lines(fin + ".bim");
     uint nsamples = count_lines(fin + ".fam");
     uint bed_bytes_per_snp = (nsamples + 3) >> 2;
-    cout << timestamp() << "permute plink files. nsnps:" << nsnps << ", nsamples:" << nsamples << endl;
+    cao << tm.date() << "permute plink files. nsnps:" << nsnps << ", nsamples:" << nsamples << endl;
 
     // calculate the readin number of snps of certain big buffer like 2GB.
     // must be a multiple of nbands.

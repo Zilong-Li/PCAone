@@ -53,10 +53,10 @@ class FileCsv : public Data
   public:
     FileCsv(Param & params_) : Data(params_)
     {
-        llog << timestamp() << "start parsing CSV format compressed by ZSTD" << std::endl;
+        cao << tm.date() << "start parsing CSV format compressed by ZSTD" << std::endl;
         if(params.nsnps > 0 && params.nsamples > 0 && !params.cpmed)
         {
-            llog << timestamp() << "use nsamples and nsnps given by user." << std::endl;
+            cao << tm.date() << "use nsamples and nsnps given by user." << std::endl;
             nsamples = params.nsamples;
             nsnps = params.nsnps;
         }
@@ -65,7 +65,7 @@ class FileCsv : public Data
             zbuf.fin = fopenOrDie(params.filein.c_str(), "rb");
             parse_csvzstd(zbuf, nsamples, nsnps, params.scale, libsize, tidx, median_libsize);
         }
-        llog << timestamp() << "shape of input matrix(samples x features) is (" << nsamples << ", " << nsnps
+        cao << tm.date() << "shape of input matrix(samples x features) is (" << nsamples << ", " << nsnps
              << ")" << std::endl;
     }
 

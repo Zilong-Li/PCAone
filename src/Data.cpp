@@ -1,6 +1,7 @@
 #include "Data.hpp"
 
 #include "Utils.hpp"
+#include <string>
 
 using namespace std;
 
@@ -30,26 +31,21 @@ void Data::prepare()
             uint l = params.k + params.oversamples;
             double m = (double)(3 * nsamples * l + 2 * nsnps * l + 5 * nsnps) / 134217728;
             if(params.memory > 1.1 * m)
-            {
                 m = 0;
-            }
             else
-            {
-                llog << colwarn + "minimum RAM required is " << m
-                     << " GB. trying to allocate more RAM." + colend << endl;
-            }
+                cao.warning("minimum RAM required is " + to_string(m) + " GB. trying to allocate more RAM.");
             params.blocksize = (unsigned int)ceil(
                 (double)((m + params.memory) * 134217728 - 3 * nsamples * l - 2 * nsnps * l - 5 * nsnps)
                 / nsamples);
         }
         nblocks = (unsigned int)ceil((double)nsnps / params.blocksize);
-        llog << timestamp() << "initial setting by -m/--memory: blocksize=" << params.blocksize
-             << ", nblocks=" << nblocks << ", factor=" << bandFactor << ".\n";
+        cao << tm.date() << "initial setting by -m/--memory: blocksize=" << params.blocksize
+            << ", nblocks=" << nblocks << ", factor=" << bandFactor << ".\n";
         if(nblocks == 1)
         {
             params.out_of_core = false;
             read_all();
-            llog << colwarn << "only one block exists. will run with in-core mode" << colend << endl;
+            cao.warning("only one block exists. will run with in-core mode");
         }
         else
         {
@@ -67,9 +63,8 @@ void Data::prepare()
                 }
                 nblocks = (unsigned int)ceil((double)nsnps / params.blocksize);
                 if(params.verbose)
-                    llog << timestamp()
-                         << "after adjustment by PCAone windows: blocksize=" << params.blocksize
-                         << ", nblocks=" << nblocks << ", factor=" << bandFactor << ".\n";
+                    cao << tm.date() << "after adjustment by PCAone windows: blocksize=" << params.blocksize
+                        << ", nblocks=" << nblocks << ", factor=" << bandFactor << ".\n";
             }
             start.resize(nblocks);
             stop.resize(nblocks);
@@ -102,11 +97,8 @@ void Data::filterSNPs_resizeF()
         }
     }
     nsnps = keepSNPs.size(); // new number of SNPs
-    llog << timestamp() << "number of SNPs after filtering by MAF > " << params.maf << ": " << nsnps << endl;
-    if(nsnps < 1)
-    {
-        throw std::runtime_error("no SNPs left after filtering!\n");
-    }
+    cao << tm.date() << "number of SNPs after filtering by MAF > " << params.maf << ": " << nsnps << endl;
+    if(nsnps < 1) throw std::runtime_error("no SNPs left after filtering!\n");
     // resize F
     F.noalias() = Fnew.head(nsnps);
 }
@@ -121,7 +113,7 @@ void Data::calcu_vt_initial(const MyMatrix & T, MyMatrix & VT, bool standardize)
 {
     if(nblocks == 1)
     {
-        llog << colwarn + "only one block exists. please use --batch mode instead." + colend << endl;
+        cao.warning("only one block exists. please use in-memory mode instead by removing --memory.");
         exit(EXIT_SUCCESS);
     }
     uint actual_block_size;
@@ -145,7 +137,7 @@ void Data::calcu_vt_update(const MyMatrix & T,
 {
     if(nblocks == 1)
     {
-        llog << colwarn + "only one block exists. please use --batch mode instead." + colend << endl;
+        cao.warning("only one block exists. please use in-memory mode instead by removing --memory.");
         exit(EXIT_SUCCESS);
     }
     uint actual_block_size;

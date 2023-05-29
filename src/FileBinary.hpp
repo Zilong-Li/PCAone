@@ -12,7 +12,7 @@ class FileBin : public Data
   public:
     FileBin(Param & params_) : Data(params_)
     {
-        llog << timestamp() << "start parsing binary format" << std::endl;
+        cao << tm.date() << "start parsing binary format" << std::endl;
         ifs_bin.open(params.filein, std::ios::in | std::ios::binary);
         is_zstd = isZstdCompressed(params.filein.c_str());
         if(is_zstd)
@@ -50,8 +50,8 @@ class FileBin : public Data
         {
             ifs_bin.read((char *)&nsnps, ibyte);
             ifs_bin.read((char *)&nsamples, ibyte);
-            llog << timestamp() << "shape of input matrix (features x samples) is (" << nsnps << ", "
-                 << nsamples << ")" << std::endl;
+            cao << tm.date() << "shape of input matrix (features x samples) is (" << nsnps << ", "
+                    << nsamples << ")" << std::endl;
             bytes_per_snp = nsamples * ibyte;
         }
     }

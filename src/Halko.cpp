@@ -46,18 +46,14 @@ void RsvdOpData::computeUSV(int p, double tol)
                 diff = 1 - mev(U, Upre);
             else
                 diff = minSSE(U, Upre).sum() / Upre.cols();
-            if(verbose) data->llog << timestamp() << "running of epoch=" << pi << ", diff=" << diff << endl;
+            if(verbose) cao << tm.date() << "running of epoch=" << pi << ", diff=" << diff << endl;
             if(diff < tol || pi == p)
             {
                 V.noalias() = G * svd.matrixU().leftCols(k);
                 S = svd.singularValues().head(k);
-                if(verbose) data->llog << timestamp() << "stops at epoch=" << pi + 1 << endl;
+                if(verbose) cao << tm.date() << "stops at epoch=" << pi + 1 << endl;
                 if(data->params.svd_t == SvdType::PCAoneAlg2 && std::pow(2, pi + 1) < data->params.bands)
-                    data->llog << colwarn
-                               << "the algorithm2 converged but the window size is not reaching the whole "
-                                  "data. the eigen values doesn't mean anything but the "
-                                  "PCs still reflect the structure."
-                                      + colend + "\n";
+                    cao.warning("PCAone converged but the window size did not expand the whole data.");
                 break;
             }
             else
@@ -88,8 +84,7 @@ void NormalRsvdOpData::computeGandH(MyMatrix & G, MyMatrix & H, int pi)
     {
         if(pi == 0)
         {
-            data->llog << timestamp() << "running Yu+Halko RSVD (PCAone algorithm1) with in-core mode."
-                       << endl;
+            cao << tm.date() << "running Yu+Halko RSVD (PCAone algorithm1) with in-core mode." << endl;
             if(update)
             {
                 data->update_batch_E(U, S, V.transpose());
@@ -121,8 +116,7 @@ void NormalRsvdOpData::computeGandH(MyMatrix & G, MyMatrix & H, int pi)
     {
         // for block version
         if(pi == 0)
-            data->llog << timestamp() << "running Yu+Halko RSVD (PCAone algorithm1) with out-of-core mode."
-                       << endl;
+            cao << tm.date() << "running Yu+Halko RSVD (PCAone algorithm1) with out-of-core mode." << endl;
         // data->G is always nsamples x nsnps;
         if(data->snpmajor || true)
         {
@@ -186,7 +180,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix & G, MyMatrix & H, int pi)
     {
         if(pi == 0)
         {
-            data->llog << timestamp() << "running in memory mode with PCAone (algorithm2)." << endl;
+            cao << tm.date() << "running in memory mode with PCAone (algorithm2)." << endl;
             if(update)
             {
                 data->update_batch_E(U, S, V.transpose());
@@ -205,8 +199,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix & G, MyMatrix & H, int pi)
             band = 1;
             blocksize = (unsigned int)ceil((double)data->nsnps / data->params.bands);
             if(blocksize < data->params.bands)
-                data->llog << colwarn << "blocksize is smaller than window size. please consider IRAM method."
-                           << colend << endl;
+                cao.warning("blocksize is smaller than window size. please consider IRAM method.");
             // permute snps of G, see
             // https://stackoverflow.com/questions/15858569/randomly-permute-rows-columns-of-a-matrix-with-eigen
             if(!data->params.noshuffle)
@@ -270,9 +263,9 @@ void FancyRsvdOpData::computeGandH(MyMatrix & G, MyMatrix & H, int pi)
                     }
                     else if((b + 1) == data->nblocks)
                     {
-                        data->llog << timestamp()
-                                   << colwarn + "shouldn't go here if the bands is proper, ie. 2^{x}" + colend
-                                   << endl;
+                        cao << tm.date()
+                            << colwarn + "shouldn't go here if the bands is proper, ie. 2^{x}" + colend
+                            << endl;
                         H = H1 + H2;
                         Eigen::HouseholderQR<MyMatrix> qr(H);
                         Omg.noalias() = qr.householderQ() * MyMatrix::Identity(cols(), size);
@@ -286,8 +279,8 @@ void FancyRsvdOpData::computeGandH(MyMatrix & G, MyMatrix & H, int pi)
     {
         if(pi == 0)
         {
-            data->llog << timestamp()
-                       << "running the window-based RSVD (PCAone algorithm 2) with out-of-core mode." << endl;
+            cao << tm.date() << "running the window-based RSVD (PCAone algorithm 2) with out-of-core mode."
+                << endl;
             band = data->bandFactor;
         }
         {
@@ -371,11 +364,11 @@ void run_pca_with_halko(Data * data, const Param & params)
 {
     if(params.out_of_core)
     {
-        data->llog << timestamp() << "begin to run PCAone RSVD with out-of-core mode" << endl;
+        cao << tm.date() << "begin to run PCAone RSVD with out-of-core mode" << endl;
     }
     else
     {
-        data->llog << timestamp() << "begin to run PCAone RSVD with in-core mode" << endl;
+        cao << tm.date() << "begin to run PCAone RSVD with in-core mode" << endl;
     }
     MyMatrix Vpre;
     MyVector S;
@@ -417,7 +410,7 @@ void run_pca_with_halko(Data * data, const Param & params)
         // flip_UV(rsvd->U, rsvd->V, false);
         double diff;
         rsvd->setFlags(true, false, false);
-        data->llog << timestamp() << "begin to do EM-PCA with PCAone RSVD." << endl;
+        cao << tm.date() << "begin to do EM-PCA with PCAone RSVD." << endl;
         for(uint i = 0; i < params.maxiter; ++i)
         {
             Vpre = rsvd->V;
@@ -427,15 +420,15 @@ void run_pca_with_halko(Data * data, const Param & params)
                 diff = 1.0 - mev(rsvd->V, Vpre);
             else
                 diff = minSSE(rsvd->V, Vpre).sum() / Vpre.cols();
-            data->llog << timestamp() << "individual allele frequencies estimated (iter=" << i + 1
-                       << "), diff=" << diff << endl;
+            cao << tm.date() << "individual allele frequencies estimated (iter=" << i + 1
+                << "), diff=" << diff << endl;
             if(diff < params.tolem)
             {
-                data->llog << timestamp() << "come to convergence!" << endl;
+                cao << tm.date() << "come to convergence!" << endl;
                 break;
             }
         }
-        data->llog << timestamp() << "begin to standardize the matrix." << endl;
+        cao << tm.date() << "begin to standardize the matrix." << endl;
 
         // if pcangsd, estimate GRM.
         if(params.pcangsd)

@@ -31,6 +31,7 @@ Param::Param(int argc, char ** argv)
     opts.add<Value<double>>("m", "memory", "specify the RAM usage in GB unit. default [0] uses all RAM", memory, &memory);
     opts.add<Value<uint>>("n", "threads", "number of threads for multithreading", threads, &threads);
     opts.add<Value<std::string>>("o", "out", "prefix to output files. default [pcaone]", fileout, &fileout);
+    opts.add<Value<uint>>("p", "maxp", "maximum number of power iterations for RSVD algorithm", maxp, &maxp);
     opts.add<Switch>("S", "no-shuffle", "do not shuffle the data if it is already permuted", &noshuffle);
     opts.add<Switch>("v", "verbose", "verbose message output", &verbose);
     opts.add<Value<uint>>("w", "batches", "number of mini-batches to be splited into for PCAone (algorithm2)", bands, &bands);
@@ -39,14 +40,13 @@ Param::Param(int argc, char ** argv)
                           "1: do log transformation eg. log(x+0.01) for RNA-seq data\n"
                           "2: do count per median log transformation (CPMED) for scRNAs",
                           scale,  &scale);
-    opts.add<Value<uint>>("p", "maxp", "maximum number of power iterations for RSVD algorithm", maxp, &maxp);
-    opts.add<Value<uint>, Attribute::advanced>("M", "", "number of features (eg. SNPs) if already known", 0, &nsnps);
-    opts.add<Value<uint>, Attribute::advanced>("N", "", "number of samples if already known", 0, &nsamples);
     opts.add<Switch>("", "emu", "use EMU algorithm for genotype data with missingness", &emu);
     opts.add<Switch>("", "pcangsd", "use PCAngsd algorithm for genotype likelihood input", &pcangsd);
     opts.add<Value<double>>("", "maf", "remove variants with minor allele frequency below maf", maf, &maf);
     opts.add<Switch>("U", "printu", "output eigen vector of each epoch (for tests)", &printu);
     opts.add<Switch>("V", "printv", "output the right eigen vectors with suffix .loadings", &printv);
+    opts.add<Value<uint>, Attribute::advanced>("M", "", "number of features (eg. SNPs) if already known", 0, &nsnps);
+    opts.add<Value<uint>, Attribute::advanced>("N", "", "number of samples if already known", 0, &nsamples);
     opts.add<Value<uint>, Attribute::advanced>("", "buffer", "buffer in GB uint used for permuting the data", buffer, &buffer);
     opts.add<Value<uint>, Attribute::advanced>("", "imaxiter", "maximum number of IRAM interations", imaxiter, &imaxiter);
     opts.add<Value<double>, Attribute::advanced>("", "itol", "tolerance for IRAM algorithm", itol, &itol);

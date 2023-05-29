@@ -1,6 +1,8 @@
 #ifndef PCAONE_UTILES_
 #define PCAONE_UTILES_
 
+#include "Logger.hpp"
+#include "Timer.hpp"
 #include <Eigen/Dense>
 #include <algorithm>
 #include <cassert>
@@ -13,6 +15,15 @@
 #include <iostream>
 #include <iterator>
 #include <random>
+
+// MAKE SOME TOOLS FULLY ACCESSIBLE THROUGHOUT THE SOFTWARE
+#ifdef _DECLARE_TOOLBOX_HERE
+Logger cao; // logger
+Timer tm; // Timer
+#else
+extern Timer tm;
+extern Logger cao;
+#endif
 
 const std::string colwarn = "\x1B[33mwarning: ";
 const std::string colerror = "\x1B[31merror: ";

@@ -1,3 +1,5 @@
+#define _DECLARE_TOOLBOX_HERE
+
 #include "Arnoldi.hpp"
 #include "Cmd.hpp"
 #include "FileBeagle.hpp"
@@ -18,16 +20,17 @@ using namespace std;
 
 int main(int argc, char * argv[])
 {
-    auto t1 = std::chrono::steady_clock::now();
     Param params(argc, argv);
+    cao.cao.open(params.fileout + ".log");
     string commandargs = params.ss.str();
+    cao << commandargs << endl;
     // set number of threads
     // openblas_set_num_threads(params.threads);
     omp_set_num_threads(params.threads);
     Data * data;
     if(params.svd_t == SvdType::PCAoneAlg2 && !params.noshuffle && params.out_of_core)
     {
-        auto ts = std::chrono::steady_clock::now();
+        tm.clock();
         if(params.file_t == FileType::PLINK)
         {
             permute_plink(params.filein, params.fileout, params.buffer, params.bands);
@@ -53,10 +56,7 @@ int main(int argc, char * argv[])
         {
             throw runtime_error("wrong file type used!\n");
         }
-        auto te = std::chrono::steady_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::seconds>(te - ts);
-        data->llog << timestamp() << "total elapsed time of permuting data: " << duration.count()
-                   << " seconds" << endl;
+        cao << tm.date() << "total elapsed time of permuting data: " << tm.reltime() << " seconds" << endl;
     }
     else
     {
@@ -94,7 +94,7 @@ int main(int argc, char * argv[])
         run_pca_with_halko(data, params);
     else if(params.svd_t == SvdType::FULL)
     {
-        data->llog << timestamp() << "running the Full SVD with in-core mode." << endl;
+        cao << tm.date() << "running the Full SVD with in-core mode." << endl;
         if(params.file_t == FileType::PLINK || params.file_t == FileType::BGEN) data->standardize_E();
         Eigen::JacobiSVD<MyMatrix> svd(data->G, Eigen::ComputeThinU | Eigen::ComputeThinV);
         data->write_eigs_files(svd.singularValues().array().square() / data->nsnps, svd.matrixU(),
@@ -102,13 +102,10 @@ int main(int argc, char * argv[])
     }
     else
         throw invalid_argument("unsupported PCA method was applied");
-    auto t2 = std::chrono::steady_clock::now();
-    auto duration = std::chrono::duration<double>(t2 - t1).count()
-                    * std::chrono::duration<double>::period::num / std::chrono::duration<double>::period::den;
-    data->llog << timestamp() << "total elapsed reading time: " << data->readtime << " seconds" << endl;
-    data->llog << timestamp() << "total elapsed wall time: " << duration << " seconds" << endl;
-    data->llog << timestamp() << "eigenvecs and eigenvals are saved. have a nice day. bye!\n";
-    data->llog << commandargs << endl;
+
+    cao << tm.date() << "total elapsed reading time: " << data->readtime << " seconds" << endl;
+    cao << tm.date() << "total elapsed wall time: " << tm.abstime() << " seconds" << endl;
+    cao << tm.date() << "eigenvecs and eigenvals are saved. have a nice day. bye!\n";
 
     delete data;
 

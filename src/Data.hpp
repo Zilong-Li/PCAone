@@ -2,7 +2,6 @@
 #define PCAONE_DATA_
 
 #include "Cmd.hpp"
-#include "Logger.hpp"
 #include "Utils.hpp"
 
 const double VAR_TOL = 1e-9;
@@ -12,12 +11,7 @@ class Data
   public:
     Data(Param & params_) : params(params_)
     {
-        // start logging
-        llog.clog.open(std::string(params.fileout + ".log").c_str(), std::ios::out);
-        llog.clog << timestamp() << "program started" << std::endl;
-        if(!llog.clog.good())
-            throw std::invalid_argument(
-                colerror + "the output file path is not valid. check if the folder exisits" + colend);
+        cao << tm.date() << "program started" << std::endl;
     }
 
     virtual ~Data() {}
@@ -48,7 +42,6 @@ class Data
                          bool standardize);
 
     Param & params;
-    Logger llog;
     bool snpmajor = true;
     bool nsamples_ge_nsnps = false; // if nsamples greater than or equal to nsnps
     bool initialFonly = false;

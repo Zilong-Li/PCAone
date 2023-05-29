@@ -2,12 +2,13 @@
 #define LOGGER_H_
 
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 
 class Logger
 {
   public:
-    std::ofstream clog;
+    std::ofstream cao;
     bool is_screen = true;
 
     Logger() {}
@@ -17,14 +18,14 @@ class Logger
     template<class S>
     Logger & operator<<(const S & val)
     {
-        clog << val;
+        cao << val;
         if(is_screen) std::cout << val;
         return *this;
     }
 
     Logger & operator<<(std::ostream & (*pfun)(std::ostream &))
     {
-        pfun(clog);
+        pfun(cao);
         if(is_screen) pfun(std::cout);
         return *this;
     }
@@ -32,7 +33,7 @@ class Logger
     void print(std::string s)
     {
         if(is_screen) std::cout << std::setprecision(16) << s << std::endl;
-        clog << s << std::endl;
+        cao << s << std::endl;
     }
 
     void warning(std::string s)
@@ -42,7 +43,7 @@ class Logger
                       << "\x1B[33m"
                       << "WARNING: "
                       << "\033[0m" << s << std::endl;
-        clog << std::endl << "WARNING: " << s << std::endl;
+        cao << std::endl << "WARNING: " << s << std::endl;
     }
 
     void error(std::string s)
@@ -52,7 +53,7 @@ class Logger
                       << "\x1B[31m"
                       << "ERROR: "
                       << "\033[0m" << s << std::endl;
-        clog << std::endl << "ERROR: " << s << std::endl;
+        cao << std::endl << "ERROR: " << s << std::endl;
         exit(EXIT_FAILURE);
     }
 
@@ -63,7 +64,7 @@ class Logger
                       << "\x1B[32m"
                       << "DONE: "
                       << "\033[0m" << s << std::endl;
-        clog << std::endl << "DONE: " << s << std::endl;
+        cao << std::endl << "DONE: " << s << std::endl;
         exit(EXIT_SUCCESS);
     }
 };
