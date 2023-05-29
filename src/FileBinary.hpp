@@ -48,10 +48,10 @@ class FileBin : public Data
         }
         else
         {
-            ifs_bin.read((char *)&nsamples, ibyte);
             ifs_bin.read((char *)&nsnps, ibyte);
-            llog << timestamp() << "shape of input matrix(samples x features) is (" << nsamples << ", "
-                 << nsnps << ")" << std::endl;
+            ifs_bin.read((char *)&nsamples, ibyte);
+            llog << timestamp() << "shape of input matrix (features x samples) is (" << nsnps << ", "
+                 << nsamples << ")" << std::endl;
             bytes_per_snp = nsamples * ibyte;
         }
     }

@@ -277,8 +277,8 @@ int shuffle_csvzstd_to_bin(std::string & fin, std::string fout, uint gb, uint sc
     uint nblocks = (nsnps + blocksize - 1) / blocksize;
     std::ofstream ofs(fout + ".perm.bin", std::ios::binary);
     std::ofstream ofs2(fout + ".perm.txt");
-    ofs.write((char *)&nsamples, ibyte);
     ofs.write((char *)&nsnps, ibyte);
+    ofs.write((char *)&nsamples, ibyte);
     uint magic = ibyte * 2;
     zbuf.fin = fopenOrDie(fin.c_str(), "rb");
     zbuf.lastRet = 1;

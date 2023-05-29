@@ -245,6 +245,7 @@ void read_bgen_block(MyMatrix & G,
 // this would be fast
 int shuffle_bgen_to_bin(std::string & fin, std::string fout, uint gb, bool standardize)
 {
+    cout << timestamp() << "begin to permute BGEN into BINARY file.\n";
     bgen::CppBgenReader * bg = new bgen::CppBgenReader(fin, "", true);
     uint nsamples = bg->header.nsamples;
     uint nsnps = bg->header.nvariants;
@@ -254,8 +255,8 @@ int shuffle_bgen_to_bin(std::string & fin, std::string fout, uint gb, bool stand
     uint nblocks = (nsnps + blocksize - 1) / blocksize;
     std::ofstream ofs(fout + ".perm.bin", std::ios::binary);
     std::ofstream ofs2(fout + ".perm.txt");
-    ofs.write((char *)&nsamples, ibyte);
     ofs.write((char *)&nsnps, ibyte);
+    ofs.write((char *)&nsamples, ibyte);
     uint magic = ibyte * 2;
     float * dosages = nullptr;
     float * probs1d = nullptr;
