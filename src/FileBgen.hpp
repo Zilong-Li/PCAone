@@ -32,11 +32,11 @@ class FileBgen : public Data
     // using Data::Data;
     FileBgen(Param & params_) : Data(params_)
     {
-        cao << tm.date() << "start parsing BGEN format" << std::endl;
+        cao << tick.date() << "start parsing BGEN format" << std::endl;
         bg = new bgen::CppBgenReader(params.filein, "", true);
         nsamples = bg->header.nsamples;
         nsnps = bg->header.nvariants;
-        cao << tm.date() << "the layout of bgen file is " << bg->header.layout << ". N samples is "
+        cao << tick.date() << "the layout of bgen file is " << bg->header.layout << ". N samples is "
              << nsamples << ". M snps is " << nsnps << std::endl;
     }
 

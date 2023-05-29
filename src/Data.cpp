@@ -39,7 +39,7 @@ void Data::prepare()
                 / nsamples);
         }
         nblocks = (unsigned int)ceil((double)nsnps / params.blocksize);
-        cao << tm.date() << "initial setting by -m/--memory: blocksize=" << params.blocksize
+        cao << tick.date() << "initial setting by -m/--memory: blocksize=" << params.blocksize
             << ", nblocks=" << nblocks << ", factor=" << bandFactor << ".\n";
         if(nblocks == 1)
         {
@@ -63,7 +63,7 @@ void Data::prepare()
                 }
                 nblocks = (unsigned int)ceil((double)nsnps / params.blocksize);
                 if(params.verbose)
-                    cao << tm.date() << "after adjustment by PCAone windows: blocksize=" << params.blocksize
+                    cao << tick.date() << "after adjustment by PCAone windows: blocksize=" << params.blocksize
                         << ", nblocks=" << nblocks << ", factor=" << bandFactor << ".\n";
             }
             start.resize(nblocks);
@@ -97,7 +97,7 @@ void Data::filterSNPs_resizeF()
         }
     }
     nsnps = keepSNPs.size(); // new number of SNPs
-    cao << tm.date() << "number of SNPs after filtering by MAF > " << params.maf << ": " << nsnps << endl;
+    cao << tick.date() << "number of SNPs after filtering by MAF > " << params.maf << ": " << nsnps << endl;
     if(nsnps < 1) throw std::runtime_error("no SNPs left after filtering!\n");
     // resize F
     F.noalias() = Fnew.head(nsnps);

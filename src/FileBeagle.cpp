@@ -49,7 +49,7 @@ void FileBeagle::read_all()
     gzclose(fp);
     assert(j == nsnps);
 
-    cao << tm.date() << "begin to estimate allele frequencies" << endl;
+    cao << tick.date() << "begin to estimate allele frequencies" << endl;
     F = MyVector::Constant(nsnps, 0.25);
     { // out of scope: eigen object will be released;
         MyVector Ft = MyVector::Zero(nsnps);
@@ -76,12 +76,12 @@ void FileBeagle::read_all()
             // Check for convergence
             if(diff < params.tolmaf)
             {
-                cao << tm.date() << "EM (MAF) converged at iteration: " << it + 1 << endl;
+                cao << tick.date() << "EM (MAF) converged at iteration: " << it + 1 << endl;
                 break;
             }
             else if(it == (params.maxiter - 1))
             {
-                cao << tm.date() << "EM (MAF) did not converge.\n";
+                cao << tick.date() << "EM (MAF) did not converge.\n";
             }
         }
     }

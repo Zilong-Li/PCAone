@@ -30,7 +30,7 @@ int main(int argc, char * argv[])
     Data * data;
     if(params.svd_t == SvdType::PCAoneAlg2 && !params.noshuffle && params.out_of_core)
     {
-        tm.clock();
+        tick.clock();
         if(params.file_t == FileType::PLINK)
         {
             permute_plink(params.filein, params.fileout, params.buffer, params.bands);
@@ -56,7 +56,7 @@ int main(int argc, char * argv[])
         {
             throw runtime_error("wrong file type used!\n");
         }
-        cao << tm.date() << "total elapsed time of permuting data: " << tm.reltime() << " seconds" << endl;
+        cao << tick.date() << "total elapsed time of permuting data: " << tick.reltime() << " seconds" << endl;
     }
     else
     {
@@ -94,7 +94,7 @@ int main(int argc, char * argv[])
         run_pca_with_halko(data, params);
     else if(params.svd_t == SvdType::FULL)
     {
-        cao << tm.date() << "running the Full SVD with in-core mode." << endl;
+        cao << tick.date() << "running the Full SVD with in-core mode." << endl;
         if(params.file_t == FileType::PLINK || params.file_t == FileType::BGEN) data->standardize_E();
         Eigen::JacobiSVD<MyMatrix> svd(data->G, Eigen::ComputeThinU | Eigen::ComputeThinV);
         data->write_eigs_files(svd.singularValues().array().square() / data->nsnps, svd.matrixU(),
@@ -103,9 +103,9 @@ int main(int argc, char * argv[])
     else
         throw invalid_argument("unsupported PCA method was applied");
 
-    cao << tm.date() << "total elapsed reading time: " << data->readtime << " seconds" << endl;
-    cao << tm.date() << "total elapsed wall time: " << tm.abstime() << " seconds" << endl;
-    cao << tm.date() << "eigenvecs and eigenvals are saved. have a nice day. bye!\n";
+    cao << tick.date() << "total elapsed reading time: " << data->readtime << " seconds" << endl;
+    cao << tick.date() << "total elapsed wall time: " << tick.abstime() << " seconds" << endl;
+    cao << tick.date() << "eigenvecs and eigenvals are saved. have a nice day. bye!\n";
 
     delete data;
 

@@ -62,7 +62,7 @@ void FileBgen::read_all()
         if(k == 0)
             throw std::runtime_error("the number of SNPs after filtering should be 0!\n");
         else
-            cao << tm.date() << "number of SNPs after filtering by MAF > " << params.maf << ": " << k << endl;
+            cao << tick.date() << "number of SNPs after filtering by MAF > " << params.maf << ": " << k << endl;
         // resize G, F, C;
         nsnps = k; // resize nsnps;
         G.conservativeResize(Eigen::NoChange, nsnps);
@@ -92,7 +92,7 @@ void FileBgen::read_all()
             }
         }
         assert(j == nsnps);
-        cao << tm.date() << "begin to estimate allele frequencies using GP" << endl;
+        cao << tick.date() << "begin to estimate allele frequencies using GP" << endl;
         MyVector Ft(nsnps);
         F = MyVector::Constant(nsnps, 0.25);
         // run EM to estimate allele frequencies
@@ -244,7 +244,7 @@ void read_bgen_block(MyMatrix & G,
 // this would be fast
 int shuffle_bgen_to_bin(std::string & fin, std::string fout, uint gb, bool standardize)
 {
-    cao << tm.date() << "begin to permute BGEN into BINARY file.\n";
+    cao << tick.date() << "begin to permute BGEN into BINARY file.\n";
     bgen::CppBgenReader * bg = new bgen::CppBgenReader(fin, "", true);
     uint nsamples = bg->header.nsamples;
     uint nsnps = bg->header.nvariants;
@@ -290,7 +290,7 @@ int shuffle_bgen_to_bin(std::string & fin, std::string fout, uint gb, bool stand
 // this would be slow
 void permute_bgen(std::string & fin, std::string fout)
 {
-    cao << tm.date() << "begin to permute BGEN file.\n";
+    cao << tick.date() << "begin to permute BGEN file.\n";
     bgen::CppBgenReader br(fin, "", true);
     uint nsamples = br.header.nsamples;
     uint nsnps = br.header.nvariants;

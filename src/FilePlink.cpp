@@ -271,7 +271,7 @@ void permute_plink(std::string & fin, const std::string & fout, uint gb, uint nb
     uint nsnps = count_lines(fin + ".bim");
     uint nsamples = count_lines(fin + ".fam");
     uint bed_bytes_per_snp = (nsamples + 3) >> 2;
-    cao << tm.date() << "permute plink files. nsnps:" << nsnps << ", nsamples:" << nsamples << endl;
+    cao << tick.date() << "permute plink files. nsnps:" << nsnps << ", nsamples:" << nsamples << endl;
 
     // calculate the readin number of snps of certain big buffer like 2GB.
     // must be a multiple of nbands.

@@ -46,12 +46,12 @@ void RsvdOpData::computeUSV(int p, double tol)
                 diff = 1 - mev(U, Upre);
             else
                 diff = minSSE(U, Upre).sum() / Upre.cols();
-            if(verbose) cao << tm.date() << "running of epoch=" << pi << ", diff=" << diff << endl;
+            if(verbose) cao << tick.date() << "running of epoch=" << pi << ", diff=" << diff << endl;
             if(diff < tol || pi == p)
             {
                 V.noalias() = G * svd.matrixU().leftCols(k);
                 S = svd.singularValues().head(k);
-                if(verbose) cao << tm.date() << "stops at epoch=" << pi + 1 << endl;
+                if(verbose) cao << tick.date() << "stops at epoch=" << pi + 1 << endl;
                 if(data->params.svd_t == SvdType::PCAoneAlg2 && std::pow(2, pi + 1) < data->params.bands)
                     cao.warning("PCAone converged but the window size did not expand the whole data.");
                 break;
@@ -84,7 +84,7 @@ void NormalRsvdOpData::computeGandH(MyMatrix & G, MyMatrix & H, int pi)
     {
         if(pi == 0)
         {
-            cao << tm.date() << "running Yu+Halko RSVD (PCAone algorithm1) with in-core mode." << endl;
+            cao << tick.date() << "running Yu+Halko RSVD (PCAone algorithm1) with in-core mode." << endl;
             if(update)
             {
                 data->update_batch_E(U, S, V.transpose());
@@ -116,7 +116,7 @@ void NormalRsvdOpData::computeGandH(MyMatrix & G, MyMatrix & H, int pi)
     {
         // for block version
         if(pi == 0)
-            cao << tm.date() << "running Yu+Halko RSVD (PCAone algorithm1) with out-of-core mode." << endl;
+            cao << tick.date() << "running Yu+Halko RSVD (PCAone algorithm1) with out-of-core mode." << endl;
         // data->G is always nsamples x nsnps;
         if(data->snpmajor || true)
         {
@@ -180,7 +180,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix & G, MyMatrix & H, int pi)
     {
         if(pi == 0)
         {
-            cao << tm.date() << "running in memory mode with PCAone (algorithm2)." << endl;
+            cao << tick.date() << "running in memory mode with PCAone (algorithm2)." << endl;
             if(update)
             {
                 data->update_batch_E(U, S, V.transpose());
@@ -263,7 +263,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix & G, MyMatrix & H, int pi)
                     }
                     else if((b + 1) == data->nblocks)
                     {
-                        cao << tm.date()
+                        cao << tick.date()
                             << colwarn + "shouldn't go here if the bands is proper, ie. 2^{x}" + colend
                             << endl;
                         H = H1 + H2;
@@ -279,7 +279,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix & G, MyMatrix & H, int pi)
     {
         if(pi == 0)
         {
-            cao << tm.date() << "running the window-based RSVD (PCAone algorithm 2) with out-of-core mode."
+            cao << tick.date() << "running the window-based RSVD (PCAone algorithm 2) with out-of-core mode."
                 << endl;
             band = data->bandFactor;
         }
@@ -364,11 +364,11 @@ void run_pca_with_halko(Data * data, const Param & params)
 {
     if(params.out_of_core)
     {
-        cao << tm.date() << "begin to run PCAone RSVD with out-of-core mode" << endl;
+        cao << tick.date() << "begin to run PCAone RSVD with out-of-core mode" << endl;
     }
     else
     {
-        cao << tm.date() << "begin to run PCAone RSVD with in-core mode" << endl;
+        cao << tick.date() << "begin to run PCAone RSVD with in-core mode" << endl;
     }
     MyMatrix Vpre;
     MyVector S;
@@ -410,7 +410,7 @@ void run_pca_with_halko(Data * data, const Param & params)
         // flip_UV(rsvd->U, rsvd->V, false);
         double diff;
         rsvd->setFlags(true, false, false);
-        cao << tm.date() << "begin to do EM-PCA with PCAone RSVD." << endl;
+        cao << tick.date() << "begin to do EM-PCA with PCAone RSVD." << endl;
         for(uint i = 0; i < params.maxiter; ++i)
         {
             Vpre = rsvd->V;
@@ -420,15 +420,15 @@ void run_pca_with_halko(Data * data, const Param & params)
                 diff = 1.0 - mev(rsvd->V, Vpre);
             else
                 diff = minSSE(rsvd->V, Vpre).sum() / Vpre.cols();
-            cao << tm.date() << "individual allele frequencies estimated (iter=" << i + 1
+            cao << tick.date() << "individual allele frequencies estimated (iter=" << i + 1
                 << "), diff=" << diff << endl;
             if(diff < params.tolem)
             {
-                cao << tm.date() << "come to convergence!" << endl;
+                cao << tick.date() << "come to convergence!" << endl;
                 break;
             }
         }
-        cao << tm.date() << "begin to standardize the matrix." << endl;
+        cao << tick.date() << "begin to standardize the matrix." << endl;
 
         // if pcangsd, estimate GRM.
         if(params.pcangsd)

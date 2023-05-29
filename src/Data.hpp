@@ -11,7 +11,7 @@ class Data
   public:
     Data(Param & params_) : params(params_)
     {
-        cao << tm.date() << "program started" << std::endl;
+        cao << tick.date() << "program started" << std::endl;
     }
 
     virtual ~Data() {}

@@ -8,7 +8,7 @@ using namespace Spectra;
 
 void ArnoldiOpData::perform_op(const double * x_in, double * y_out) const
 {
-    if(data->params.verbose) cao << tm.date() << "Arnoldi Matrix Operation = " << data->nops << endl;
+    if(data->params.verbose) cao << tick.date() << "Arnoldi Matrix Operation = " << data->nops << endl;
     Eigen::Map<const MyVector> x(x_in, n);
     Eigen::Map<MyVector> y(y_out, n);
     auto t1 = std::chrono::high_resolution_clock::now();
@@ -52,9 +52,9 @@ void ArnoldiOpData::perform_op(const double * x_in, double * y_out) const
 void run_pca_with_arnoldi(Data * data, const Param & params)
 {
     if(params.out_of_core)
-        cao << tm.date() << "running PCAone IRAM with out-of-core mode" << endl;
+        cao << tick.date() << "running PCAone IRAM with out-of-core mode" << endl;
     else
-        cao << tm.date() << "running PCAone IRAM with in-core mode" << endl;
+        cao << tick.date() << "running PCAone IRAM with in-core mode" << endl;
     MyVector svals, evals;
     uint nconv, nu;
     double diff;
@@ -77,13 +77,13 @@ void run_pca_with_arnoldi(Data * data, const Param & params)
         svals = svds.singular_values();
         if(!params.runem)
         {
-            cao << tm.date() << "final SVD done!\n";
+            cao << tick.date() << "final SVD done!\n";
             evals.noalias() = svals.array().square().matrix() / data->nsnps;
             data->write_eigs_files(evals, U, V);
             return;
         }
         flip_UV(U, V);
-        cao << tm.date() << "begin to do EM iteration.\n";
+        cao << tick.date() << "begin to do EM iteration.\n";
         for(uint i = 1; i <= params.maxiter; ++i)
         {
             data->update_batch_E(U, svals, V.transpose());
@@ -94,17 +94,17 @@ void run_pca_with_arnoldi(Data * data, const Param & params)
             flip_UV(U, V2);
             diff = rmse(V2, V);
             if(params.verbose)
-                cao << tm.date() << "individual allele frequencies estimated (iter=" << i
+                cao << tick.date() << "individual allele frequencies estimated (iter=" << i
                     << "), RMSE=" << diff << ".\n";
             V = V2;
             if(diff < params.tol)
             {
-                cao << tm.date() << "iome to convergence!\n";
+                cao << tick.date() << "iome to convergence!\n";
                 break;
             }
         }
 
-        cao << tm.date() << "begin to standardize the matrix\n";
+        cao << tick.date() << "begin to standardize the matrix\n";
         if(params.pcangsd)
         {
             data->pcangsd_standardize_E(U, svals, V.transpose());
@@ -140,7 +140,7 @@ void run_pca_with_arnoldi(Data * data, const Param & params)
         U = svds.matrix_U(params.k);
         V = svds.matrix_V(params.k);
         flip_UV(U, V);
-        cao << tm.date() << "final SVD done!\n";
+        cao << tick.date() << "final SVD done!\n";
         evals.noalias() = svals.array().square().matrix() / data->nsnps;
         // write to files;
         data->write_eigs_files(evals, U, V);
@@ -173,14 +173,14 @@ void run_pca_with_arnoldi(Data * data, const Param & params)
             if(!params.runem)
             {
                 data->calcu_vt_initial(T, op->VT, true);
-                cao << tm.date() << "final SVD done!\n";
+                cao << tick.date() << "final SVD done!\n";
                 evals.noalias() = eigs->eigenvalues() / data->nsnps;
                 data->write_eigs_files(evals, op->U, op->VT.transpose());
                 return;
             }
             data->calcu_vt_initial(T, op->VT, false);
             flip_UV(op->U, op->VT);
-            cao << tm.date() << "begin to do EM iteration.\n";
+            cao << tick.date() << "begin to do EM iteration.\n";
             op->setFlags(true, false, params.pcangsd);
             for(uint i = 1; i <= params.maxiter; ++i)
             {
@@ -201,11 +201,11 @@ void run_pca_with_arnoldi(Data * data, const Param & params)
                     flip_UV(op->U, op->VT);
                     diff = rmse(op->VT, VT);
                     if(params.verbose)
-                        cao << tm.date() << "individual allele frequencies estimated (iter=" << i
+                        cao << tick.date() << "individual allele frequencies estimated (iter=" << i
                             << "), RMSE=" << diff << ".\n";
                     if(diff < params.tol)
                     {
-                        cao << tm.date() << "come to convergence!\n";
+                        cao << tick.date() << "come to convergence!\n";
                         break;
                     }
                 }
@@ -215,7 +215,7 @@ void run_pca_with_arnoldi(Data * data, const Param & params)
                 }
             }
 
-            cao << tm.date() << "begin to standardize the matrix\n";
+            cao << tick.date() << "begin to standardize the matrix\n";
             op->setFlags(true, true, params.pcangsd);
             eigs->init();
             nconv = eigs->compute(SortRule::LargestAlge, params.imaxiter, params.itol);

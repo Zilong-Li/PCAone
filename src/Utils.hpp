@@ -19,9 +19,9 @@
 // MAKE SOME TOOLS FULLY ACCESSIBLE THROUGHOUT THE SOFTWARE
 #ifdef _DECLARE_TOOLBOX_HERE
 Logger cao; // logger
-Timer tm; // Timer
+Timer tick; // Timer
 #else
-extern Timer tm;
+extern Timer tick;
 extern Logger cao;
 #endif
 
