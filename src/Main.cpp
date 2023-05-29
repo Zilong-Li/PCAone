@@ -38,9 +38,11 @@ int main(int argc, char * argv[])
         }
         else if(params.file_t == FileType::BGEN)
         {
-            shuffle_bgen_to_bin(params.filein, params.fileout, params.buffer, params.scale);
-            params.file_t = FileType::BINARY;
-            data = new FileBin(params);
+            // shuffle_bgen_to_bin(params.filein, params.fileout, params.buffer, params.scale);
+            // params.file_t = FileType::BINARY;
+            // data = new FileBin(params);
+            permute_bgen(params.filein, params.fileout);
+            data = new FileBgen(params);
         }
         else if(params.file_t == FileType::CSV)
         {
@@ -56,7 +58,7 @@ int main(int argc, char * argv[])
         {
             throw runtime_error("wrong file type used!\n");
         }
-        cao << tick.date() << "total elapsed time of permuting data: " << tick.reltime() << " seconds" << endl;
+        cao << tick.date() << "total elapsed time of permuting data: " << tick.reltime() << " seconds\n";
     }
     else
     {
