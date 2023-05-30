@@ -69,8 +69,7 @@ void FileCsv::check_file_offset_first_var()
     else
     {
         rewind(zbuf.fin);
-        if(params.verbose)
-            std::cout << colwarn + "make sure you are runing PCAone algorithm2" + colend << std::endl;
+        if(params.verbose) cao.warning("make sure you are runing PCAone algorithm2");
     }
     zbuf.lastRet = 1;
     zbuf.buffCur = "";
@@ -145,15 +144,12 @@ void parse_csvzstd(ZstdBuffer & zbuf,
                         libsize[i] += std::stod(zbuf.buffLine.substr(tidx[i], tidx[i + 1] - tidx[i] - 1));
                     }
                 }
-                if(nsnps > 2 && (lastCol != ncol))
-                {
-                    throw std::invalid_argument(colerror + "the csv file has unaligned columns\n");
-                }
+                if(nsnps > 2 && (lastCol != ncol)) cao.error("the csv file has unaligned columns");
             }
         }
     }
 
-    if(isEmpty) throw std::invalid_argument(colerror + "input file is empty.\n");
+    if(isEmpty) cao.error("input file is empty.");
     if(zbuf.lastRet != 0) throw std::runtime_error("EOF before end of ZSTD_decompressStream.\n");
 
     nsamples = ncol;
@@ -253,10 +249,7 @@ void read_csvzstd_block(ZstdBuffer & zbuf,
         }
     }
 
-    if(lastSNP != actual_block_size)
-    {
-        throw std::runtime_error("something wrong when read_block_initial");
-    }
+    if(lastSNP != actual_block_size) cao.error("something wrong when read_block_initial");
 }
 
 int shuffle_csvzstd_to_bin(std::string & fin, std::string fout, uint gb, uint scale)

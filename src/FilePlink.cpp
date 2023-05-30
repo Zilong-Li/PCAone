@@ -21,8 +21,7 @@ void FileBed::check_file_offset_first_var()
     else
     {
         bed_ifstream.seekg(3, std::ios_base::beg);
-        if(params.verbose)
-            std::cout << colwarn + "make sure you are runing PCAone algorithm2" + colend << std::endl;
+        if(params.verbose) cao.warning("make sure you are running PCAone (algorithm2)");
     }
 }
 
@@ -319,16 +318,11 @@ void permute_plink(std::string & fin, const std::string & fout, uint gb, uint nb
     ios_base::sync_with_stdio(false);
     std::ifstream in(fin + ".bed", std::ios::binary);
     std::ofstream out(fout + ".perm.bed", std::ios::binary);
-    if(!in.is_open())
-    {
-        throw std::invalid_argument(colerror + "Cannot open bed file.\n");
-    }
+    if(!in.is_open()) cao.error("Cannot open bed file.");
     uchar header[3];
     in.read(reinterpret_cast<char *>(&header[0]), 3);
     if((header[0] != 0x6c) || (header[1] != 0x1b) || (header[2] != 0x01))
-    {
-        throw std::invalid_argument(colerror + "Incorrect magic number in bed file.\n");
-    }
+        cao.error("Incorrect magic number in plink bed file.");
     out.write(reinterpret_cast<char *>(&header[0]), 3);
     std::ifstream in_bim(fin + ".bim", std::ios::in);
     std::ofstream out_bim(fout + ".perm.bim", std::ios::out);

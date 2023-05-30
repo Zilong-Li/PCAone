@@ -1,8 +1,23 @@
 #include "Utils.hpp"
 
-#include <stdexcept>
-
 using namespace std;
+
+std::string get_machine()
+{
+    struct utsname unameData;
+    if(uname(&unameData) != 0)
+    {
+        perror("uname");
+        exit(EXIT_FAILURE);
+    }
+    std::string machine{unameData.machine};
+    std::string node{unameData.nodename};
+    std::string release{unameData.release};
+    std::string version{unameData.version};
+    std::string sysname{unameData.sysname};
+    return "Machine name: " + machine + "\nNode name: " + node + "\nOperating system release: " + release
+           + "\nOperating system version: " + version + "\nOperating system name: " + sysname + "\n";
+}
 
 void fcloseOrDie(FILE * file)
 {

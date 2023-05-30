@@ -263,9 +263,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix & G, MyMatrix & H, int pi)
                     }
                     else if((b + 1) == data->nblocks)
                     {
-                        cao << tick.date()
-                            << colwarn + "shouldn't go here if the bands is proper, ie. 2^{x}" + colend
-                            << endl;
+                        cao.warning("shouldn't go here if the bands is proper, ie. 2^x");
                         H = H1 + H2;
                         Eigen::HouseholderQR<MyMatrix> qr(H);
                         Omg.noalias() = qr.householderQ() * MyMatrix::Identity(cols(), size);

@@ -15,6 +15,8 @@
 #include <iostream>
 #include <iterator>
 #include <random>
+#include <stdexcept>
+#include <sys/utsname.h>
 
 // MAKE SOME TOOLS FULLY ACCESSIBLE THROUGHOUT THE SOFTWARE
 #ifdef _DECLARE_TOOLBOX_HERE
@@ -24,11 +26,6 @@ Timer tick; // Timer
 extern Timer tick;
 extern Logger cao;
 #endif
-
-const std::string colwarn = "\x1B[33mwarning: ";
-const std::string colerror = "\x1B[31merror: ";
-const std::string coldone = "\x1B[32m";
-const std::string colend = "\033[0m";
 
 typedef Eigen::MatrixXd MyMatrix;
 typedef Eigen::VectorXd MyVector;
@@ -74,6 +71,8 @@ struct Line
         return std::getline(is, line.data);
     }
 };
+
+std::string get_machine();
 
 void fcloseOrDie(FILE * file);
 

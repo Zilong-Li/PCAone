@@ -23,11 +23,11 @@ int main(int argc, char * argv[])
     Param params(argc, argv);
     cao.cao.open(params.fileout + ".log");
     string commandargs = params.ss.str();
-    cao << commandargs << endl;
+    cao << get_machine() << commandargs << endl;
     // set number of threads
     // openblas_set_num_threads(params.threads);
     omp_set_num_threads(params.threads);
-    Data * data;
+    Data * data = nullptr;
     if(params.svd_t == SvdType::PCAoneAlg2 && !params.noshuffle && params.out_of_core)
     {
         tick.clock();
@@ -84,7 +84,7 @@ int main(int argc, char * argv[])
         }
         else
         {
-            throw std::invalid_argument(colerror + "invalid input files" + colend);
+            cao.error("invalid input files.\n");
         }
     }
     // ready for run

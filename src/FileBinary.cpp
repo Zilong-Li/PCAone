@@ -38,8 +38,7 @@ void FileBin::check_file_offset_first_var()
     else
     {
         ifs_bin.seekg(magic, std::ios_base::beg);
-        if(params.verbose)
-            std::cout << colwarn + "make sure you are runing PCAone algorithm2" + colend << std::endl;
+        if(params.verbose) cao.warning("make sure you are runing PCAone algorithm2");
     }
 }
 
