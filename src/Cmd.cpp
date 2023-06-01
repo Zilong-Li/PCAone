@@ -11,19 +11,19 @@ Param::Param(int argc, char ** argv)
                       "(C) 2021-2022 Zilong Li        GNU General Public License v3\n\n" +
     "\x1B[32m" +
                       "Usage: use plink files as input and apply the window-based RSVD method\n" +
-                      "       PCAone --bfile plink --svd 0 --memory 2 --threads 20 --pc 10\n\n" +
+                      "       PCAone --bfile plink -m 2 -n 20 -k 10\n\n" +
                       "       use csv file as input and apply the Implicitly Restarted Arnoldi Method\n" +
-                      "       PCAone --csv csv.zst --svd 2 --memory 2 --threads 20 --pc 10\n\n" +
+                      "       PCAone --csv csv.zst --svd 0 -m 2 -n 20 -k 10\n\n" +
     "\033[0m"};
     OptionParser opts(copyr + "Main options");
     auto help_opt = opts.add<Switch>("h", "help", "print list of all options including hidden advanced options");
     auto svd_opt = opts.add<Value<uint>>("d", "svd", "svd method to be applied. 0 is the recommended for big data.\n"
-                                         "0: the proposed window-based PCAone method\n"
-                                         "1: the Yu RSVD + Halko power iterations\n"
-                                         "2: the Implicitly Restarted Arnoldi Method\n"
-                                         "3: the full Singular Value Decomposition.", 0);
+                                         "0: the Implicitly Restarted Arnoldi Method\n"
+                                         "1: the Yu's single-pass Randomized SVD with power iterations\n"
+                                         "2: the proposed window-based Randomized SVD  method\n"
+                                         "3: the full Singular Value Decomposition.", 2);
     auto plinkfile = opts.add<Value<std::string>>("b", "bfile", "prefix to PLINK .bed/.bim/.fam files", "", &filein);
-    auto binfile = opts.add<Value<std::string>>("B", "binary", "path of binary file which can be compressed by zstd", "", &filein);
+    auto binfile = opts.add<Value<std::string>>("B", "binary", "path of binary file", "", &filein);
     auto csvfile = opts.add<Value<std::string>>("c", "csv", "path of comma seperated CSV file compressed by zstd", "", &filein);
     auto bgenfile = opts.add<Value<std::string>>("g", "bgen", "path of BGEN file", "", &filein);
     auto beaglefile = opts.add<Value<std::string>>("G", "beagle", "path of BEAGLE file", "", &filein);
@@ -34,7 +34,7 @@ Param::Param(int argc, char ** argv)
     opts.add<Value<uint>>("p", "maxp", "maximum number of power iterations for RSVD algorithm", maxp, &maxp);
     opts.add<Switch>("S", "no-shuffle", "do not shuffle the data if it is already permuted", &noshuffle);
     opts.add<Switch>("v", "verbose", "verbose message output", &verbose);
-    opts.add<Value<uint>>("w", "batches", "number of mini-batches to be splited into for PCAone (algorithm2)", bands, &bands);
+    opts.add<Value<uint>>("w", "batches", "number of mini-batches to be used by PCAone (algorithm2)", bands, &bands);
     opts.add<Value<uint>>("C", "scale", "do scaling for input file.\n"
                           "0: do just centering\n"
                           "1: do log transformation eg. log(x+0.01) for RNA-seq data\n"
@@ -42,7 +42,7 @@ Param::Param(int argc, char ** argv)
                           scale,  &scale);
     opts.add<Switch>("", "emu", "use EMU algorithm for genotype data with missingness", &emu);
     opts.add<Switch>("", "pcangsd", "use PCAngsd algorithm for genotype likelihood input", &pcangsd);
-    opts.add<Value<double>>("", "maf", "remove variants with minor allele frequency below maf", maf, &maf);
+    opts.add<Value<double>>("", "maf", "skip variants with minor allele frequency below maf", maf, &maf);
     opts.add<Switch>("U", "printu", "output eigen vector of each epoch (for tests)", &printu);
     opts.add<Switch>("V", "printv", "output the right eigen vectors with suffix .loadings", &printv);
     opts.add<Value<uint>, Attribute::advanced>("M", "", "number of features (eg. SNPs) if already known", 0, &nsnps);
@@ -92,11 +92,11 @@ Param::Param(int argc, char ** argv)
             exit(EXIT_FAILURE);
         }
         if(svd_opt->value()==0)
-            svd_t = SvdType::PCAoneAlg2;
+            svd_t = SvdType::IRAM;
         else if(svd_opt->value()==1)
             svd_t = SvdType::PCAoneAlg1;
         else if(svd_opt->value()==2)
-            svd_t = SvdType::IRAM;
+            svd_t = SvdType::PCAoneAlg2;
         else if(svd_opt->value()==3)
             svd_t = SvdType::FULL, out_of_core = false;
         else
