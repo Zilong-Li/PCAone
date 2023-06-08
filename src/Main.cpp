@@ -1,7 +1,9 @@
+// clang-off
 #define _DECLARE_TOOLBOX_HERE
 
 #include "Arnoldi.hpp"
 #include "Cmd.hpp"
+#include "Data.hpp"
 #include "FileBeagle.hpp"
 #include "FileBgen.hpp"
 #include "FileBinary.hpp"
@@ -16,6 +18,7 @@
 #    include "mkl_lapacke.h"
 #endif
 
+// clang-on
 using namespace std;
 
 int main(int argc, char * argv[])
@@ -33,8 +36,10 @@ int main(int argc, char * argv[])
         tick.clock();
         if(params.file_t == FileType::PLINK)
         {
-            permute_plink(params.filein, params.fileout, params.buffer, params.bands);
+            PermMat perm;
+            permute_plink(params.filein, params.fileout, params.buffer, params.bands, perm);
             data = new FileBed(params);
+            data->perm = perm;
         }
         else if(params.file_t == FileType::BGEN)
         {

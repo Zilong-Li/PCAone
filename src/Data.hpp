@@ -6,6 +6,8 @@
 
 const double VAR_TOL = 1e-9;
 
+using PermMat = Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic>;
+
 class Data
 {
   public:
@@ -58,6 +60,7 @@ class Data
     ArrayXb C; // boolean array indicates if a ind's snp is missing and need to be predicted.
     MyArrayX centered_geno_lookup;
     std::vector<Eigen::Index> keepSNPs; // store index of SNPs to keep
+    PermMat perm;
 };
 
 #endif // PCAONE_DATA_

@@ -36,29 +36,6 @@ typedef unsigned char uchar;
 typedef unsigned int uint;
 typedef unsigned long long uint64;
 
-template<typename MatrixType>
-inline void permute_matrix(MatrixType & G,
-                           Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic> & P,
-                           bool bycol = true)
-{
-    if(bycol)
-    {
-        P = Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic>(G.cols());
-        P.setIdentity();
-        auto rng = std::default_random_engine{};
-        std::shuffle(P.indices().data(), P.indices().data() + P.indices().size(), rng);
-        G = G * P; // permute columns in-place
-    }
-    else
-    {
-        P = Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic>(G.rows());
-        P.setIdentity();
-        auto rng = std::default_random_engine{};
-        std::shuffle(P.indices().data(), P.indices().data() + P.indices().size(), rng);
-        G = P * G; // permute rows in-place
-    }
-}
-
 struct Line
 {
     std::string data;

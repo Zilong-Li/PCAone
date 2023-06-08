@@ -202,10 +202,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix & G, MyMatrix & H, int pi)
                 cao.warning("blocksize is smaller than window size. please consider IRAM method.");
             // permute snps of G, see
             // https://stackoverflow.com/questions/15858569/randomly-permute-rows-columns-of-a-matrix-with-eigen
-            if(!data->params.noshuffle)
-            {
-                permute_matrix(data->G, perm);
-            }
+            if(!data->params.noshuffle) PCAone::permute_matrix(data->G, data->perm);
         }
         {
             // band : 2, 4, 8, 16, 32, 64, 128
@@ -390,15 +387,7 @@ void run_pca_with_halko(Data * data, const Param & params)
             rsvd->setFlags(false, false, true);
         }
         rsvd->computeUSV(params.maxp, params.tol);
-        if(params.svd_t == SvdType::PCAoneAlg2 && !params.out_of_core && !params.noshuffle)
-        {
-            // recover original order for V
-            data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, rsvd->perm * rsvd->V);
-        }
-        else
-        {
-            data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, rsvd->V);
-        }
+        data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, data->perm * rsvd->V);
     }
     else
     {

@@ -1,5 +1,6 @@
 #include "FilePlink.hpp"
 
+#include "Data.hpp"
 #include "Utils.hpp"
 
 using namespace std;
@@ -265,7 +266,7 @@ void FileBed::read_block_update(uint64 start_idx,
 }
 
 // structured permutation with cached buffer
-void permute_plink(std::string & fin, const std::string & fout, uint gb, uint nbands)
+void permute_plink(std::string & fin, const std::string & fout, uint gb, uint nbands, PermMat & perm)
 {
     uint nsnps = count_lines(fin + ".bim");
     uint nsamples = count_lines(fin + ".fam");
@@ -329,7 +330,8 @@ void permute_plink(std::string & fin, const std::string & fout, uint gb, uint nb
     vector<std::string> bims(std::istream_iterator<Line>{in_bim}, std::istream_iterator<Line>{});
     vector<std::string> bims2;
     bims2.resize(nsnps);
-    uint64 b, i, j, twoGB_snps2, idx, bufidx = bufsize;
+    uint64 pi{0}, b, i, j, twoGB_snps2, idx, bufidx = bufsize;
+    Eigen::VectorXi indices(nsnps);
     for(i = 0; i < nblocks; i++)
     {
         if(i == nblocks - 1 && modr2 != 0)
@@ -354,6 +356,7 @@ void permute_plink(std::string & fin, const std::string & fout, uint gb, uint nb
                           outbed.begin() + j * bed_bytes_per_snp);
                 // cout << i * twoGB_snps + j * nbands + b << endl;
                 bims2[i * bufidx + bandidx[b] + j] = bims[i * twoGB_snps + j * nbands + b];
+                indices[pi++] = i * twoGB_snps + j * nbands + b;
             }
             if(i != nblocks - 1 || (i == nblocks - 1 && b < modr2) || modr2 == 0)
             {
@@ -361,6 +364,7 @@ void permute_plink(std::string & fin, const std::string & fout, uint gb, uint nb
                           inbed.begin() + (j * nbands + b + 1) * bed_bytes_per_snp,
                           outbed.begin() + j * bed_bytes_per_snp);
                 bims2[i * bufidx + bandidx[b] + j] = bims[i * twoGB_snps + j * nbands + b];
+                indices[pi++] = i * twoGB_snps + j * nbands + b;
             }
             else
             {
@@ -370,16 +374,14 @@ void permute_plink(std::string & fin, const std::string & fout, uint gb, uint nb
             out.write(reinterpret_cast<char *>(&outbed[0]), out_bytes_per_block);
         }
     }
-    for(auto b : bims2)
-    {
-        out_bim << b << "\n";
-    }
     in.close();
     out.close();
-    out_bim.close();
 
     std::ifstream in_fam(fin + ".fam");
     std::ofstream out_fam(fout + ".perm.fam");
     out_fam << in_fam.rdbuf();
     fin = fout + ".perm";
+
+    for(auto b : bims2) out_bim << b << "\n";
+    perm.indices() = indices;
 }
