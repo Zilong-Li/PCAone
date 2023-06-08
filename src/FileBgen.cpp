@@ -1,5 +1,8 @@
 #include "FileBgen.hpp"
 
+#include <functional>
+#include <thread>
+
 using namespace std;
 
 void FileBgen::read_all()
@@ -62,7 +65,8 @@ void FileBgen::read_all()
         if(k == 0)
             throw std::runtime_error("the number of SNPs after filtering should be 0!\n");
         else
-            cao << tick.date() << "number of SNPs after filtering by MAF > " << params.maf << ": " << k << endl;
+            cao << tick.date() << "number of SNPs after filtering by MAF > " << params.maf << ": " << k
+                << endl;
         // resize G, F, C;
         nsnps = k; // resize nsnps;
         G.conservativeResize(Eigen::NoChange, nsnps);
@@ -287,34 +291,79 @@ int shuffle_bgen_to_bin(std::string & fin, std::string fout, uint gb, bool stand
     return (nsnps == cur);
 }
 
-// this would be slow
-void permute_bgen(std::string & fin, std::string fout)
+void permute_bgen_thread(uint nsamples, std::vector<uint> idx, std::string fin, std::string fout, int ithread)
 {
-    cao << tick.date() << "begin to permute BGEN file.\n";
-    bgen::CppBgenReader br(fin, "", true);
-    uint nsamples = br.header.nsamples;
-    uint nsnps = br.header.nvariants;
-    std::vector<uint> perm(nsnps);
-    std::iota(perm.begin(), perm.end(), 0);
-    auto rng = std::default_random_engine{};
-    std::shuffle(perm.begin(), perm.end(), rng);
-    uint compress_flag = 2, layout = 2, ploidy_n = 2; // 1:zlib, 2:zstd
-    string metadata;
+    fout = fout + ".perm." + to_string(ithread) + ".bgen";
+    uint geno_len, compress_flag = 2, layout = 2, ploidy_n = 2; // 1:zlib, 2:zstd
+    float * probs = nullptr;
     bool phased = false;
     uint8_t bit_depth = 8;
+    string metadata;
     vector<string> sampleids;
-    float * probs = nullptr;
-    uint geno_len;
-    fout = fout + ".perm.bgen";
     bgen::CppBgenWriter bw(fout, nsamples, metadata, compress_flag, layout, sampleids);
+    bgen::CppBgenReader br(fin, "", true);
     br.parse_all_variants();
-    for(auto idx : perm)
+    for(auto i : idx)
     {
-        auto var = br.variants[idx];
+        auto var = br.variants[i];
         probs = var.probs_1d();
         geno_len = nsamples * var.probs_per_sample();
         bw.write_variant_header(var.varid, var.rsid, var.chrom, var.pos, var.alleles, var.n_samples);
         bw.add_genotype_data(var.alleles.size(), probs, geno_len, ploidy_n, phased, bit_depth);
     }
-    fin = fout;
+}
+
+void permute_bgen(std::string & fin, std::string fout, int nthreads)
+{
+    cao << tick.date() << "begin to permute BGEN file.\n";
+    uint nsamples, nsnps;
+    {
+        bgen::CppBgenReader br(fin, "", true);
+        nsamples = br.header.nsamples;
+        nsnps = br.header.nvariants;
+    }
+    vector<uint> perm(nsnps);
+    std::iota(perm.begin(), perm.end(), 0);
+    auto rng = std::default_random_engine{};
+    std::shuffle(perm.begin(), perm.end(), rng);
+    vector<std::thread> threads;
+    uint tn = (nsnps + nthreads - 1) / nthreads; // evenly spread index
+    for(int i = 0; i < nthreads; i++)
+    {
+        vector<uint> idx(perm.begin() + tn * i, i == nthreads - 1 ? perm.end() : perm.begin() + tn * (i + 1));
+        threads.emplace_back(permute_bgen_thread, nsamples, idx, fin, fout, i);
+    }
+    // Wait for all threads to finish execution
+    for(auto & t : threads) t.join();
+    // now cat all bgen files into big one
+    uint geno_len, compress_flag = 2, layout = 2, ploidy_n = 2; // 1:zlib, 2:zstd
+    float * probs = nullptr;
+    bool phased = false;
+    uint8_t bit_depth = 8;
+    string metadata;
+    vector<string> sampleids;
+    string out = fout + ".perm.bgen";
+    bgen::CppBgenWriter bw(out, nsamples, metadata, compress_flag, layout, sampleids);
+    for(int i = 0; i < nthreads; i++)
+    {
+        fin = fout + ".perm." + to_string(i) + ".bgen";
+        bgen::CppBgenReader br(fin, "", true);
+        while(true)
+        {
+            try
+            {
+                auto var = br.next_var();
+                probs = var.probs_1d();
+                geno_len = nsamples * var.probs_per_sample();
+                bw.write_variant_header(var.varid, var.rsid, var.chrom, var.pos, var.alleles, var.n_samples);
+                bw.add_genotype_data(var.alleles.size(), probs, geno_len, ploidy_n, phased, bit_depth);
+            }
+            catch(const std::out_of_range & e)
+            {
+                break;
+            }
+        }
+        std::remove(fin.c_str()); // delete the temp file
+    }
+    fin = out; // point to the new file
 }

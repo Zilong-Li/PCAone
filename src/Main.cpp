@@ -46,7 +46,7 @@ int main(int argc, char * argv[])
             // shuffle_bgen_to_bin(params.filein, params.fileout, params.buffer, params.scale);
             // params.file_t = FileType::BINARY;
             // data = new FileBin(params);
-            permute_bgen(params.filein, params.fileout);
+            permute_bgen(params.filein, params.fileout, params.threads);
             data = new FileBgen(params);
         }
         else if(params.file_t == FileType::CSV)

@@ -24,7 +24,9 @@ void read_bgen_block(MyMatrix & G,
 
 int shuffle_bgen_to_bin(std::string & fin, std::string fout, uint gb, bool standardize);
 
-void permute_bgen(std::string & fin, std::string fout);
+void permute_bgen_thread(uint nsamples, std::vector<uint> idx, std::string fin, std::string fout, int ithread);
+
+void permute_bgen(std::string & fin, std::string fout, int nthreads);
 
 class FileBgen : public Data
 {
@@ -37,7 +39,7 @@ class FileBgen : public Data
         nsamples = bg->header.nsamples;
         nsnps = bg->header.nvariants;
         cao << tick.date() << "the layout of bgen file is " << bg->header.layout << ". N samples is "
-             << nsamples << ". M snps is " << nsnps << std::endl;
+            << nsamples << ". M snps is " << nsnps << std::endl;
     }
 
     ~FileBgen()
