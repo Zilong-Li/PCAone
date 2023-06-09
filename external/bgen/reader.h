@@ -12,7 +12,6 @@
 namespace bgen {
 
 class CppBgenReader {
-  std::ifstream handle;
 public:
   CppBgenReader(std::string path, std::string sample_path = "", bool delay_parsing = false);
   void parse_all_variants();
@@ -29,6 +28,7 @@ public:
   Samples samples;
   std::uint64_t offset;
   std::uint64_t fsize;
+  std::ifstream handle;
 };
 
 } // namespace bgen

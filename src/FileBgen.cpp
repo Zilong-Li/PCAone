@@ -92,7 +92,7 @@ void FileBgen::read_all()
             }
             catch(const std::out_of_range & e)
             {
-                break;
+                throw e.what();
             }
         }
         assert(j == nsnps);
@@ -336,34 +336,22 @@ void permute_bgen(std::string & fin, std::string fout, int nthreads)
     // Wait for all threads to finish execution
     for(auto & t : threads) t.join();
     // now cat all bgen files into big one
-    uint geno_len, compress_flag = 2, layout = 2, ploidy_n = 2; // 1:zlib, 2:zstd
-    float * probs = nullptr;
-    bool phased = false;
-    uint8_t bit_depth = 8;
+    uint compress_flag = 2, layout = 2; // 1:zlib, 2:zstd
     string metadata;
     vector<string> sampleids;
     string out = fout + ".perm.bgen";
     bgen::CppBgenWriter bw(out, nsamples, metadata, compress_flag, layout, sampleids);
+    std::ostreambuf_iterator<char> outIt(bw.handle);
     for(int i = 0; i < nthreads; i++)
     {
         fin = fout + ".perm." + to_string(i) + ".bgen";
         bgen::CppBgenReader br(fin, "", true);
-        while(true)
-        {
-            try
-            {
-                auto var = br.next_var();
-                probs = var.probs_1d();
-                geno_len = nsamples * var.probs_per_sample();
-                bw.write_variant_header(var.varid, var.rsid, var.chrom, var.pos, var.alleles, var.n_samples);
-                bw.add_genotype_data(var.alleles.size(), probs, geno_len, ploidy_n, phased, bit_depth);
-            }
-            catch(const std::out_of_range & e)
-            {
-                break;
-            }
-        }
-        std::remove(fin.c_str()); // delete the temp file
+        br.handle.seekg(br.offset);
+        std::istreambuf_iterator<char> inIt(br.handle);
+        std::istreambuf_iterator<char> endIt;
+        std::copy(inIt, endIt, outIt); // copy everything
+        bw.n_variants += br.header.nvariants;
+        std::remove(fin.c_str()); // now delete the temp file
     }
     fin = out; // point to the new file
 }

@@ -8,6 +8,7 @@
 namespace bgen {
 
 class CppBgenWriter {
+public:
   std::ofstream handle;
   std::uint32_t n_samples;
   std::uint32_t compression;
