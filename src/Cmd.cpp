@@ -45,8 +45,9 @@ Param::Param(int argc, char ** argv)
     opts.add<Value<double>>("", "maf", "skip variants with minor allele frequency below maf", maf, &maf);
     opts.add<Switch>("U", "printu", "output eigen vector of each epoch (for tests)", &printu);
     opts.add<Switch>("V", "printv", "output the right eigen vectors with suffix .loadings", &printv);
-    opts.add<Value<uint>, Attribute::advanced>("M", "", "number of features (eg. SNPs) if already known", 0, &nsnps);
-    opts.add<Value<uint>, Attribute::advanced>("N", "", "number of samples if already known", 0, &nsamples);
+    opts.add<Value<uint>, Attribute::advanced>("", "M", "number of features (eg. SNPs) if already known", 0, &nsnps);
+    opts.add<Value<uint>, Attribute::advanced>("", "N", "number of samples if already known", 0, &nsamples);
+    opts.add<Switch, Attribute::advanced>("", "haploid", "the plink format represents haploid data", &haploid);
     opts.add<Value<uint>, Attribute::advanced>("", "buffer", "buffer in GB uint used for permuting the data", buffer, &buffer);
     opts.add<Value<uint>, Attribute::advanced>("", "imaxiter", "maximum number of IRAM interations", imaxiter, &imaxiter);
     opts.add<Value<double>, Attribute::advanced>("", "itol", "tolerance for IRAM algorithm", itol, &itol);
@@ -106,6 +107,7 @@ Param::Param(int argc, char ** argv)
         oversamples = 10 > k ? 10 : k;
         // beagle only represents genotype likelihood for pcangsd algorithm now
         if(file_t == FileType::BEAGLE) pcangsd = true;
+        if((file_t == FileType::PLINK || file_t == FileType::BGEN) && !haploid) diploid = true;
         if(emu || pcangsd)
             runem = true;
         else

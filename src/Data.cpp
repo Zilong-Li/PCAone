@@ -160,7 +160,10 @@ void Data::write_eigs_files(const MyVector & S, const MyMatrix & U, const MyMatr
     Eigen::IOFormat fmt(6, Eigen::DontAlignCols, "\t", "\n");
     if(outs.is_open())
     {
-        outs << S.format(fmt) << '\n';
+        if(params.diploid)
+            outs << (2 * S).format(fmt) << '\n';
+        else
+            outs << S.format(fmt) << '\n';
     }
     if(outu.is_open())
     {

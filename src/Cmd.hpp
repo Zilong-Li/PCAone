@@ -73,6 +73,8 @@ class Param
     bool verbose = false;
     bool mev = true;
     bool out_of_core = false; // otherwise load all matrix into RAM.
+    bool haploid = false;
+    bool diploid = false;
 
     std::ostringstream ss;
 };
