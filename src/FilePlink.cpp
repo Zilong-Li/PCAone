@@ -1,8 +1,5 @@
 #include "FilePlink.hpp"
 
-#include "Data.hpp"
-#include "Utils.hpp"
-
 using namespace std;
 
 void FileBed::check_file_offset_first_var()
@@ -266,7 +263,7 @@ void FileBed::read_block_update(uint64 start_idx,
 }
 
 // structured permutation with cached buffer
-void permute_plink(std::string & fin, const std::string & fout, uint gb, uint nbands, PermMat & perm)
+PermMat permute_plink(std::string & fin, const std::string & fout, uint gb, uint nbands)
 {
     uint nsnps = count_lines(fin + ".bim");
     uint nsamples = count_lines(fin + ".fam");
@@ -383,5 +380,5 @@ void permute_plink(std::string & fin, const std::string & fout, uint gb, uint nb
     fin = fout + ".perm";
 
     for(auto b : bims2) out_bim << b << "\n";
-    perm.indices() = indices;
+    return PermMat(indices);
 }

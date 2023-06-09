@@ -291,7 +291,7 @@ int shuffle_bgen_to_bin(std::string & fin, std::string fout, uint gb, bool stand
     return (nsnps == cur);
 }
 
-void permute_bgen_thread(uint nsamples, std::vector<uint> idx, std::string fin, std::string fout, int ithread)
+void permute_bgen_thread(uint nsamples, std::vector<int> idx, std::string fin, std::string fout, int ithread)
 {
     fout = fout + ".perm." + to_string(ithread) + ".bgen";
     uint geno_len, compress_flag = 2, layout = 2, ploidy_n = 2; // 1:zlib, 2:zstd
@@ -313,7 +313,7 @@ void permute_bgen_thread(uint nsamples, std::vector<uint> idx, std::string fin, 
     }
 }
 
-void permute_bgen(std::string & fin, std::string fout, int nthreads)
+PermMat permute_bgen(std::string & fin, std::string fout, int nthreads)
 {
     cao << tick.date() << "begin to permute BGEN file.\n";
     uint nsamples, nsnps;
@@ -322,7 +322,7 @@ void permute_bgen(std::string & fin, std::string fout, int nthreads)
         nsamples = br.header.nsamples;
         nsnps = br.header.nvariants;
     }
-    vector<uint> perm(nsnps);
+    vector<int> perm(nsnps);
     std::iota(perm.begin(), perm.end(), 0);
     auto rng = std::default_random_engine{};
     std::shuffle(perm.begin(), perm.end(), rng);
@@ -330,7 +330,7 @@ void permute_bgen(std::string & fin, std::string fout, int nthreads)
     uint tn = (nsnps + nthreads - 1) / nthreads; // evenly spread index
     for(int i = 0; i < nthreads; i++)
     {
-        vector<uint> idx(perm.begin() + tn * i, i == nthreads - 1 ? perm.end() : perm.begin() + tn * (i + 1));
+        vector<int> idx(perm.begin() + tn * i, i == nthreads - 1 ? perm.end() : perm.begin() + tn * (i + 1));
         threads.emplace_back(permute_bgen_thread, nsamples, idx, fin, fout, i);
     }
     // Wait for all threads to finish execution
@@ -354,4 +354,7 @@ void permute_bgen(std::string & fin, std::string fout, int nthreads)
         std::remove(fin.c_str()); // now delete the temp file
     }
     fin = out; // point to the new file
+    PermMat P;
+    P.indices() = Eigen::Map<Eigen::VectorXi>(perm.data(), perm.size());
+    return P;
 }

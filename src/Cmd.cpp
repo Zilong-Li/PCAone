@@ -17,7 +17,7 @@ Param::Param(int argc, char ** argv)
     "\033[0m"};
     OptionParser opts(copyr + "Main options");
     auto help_opt = opts.add<Switch>("h", "help", "print list of all options including hidden advanced options");
-    auto svd_opt = opts.add<Value<uint>>("d", "svd", "svd method to be applied. 0 is the recommended for big data.\n"
+    auto svd_opt = opts.add<Value<uint>>("d", "svd", "svd method to be applied. default 2 is recommended for big data.\n"
                                          "0: the Implicitly Restarted Arnoldi Method\n"
                                          "1: the Yu's single-pass Randomized SVD with power iterations\n"
                                          "2: the proposed window-based Randomized SVD  method\n"

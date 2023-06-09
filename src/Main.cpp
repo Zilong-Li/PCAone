@@ -36,18 +36,15 @@ int main(int argc, char * argv[])
         tick.clock();
         if(params.file_t == FileType::PLINK)
         {
-            PermMat perm;
-            permute_plink(params.filein, params.fileout, params.buffer, params.bands, perm);
+            auto perm = permute_plink(params.filein, params.fileout, params.buffer, params.bands);
             data = new FileBed(params);
             data->perm = perm;
         }
         else if(params.file_t == FileType::BGEN)
         {
-            // shuffle_bgen_to_bin(params.filein, params.fileout, params.buffer, params.scale);
-            // params.file_t = FileType::BINARY;
-            // data = new FileBin(params);
-            permute_bgen(params.filein, params.fileout, params.threads);
+            auto perm = permute_bgen(params.filein, params.fileout, params.threads);
             data = new FileBgen(params);
+            data->perm = perm;
         }
         else if(params.file_t == FileType::CSV)
         {
