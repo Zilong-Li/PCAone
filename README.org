@@ -1,11 +1,6 @@
 #+TITLE: PCAone - Principal Component Analysis All in One
-#+options: toc:2 num:t
+#+options: toc:2 num:nil
 #+email: zilong.dk@gmail.com
-#+latex_class: article
-#+latex_class_options: [a4paper, 11pt]
-#+latex_header: \usepackage[margin=0.9in,bmargin=1.0in,tmargin=1.0in]{geometry}
-#+latex_header: \usepackage{adjustbox}
-#+latex_header: \hypersetup{colorlinks=true, linkcolor=blue}
 
 [[https://github.com/Zilong-Li/PCAone/actions/workflows/linux.yml/badge.svg]]
 [[https://github.com/Zilong-Li/PCAone/actions/workflows/mac.yml/badge.svg]]
