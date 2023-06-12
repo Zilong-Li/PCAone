@@ -5,7 +5,6 @@ GRTAGS
 GPATH
 .RData
 .Rhistory
-*.pdf
 *.o
 *.makefile
 external/*/*.a
