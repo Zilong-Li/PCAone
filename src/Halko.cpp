@@ -387,7 +387,10 @@ void run_pca_with_halko(Data * data, const Param & params)
             rsvd->setFlags(false, false, true);
         }
         rsvd->computeUSV(params.maxp, params.tol);
-        data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, data->perm * rsvd->V);
+        if (params.svd_t == SvdType::PCAoneAlg2 && !params.noshuffle)
+            data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, data->perm * rsvd->V);
+        else
+            data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, rsvd->V);
     }
     else
     {

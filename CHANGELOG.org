@@ -1,3 +1,15 @@
+- v0.3.3
+  - breaking change option =--svd= for choosing different SVD methods. default is PCAone algorithm2.
+  - add permuting =BGEN= file with multithreading.
+  - add Full SVD support by =--svd 3=
+  - add log transformation support for bulk RNA-seq data by =--scale 1=
+  - add binary file support
+  - recover the original order for SNP =loadings=.
+  - recover the eigenvalues for diploid genotype (0,1,2) data.
+
+- v0.3.2
+  - use =tab= as separator for output files
+
 - v0.3.1
   - fix makefile for bioconda can't find zlib
 
