@@ -327,7 +327,7 @@ PermMat permute_plink(std::string & fin, const std::string & fout, uint gb, uint
     vector<std::string> bims(std::istream_iterator<Line>{in_bim}, std::istream_iterator<Line>{});
     vector<std::string> bims2;
     bims2.resize(nsnps);
-    uint64 pi{0}, b, i, j, twoGB_snps2, idx, bufidx = bufsize;
+    uint64 ia, ib, b, i, j, twoGB_snps2, idx, bufidx = bufsize;
     Eigen::VectorXi indices(nsnps);
     for(i = 0; i < nblocks; i++)
     {
@@ -352,16 +352,20 @@ PermMat permute_plink(std::string & fin, const std::string & fout, uint gb, uint
                           inbed.begin() + (j * nbands + b + 1) * bed_bytes_per_snp,
                           outbed.begin() + j * bed_bytes_per_snp);
                 // cout << i * twoGB_snps + j * nbands + b << endl;
-                bims2[i * bufidx + bandidx[b] + j] = bims[i * twoGB_snps + j * nbands + b];
-                indices[pi++] = i * twoGB_snps + j * nbands + b;
+                ia = i * twoGB_snps + j * nbands + b;
+                ib = i * bufidx + bandidx[b] + j;
+                bims2[ib] = bims[ia];
+                indices(ib) = ia;
             }
             if(i != nblocks - 1 || (i == nblocks - 1 && b < modr2) || modr2 == 0)
             {
                 std::copy(inbed.begin() + (j * nbands + b) * bed_bytes_per_snp,
                           inbed.begin() + (j * nbands + b + 1) * bed_bytes_per_snp,
                           outbed.begin() + j * bed_bytes_per_snp);
-                bims2[i * bufidx + bandidx[b] + j] = bims[i * twoGB_snps + j * nbands + b];
-                indices[pi++] = i * twoGB_snps + j * nbands + b;
+                ia = i * twoGB_snps + j * nbands + b;
+                ib = i * bufidx + bandidx[b] + j;
+                bims2[ib] = bims[ia];
+                indices(ib) = ia;
             }
             else
             {

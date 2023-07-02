@@ -1,3 +1,5 @@
+- v0.3.4
+  - fix the order of SNP loadings for plink input
 - v0.3.3
   - breaking change option =--svd= for choosing different SVD methods. default is PCAone algorithm2.
   - add permuting =BGEN= file with multithreading.
