@@ -380,17 +380,21 @@ void run_pca_with_halko(Data * data, const Param & params)
     {
         if(params.file_t == FileType::PLINK || params.file_t == FileType::BGEN)
         {
-            rsvd->setFlags(false, true, true);
+            if(params.ld)
+                rsvd->setFlags(false, false, true);
+            else
+                rsvd->setFlags(false, true, true);
         }
         else
         {
             rsvd->setFlags(false, false, true);
         }
         rsvd->computeUSV(params.maxp, params.tol);
-        if (params.svd_t == SvdType::PCAoneAlg2 && !params.noshuffle)
+        if(params.svd_t == SvdType::PCAoneAlg2 && !params.noshuffle)
             data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, data->perm * rsvd->V);
         else
             data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, rsvd->V);
+        if(params.ld) calc_ld_metrics(params.fileout, data->G, rsvd->U, rsvd->S, rsvd->V);
     }
     else
     {

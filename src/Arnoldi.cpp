@@ -1,5 +1,6 @@
 #include "Arnoldi.hpp"
 
+#include "Utils.hpp"
 #include <Spectra/SymEigsSolver.h>
 #include <Spectra/contrib/PartialSVDSolver.h>
 
@@ -63,7 +64,8 @@ void run_pca_with_arnoldi(Data * data, const Param & params)
         MyMatrix U, V, V2;
         // SpMatrix sG = data->G.sparseView();
         PartialSVDSolver<MyMatrix> svds(data->G, params.k, params.ncv);
-        if(!params.runem && (params.file_t == FileType::PLINK || params.file_t == FileType::BGEN))
+        if(!params.ld && !params.runem
+           && (params.file_t == FileType::PLINK || params.file_t == FileType::BGEN))
         {
             data->standardize_E();
         }
@@ -80,6 +82,7 @@ void run_pca_with_arnoldi(Data * data, const Param & params)
             cao << tick.date() << "final SVD done!\n";
             evals.noalias() = svals.array().square().matrix() / data->nsnps;
             data->write_eigs_files(evals, U, V);
+            if(params.ld) calc_ld_metrics(params.fileout, data->G, U, svals, V);
             return;
         }
         flip_UV(U, V);

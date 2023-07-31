@@ -76,6 +76,9 @@ class Param
     bool haploid = false;
     bool diploid = false;
 
+    // ld
+    bool ld = false;
+
     std::ostringstream ss;
 };
 

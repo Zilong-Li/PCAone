@@ -1,5 +1,7 @@
 #include "Utils.hpp"
 
+#include <stdexcept>
+
 using namespace std;
 
 std::string get_machine()
@@ -225,4 +227,49 @@ double get_median(std::vector<double> v)
             return v[n / 2];
         }
     }
+}
+
+// assert(X.rows() == Y.rows())
+// X and Y are centered beforehand
+MyMatrix cor_cross(const MyMatrix & X, const MyMatrix & Y)
+{
+    if(X.rows() != Y.rows())
+        throw std::runtime_error("X and Y has incompatible dimension. the rows are not the same!\n");
+    // compute degree of freedom
+    const int df = X.rows() - 1; // N-1
+    MyMatrix cor = X.transpose() * Y / df;
+    // Compute 1 over the standard deviations of X and Y
+    Eigen::VectorXd inv_sds_X = (X.colwise().norm() / sqrt(df)).array().inverse();
+    Eigen::VectorXd inv_sds_Y = (Y.colwise().norm() / sqrt(df)).array().inverse();
+    // Scale the covariance matrix
+    cor = cor.cwiseProduct(inv_sds_X * inv_sds_Y.transpose());
+    return cor;
+}
+
+// X is nsamples x nsnps;
+// wi stores the SNP index that all SNPs in a window compare to
+// ws stores the starts of windows
+// we stores the ends of windows
+// return cor matrix of (nsnps - w + 1, w);
+void cor_by_window(MyMatrix & X,
+                   const std::vector<int> & wi,
+                   const std::vector<int> & ws,
+                   const std::vector<int> & we)
+{
+    X.rowwise() -= X.colwise().mean(); // Centering
+    for(int i = 0; i < wi.size(); i++)
+    {
+        auto r2 = cor_cross(X.middleCols(ws[i], we[i]), X.col(wi[i])).array().square();
+    }
+}
+
+void calc_ld_metrics(const std::string & fileout,
+                     MyMatrix & G,
+                     const MyMatrix & U,
+                     const MyVector & S,
+                     const MyMatrix & V)
+{
+    G -= U * S * V.transpose(); // get residuals matrix
+    std::ofstream ofs_res(fileout + ".residuals");
+    ofs_res.write((char *)G.data(), G.size() * sizeof(double));
 }

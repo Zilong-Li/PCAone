@@ -42,6 +42,7 @@ Param::Param(int argc, char ** argv)
                           scale,  &scale);
     opts.add<Switch>("", "emu", "use EMU algorithm for genotype data with missingness", &emu);
     opts.add<Switch>("", "pcangsd", "use PCAngsd algorithm for genotype likelihood input", &pcangsd);
+    opts.add<Switch>("", "ld", "estimate ld for admixed population", &ld);
     opts.add<Value<double>>("", "maf", "skip variants with minor allele frequency below maf", maf, &maf);
     opts.add<Switch>("U", "printu", "output eigen vector of each epoch (for tests)", &printu);
     opts.add<Switch>("V", "printv", "output the right eigen vectors with suffix .loadings", &printv);

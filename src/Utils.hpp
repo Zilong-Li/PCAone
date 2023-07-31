@@ -16,6 +16,7 @@
 #include <iterator>
 #include <random>
 #include <stdexcept>
+#include <string>
 #include <sys/utsname.h>
 
 // MAKE SOME TOOLS FULLY ACCESSIBLE THROUGHOUT THE SOFTWARE
@@ -76,5 +77,18 @@ double mev(const MyMatrix & X, const MyMatrix & Y);
 void mev_rmse_byk(const MyMatrix & X, const MyMatrix & Y, MyVector & Vm, MyVector & Vr);
 
 double get_median(std::vector<double> v);
+
+MyMatrix cor_cross(const MyMatrix & X, const MyMatrix & Y);
+
+void cor_by_window(MyMatrix & X,
+                   const std::vector<int> & wi,
+                   const std::vector<int> & ws,
+                   const std::vector<int> & we);
+
+void calc_ld_metrics(const std::string & fileout,
+                     MyMatrix & G,
+                     const MyMatrix & U,
+                     const MyVector & S,
+                     const MyMatrix & V);
 
 #endif // PCAONE_UTILES_

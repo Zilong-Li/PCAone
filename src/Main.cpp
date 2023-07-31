@@ -91,6 +91,7 @@ int main(int argc, char * argv[])
     }
     // ready for run
     data->prepare();
+    if(params.ld && params.out_of_core) cao.error("only supports --ld for in-core mode\n");
     // begin to run
     if(params.svd_t == SvdType::IRAM)
         run_pca_with_arnoldi(data, params);
