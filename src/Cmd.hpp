@@ -78,6 +78,7 @@ class Param
 
     // ld
     bool ld = false;
+    uint ld_window_bp = 1000000; // base pairs not number of snps
 
     std::ostringstream ss;
 };

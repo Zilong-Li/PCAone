@@ -2,6 +2,7 @@
 
 #include "Utils.hpp"
 #include <string>
+#include <vector>
 
 using namespace std;
 
@@ -101,6 +102,23 @@ void Data::filterSNPs_resizeF()
     if(nsnps < 1) throw std::runtime_error("no SNPs left after filtering!\n");
     // resize F
     F.noalias() = Fnew.head(nsnps);
+    // resize snp_pos
+    if(snp_pos.size())
+    {
+        std::vector<int> snp_pos_tmp(nsnps);
+        int j = 0;
+        for(int i = 0; i < (int)keepSNPs.size(); i++)
+        {
+            snp_pos_tmp[i] = snp_pos[keepSNPs[i]];
+            if(keepSNPs[i] >= chr_pos_end[j])
+            {
+                chr_pos_end[j] = i - 1;
+                j++;
+            }
+        }
+        chr_pos_end[j] = i - 1;
+        snp_pos = snp_pos_tmp;
+    }
 }
 
 /**

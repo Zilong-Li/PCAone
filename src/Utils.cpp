@@ -1,6 +1,7 @@
 #include "Utils.hpp"
 
 #include <stdexcept>
+#include <vector>
 
 using namespace std;
 
@@ -230,36 +231,41 @@ double get_median(std::vector<double> v)
 }
 
 // assert(X.rows() == Y.rows())
+// X is 2D, Y is 1D
 // X and Y are centered beforehand
-MyMatrix cor_cross(const MyMatrix & X, const MyMatrix & Y)
+MyVector cor_cross(const MyMatrix & X, const MyVector & Y)
 {
     if(X.rows() != Y.rows())
         throw std::runtime_error("X and Y has incompatible dimension. the rows are not the same!\n");
     // compute degree of freedom
     const int df = X.rows() - 1; // N-1
-    MyMatrix cor = X.transpose() * Y / df;
-    // Compute 1 over the standard deviations of X and Y
-    Eigen::VectorXd inv_sds_X = (X.colwise().norm() / sqrt(df)).array().inverse();
-    Eigen::VectorXd inv_sds_Y = (Y.colwise().norm() / sqrt(df)).array().inverse();
-    // Scale the covariance matrix
-    cor = cor.cwiseProduct(inv_sds_X * inv_sds_Y.transpose());
-    return cor;
+    // the standard deviations of X and Y
+    double inv_sds_Y = std::sqrt(Y.array().square().sum() / df);
+    MyVector r(X.cols());
+    for(auto i = 0; i < X.cols(); i++)
+    {
+        double inv_sds_X = std::sqrt(X.col(i).array().square().sum() / df);
+        r(i) = (X.col(i).array() * Y.array() / (inv_sds_X * inv_sds_Y)).sum() / df;
+    }
+    return r;
 }
 
 // X is nsamples x nsnps;
-// wi stores the SNP index that all SNPs in a window compare to
 // ws stores the starts of windows
-// we stores the ends of windows
+// we stores the number of sites in a window
 // return cor matrix of (nsnps - w + 1, w);
-void cor_by_window(MyMatrix & X,
-                   const std::vector<int> & wi,
+void cor_by_window(const std::string & fileout,
+                   MyMatrix & X,
                    const std::vector<int> & ws,
                    const std::vector<int> & we)
 {
     X.rowwise() -= X.colwise().mean(); // Centering
-    for(int i = 0; i < wi.size(); i++)
+    std::ofstream ofs_r2(fileout + ".ld.r2");
+    Eigen::IOFormat fmt(6, Eigen::DontAlignCols, "\t", "\n");
+    for(int i = 0; i < (int)ws.size(); i++)
     {
-        auto r2 = cor_cross(X.middleCols(ws[i], we[i]), X.col(wi[i])).array().square();
+        auto r2 = cor_cross(X.middleCols(ws[i], we[i]), X.col(ws[i])).array().square();
+        ofs_r2 << r2.transpose().format(fmt) << std::endl;
     }
 }
 
@@ -267,9 +273,71 @@ void calc_ld_metrics(const std::string & fileout,
                      MyMatrix & G,
                      const MyMatrix & U,
                      const MyVector & S,
-                     const MyMatrix & V)
+                     const MyMatrix & V,
+                     const std::vector<int> & snp_pos,
+                     const std::vector<int> & chr_pos_end,
+                     int ld_window_bp)
 {
     G -= U * S * V.transpose(); // get residuals matrix
     std::ofstream ofs_res(fileout + ".residuals");
     ofs_res.write((char *)G.data(), G.size() * sizeof(double));
+    std::ofstream ofs_win(fileout + ".ld.window");
+    ofs_win << "#window\tchr\tsnp_start\tsnp_end\tnsites" << std::endl;
+    std::vector<int> ws, we;
+    int nsnp = snp_pos.size();
+    int i{0}, j{0}, w{0}, c{0}, pos_end, nsites;
+    for(i = 0; i < nsnp; i++)
+    {
+        pos_end = snp_pos[chr_pos_end[c]];
+        for(j = i; j < chr_pos_end[c]; j++)
+        {
+            if(snp_pos[j] > snp_pos[i] + ld_window_bp) break;
+        }
+        nsites = j - i + 1;
+        ws.push_back(i); // start of the window
+        we.push_back(nsites); // the number of sites
+        ofs_win << w++ << "\t" << c + 1 << "\t" << snp_pos[i] << "\t" << snp_pos[j] << "\t" << nsites
+                << std::endl;
+        if(c == chr_pos_end.size() - 1 && pos_end < snp_pos[i] + ld_window_bp) break;
+        if(c < chr_pos_end.size() - 1 && pos_end < snp_pos[i] + ld_window_bp) i = chr_pos_end[c++];
+    }
+    cor_by_window(fileout, G, ws, we);
+}
+
+std::vector<std::string> split_string(const std::string & s, const std::string & separators)
+{
+    std::vector<std::string> ret;
+    bool is_seperator[256] = {false};
+    for(auto & ch : separators)
+    {
+        is_seperator[(unsigned int)ch] = true;
+    }
+    int begin = 0;
+    for(int i = 0; i <= (int)s.size(); i++)
+    {
+        if(is_seperator[(uint8_t)s[i]] || i == (int)s.size())
+        {
+            ret.push_back(std::string(s.begin() + begin, s.begin() + i));
+            begin = i + 1;
+        }
+    }
+    return ret;
+}
+
+// resize pos beforehand
+void get_snp_pos_bim(const std::string & filebim, std::vector<int> & pos, std::vector<int> & chr_pos_end)
+{
+    std::ifstream fin(filebim);
+    if(!fin.is_open()) throw invalid_argument("can not open " + filebim);
+    std::string line, chr_cur, chr_prev, sep{" \t"};
+    int i = 0;
+    while(getline(fin, line))
+    {
+        auto tokens = split_string(line, sep);
+        chr_cur = tokens[0];
+        if(!chr_prev.empty() && chr_prev != chr_cur) chr_pos_end.push_back(i);
+        chr_prev = chr_cur;
+        pos[i++] = std::stoi(tokens[3]);
+    }
+    chr_pos_end.push_back(i); // add the last SNP
 }

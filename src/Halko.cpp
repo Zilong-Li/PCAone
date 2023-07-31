@@ -394,7 +394,9 @@ void run_pca_with_halko(Data * data, const Param & params)
             data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, data->perm * rsvd->V);
         else
             data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, rsvd->V);
-        if(params.ld) calc_ld_metrics(params.fileout, data->G, rsvd->U, rsvd->S, rsvd->V);
+        if(params.ld)
+            calc_ld_metrics(params.fileout, data->G, rsvd->U, rsvd->S, rsvd->V, data->snp_pos,
+                            data->chr_pos_end, params.ld_window_bp);
     }
     else
     {

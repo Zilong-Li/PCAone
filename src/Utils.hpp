@@ -18,6 +18,7 @@
 #include <stdexcept>
 #include <string>
 #include <sys/utsname.h>
+#include <vector>
 
 // MAKE SOME TOOLS FULLY ACCESSIBLE THROUGHOUT THE SOFTWARE
 #ifdef _DECLARE_TOOLBOX_HERE
@@ -78,10 +79,10 @@ void mev_rmse_byk(const MyMatrix & X, const MyMatrix & Y, MyVector & Vm, MyVecto
 
 double get_median(std::vector<double> v);
 
-MyMatrix cor_cross(const MyMatrix & X, const MyMatrix & Y);
+MyVector cor_cross(const MyMatrix & X, const MyVector & Y);
 
-void cor_by_window(MyMatrix & X,
-                   const std::vector<int> & wi,
+void cor_by_window(const std::string & fileout,
+                   MyMatrix & X,
                    const std::vector<int> & ws,
                    const std::vector<int> & we);
 
@@ -89,6 +90,13 @@ void calc_ld_metrics(const std::string & fileout,
                      MyMatrix & G,
                      const MyMatrix & U,
                      const MyVector & S,
-                     const MyMatrix & V);
+                     const MyMatrix & V,
+                     const std::vector<int> & snp_pos,
+                     const std::vector<int> & chr_pos_end,
+                     int ld_window_bp);
+
+std::vector<std::string> split_string(const std::string & s, const std::string & separators);
+
+void get_snp_pos_bim(const std::string & filebim, std::vector<int> & pos, std::vector<int> & chr_pos_end);
 
 #endif // PCAONE_UTILES_
