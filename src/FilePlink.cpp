@@ -1,5 +1,7 @@
 #include "FilePlink.hpp"
 
+#include <string>
+
 using namespace std;
 
 void FileBed::check_file_offset_first_var()
@@ -59,6 +61,21 @@ void FileBed::read_all()
     }
     // filter and resize nsnps
     filterSNPs_resizeF();
+    // output kept snps in bim file
+    std::ifstream ifs_bim(params.filein + ".bim");
+    std::ofstream ofs_bim(params.fileout + ".kept.bim");
+    std::string line;
+    i = 0, j = 0;
+    while(getline(ifs_bim, line))
+    {
+        if(i == keepSNPs[j])
+        {
+            ofs_bim << line << std::endl;
+            j++;
+        }
+        i++;
+    }
+
     // fill in G with new size
     G = MyMatrix::Zero(nsamples, nsnps);
     if(params.runem) C = ArrayXb::Zero(nsnps * nsamples);

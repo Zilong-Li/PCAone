@@ -278,11 +278,12 @@ void calc_ld_metrics(const std::string & fileout,
                      const std::vector<int> & chr_pos_end,
                      int ld_window_bp)
 {
+    cao << tick.date() << "start calculating ld  metrics" << std::endl;
     G -= U * S * V.transpose(); // get residuals matrix
     std::ofstream ofs_res(fileout + ".residuals");
     ofs_res.write((char *)G.data(), G.size() * sizeof(double));
     std::ofstream ofs_win(fileout + ".ld.window");
-    ofs_win << "#window\tchr\tsnp_start\tsnp_end\tnsites" << std::endl;
+    ofs_win << "#window\tchr\tpos_start\tpos_end\tnsites" << std::endl;
     std::vector<int> ws, we;
     int nsnp = snp_pos.size();
     int i{0}, j{0}, w{0}, c{0}, pos_end, nsites;
