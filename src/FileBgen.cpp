@@ -326,14 +326,11 @@ PermMat permute_bgen(std::string & fin, std::string fout, int nthreads)
     std::iota(perm.begin(), perm.end(), 0);
     auto rng = std::default_random_engine{};
     std::shuffle(perm.begin(), perm.end(), rng);
-    Eigen::VectorXi indices(nsnps);
     vector<std::thread> threads;
     uint tn = (nsnps + nthreads - 1) / nthreads; // evenly spread index
-    int ia{0}, ib{0};
     for(int i = 0; i < nthreads; i++)
     {
         vector<int> idx(perm.begin() + tn * i, i == nthreads - 1 ? perm.end() : perm.begin() + tn * (i + 1));
-        for(ib = 0; ib < (int)idx.size(); ib++, ia++) indices(idx[ib]) = ia;
         threads.emplace_back(permute_bgen_thread, nsamples, idx, fin, fout, i);
     }
     // Wait for all threads to finish execution
@@ -357,5 +354,7 @@ PermMat permute_bgen(std::string & fin, std::string fout, int nthreads)
         std::remove(fin.c_str()); // now delete the temp file
     }
     fin = out; // point to the new file
-    return PermMat(indices);
+    PermMat P;
+    P.indices() = Eigen::Map<Eigen::VectorXi>(perm.data(), perm.size());
+    return P;
 }
