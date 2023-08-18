@@ -252,7 +252,7 @@ void read_csvzstd_block(ZstdBuffer & zbuf,
     if(lastSNP != actual_block_size) cao.error("something wrong when read_block_initial");
 }
 
-int shuffle_csvzstd_to_bin(std::string & fin, std::string fout, uint gb, uint scale)
+PermMat shuffle_csvzstd_to_bin(std::string & fin, std::string fout, uint gb, uint scale)
 {
     std::vector<size_t> tidx;
     std::vector<double> libsize;
@@ -277,7 +277,7 @@ int shuffle_csvzstd_to_bin(std::string & fin, std::string fout, uint gb, uint sc
     zbuf.lastRet = 1;
     zbuf.buffCur = "";
     MyMatrix G;
-    std::vector<uint> perm(nsnps);
+    std::vector<int> perm(nsnps);
     std::iota(perm.begin(), perm.end(), 0);
     auto rng = std::default_random_engine{};
     std::shuffle(perm.begin(), perm.end(), rng);
@@ -300,5 +300,7 @@ int shuffle_csvzstd_to_bin(std::string & fin, std::string fout, uint gb, uint sc
         }
     }
     fin = fout + ".perm.bin";
-    return (nsnps == cur);
+    PermMat P;
+    P.indices() = Eigen::Map<Eigen::VectorXi>(perm.data(), perm.size());
+    return P;
 }

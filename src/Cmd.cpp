@@ -23,7 +23,7 @@ Param::Param(int argc, char ** argv)
                                          "2: the proposed window-based Randomized SVD  method\n"
                                          "3: the full Singular Value Decomposition.", 2);
     auto plinkfile = opts.add<Value<std::string>>("b", "bfile", "prefix to PLINK .bed/.bim/.fam files", "", &filein);
-    auto binfile = opts.add<Value<std::string>>("B", "binary", "path of binary file", "", &filein);
+    auto binfile = opts.add<Value<std::string>, Attribute::advanced>("B", "binary", "path of binary file (experimental in-core mode)", "", &filein);
     auto csvfile = opts.add<Value<std::string>>("c", "csv", "path of comma seperated CSV file compressed by zstd", "", &filein);
     auto bgenfile = opts.add<Value<std::string>>("g", "bgen", "path of BGEN file", "", &filein);
     auto beaglefile = opts.add<Value<std::string>>("G", "beagle", "path of BEAGLE file", "", &filein);
