@@ -183,17 +183,11 @@ void Data::write_eigs_files(const MyVector & S, const MyMatrix & U, const MyMatr
         else
             outs << S.format(fmt) << '\n';
     }
-    if(outu.is_open())
-    {
-        outu << U.format(fmt) << '\n';
-    }
+    if(outu.is_open()) outu << U.format(fmt) << '\n';
     if(params.printv)
     {
         std::ofstream outv(params.fileout + ".loadings");
-        if(outv.is_open())
-        {
-            outv << V.format(fmt) << '\n';
-        }
+        if(outv.is_open()) outv << V.format(fmt) << '\n';
     }
 }
 

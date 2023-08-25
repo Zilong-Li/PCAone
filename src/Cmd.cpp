@@ -44,16 +44,17 @@ Param::Param(int argc, char ** argv)
     opts.add<Switch>("", "pcangsd", "use PCAngsd algorithm for genotype likelihood input", &pcangsd);
     opts.add<Switch>("", "ld", "estimate ld for admixed population", &ld);
     opts.add<Value<uint>>("", "ld-window", "ld window size in base units instead of number of sites", ld_window_bp, &ld_window_bp);
+    opts.add<Value<double>>("", "ld-r2", "r2 tolerance for ld", tolld, &tolld);
     opts.add<Value<double>>("", "maf", "skip variants with minor allele frequency below maf", maf, &maf);
     opts.add<Switch>("U", "printu", "output eigen vector of each epoch (for tests)", &printu);
     opts.add<Switch>("V", "printv", "output the right eigen vectors with suffix .loadings", &printv);
     opts.add<Value<uint>, Attribute::advanced>("", "M", "number of features (eg. SNPs) if already known", 0, &nsnps);
     opts.add<Value<uint>, Attribute::advanced>("", "N", "number of samples if already known", 0, &nsamples);
+    opts.add<Switch, Attribute::advanced>("", "debug", "turn on debugging mode", &debug);
     opts.add<Switch, Attribute::advanced>("", "haploid", "the plink format represents haploid data", &haploid);
     opts.add<Value<uint>, Attribute::advanced>("", "buffer", "buffer in GB uint used for permuting the data", buffer, &buffer);
     opts.add<Value<uint>, Attribute::advanced>("", "imaxiter", "maximum number of IRAM interations", imaxiter, &imaxiter);
     opts.add<Value<double>, Attribute::advanced>("", "itol", "tolerance for IRAM algorithm", itol, &itol);
-    // opts.add<Switch, Attribute::advanced>("", "mev", "use mev measurement instead of default minSSE", &mev);
     opts.add<Value<uint>, Attribute::advanced>("", "ncv", "number of Lanzcos basis vectors for IRAM", ncv, &ncv);
     opts.add<Value<uint>, Attribute::advanced>("", "oversamples", "number of oversampling columns for RSVD", oversamples, &oversamples);
     opts.add<Value<uint>, Attribute::advanced>("", "rand", "the random matrix type. 0: uniform, 1: guassian", rand, &rand);

@@ -83,8 +83,8 @@ void run_pca_with_arnoldi(Data * data, const Param & params)
             evals.noalias() = svals.array().square().matrix() / data->nsnps;
             data->write_eigs_files(evals, U, V);
             if(params.ld)
-                calc_ld_metrics(params.fileout, data->G, U, svals, V, data->snp_pos, data->chr_pos_end,
-                                params.ld_window_bp);
+                calc_ld_metrics(params.filein, params.fileout, data->G, U, svals, V, data->snp_pos, data->chr_pos_end,
+                                params.ld_window_bp, params.tolld);
             return;
         }
         flip_UV(U, V);

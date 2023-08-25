@@ -254,32 +254,57 @@ MyVector cor_cross(const MyMatrix & X, const MyVector & Y)
 // ws stores the starts of windows
 // we stores the number of sites in a window
 // return cor matrix of (nsnps - w + 1, w);
-void cor_by_window(const std::string & fileout,
+void cor_by_window(const std::string & filein,
+                   const std::string & fileout,
                    MyMatrix & X,
                    const std::vector<int> & ws,
-                   const std::vector<int> & we)
+                   const std::vector<int> & we,
+                   double r2_tol = 0.0)
 {
     X.rowwise() -= X.colwise().mean(); // Centering
-    std::ofstream ofs_r2(fileout + ".ld.r2");
-    Eigen::IOFormat fmt(6, Eigen::DontAlignCols, "\t", "\n");
+    ArrayXb keep = ArrayXb::Constant(X.cols(), true);
+    std::ofstream ofs_out(fileout + ".ld.prune.out");
+    std::ofstream ofs_in(fileout + ".ld.prune.in");
+    // std::ofstream ofs_r2(fileout + ".ld.r2");
+    // Eigen::IOFormat fmt(6, Eigen::DontAlignCols, "\t", "\n");
+    // #pragma omp parallel for
     for(int i = 0; i < (int)ws.size(); i++)
     {
         auto r2 = cor_cross(X.middleCols(ws[i], we[i]), X.col(ws[i])).array().square();
-        ofs_r2 << r2.transpose().format(fmt) << std::endl;
+        // ofs_r2 << r2.transpose().format(fmt) << std::endl;
+        for(int j = 0; j < we[i]; j++)
+        {
+            int isnp = i ? j + we[i - 1] : j;
+            if(r2[j] > r2_tol) keep(isnp) = false;
+        }
+    }
+    std::ifstream fin(fileout + ".kept.bim");
+    if(!fin.is_open()) throw invalid_argument("can not open " + fileout + ".kept.bim");
+    std::string line, chr_cur, chr_prev, sep{" \t"};
+    int i = 0;
+    while(getline(fin, line))
+    {
+        if(keep(i))
+            ofs_in << line << std::endl;
+        else
+            ofs_out << line << std::endl;
+        i++;
     }
 }
 
-void calc_ld_metrics(const std::string & fileout,
+void calc_ld_metrics(const std::string & filein,
+                     const std::string & fileout,
                      MyMatrix & G,
                      const MyMatrix & U,
                      const MyVector & S,
                      const MyMatrix & V,
                      const std::vector<int> & snp_pos,
                      const std::vector<int> & chr_pos_end,
-                     int ld_window_bp)
+                     int ld_window_bp,
+                     double r2_tol = 0.5)
 {
     cao << tick.date() << "start calculating ld  metrics" << std::endl;
-    G -= U * S * V.transpose(); // get residuals matrix
+    G -= U * S.asDiagonal() * V.transpose(); // get residuals matrix
     std::ofstream ofs_res(fileout + ".residuals");
     ofs_res.write((char *)G.data(), G.size() * sizeof(double));
     std::ofstream ofs_win(fileout + ".ld.window");
@@ -291,9 +316,7 @@ void calc_ld_metrics(const std::string & fileout,
     {
         pos_end = snp_pos[chr_pos_end[c]];
         for(j = i; j < chr_pos_end[c]; j++)
-        {
             if(snp_pos[j] > snp_pos[i] + ld_window_bp) break;
-        }
         nsites = j - i + 1;
         ws.push_back(i); // start of the window
         we.push_back(nsites); // the number of sites
@@ -302,7 +325,7 @@ void calc_ld_metrics(const std::string & fileout,
         if(c == chr_pos_end.size() - 1 && pos_end < snp_pos[i] + ld_window_bp) break;
         if(c < chr_pos_end.size() - 1 && pos_end < snp_pos[i] + ld_window_bp) i = chr_pos_end[c++];
     }
-    cor_by_window(fileout, G, ws, we);
+    cor_by_window(filein, fileout, G, ws, we, r2_tol);
 }
 
 std::vector<std::string> split_string(const std::string & s, const std::string & separators)

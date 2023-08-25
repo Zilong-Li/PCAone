@@ -59,6 +59,8 @@ class Param
     double tol = 1e-4;
     uint buffer = 2;
     uint rand = 1;
+    // for ld
+    double tolld = 0.5;
 
     // general
     uint scale = 0; // do scaling. 0: just centering. 1: log scaling. 2: cpmed
@@ -75,6 +77,7 @@ class Param
     bool out_of_core = false; // otherwise load all matrix into RAM.
     bool haploid = false;
     bool diploid = false;
+    bool debug = false;
 
     // ld
     bool ld = false;
