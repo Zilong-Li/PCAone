@@ -252,7 +252,7 @@ void read_csvzstd_block(ZstdBuffer & zbuf,
     if(lastSNP != actual_block_size) cao.error("something wrong when read_block_initial");
 }
 
-int shuffle_csvzstd_to_bin(std::string & fin, std::string fout, uint gb, uint scale)
+PermMat shuffle_csvzstd_to_bin(std::string & fin, std::string fout, uint gb, uint scale)
 {
     std::vector<size_t> tidx;
     std::vector<double> libsize;
@@ -277,12 +277,14 @@ int shuffle_csvzstd_to_bin(std::string & fin, std::string fout, uint gb, uint sc
     zbuf.lastRet = 1;
     zbuf.buffCur = "";
     MyMatrix G;
-    std::vector<uint> perm(nsnps);
+    std::vector<int> perm(nsnps);
     std::iota(perm.begin(), perm.end(), 0);
     auto rng = std::default_random_engine{};
     std::shuffle(perm.begin(), perm.end(), rng);
     Eigen::VectorXf fg;
-    uint64 start_idx, stop_idx, idx, cur = 0;
+    uint64 start_idx, stop_idx, idx;
+    int ia{0}, ib{0};
+    Eigen::VectorXi indices(nsnps);
     for(uint i = 0; i < nblocks; i++)
     {
         start_idx = i * blocksize;
@@ -290,15 +292,17 @@ int shuffle_csvzstd_to_bin(std::string & fin, std::string fout, uint gb, uint sc
         stop_idx = stop_idx >= nsnps ? nsnps - 1 : stop_idx;
         read_csvzstd_block(zbuf, blocksize, start_idx, stop_idx, G, nsamples, libsize, tidx, median_libsize,
                            scale);
-        for(size_t p = 0; p < G.cols(); p++, cur++)
+        for(size_t p = 0; p < G.cols(); p++, ia++)
         {
-            ofs2 << perm[cur] << "\n";
-            idx = magic + perm[cur] * bytes_per_snp;
+            ib = perm[ia];
+            indices(ib) = ia;
+            idx = magic + ib * bytes_per_snp;
             ofs.seekp(idx, std::ios_base::beg);
             fg = G.col(p).cast<float>();
             ofs.write((char *)fg.data(), bytes_per_snp);
         }
     }
     fin = fout + ".perm.bin";
-    return (nsnps == cur);
+    ofs2 << indices << "\n";
+    return PermMat(indices);
 }

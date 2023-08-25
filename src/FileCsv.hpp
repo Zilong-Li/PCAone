@@ -44,7 +44,7 @@ void read_csvzstd_block(ZstdBuffer & zbuf,
                         double median_libsize,
                         uint scale);
 
-int shuffle_csvzstd_to_bin(std::string & fin, std::string fout, uint gb, uint scale);
+PermMat shuffle_csvzstd_to_bin(std::string & fin, std::string fout, uint gb, uint scale);
 
 // assume data is already noralized
 // only do centering

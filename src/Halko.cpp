@@ -49,12 +49,18 @@ void RsvdOpData::computeUSV(int p, double tol)
             if(verbose) cao << tick.date() << "running of epoch=" << pi << ", diff=" << diff << endl;
             if(diff < tol || pi == p)
             {
-                V.noalias() = G * svd.matrixU().leftCols(k);
-                S = svd.singularValues().head(k);
-                if(verbose) cao << tick.date() << "stops at epoch=" << pi + 1 << endl;
-                if(data->params.svd_t == SvdType::PCAoneAlg2 && std::pow(2, pi + 1) < data->params.bands)
-                    cao.warning("PCAone converged but the window size did not expand the whole data.");
-                break;
+                if(data->params.svd_t == SvdType::PCAoneAlg2 && std::pow(2, pi) < data->params.bands)
+                {
+                    cao.print("PCAone converged but continues running to get S and V.");
+                    p = std::log2(data->params.bands);
+                }
+                else
+                {
+                    V.noalias() = G * svd.matrixU().leftCols(k);
+                    S = svd.singularValues().head(k);
+                    if(verbose) cao << tick.date() << "stops at epoch=" << pi + 1 << endl;
+                    break;
+                }
             }
             else
             {

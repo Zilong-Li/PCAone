@@ -48,19 +48,16 @@ int main(int argc, char * argv[])
         }
         else if(params.file_t == FileType::CSV)
         {
-            shuffle_csvzstd_to_bin(params.filein, params.fileout, params.buffer, params.scale);
+            auto perm = shuffle_csvzstd_to_bin(params.filein, params.fileout, params.buffer, params.scale);
             params.file_t = FileType::BINARY;
             data = new FileBin(params);
-        }
-        else if(params.file_t == FileType::BINARY)
-        {
-            data = new FileBin(params);
+            data->perm = perm;
         }
         else
         {
             throw runtime_error("wrong file type used!\n");
         }
-        cao << tick.date() << "total elapsed time of permuting data: " << tick.reltime() << " seconds\n";
+        cao << tick.date() << "elapsed time of permuting data: " << tick.reltime() << " seconds" << std::endl;
     }
     else
     {
