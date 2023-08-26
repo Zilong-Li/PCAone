@@ -272,11 +272,8 @@ void cor_by_window(const std::string & filein,
     {
         auto r2 = cor_cross(X.middleCols(ws[i], we[i]), X.col(ws[i])).array().square();
         // ofs_r2 << r2.transpose().format(fmt) << std::endl;
-        for(int j = 0; j < we[i]; j++)
-        {
-            int isnp = i ? j + we[i - 1] : j;
-            if(r2[j] > r2_tol) keep(isnp) = false;
-        }
+        for(int j = 1; j < we[i]; j++)
+            if(r2[j] > r2_tol) keep(ws[i] + j) = false;
     }
     std::ifstream fin(fileout + ".kept.bim");
     if(!fin.is_open()) throw invalid_argument("can not open " + fileout + ".kept.bim");

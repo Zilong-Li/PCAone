@@ -60,7 +60,7 @@ class Param
     uint buffer = 2;
     uint rand = 1;
     // for ld
-    double tolld = 0.5;
+    double tolld = 0;
 
     // general
     uint scale = 0; // do scaling. 0: just centering. 1: log scaling. 2: cpmed

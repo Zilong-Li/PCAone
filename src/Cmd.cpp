@@ -124,6 +124,7 @@ Param::Param(int argc, char ** argv)
         }
         if(bands < 4 || bands % 2 != 0)
             throw std::invalid_argument("the --batches must be a power of 2 and the minimun is 4. the recommended is 64\n");
+        ld = tolld > 0 ? true : false;
     }
     catch(const popl::invalid_option & e)
     {
