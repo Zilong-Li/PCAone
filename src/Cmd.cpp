@@ -109,6 +109,8 @@ Param::Param(int argc, char ** argv)
         ncv = 20 > (2 * k + 1) ? 20 : (2 * k + 1);
         oversamples = 10 > k ? 10 : k;
         // beagle only represents genotype likelihood for pcangsd algorithm now
+        if(file_t == FileType::BEAGLE && svd_t == SvdType::PCAoneAlg2)
+            throw std::invalid_argument("not supporting PCAone algorithm 2 for PCAngsd algorithm yet! please use --svd option");
         if(file_t == FileType::BEAGLE) pcangsd = true;
         if((file_t == FileType::PLINK || file_t == FileType::BGEN) && !haploid) diploid = true;
         if(emu || pcangsd)
@@ -119,8 +121,7 @@ Param::Param(int argc, char ** argv)
         {
             out_of_core = true;
             if(pcangsd)
-                throw std::invalid_argument(
-                    "not support -m option for PCAngsd algorithm yet, but the feature is on the way!");
+                throw std::invalid_argument("not supporting -m option for PCAngsd algorithm yet!");
         }
         if(bands < 4 || bands % 2 != 0)
             throw std::invalid_argument("the --batches must be a power of 2 and the minimun is 4. the recommended is 64\n");
