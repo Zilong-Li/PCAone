@@ -81,14 +81,14 @@ double get_median(std::vector<double> v);
 
 MyVector cor_cross(const MyMatrix & X, const MyVector & Y);
 
-void cor_by_window(const std::string & filein,
+void cor_by_window(
                    const std::string & fileout,
                    MyMatrix & X,
                    const std::vector<int> & ws,
                    const std::vector<int> & we,
                    double r2_tol);
 
-void calc_ld_metrics(const std::string & filein,
+void calc_ld_metrics(
                      const std::string & fileout,
                      MyMatrix & G,
                      const MyMatrix & U,

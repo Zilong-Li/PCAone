@@ -38,10 +38,16 @@ LDFLAGS       += -s  # this is obsolete and will be igonored on mac
 INC           = -I./external -I./external/zstd/lib
 PCALIB = libpcaone.a
 AVX = 1
+DEBUG = 0
 
 ifeq ($(strip $(AVX)),1)
   $(info "use -mavx2 for PCAone")
   CXXFLAGS += -mavx2 -mfma
+endif
+
+ifeq ($(strip $(DEBUG)),1)
+  $(info "use -mavx2 for PCAone")
+  MYFLAGS += -DDEBUG
 endif
 
 ifeq ($(strip $(STATIC)),1)

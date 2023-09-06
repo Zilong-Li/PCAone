@@ -254,7 +254,7 @@ MyVector cor_cross(const MyMatrix & X, const MyVector & Y)
 // ws stores the starts of windows
 // we stores the number of sites in a window
 // return cor matrix of (nsnps - w + 1, w);
-void cor_by_window(const std::string & filein,
+void cor_by_window(
                    const std::string & fileout,
                    MyMatrix & X,
                    const std::vector<int> & ws,
@@ -265,13 +265,11 @@ void cor_by_window(const std::string & filein,
     ArrayXb keep = ArrayXb::Constant(X.cols(), true);
     std::ofstream ofs_out(fileout + ".ld.prune.out");
     std::ofstream ofs_in(fileout + ".ld.prune.in");
-    // std::ofstream ofs_r2(fileout + ".ld.r2");
-    // Eigen::IOFormat fmt(6, Eigen::DontAlignCols, "\t", "\n");
     // #pragma omp parallel for
     for(int i = 0; i < (int)ws.size(); i++)
     {
         auto r2 = cor_cross(X.middleCols(ws[i], we[i]), X.col(ws[i])).array().square();
-        // ofs_r2 << r2.transpose().format(fmt) << std::endl;
+        // #pragma omp critical
         for(int j = 1; j < we[i]; j++)
             if(r2[j] > r2_tol) keep(ws[i] + j) = false;
     }
@@ -289,7 +287,7 @@ void cor_by_window(const std::string & filein,
     }
 }
 
-void calc_ld_metrics(const std::string & filein,
+void calc_ld_metrics(
                      const std::string & fileout,
                      MyMatrix & G,
                      const MyMatrix & U,
@@ -302,8 +300,10 @@ void calc_ld_metrics(const std::string & filein,
 {
     cao << tick.date() << "start calculating ld  metrics" << std::endl;
     G -= U * S.asDiagonal() * V.transpose(); // get residuals matrix
+#if defined(DEBUG)
     std::ofstream ofs_res(fileout + ".residuals");
     ofs_res.write((char *)G.data(), G.size() * sizeof(double));
+#endif
     std::ofstream ofs_win(fileout + ".ld.window");
     ofs_win << "#window\tchr\tpos_start\tpos_end\tnsites" << std::endl;
     std::vector<int> ws, we;
@@ -322,7 +322,7 @@ void calc_ld_metrics(const std::string & filein,
         if(c == chr_pos_end.size() - 1 && pos_end < snp_pos[i] + ld_window_bp) break;
         if(c < chr_pos_end.size() - 1 && pos_end < snp_pos[i] + ld_window_bp) i = chr_pos_end[c++];
     }
-    cor_by_window(filein, fileout, G, ws, we, r2_tol);
+    cor_by_window(fileout, G, ws, we, r2_tol);
 }
 
 std::vector<std::string> split_string(const std::string & s, const std::string & separators)
