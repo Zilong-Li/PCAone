@@ -254,25 +254,29 @@ MyVector cor_cross(const MyMatrix & X, const MyVector & Y)
 // ws stores the starts of windows
 // we stores the number of sites in a window
 // return cor matrix of (nsnps - w + 1, w);
-void cor_by_window(
-                   const std::string & fileout,
+void cor_by_window(const std::string & fileout,
                    MyMatrix & X,
                    const std::vector<int> & ws,
                    const std::vector<int> & we,
                    double r2_tol = 0.0)
 {
     X.rowwise() -= X.colwise().mean(); // Centering
-    ArrayXb keep = ArrayXb::Constant(X.cols(), true);
     std::ofstream ofs_out(fileout + ".ld.prune.out");
     std::ofstream ofs_in(fileout + ".ld.prune.in");
-    // #pragma omp parallel for
-    for(int i = 0; i < (int)ws.size(); i++)
+    vector<ArrayXb> flags(ws.size());
+#pragma omp parallel for
+    for(int i = 0; i < ws.size(); i++)
     {
-        auto r2 = cor_cross(X.middleCols(ws[i], we[i]), X.col(ws[i])).array().square();
-        // #pragma omp critical
+        MyVector r2 = cor_cross(X.middleCols(ws[i], we[i]), X.col(ws[i])).array().square();
+        ArrayXb ikeep = ArrayXb::Constant(we[i], true);
         for(int j = 1; j < we[i]; j++)
-            if(r2[j] > r2_tol) keep(ws[i] + j) = false;
+            if(r2[j] > r2_tol) ikeep(j) = false;
+        flags[i] = ikeep;
     }
+    ArrayXb keep = ArrayXb::Constant(X.cols(), true);
+    for(int i = 0; i < ws.size(); i++)
+        for(int j = 1; j < we[i]; j++)
+            if(!flags[i][j]) keep(ws[i] + j) = false;
     std::ifstream fin(fileout + ".kept.bim");
     if(!fin.is_open()) throw invalid_argument("can not open " + fileout + ".kept.bim");
     std::string line, chr_cur, chr_prev, sep{" \t"};
@@ -287,8 +291,7 @@ void cor_by_window(
     }
 }
 
-void calc_ld_metrics(
-                     const std::string & fileout,
+void calc_ld_metrics(const std::string & fileout,
                      MyMatrix & G,
                      const MyMatrix & U,
                      const MyVector & S,

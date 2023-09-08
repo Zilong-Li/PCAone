@@ -104,7 +104,7 @@ void run_pca_with_arnoldi(Data * data, const Param & params)
             V = V2;
             if(diff < params.tol)
             {
-                cao << tick.date() << "iome to convergence!\n";
+                cao << tick.date() << "come to convergence!\n";
                 break;
             }
         }
