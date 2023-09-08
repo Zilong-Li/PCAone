@@ -230,6 +230,27 @@ double get_median(std::vector<double> v)
     }
 }
 
+MyVector calc_sds(const MyMatrix & X)
+{
+    // compute degree of freedom
+    const int df = X.rows() - 1; // N-1
+    return (X.array().square().colwise().sum() / df).sqrt();
+}
+
+// X is centered beforehand
+MyVector calc_cor_load_sds(const MyMatrix & X, const MyVector & S)
+{
+    const int df = X.rows() - 1; // N-1
+    MyVector r(X.cols(), 1);
+#pragma omp parallel for
+    for(size_t i = 1; i < X.cols(); i++)
+    {
+        r(i) = (X.array().col(0) * X.array().col(i) / (S(0) * S(i))).sum() / df;
+        r(i) = r(i) * r(i);
+    }
+    return r;
+}
+
 // assert(X.rows() == Y.rows())
 // X is 2D, Y is 1D
 // X and Y are centered beforehand
@@ -242,10 +263,12 @@ MyVector cor_cross(const MyMatrix & X, const MyVector & Y)
     // the standard deviations of X and Y
     double inv_sds_Y = std::sqrt(Y.array().square().sum() / df);
     MyVector r(X.cols());
+#pragma omp parallel for
     for(auto i = 0; i < X.cols(); i++)
     {
         double inv_sds_X = std::sqrt(X.col(i).array().square().sum() / df);
         r(i) = (X.col(i).array() * Y.array() / (inv_sds_X * inv_sds_Y)).sum() / df;
+        r(i) = r(i) * r(i);
     }
     return r;
 }
@@ -263,20 +286,13 @@ void cor_by_window(const std::string & fileout,
     X.rowwise() -= X.colwise().mean(); // Centering
     std::ofstream ofs_out(fileout + ".ld.prune.out");
     std::ofstream ofs_in(fileout + ".ld.prune.in");
-    vector<ArrayXb> flags(ws.size());
-#pragma omp parallel for
-    for(int i = 0; i < ws.size(); i++)
-    {
-        MyVector r2 = cor_cross(X.middleCols(ws[i], we[i]), X.col(ws[i])).array().square();
-        ArrayXb ikeep = ArrayXb::Constant(we[i], true);
-        for(int j = 1; j < we[i]; j++)
-            if(r2[j] > r2_tol) ikeep(j) = false;
-        flags[i] = ikeep;
-    }
     ArrayXb keep = ArrayXb::Constant(X.cols(), true);
     for(int i = 0; i < ws.size(); i++)
+    {
+        MyVector r2 = cor_cross(X.middleCols(ws[i], we[i]), X.col(ws[i]));
         for(int j = 1; j < we[i]; j++)
-            if(!flags[i][j]) keep(ws[i] + j) = false;
+            if(r2[j] > r2_tol) keep(ws[i] + j) = false;
+    }
     std::ifstream fin(fileout + ".kept.bim");
     if(!fin.is_open()) throw invalid_argument("can not open " + fileout + ".kept.bim");
     std::string line, chr_cur, chr_prev, sep{" \t"};
@@ -306,13 +322,13 @@ void calc_ld_metrics(const std::string & fileout,
 #if defined(DEBUG)
     std::ofstream ofs_res(fileout + ".residuals");
     ofs_res.write((char *)G.data(), G.size() * sizeof(double));
-#endif
     std::ofstream ofs_win(fileout + ".ld.window");
     ofs_win << "#window\tchr\tpos_start\tpos_end\tnsites" << std::endl;
+#endif
     std::vector<int> ws, we;
     int nsnp = snp_pos.size();
-    int i{0}, j{0}, w{0}, c{0}, pos_end, nsites;
-    for(i = 0; i < nsnp; i++)
+    int j{0}, c{0}, pos_end, nsites;
+    for(int i = 0; i < nsnp; i++)
     {
         pos_end = snp_pos[chr_pos_end[c]];
         for(j = i; j < chr_pos_end[c]; j++)
@@ -320,12 +336,35 @@ void calc_ld_metrics(const std::string & fileout,
         nsites = j - i + 1;
         ws.push_back(i); // start of the window
         we.push_back(nsites); // the number of sites
-        ofs_win << w++ << "\t" << c + 1 << "\t" << snp_pos[i] << "\t" << snp_pos[j] << "\t" << nsites
-                << std::endl;
         if(c == chr_pos_end.size() - 1 && pos_end < snp_pos[i] + ld_window_bp) break;
         if(c < chr_pos_end.size() - 1 && pos_end < snp_pos[i] + ld_window_bp) i = chr_pos_end[c++];
+#if defined(DEBUG)
+        ofs_win << w++ << "\t" << c + 1 << "\t" << snp_pos[i] << "\t" << snp_pos[j] << "\t" << nsites
+                << std::endl;
+#endif
     }
-    cor_by_window(fileout, G, ws, we, r2_tol);
+    MyVector sds = calc_sds(G);
+    ArrayXb keep = ArrayXb::Constant(G.cols(), true);
+    for(int i = 0; i < ws.size(); i++)
+    {
+        auto r2 = calc_cor_load_sds(G.middleCols(ws[i], we[i]), sds.segment(ws[i], we[i]));
+        for(int j = 1; j < we[i]; j++)
+            if(r2[j] > r2_tol) keep(ws[i] + j) = false;
+    }
+    std::ifstream fin(fileout + ".kept.bim");
+    if(!fin.is_open()) throw invalid_argument("can not open " + fileout + ".kept.bim");
+    std::ofstream ofs_out(fileout + ".ld.prune.out");
+    std::ofstream ofs_in(fileout + ".ld.prune.in");
+    std::string line;
+    int i = 0;
+    while(getline(fin, line))
+    {
+        if(keep(i))
+            ofs_in << line << std::endl;
+        else
+            ofs_out << line << std::endl;
+        i++;
+    }
 }
 
 std::vector<std::string> split_string(const std::string & s, const std::string & separators)

@@ -79,6 +79,8 @@ void mev_rmse_byk(const MyMatrix & X, const MyMatrix & Y, MyVector & Vm, MyVecto
 
 double get_median(std::vector<double> v);
 
+MyVector calc_sds(const MyMatrix & X);
+MyVector calc_cor_load_sds(const MyMatrix & X, const MyVector& S);
 MyVector cor_cross(const MyMatrix & X, const MyVector & Y);
 
 void cor_by_window(
