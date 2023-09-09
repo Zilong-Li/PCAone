@@ -404,7 +404,7 @@ void run_pca_with_halko(Data * data, const Param & params)
         {
             data->G -= rsvd->U * rsvd->S.asDiagonal() * rsvd->V.transpose(); // get residuals matrix
             calc_ld_metrics(params.fileout, data->G, data->snp_pos, data->chr_pos_end, params.ld_window_bp,
-                            params.tolld);
+                            params.tolld, params.verbose);
             return;
         }
     }

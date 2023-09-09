@@ -86,7 +86,8 @@ void calc_ld_metrics(const std::string & fileout,
                      const std::vector<int> & snp_pos,
                      const std::vector<int> & chr_pos_end,
                      int ld_window_bp,
-                     double r2_tol);
+                     double r2_tol,
+                     bool verbose);
 
 std::vector<std::string> split_string(const std::string & s, const std::string & separators);
 

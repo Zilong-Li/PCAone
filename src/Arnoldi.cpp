@@ -86,7 +86,7 @@ void run_pca_with_arnoldi(Data * data, const Param & params)
             {
                 data->G -= U * svals.asDiagonal() * V.transpose(); // get residuals matrix
                 calc_ld_metrics(params.fileout, data->G, data->snp_pos,data->chr_pos_end, params.ld_window_bp,
-                                params.tolld);
+                                params.tolld, params.verbose);
             }
             return;
         }

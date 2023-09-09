@@ -280,7 +280,8 @@ void calc_ld_metrics(const std::string & fileout,
                      const std::vector<int> & snp_pos,
                      const std::vector<int> & chr_pos_end,
                      int ld_window_bp,
-                     double r2_tol = 0.5)
+                     double r2_tol,
+                     bool verbose = false)
 {
     cao << tick.date() << "start calculating ld  metrics" << std::endl;
 #if defined(DEBUG)
@@ -312,7 +313,7 @@ void calc_ld_metrics(const std::string & fileout,
     const double df = 1.0 / (G.rows() - 1); // N-1
     for(int i = 0; i < (int)ws.size(); i++)
     {
-        if(i % 100000 == 1) std::cerr << timestamp() << "window:" << i << std::endl;
+        if(verbose && i % 100000 == 1) cao << tick.date() << "window:" << i << std::endl;
 #pragma omp parallel for
         for(int j = 1; j < we[i]; j++)
         {

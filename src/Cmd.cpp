@@ -50,7 +50,7 @@ Param::Param(int argc, char ** argv)
     opts.add<Switch>("V", "printv", "output the right eigen vectors with suffix .loadings", &printv);
     opts.add<Value<uint>, Attribute::advanced>("", "M", "number of features (eg. SNPs) if already known", 0, &nsnps);
     opts.add<Value<uint>, Attribute::advanced>("", "N", "number of samples if already known", 0, &nsamples);
-    opts.add<Switch, Attribute::advanced>("", "debug", "turn on debugging mode", &debug);
+    // opts.add<Switch, Attribute::advanced>("", "debug", "turn on debugging mode", &debug);
     opts.add<Switch, Attribute::advanced>("", "haploid", "the plink format represents haploid data", &haploid);
     opts.add<Value<uint>, Attribute::advanced>("", "buffer", "buffer in GB uint used for permuting the data", buffer, &buffer);
     opts.add<Value<uint>, Attribute::advanced>("", "imaxiter", "maximum number of IRAM interations", imaxiter, &imaxiter);
