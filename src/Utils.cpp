@@ -230,150 +230,6 @@ double get_median(std::vector<double> v)
     }
 }
 
-MyVector calc_sds(const MyMatrix & X)
-{
-    // compute degree of freedom
-    const int df = X.rows() - 1; // N-1
-    return (X.array().square().colwise().sum() / df).sqrt();
-}
-
-// X is centered beforehand
-MyVector calc_cor_load_sds(const MyMatrix & X, const MyVector & S)
-{
-    const int df = X.rows() - 1; // N-1
-    MyVector r(X.cols(), 1);
-#pragma omp parallel for
-    for(size_t i = 1; i < X.cols(); i++)
-    {
-        r(i) = (X.array().col(0) * X.array().col(i) / (S(0) * S(i))).sum() / df;
-        r(i) = r(i) * r(i);
-    }
-    return r;
-}
-
-// assert(X.rows() == Y.rows())
-// X is 2D, Y is 1D
-// X and Y are centered beforehand
-MyVector cor_cross(const MyMatrix & X, const MyVector & Y)
-{
-    if(X.rows() != Y.rows())
-        throw std::runtime_error("X and Y has incompatible dimension. the rows are not the same!\n");
-    // compute degree of freedom
-    const int df = X.rows() - 1; // N-1
-    // the standard deviations of X and Y
-    double inv_sds_Y = std::sqrt(Y.array().square().sum() / df);
-    MyVector r(X.cols());
-#pragma omp parallel for
-    for(auto i = 0; i < X.cols(); i++)
-    {
-        double inv_sds_X = std::sqrt(X.col(i).array().square().sum() / df);
-        r(i) = (X.col(i).array() * Y.array() / (inv_sds_X * inv_sds_Y)).sum() / df;
-        r(i) = r(i) * r(i);
-    }
-    return r;
-}
-
-// X is nsamples x nsnps;
-// ws stores the starts of windows
-// we stores the number of sites in a window
-// return cor matrix of (nsnps - w + 1, w);
-void cor_by_window(const std::string & fileout,
-                   MyMatrix & X,
-                   const std::vector<int> & ws,
-                   const std::vector<int> & we,
-                   double r2_tol = 0.0)
-{
-    X.rowwise() -= X.colwise().mean(); // Centering
-    std::ofstream ofs_out(fileout + ".ld.prune.out");
-    std::ofstream ofs_in(fileout + ".ld.prune.in");
-    ArrayXb keep = ArrayXb::Constant(X.cols(), true);
-    for(int i = 0; i < ws.size(); i++)
-    {
-        MyVector r2 = cor_cross(X.middleCols(ws[i], we[i]), X.col(ws[i]));
-        for(int j = 1; j < we[i]; j++)
-            if(r2[j] > r2_tol) keep(ws[i] + j) = false;
-    }
-    std::ifstream fin(fileout + ".kept.bim");
-    if(!fin.is_open()) throw invalid_argument("can not open " + fileout + ".kept.bim");
-    std::string line, chr_cur, chr_prev, sep{" \t"};
-    int i = 0;
-    while(getline(fin, line))
-    {
-        if(keep(i))
-            ofs_in << line << std::endl;
-        else
-            ofs_out << line << std::endl;
-        i++;
-    }
-}
-
-void calc_ld_metrics(const std::string & fileout,
-                     MyMatrix & G,
-                     const MyMatrix & U,
-                     const MyVector & S,
-                     const MyMatrix & V,
-                     const std::vector<int> & snp_pos,
-                     const std::vector<int> & chr_pos_end,
-                     int ld_window_bp,
-                     double r2_tol = 0.5)
-{
-    cao << tick.date() << "start calculating ld  metrics" << std::endl;
-    G -= U * S.asDiagonal() * V.transpose(); // get residuals matrix
-#if defined(DEBUG)
-    std::ofstream ofs_res(fileout + ".residuals");
-    ofs_res.write((char *)G.data(), G.size() * sizeof(double));
-    std::ofstream ofs_win(fileout + ".ld.window");
-    ofs_win << "#window\tchr\tpos_start\tpos_end\tnsites" << std::endl;
-#endif
-    std::vector<int> ws, we;
-    int nsnp = snp_pos.size();
-    int j{0}, c{0}, w{0}, pos_end, nsites;
-    for(int i = 0; i < nsnp; i++)
-    {
-        pos_end = snp_pos[chr_pos_end[c]];
-        for(j = i; j < chr_pos_end[c]; j++)
-            if(snp_pos[j] > snp_pos[i] + ld_window_bp) break;
-        nsites = j - i + 1;
-        ws.push_back(i); // start of the window
-        we.push_back(nsites); // the number of sites
-        if(c == chr_pos_end.size() - 1 && pos_end < snp_pos[i] + ld_window_bp) break;
-        if(c < chr_pos_end.size() - 1 && pos_end < snp_pos[i] + ld_window_bp) i = chr_pos_end[c++];
-#if defined(DEBUG)
-        ofs_win << w++ << "\t" << c + 1 << "\t" << snp_pos[i] << "\t" << snp_pos[j] << "\t" << nsites
-                << std::endl;
-#endif
-    }
-    MyVector sds = 1.0 / calc_sds(G).array();
-    ArrayXb keep = ArrayXb::Constant(G.cols(), true);
-    const double df = 1.0 / (G.rows() - 1); // N-1
-    for(int i = 0; i < (int)ws.size(); i++)
-    {
-        if(i % 10000 == 1) std::cerr << timestamp() << "window:" << i << std::endl;
-#pragma omp parallel for
-        for(int j = 1; j < we[i]; j++)
-        {
-            int k = ws[i] + j;
-            if(!keep(k)) continue;
-            auto r = (G.col(ws[i]).array() * G.col(k).array() * (sds(ws[i]) * sds(k))).sum() * df;
-            if(r * r > r2_tol) keep(k) = false;
-        }
-    }
-    std::ifstream fin(fileout + ".kept.bim");
-    if(!fin.is_open()) throw invalid_argument("can not open " + fileout + ".kept.bim");
-    std::ofstream ofs_out(fileout + ".ld.prune.out");
-    std::ofstream ofs_in(fileout + ".ld.prune.in");
-    std::string line;
-    int i = 0;
-    while(getline(fin, line))
-    {
-        if(keep(i))
-            ofs_in << line << std::endl;
-        else
-            ofs_out << line << std::endl;
-        i++;
-    }
-}
-
 std::vector<std::string> split_string(const std::string & s, const std::string & separators)
 {
     std::vector<std::string> ret;
@@ -410,4 +266,74 @@ void get_snp_pos_bim(const std::string & filebim, std::vector<int> & pos, std::v
         pos[i++] = std::stoi(tokens[3]);
     }
     chr_pos_end.push_back(i); // add the last SNP
+}
+
+MyVector calc_sds(const MyMatrix & X)
+{
+    // compute degree of freedom
+    const int df = X.rows() - 1; // N-1
+    return (X.array().square().colwise().sum() / df).sqrt();
+}
+
+void calc_ld_metrics(const std::string & fileout,
+                     const MyMatrix & G,
+                     const std::vector<int> & snp_pos,
+                     const std::vector<int> & chr_pos_end,
+                     int ld_window_bp,
+                     double r2_tol = 0.5)
+{
+    cao << tick.date() << "start calculating ld  metrics" << std::endl;
+#if defined(DEBUG)
+    std::ofstream ofs_res(fileout + ".residuals");
+    ofs_res.write((char *)G.data(), G.size() * sizeof(double));
+    std::ofstream ofs_win(fileout + ".ld.window");
+    ofs_win << "#window\tchr\tpos_start\tpos_end\tnsites" << std::endl;
+#endif
+    std::vector<int> ws, we;
+    int nsnp = snp_pos.size();
+    int j{0}, c{0}, w{0}, pos_end, nsites;
+    for(int i = 0; i < nsnp; i++)
+    {
+        pos_end = snp_pos[chr_pos_end[c]];
+        for(j = i; j < chr_pos_end[c]; j++)
+            if(snp_pos[j] > snp_pos[i] + ld_window_bp) break;
+        nsites = j - i + 1;
+        ws.push_back(i); // start of the window
+        we.push_back(nsites); // the number of sites
+        if(c == chr_pos_end.size() - 1 && pos_end < snp_pos[i] + ld_window_bp) break;
+        if(c < chr_pos_end.size() - 1 && pos_end < snp_pos[i] + ld_window_bp) i = chr_pos_end[c++];
+#if defined(DEBUG)
+        ofs_win << w++ << "\t" << c + 1 << "\t" << snp_pos[i] << "\t" << snp_pos[j] << "\t" << nsites
+                << std::endl;
+#endif
+    }
+    MyVector sds = 1.0 / calc_sds(G).array();
+    ArrayXb keep = ArrayXb::Constant(G.cols(), true);
+    const double df = 1.0 / (G.rows() - 1); // N-1
+    for(int i = 0; i < (int)ws.size(); i++)
+    {
+        if(i % 100000 == 1) std::cerr << timestamp() << "window:" << i << std::endl;
+#pragma omp parallel for
+        for(int j = 1; j < we[i]; j++)
+        {
+            int k = ws[i] + j;
+            if(!keep(k)) continue;
+            auto r = (G.col(ws[i]).array() * G.col(k).array() * (sds(ws[i]) * sds(k))).sum() * df;
+            if(r * r > r2_tol) keep(k) = false;
+        }
+    }
+    std::ifstream fin(fileout + ".kept.bim");
+    if(!fin.is_open()) throw invalid_argument("can not open " + fileout + ".kept.bim");
+    std::ofstream ofs_out(fileout + ".ld.prune.out");
+    std::ofstream ofs_in(fileout + ".ld.prune.in");
+    std::string line;
+    int i = 0;
+    while(getline(fin, line))
+    {
+        if(keep(i))
+            ofs_in << line << std::endl;
+        else
+            ofs_out << line << std::endl;
+        i++;
+    }
 }

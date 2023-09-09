@@ -80,22 +80,9 @@ void mev_rmse_byk(const MyMatrix & X, const MyMatrix & Y, MyVector & Vm, MyVecto
 double get_median(std::vector<double> v);
 
 MyVector calc_sds(const MyMatrix & X);
-MyVector calc_cor_load_sds(const MyMatrix & X, const MyVector& S);
-MyVector cor_cross(const MyMatrix & X, const MyVector & Y);
 
-void cor_by_window(
-                   const std::string & fileout,
-                   MyMatrix & X,
-                   const std::vector<int> & ws,
-                   const std::vector<int> & we,
-                   double r2_tol);
-
-void calc_ld_metrics(
-                     const std::string & fileout,
-                     MyMatrix & G,
-                     const MyMatrix & U,
-                     const MyVector & S,
-                     const MyMatrix & V,
+void calc_ld_metrics(const std::string & fileout,
+                     const MyMatrix & G,
                      const std::vector<int> & snp_pos,
                      const std::vector<int> & chr_pos_end,
                      int ld_window_bp,
