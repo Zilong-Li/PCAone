@@ -327,7 +327,7 @@ void calc_ld_metrics(const std::string & fileout,
 #endif
     std::vector<int> ws, we;
     int nsnp = snp_pos.size();
-    int j{0}, c{0}, pos_end, nsites;
+    int j{0}, c{0}, w{0}, pos_end, nsites;
     for(int i = 0; i < nsnp; i++)
     {
         pos_end = snp_pos[chr_pos_end[c]];
@@ -343,13 +343,20 @@ void calc_ld_metrics(const std::string & fileout,
                 << std::endl;
 #endif
     }
-    MyVector sds = calc_sds(G);
+    MyVector sds = 1.0 / calc_sds(G).array();
     ArrayXb keep = ArrayXb::Constant(G.cols(), true);
-    for(int i = 0; i < ws.size(); i++)
+    const double df = 1.0 / (G.rows() - 1); // N-1
+    for(int i = 0; i < (int)ws.size(); i++)
     {
-        auto r2 = calc_cor_load_sds(G.middleCols(ws[i], we[i]), sds.segment(ws[i], we[i]));
+        if(i % 10000 == 1) std::cerr << timestamp() << "window:" << i << std::endl;
+#pragma omp parallel for
         for(int j = 1; j < we[i]; j++)
-            if(r2[j] > r2_tol) keep(ws[i] + j) = false;
+        {
+            int k = ws[i] + j;
+            if(!keep(k)) continue;
+            auto r = (G.col(ws[i]).array() * G.col(k).array() * (sds(ws[i]) * sds(k))).sum() * df;
+            if(r * r > r2_tol) keep(k) = false;
+        }
     }
     std::ifstream fin(fileout + ".kept.bim");
     if(!fin.is_open()) throw invalid_argument("can not open " + fileout + ".kept.bim");
