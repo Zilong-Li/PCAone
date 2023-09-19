@@ -105,7 +105,7 @@ void run_pca_with_arnoldi(Data * data, const Param & params)
                 cao << tick.date() << "individual allele frequencies estimated (iter=" << i
                     << "), RMSE=" << diff << ".\n";
             V = V2;
-            if(diff < params.tol)
+            if(diff < params.tolem)
             {
                 cao << tick.date() << "come to convergence!\n";
                 break;

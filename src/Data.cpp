@@ -91,7 +91,7 @@ void Data::filterSNPs_resizeF()
     Eigen::Index i = 0;
     for(Eigen::Index j = 0; j < F.size(); j++)
     {
-        if(F(j) > params.maf)
+        if((F(j) > params.maf) && (F(j) < 1 - params.maf))
         {
             keepSNPs.push_back(j); // keep track of index of element > maf
             Fnew(i++) = F(j);
