@@ -42,7 +42,6 @@ Param::Param(int argc, char ** argv)
                           scale,  &scale);
     opts.add<Switch>("", "emu", "use EMU algorithm for genotype data with missingness", &emu);
     opts.add<Switch>("", "pcangsd", "use PCAngsd algorithm for genotype likelihood input", &pcangsd);
-    opts.add<Switch>("", "ld", "estimate ld for admixed population", &ld);
     opts.add<Value<uint>>("", "ld-window", "ld window size in base units instead of number of sites", ld_window_bp, &ld_window_bp);
     opts.add<Value<double>>("", "ld-r2", "r2 tolerance for ld", tolld, &tolld);
     opts.add<Value<double>>("", "maf", "skip variants with minor allele frequency below maf", maf, &maf);

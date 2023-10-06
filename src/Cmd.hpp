@@ -59,8 +59,6 @@ class Param
     double tol = 1e-4;
     uint buffer = 2;
     uint rand = 1;
-    // for ld
-    double tolld = 0;
 
     // general
     uint scale = 0; // do scaling. 0: just centering. 1: log scaling. 2: cpmed
@@ -79,7 +77,8 @@ class Param
     bool diploid = false;
 
     // ld
-    bool ld = false;
+    double tolld = 0;
+    bool ld = false; // true if tolld > 0
     uint ld_window_bp = 1000000; // base pairs not number of snps
 
     std::ostringstream ss;
