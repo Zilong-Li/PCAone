@@ -1,5 +1,5 @@
 #+TITLE: PCAone - Principal Component Analysis All in One
-#+options: toc:2 num:t email:t
+#+options: toc:2 num:nil email:t
 #+email: zilong.dk@gmail.com
 #+latex_class: article
 #+latex_class_options: [a4paper, 11pt]
