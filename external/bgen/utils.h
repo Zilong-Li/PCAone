@@ -1,6 +1,7 @@
 #ifndef BGEN_UTILS_H_
 #define BGEN_UTILS_H_
 
+#include <cstdint>
 #include <bitset>
 #include <cmath>
 #include <fstream>
