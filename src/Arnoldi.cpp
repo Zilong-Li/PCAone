@@ -84,7 +84,13 @@ void run_pca_with_arnoldi(Data * data, const Param & params)
             data->write_eigs_files(evals, U, V);
             if(params.ld)
             {
+#if defined(DEBUG)
+                cao << tick.date() << "calc_ld_metrics with cented genotype matrix!\n";
+                calc_ld_metrics(params.fileout + ".std", data->G, data->snp_pos,data->chr_pos_end, params.ld_window_bp,
+                                params.tolld, params.verbose);
+#endif
                 data->G -= U * svals.asDiagonal() * V.transpose(); // get residuals matrix
+                cao << tick.date() << "calc_ld_metrics with residuals matrix !\n";
                 calc_ld_metrics(params.fileout, data->G, data->snp_pos,data->chr_pos_end, params.ld_window_bp,
                                 params.tolld, params.verbose);
             }

@@ -275,7 +275,7 @@ MyVector calc_sds(const MyMatrix & X)
     return (X.array().square().colwise().sum() / df).sqrt();
 }
 
-void calc_ld_metrics(const std::string & fileout,
+void calc_ld_metrics(std::string fileout,
                      const MyMatrix & G,
                      const std::vector<int> & snp_pos,
                      const std::vector<int> & chr_pos_end,
