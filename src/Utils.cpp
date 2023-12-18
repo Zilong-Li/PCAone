@@ -275,8 +275,47 @@ MyVector calc_sds(const MyMatrix & X)
     return (X.array().square().colwise().sum() / df).sqrt();
 }
 
+// void calc_ld_metrics(std::string fileout,
+//                      MyMatrix & G,
+//                      const std::vector<int> & pos,
+//                      int window,
+//                      double cutoff)
+// {
+//     cao << tick.date() << "start calculating ld  metrics" << std::endl;
+//     G.rowwise() -= G.colwise().mean(); // Centering
+//     MyVector sds = 1.0 / calc_sds(G).array();
+//     int m = G.cols();
+//     ArrayXb keep = ArrayXb::Constant(G.cols(), true);
+//     const double df = 1.0 / (G.rows() - 1); // N-1
+//     for(int i = 0; i < m; i++) {
+//         if(!keep[i]) continue;
+//         for(int j = i + 1; j < m; j++) {
+//             if(!keep[j]) continue;
+//             if(pos[j] - pos[i] > window) break;
+//             double r  = (G.col(j).array() * G.col(i).array() * (sds(j) * sds(i))).sum() * df;
+//             if( r * r > cutoff) keep[j] = 0;
+//         }
+//     }
+//     cao << keep << endl;
+//     std::ifstream fin(fileout + ".kept.bim");
+//     if(!fin.is_open()) throw invalid_argument("can not open " + fileout + ".kept.bim");
+//     std::ofstream ofs_out(fileout + ".ld.prune.out");
+//     std::ofstream ofs_in(fileout + ".ld.prune.in");
+//     std::string line;
+//     int i = 0;
+//     while(getline(fin, line))
+//     {
+//         if(keep(i))
+//             ofs_in << line << std::endl;
+//         else
+//             ofs_out << line << std::endl;
+//         i++;
+//     }
+// }
+
 void calc_ld_metrics(std::string fileout,
-                     const MyMatrix & G,
+                     MyMatrix & G,
+                     const MyVector & F,
                      const std::vector<int> & snp_pos,
                      const std::vector<int> & chr_pos_end,
                      int ld_window_bp,
@@ -284,6 +323,7 @@ void calc_ld_metrics(std::string fileout,
                      bool verbose = false)
 {
     cao << tick.date() << "start calculating ld  metrics" << std::endl;
+    G.rowwise() -= G.colwise().mean(); // Centering
 #if defined(DEBUG)
     std::ofstream ofs_res(fileout + ".residuals");
     ofs_res.write((char *)G.data(), G.size() * sizeof(double));
@@ -295,32 +335,37 @@ void calc_ld_metrics(std::string fileout,
     int j{0}, c{0}, w{0}, pos_end, nsites;
     for(int i = 0; i < nsnp; i++)
     {
-        pos_end = snp_pos[chr_pos_end[c]];
-        for(j = i; j < chr_pos_end[c]; j++)
-            if(snp_pos[j] > snp_pos[i] + ld_window_bp) break;
-        nsites = j - i + 1;
-        ws.push_back(i); // start of the window
+        if(snp_pos[i] == snp_pos[chr_pos_end[c]]) {
+            c++;
+            continue;
+        }
+        for(j = i; j <= chr_pos_end[c]; j++)
+            if(snp_pos[j] - snp_pos[i] > ld_window_bp) break;
+        nsites = j - i;
+        ws.push_back(i); // start pos in the window
         we.push_back(nsites); // the number of sites
-        if(c == chr_pos_end.size() - 1 && pos_end < snp_pos[i] + ld_window_bp) break;
-        if(c < chr_pos_end.size() - 1 && pos_end < snp_pos[i] + ld_window_bp) i = chr_pos_end[c++];
 #if defined(DEBUG)
-        ofs_win << w++ << "\t" << c + 1 << "\t" << snp_pos[i] << "\t" << snp_pos[j] << "\t" << nsites
+        ofs_win << w++ << "\t" << c + 1 << "\t" << snp_pos[i] << "\t" << snp_pos[j-1] << "\t" << nsites
                 << std::endl;
 #endif
     }
     MyVector sds = 1.0 / calc_sds(G).array();
     ArrayXb keep = ArrayXb::Constant(G.cols(), true);
     const double df = 1.0 / (G.rows() - 1); // N-1
-    for(int i = 0; i < (int)ws.size(); i++)
+    for(w = 0; w < (int)ws.size(); w++)
     {
-        if(verbose && i % 100000 == 1) cao << tick.date() << "window:" << i << std::endl;
+        int i = ws[w];
+        if(!keep(i)) continue;
 #pragma omp parallel for
-        for(int j = 1; j < we[i]; j++)
+        for(int j = 1; j < we[w]; j++)
         {
-            int k = ws[i] + j;
+            int k = i + j;
             if(!keep(k)) continue;
-            auto r = (G.col(ws[i]).array() * G.col(k).array() * (sds(ws[i]) * sds(k))).sum() * df;
-            if(r * r > r2_tol) keep(k) = false;
+            double r = (G.col(i).array() * G.col(k).array() * (sds(i) * sds(k))).sum() * df;
+            if(r * r > r2_tol) {
+                int o = F(k) > F(i) ? i : k;
+                keep(o) = false;   
+            }
         }
     }
     std::ifstream fin(fileout + ".kept.bim");

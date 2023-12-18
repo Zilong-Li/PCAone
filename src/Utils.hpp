@@ -81,8 +81,15 @@ double get_median(std::vector<double> v);
 
 MyVector calc_sds(const MyMatrix & X);
 
-void calc_ld_metrics(const std::string & fileout,
-                     const MyMatrix & G,
+// void calc_ld_metrics(std::string fileout,
+//                      MyMatrix & G,
+//                      const std::vector<int> & pos,
+//                      int ld_window_bp,
+//                      double r2_tol);
+
+void calc_ld_metrics(std::string fileout,
+                     MyMatrix & G,
+                     const MyVector & F,
                      const std::vector<int> & snp_pos,
                      const std::vector<int> & chr_pos_end,
                      int ld_window_bp,
