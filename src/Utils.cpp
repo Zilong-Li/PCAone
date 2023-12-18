@@ -275,44 +275,6 @@ MyVector calc_sds(const MyMatrix & X)
     return (X.array().square().colwise().sum() / df).sqrt();
 }
 
-// void calc_ld_metrics(std::string fileout,
-//                      MyMatrix & G,
-//                      const std::vector<int> & pos,
-//                      int window,
-//                      double cutoff)
-// {
-//     cao << tick.date() << "start calculating ld  metrics" << std::endl;
-//     G.rowwise() -= G.colwise().mean(); // Centering
-//     MyVector sds = 1.0 / calc_sds(G).array();
-//     int m = G.cols();
-//     ArrayXb keep = ArrayXb::Constant(G.cols(), true);
-//     const double df = 1.0 / (G.rows() - 1); // N-1
-//     for(int i = 0; i < m; i++) {
-//         if(!keep[i]) continue;
-//         for(int j = i + 1; j < m; j++) {
-//             if(!keep[j]) continue;
-//             if(pos[j] - pos[i] > window) break;
-//             double r  = (G.col(j).array() * G.col(i).array() * (sds(j) * sds(i))).sum() * df;
-//             if( r * r > cutoff) keep[j] = 0;
-//         }
-//     }
-//     cao << keep << endl;
-//     std::ifstream fin(fileout + ".kept.bim");
-//     if(!fin.is_open()) throw invalid_argument("can not open " + fileout + ".kept.bim");
-//     std::ofstream ofs_out(fileout + ".ld.prune.out");
-//     std::ofstream ofs_in(fileout + ".ld.prune.in");
-//     std::string line;
-//     int i = 0;
-//     while(getline(fin, line))
-//     {
-//         if(keep(i))
-//             ofs_in << line << std::endl;
-//         else
-//             ofs_out << line << std::endl;
-//         i++;
-//     }
-// }
-
 void calc_ld_metrics(std::string fileout,
                      MyMatrix & G,
                      const MyVector & F,
@@ -332,10 +294,11 @@ void calc_ld_metrics(std::string fileout,
 #endif
     std::vector<int> ws, we;
     int nsnp = snp_pos.size();
-    int j{0}, c{0}, w{0}, pos_end, nsites;
+    int j{0}, c{0}, w{0}, nsites;
     for(int i = 0; i < nsnp; i++)
     {
-        if(snp_pos[i] == snp_pos[chr_pos_end[c]]) {
+        if(snp_pos[i] == snp_pos[chr_pos_end[c]])
+        {
             c++;
             continue;
         }
@@ -345,7 +308,7 @@ void calc_ld_metrics(std::string fileout,
         ws.push_back(i); // start pos in the window
         we.push_back(nsites); // the number of sites
 #if defined(DEBUG)
-        ofs_win << w++ << "\t" << c + 1 << "\t" << snp_pos[i] << "\t" << snp_pos[j-1] << "\t" << nsites
+        ofs_win << w++ << "\t" << c + 1 << "\t" << snp_pos[i] << "\t" << snp_pos[j - 1] << "\t" << nsites
                 << std::endl;
 #endif
     }
@@ -362,9 +325,10 @@ void calc_ld_metrics(std::string fileout,
             int k = i + j;
             if(!keep(k)) continue;
             double r = (G.col(i).array() * G.col(k).array() * (sds(i) * sds(k))).sum() * df;
-            if(r * r > r2_tol) {
+            if(r * r > r2_tol)
+            {
                 int o = F(k) > F(i) ? i : k;
-                keep(o) = false;   
+                keep(o) = false;
             }
         }
     }

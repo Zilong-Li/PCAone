@@ -411,8 +411,9 @@ void run_pca_with_halko(Data * data, const Param & params)
                                 params.tolld, params.verbose);
 #endif
                 data->G -= rsvd->U * rsvd->S.asDiagonal() * rsvd->V.transpose(); // get residuals matrix
-                calc_ld_metrics(params.fileout, data->G, data->F, data->snp_pos, data->chr_pos_end, params.ld_window_bp,
-                            params.tolld, params.verbose);
+                if(params.ld_snps.empty())
+                    calc_ld_metrics(params.fileout, data->G, data->F, data->snp_pos, data->chr_pos_end, params.ld_window_bp,
+                                    params.tolld, params.verbose);
                 return;
         }
     }
@@ -456,8 +457,7 @@ void run_pca_with_halko(Data * data, const Param & params)
             // Eigen::SelfAdjointEigenSolver<MyMatrix> eig(C);
             // use Eigen::JacobiSVD to get eigenvecs
             Eigen::JacobiSVD<MyMatrix> svd(C, Eigen::ComputeThinU | Eigen::ComputeThinV);
-            data->write_eigs_files(svd.singularValues().head(params.k), svd.matrixU().leftCols(params.k),
-                                   svd.matrixU().leftCols(params.k));
+            data->write_eigs_files(svd.singularValues(), svd.matrixU(), svd.matrixU());
         }
         else
         {

@@ -80,6 +80,7 @@ class Param
     double tolld = 0;
     bool ld = false; // true if tolld > 0
     uint ld_window_bp = 1000000; // base pairs not number of snps
+    std::string ld_snps;
 
     std::ostringstream ss;
 };

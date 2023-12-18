@@ -44,6 +44,7 @@ Param::Param(int argc, char ** argv)
     opts.add<Switch>("", "pcangsd", "use PCAngsd algorithm for genotype likelihood input", &pcangsd);
     opts.add<Value<uint>>("", "ld-window", "ld window size in base units instead of number of sites", ld_window_bp, &ld_window_bp);
     opts.add<Value<double>>("", "ld-r2", "r2 tolerance for ld", tolld, &tolld);
+    auto snpfile = opts.add<Value<std::string>>("", "ld-snps", "A list of SNPs in bim file for pairwise ld-r2", "", &ld_snps);
     opts.add<Value<double>>("", "maf", "skip variants with minor allele frequency below maf", maf, &maf);
     opts.add<Switch>("U", "printu", "output eigen vector of each epoch (for tests)", &printu);
     opts.add<Switch>("V", "printv", "output the right eigen vectors with suffix .loadings", &printv);
