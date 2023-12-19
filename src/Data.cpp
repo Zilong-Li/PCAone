@@ -173,6 +173,7 @@ void Data::calcu_vt_update(const MyMatrix & T,
 
 void Data::write_eigs_files(const MyVector & S, const MyMatrix & U, const MyMatrix & V)
 {
+    cao << tick.date() << "outputting eigen values" << std::endl;
     std::ofstream outs(params.fileout + ".eigvals");
     std::ofstream outu(params.fileout + ".eigvecs");
     Eigen::IOFormat fmt(6, Eigen::DontAlignCols, "\t", "\n");
