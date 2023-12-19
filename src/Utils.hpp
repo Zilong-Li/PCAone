@@ -37,6 +37,8 @@ typedef Eigen::Array<bool, Eigen::Dynamic, 1> ArrayXb;
 typedef unsigned char uchar;
 typedef unsigned int uint;
 typedef unsigned long long uint64;
+using Int1D = std::vector<int>;
+using Int2D = std::vector<Int1D>;
 
 struct Line
 {
@@ -81,23 +83,33 @@ double get_median(std::vector<double> v);
 
 MyVector calc_sds(const MyMatrix & X);
 
-// void calc_ld_metrics(std::string fileout,
-//                      MyMatrix & G,
-//                      const std::vector<int> & pos,
-//                      int ld_window_bp,
-//                      double r2_tol);
-
 void calc_ld_metrics(std::string fileout,
                      MyMatrix & G,
                      const MyVector & F,
-                     const std::vector<int> & snp_pos,
-                     const std::vector<int> & chr_pos_end,
+                     const Int1D & snp_pos,
+                     const Int1D & chr_pos_end,
                      int ld_window_bp,
                      double r2_tol,
                      bool verbose);
 
+void calc_ld_pairs(std::string fileout,
+                   std::string filebim,
+                   MyMatrix & G,
+                   const MyVector & F,
+                   const Int1D & snp_pos,
+                   const Int1D & chr_pos_end,
+                   const std::vector<std::string> & chrs);
+
 std::vector<std::string> split_string(const std::string & s, const std::string & separators);
 
-void get_snp_pos_bim(const std::string & filebim, std::vector<int> & pos, std::vector<int> & chr_pos_end);
+void get_snp_pos_bim(const std::string & filebim,
+                     Int1D & pos,
+                     Int1D & chr_pos_end,
+                     std::vector<std::string> & chrs);
+
+Int2D get_target_snp_idx(const std::string & filebim,
+                         const Int1D & pos,
+                         const Int1D & chr_pos_end,
+                         const std::vector<std::string> & chrs);
 
 #endif // PCAONE_UTILES_

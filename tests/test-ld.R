@@ -26,3 +26,19 @@ out <- bim[as.logical(keep),]
 write.table(out, paste0(bfile, ".ld.prune.in"), quote=F, row.name=F, col.names=F, sep="\t")
 saveRDS(list(keep, bim), paste0(bfile, ".rds"))
 
+bin <- "pcaone.ld.chr1"
+con <- file(bin, "rb")
+n <- readBin(con, integer(), n=1)
+
+m <- array(0, dim=c(n, n))
+for(i in 1:n){
+  c = n - i + 1
+  m[i,i:n] <- readBin(con, numeric(), n=c, size = 8)
+}
+
+S <- file.size(bin) # file size
+S <- S - 4
+L <- n * (n + 1.0) / 2.0
+U <- S / L
+m[upper.tri(m, 1)]
+

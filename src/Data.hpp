@@ -60,6 +60,7 @@ class Data
     ArrayXb C; // boolean array indicates if a ind's snp is missing and need to be predicted.
     MyArrayX centered_geno_lookup;
     std::vector<Eigen::Index> keepSNPs; // store index of SNPs to keep
+    std::vector<std::string> chromosomes;
     std::vector<int> snp_pos;
     std::vector<int> chr_pos_end; // store the last SNP in snp_pos in each chromosom
     PermMat perm;

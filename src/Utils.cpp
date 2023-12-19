@@ -1,6 +1,7 @@
 #include "Utils.hpp"
 
 #include <stdexcept>
+#include <unordered_map>
 #include <vector>
 
 using namespace std;
@@ -250,8 +251,11 @@ std::vector<std::string> split_string(const std::string & s, const std::string &
     return ret;
 }
 
-// resize pos beforehand
-void get_snp_pos_bim(const std::string & filebim, std::vector<int> & pos, std::vector<int> & chr_pos_end)
+// could use a new struct
+void get_snp_pos_bim(const std::string & filebim,
+                     Int1D & pos,
+                     Int1D & chr_pos_end,
+                     std::vector<std::string> & chrs)
 {
     std::ifstream fin(filebim);
     if(!fin.is_open()) throw invalid_argument("can not open " + filebim);
@@ -261,11 +265,54 @@ void get_snp_pos_bim(const std::string & filebim, std::vector<int> & pos, std::v
     {
         auto tokens = split_string(line, sep);
         chr_cur = tokens[0];
-        if(!chr_prev.empty() && chr_prev != chr_cur) chr_pos_end.push_back(i);
+        if(chr_prev.empty()) chrs.push_back(chr_cur);
+        if(!chr_prev.empty() && chr_prev != chr_cur)
+        {
+            chr_pos_end.push_back(i);
+            chrs.push_back(chr_cur);
+        }
         chr_prev = chr_cur;
-        pos[i++] = std::stoi(tokens[3]);
+        pos.push_back(std::stoi(tokens[3]));
+        i++;
     }
     chr_pos_end.push_back(i); // add the last SNP
+}
+
+// given a list of snps, find its index per chr in the original pos
+// assume chromosomes are continuous
+Int2D get_target_snp_idx(const std::string & filebim,
+                         const Int1D & pos,
+                         const Int1D & chr_pos_end,
+                         const std::vector<std::string> & chrs)
+{
+    Int1D t_pos, t_chr_pos_end, idx;
+    std::vector<std::string> t_chrs;
+    get_snp_pos_bim(filebim, t_pos, t_chr_pos_end, t_chrs);
+    std::unordered_map<int, int> mpos;
+    std::ifstream fin(filebim);
+    if(!fin.is_open()) throw invalid_argument("can not open " + filebim);
+    std::string line, chr_cur, chr_prev, sep{" \t"};
+    int c, s, e, p, i;
+    Int2D ret(t_chrs.size());
+    for(int tc = 0; tc < (int)t_chrs.size(); tc++)
+    {
+        for(c = 0; c < (int)chrs.size(); c++)
+            if(chrs[c] == t_chrs[tc]) break;
+        e = chr_pos_end[c];
+        s = c > 0 ? chr_pos_end[c - 1] : 0;
+        for(i = s; i < e; i++) mpos[pos[i]] = i;
+        e = t_chr_pos_end[tc];
+        s = tc > 0 ? t_chr_pos_end[tc - 1] : 0;
+        for(i = s; i < e; i++)
+        {
+            p = t_pos[i];
+            if(mpos.count(p)) idx.push_back(mpos[p]);
+        }
+        ret[tc] = idx;
+        idx.clear();
+        mpos.clear();
+    }
+    return ret;
 }
 
 MyVector calc_sds(const MyMatrix & X)
@@ -278,8 +325,8 @@ MyVector calc_sds(const MyMatrix & X)
 void calc_ld_metrics(std::string fileout,
                      MyMatrix & G,
                      const MyVector & F,
-                     const std::vector<int> & snp_pos,
-                     const std::vector<int> & chr_pos_end,
+                     const Int1D & snp_pos,
+                     const Int1D & chr_pos_end,
                      int ld_window_bp,
                      double r2_tol,
                      bool verbose = false)
@@ -292,7 +339,7 @@ void calc_ld_metrics(std::string fileout,
     std::ofstream ofs_win(fileout + ".ld.window");
     ofs_win << "#window\tchr\tpos_start\tpos_end\tnsites" << std::endl;
 #endif
-    std::vector<int> ws, we;
+    Int1D ws, we;
     int nsnp = snp_pos.size();
     int j{0}, c{0}, w{0}, nsites;
     for(int i = 0; i < nsnp; i++)
@@ -345,5 +392,40 @@ void calc_ld_metrics(std::string fileout,
         else
             ofs_out << line << std::endl;
         i++;
+    }
+}
+
+void calc_ld_pairs(std::string fileout,
+                   std::string filebim,
+                   MyMatrix & G,
+                   const MyVector & F,
+                   const Int1D & snp_pos,
+                   const Int1D & chr_pos_end,
+                   const std::vector<std::string> & chrs)
+{
+    cao << tick.date() << "start calculating pairwise ld r2 given a list of SNPs " << std::endl;
+    G.rowwise() -= G.colwise().mean(); // Centering
+    MyVector sds = 1.0 / calc_sds(G).array();
+    const double df = 1.0 / (G.rows() - 1); // N-1
+    Int2D idx_per_chr = get_target_snp_idx(filebim, snp_pos, chr_pos_end, chrs);
+#pragma omp parallel for
+    for(int i = 0; i < (int)idx_per_chr.size(); i++)
+    {
+        auto idx = idx_per_chr[i];
+        std::ofstream ofs(fileout + ".ld.chr." + std::to_string(i + 1), std::ios::binary);
+        int m = idx.size();
+        ofs.write((char *)&m, sizeof(m));
+        // calc pairwise r2 for G[,idx]
+        for(int j = 0; j < m; j++)
+        {
+            // output diagnal, k = j
+            for(int k = j ; k < m; k++)
+            {
+                double r =
+                    (G.col(idx[j]).array() * G.col(idx[k]).array() * (sds(idx[j]) * sds(idx[k]))).sum() * df;
+                r *= r;
+                ofs.write((char *)&r, sizeof(r));
+            }
+        }
     }
 }

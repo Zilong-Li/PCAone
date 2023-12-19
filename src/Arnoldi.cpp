@@ -89,13 +89,17 @@ void run_pca_with_arnoldi(Data * data, const Param & params)
                 std::ifstream fsrc(params.fileout + ".kept.bim", std::ios::binary);
                 std::ofstream fdes(params.fileout + ".std.kept.bim", std::ios::binary);
                 fdes << fsrc.rdbuf();
-                calc_ld_metrics(params.fileout + ".std", data->G, data->F, data->snp_pos, data->chr_pos_end, params.ld_window_bp,
-                                params.tolld, params.verbose);
+                calc_ld_metrics(params.fileout + ".std", data->G, data->F, data->snp_pos, data->chr_pos_end,
+                                params.ld_window_bp, params.tolld, params.verbose);
 #endif
                 data->G -= U * svals.asDiagonal() * V.transpose(); // get residuals matrix
                 cao << tick.date() << "calc_ld_metrics with residuals matrix !\n";
-                calc_ld_metrics(params.fileout, data->G, data->F, data->snp_pos, data->chr_pos_end, params.ld_window_bp,
-                                params.tolld, params.verbose);
+                if(params.ld_snps.empty())
+                    calc_ld_metrics(params.fileout, data->G, data->F, data->snp_pos, data->chr_pos_end,
+                                    params.ld_window_bp, params.tolld, params.verbose);
+                else
+                    calc_ld_pairs(params.fileout, params.ld_snps, data->G, data->F, data->snp_pos,
+                                  data->chr_pos_end, data->chromosomes);
             }
             return;
         }
