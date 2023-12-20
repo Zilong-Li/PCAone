@@ -1,7 +1,7 @@
 library(genio)
 library(Rcpp)
 
-sourceCpp("tests/test-cor.cpp")
+sourceCpp("tests/test-permutation.cpp")
 
 ## n <- 10000
 ## x <- runif(n)

@@ -190,6 +190,7 @@ void Data::write_eigs_files(const MyVector & S, const MyMatrix & U, const MyMatr
         std::ofstream outv(params.fileout + ".loadings");
         if(outv.is_open()) outv << V.format(fmt) << '\n';
     }
+    cao << tick.date() << "done outputting eigen values" << std::endl;
 }
 
 void Data::update_batch_E(const MyMatrix & U, const MyVector & svals, const MyMatrix & VT)

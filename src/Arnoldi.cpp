@@ -93,7 +93,7 @@ void run_pca_with_arnoldi(Data * data, const Param & params)
                                 params.ld_window_bp, params.tolld, params.verbose);
 #endif
                 data->G -= U * svals.asDiagonal() * V.transpose(); // get residuals matrix
-                cao << tick.date() << "calc_ld_metrics with residuals matrix !\n";
+                cao << tick.date() << "calc_ld_metrics with residuals matrix !" << std::endl;
                 if(params.ld_snps.empty())
                     calc_ld_metrics(params.fileout, data->G, data->F, data->snp_pos, data->chr_pos_end,
                                     params.ld_window_bp, params.tolld, params.verbose);

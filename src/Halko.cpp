@@ -411,7 +411,7 @@ void run_pca_with_halko(Data * data, const Param & params)
                             params.ld_window_bp, params.tolld, params.verbose);
 #endif
             data->G -= rsvd->U * rsvd->S.asDiagonal() * rsvd->V.transpose(); // get residuals matrix
-            cao << tick.date() << "calc_ld_metrics with residuals matrix !\n";
+            cao << tick.date() << "calc_ld_metrics with residuals matrix !" << std::endl;
             if(params.svd_t == SvdType::PCAoneAlg2 && !params.noshuffle)
                 data->G = (data->perm * data->G.transpose()).transpose();
             if(params.ld_snps.empty())
