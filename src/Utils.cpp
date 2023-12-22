@@ -374,7 +374,7 @@ void calc_ld_metrics(std::string fileout,
             double r = (G.col(i).array() * G.col(k).array() * (sds(i) * sds(k))).sum() * df;
             if(r * r > r2_tol)
             {
-                int o = F(k) > F(i) ? i : k;
+                int o = MAF(F(k)) > MAF(F(i)) ? i : k;
                 keep(o) = false;
             }
         }

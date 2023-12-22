@@ -40,6 +40,8 @@ typedef unsigned long long uint64;
 using Int1D = std::vector<int>;
 using Int2D = std::vector<Int1D>;
 
+#define MAF(a) ((a)>0.5?(1-a):(a))
+
 struct Line
 {
     std::string data;
