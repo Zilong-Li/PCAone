@@ -8,7 +8,7 @@ Param::Param(int argc, char ** argv)
 {
     // clang-format off
     std::string copyr{"PCA All In One (v" + (std::string)VERSION + ")        https://github.com/Zilong-Li/PCAone\n" +
-                      "(C) 2021-2022 Zilong Li        GNU General Public License v3\n\n" +
+                      "(C) 2021-2023 Zilong Li        GNU General Public License v3\n\n" +
     "\x1B[32m" +
                       "Usage: use plink files as input and apply the window-based RSVD method\n" +
                       "       PCAone --bfile plink -m 2 -n 20 -k 10\n\n" +
@@ -18,41 +18,41 @@ Param::Param(int argc, char ** argv)
     OptionParser opts(copyr + "Main options");
     auto help_opt = opts.add<Switch>("h", "help", "print list of all options including hidden advanced options");
     auto svd_opt = opts.add<Value<uint>>("d", "svd", "svd method to be applied. default 2 is recommended for big data.\n"
-                                         "0: the Implicitly Restarted Arnoldi Method\n"
+                                         "0: the Implicitly Restarted Arnoldi Method (IRAM)\n"
                                          "1: the Yu's single-pass Randomized SVD with power iterations\n"
-                                         "2: the proposed window-based Randomized SVD  method\n"
+                                         "2: the proposed window-based Randomized SVD method\n"
                                          "3: the full Singular Value Decomposition.", 2);
     auto plinkfile = opts.add<Value<std::string>>("b", "bfile", "prefix to PLINK .bed/.bim/.fam files", "", &filein);
     auto binfile = opts.add<Value<std::string>, Attribute::advanced>("B", "binary", "path of binary file (experimental in-core mode)", "", &filein);
     auto csvfile = opts.add<Value<std::string>>("c", "csv", "path of comma seperated CSV file compressed by zstd", "", &filein);
-    auto bgenfile = opts.add<Value<std::string>>("g", "bgen", "path of BGEN file", "", &filein);
-    auto beaglefile = opts.add<Value<std::string>>("G", "beagle", "path of BEAGLE file", "", &filein);
-    opts.add<Value<uint>>("k", "pc", "top k components to be calculated", k, &k);
-    opts.add<Value<double>>("m", "memory", "specify the RAM usage in GB unit. default [0] uses all RAM", memory, &memory);
+    auto bgenfile = opts.add<Value<std::string>>("g", "bgen", "path of BGEN file compressed by gzip/zstd", "", &filein);
+    auto beaglefile = opts.add<Value<std::string>>("G", "beagle", "path of BEAGLE file compressed by gzip", "", &filein);
+    opts.add<Value<uint>>("k", "pc", "top k eigenvalues (PCs) to be calculated", k, &k);
+    opts.add<Value<double>>("m", "memory", "desired RAM usage in GB unit. default [0] uses all RAM", memory, &memory);
     opts.add<Value<uint>>("n", "threads", "number of threads for multithreading", threads, &threads);
     opts.add<Value<std::string>>("o", "out", "prefix to output files. default [pcaone]", fileout, &fileout);
     opts.add<Value<uint>>("p", "maxp", "maximum number of power iterations for RSVD algorithm", maxp, &maxp);
     opts.add<Switch>("S", "no-shuffle", "do not shuffle the data if it is already permuted", &noshuffle);
     opts.add<Switch>("v", "verbose", "verbose message output", &verbose);
-    opts.add<Value<uint>>("w", "batches", "number of mini-batches to be used by PCAone (algorithm2)", bands, &bands);
+    opts.add<Value<uint>>("w", "batches", "number of mini-batches to be used by PCAone --svd 2", bands, &bands);
     opts.add<Value<uint>>("C", "scale", "do scaling for input file.\n"
                           "0: do just centering\n"
                           "1: do log transformation eg. log(x+0.01) for RNA-seq data\n"
                           "2: do count per median log transformation (CPMED) for scRNAs",
                           scale,  &scale);
-    opts.add<Switch>("", "emu", "use EMU algorithm for genotype data with missingness", &emu);
-    opts.add<Switch>("", "pcangsd", "use PCAngsd algorithm for genotype likelihood input", &pcangsd);
-    opts.add<Value<double>>("", "ld-r2", "r2 tolerance for ld", tolld, &tolld);
-    opts.add<Value<uint>>("", "ld-window", "ld window size in base units instead of number of sites", ld_window_bp, &ld_window_bp);
-    auto snpfile = opts.add<Value<std::string>>("", "ld-snps", "A list of SNPs in bim file for pairwise ld-r2", "", &ld_snps);
+    opts.add<Switch>("", "emu", "uses EMU algorithm for genotype input with missingness", &emu);
+    opts.add<Switch>("", "pcangsd", "uses PCAngsd algorithm for genotype likelihood input", &pcangsd);
+    opts.add<Value<double>>("", "ld-r2", "r2 cutoff for ld pruning", tolld, &tolld);
+    opts.add<Value<uint>>("", "ld-window", "window size in base units for ld pruning", ld_window_bp, &ld_window_bp);
+    auto snpfile = opts.add<Value<std::string>>("", "ld-snps", "a subset of SNPs in bim file for outputting pairwise ld-r2", "", &ld_snps);
     opts.add<Value<double>>("", "maf", "skip variants with minor allele frequency below maf", maf, &maf);
     opts.add<Switch>("U", "printu", "output eigen vector of each epoch (for tests)", &printu);
-    opts.add<Switch>("V", "printv", "output the right eigen vectors with suffix .loadings", &printv);
+    opts.add<Switch>("V", "printv", "output the right eigenvectors with suffix .loadings", &printv);
     opts.add<Value<uint>, Attribute::advanced>("", "M", "number of features (eg. SNPs) if already known", 0, &nsnps);
     opts.add<Value<uint>, Attribute::advanced>("", "N", "number of samples if already known", 0, &nsamples);
     // opts.add<Switch, Attribute::advanced>("", "debug", "turn on debugging mode", &debug);
     opts.add<Switch, Attribute::advanced>("", "haploid", "the plink format represents haploid data", &haploid);
-    opts.add<Value<uint>, Attribute::advanced>("", "buffer", "buffer in GB uint used for permuting the data", buffer, &buffer);
+    opts.add<Value<uint>, Attribute::advanced>("", "buffer", "memory buffer in GB unit for permuting the data", buffer, &buffer);
     opts.add<Value<uint>, Attribute::advanced>("", "imaxiter", "maximum number of IRAM interations", imaxiter, &imaxiter);
     opts.add<Value<double>, Attribute::advanced>("", "itol", "tolerance for IRAM algorithm", itol, &itol);
     opts.add<Value<uint>, Attribute::advanced>("", "ncv", "number of Lanzcos basis vectors for IRAM", ncv, &ncv);
@@ -60,7 +60,7 @@ Param::Param(int argc, char ** argv)
     opts.add<Value<uint>, Attribute::advanced>("", "rand", "the random matrix type. 0: uniform, 1: guassian", rand, &rand);
     opts.add<Value<double>, Attribute::advanced>("", "tol-rsvd", "tolerance for RSVD algorithm", tol, &tol);
     opts.add<Value<double>, Attribute::advanced>("", "tol-em", "tolerance for EMU/PCAngsd algorithm", tolem, &tolem);
-    opts.add<Value<double>, Attribute::advanced>("", "tol-maf", "tolerance for MAF estimation updated by EM", tolmaf, &tolmaf);
+    opts.add<Value<double>, Attribute::advanced>("", "tol-maf", "tolerance for MAF estimation by EM", tolmaf, &tolmaf);
     opts.add<Switch, Attribute::hidden>("", "groff", "print groff formatted help message", &groff);
     // collect command line options acutal in effect
     ss << (std::string) "PCAone (v" + VERSION + ")    https://github.com/Zilong-Li/PCAone\n";
