@@ -85,10 +85,11 @@ void run_pca_with_arnoldi(Data * data, const Param & params)
             if(params.ld)
             {
 #if defined(DEBUG)
-                cao << tick.date() << "calc_ld_metrics with cented genotype matrix!\n";
+                cao << tick.date() << "calc_ld_metrics with centered genotype matrix!\n";
                 std::ifstream fsrc(params.fileout + ".kept.bim", std::ios::binary);
                 std::ofstream fdes(params.fileout + ".std.kept.bim", std::ios::binary);
                 fdes << fsrc.rdbuf();
+                data->G.rowwise() -= data->G.colwise().mean(); // Centering
                 if(params.ld_snps.empty())
                     calc_ld_metrics(params.fileout + ".std", data->G, data->F, data->snp_pos,
                                     data->chr_pos_end, params.ld_window_bp, params.tolld, params.verbose);
@@ -96,8 +97,9 @@ void run_pca_with_arnoldi(Data * data, const Param & params)
                     calc_ld_pairs(params.fileout + ".std", params.ld_snps, data->G, data->F, data->snp_pos,
                                   data->chr_pos_end, data->chromosomes);
 #endif
+                cao << tick.date() << "calc_ld_metrics with residuals matrix!\n";
                 data->G -= U * svals.asDiagonal() * V.transpose(); // get residuals matrix
-                cao << tick.date() << "calc_ld_metrics with residuals matrix !" << std::endl;
+                data->G.rowwise() -= data->G.colwise().mean(); // Centering
                 if(params.ld_snps.empty())
                     calc_ld_metrics(params.fileout, data->G, data->F, data->snp_pos, data->chr_pos_end,
                                     params.ld_window_bp, params.tolld, params.verbose);

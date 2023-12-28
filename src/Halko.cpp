@@ -402,10 +402,11 @@ void run_pca_with_halko(Data * data, const Param & params)
             data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, rsvd->V);
         if(params.ld)
         {
+            cao << tick.date() << "calc_ld_metrics with residuals matrix!\n";
             data->G -= rsvd->U * rsvd->S.asDiagonal() * rsvd->V.transpose(); // get residuals matrix
-            cao << tick.date() << "calc_ld_metrics with residuals matrix !" << std::endl;
             if(params.svd_t == SvdType::PCAoneAlg2 && !params.noshuffle)
                 data->G = (data->perm * data->G.transpose()).transpose();
+            data->G.rowwise() -= data->G.colwise().mean(); // Centering
             if(params.ld_snps.empty())
                 calc_ld_metrics(params.fileout, data->G, data->F, data->snp_pos, data->chr_pos_end,
                                 params.ld_window_bp, params.tolld, params.verbose);

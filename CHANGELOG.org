@@ -1,3 +1,13 @@
+- v0.4.1
+  - fix ld windows
+  - keep sites with higher maf in /prune.in/
+  - support standard pruning using =--svd 0= when PCAone is compiled with /DEBUG=1/
+  - add =--ld-snps= to output pairwise r2 for given SNPs 
+
+- v0.4.0
+  - add ld pruning 
+  - fix =--maf= being af not maf
+    
 - v0.3.9
   - pre-lease of ld feature
   - verbose cli check

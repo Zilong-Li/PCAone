@@ -86,7 +86,7 @@ double get_median(std::vector<double> v);
 MyVector calc_sds(const MyMatrix & X);
 
 void calc_ld_metrics(std::string fileout,
-                     MyMatrix & G,
+                     const MyMatrix & G,
                      const MyVector & F,
                      const Int1D & snp_pos,
                      const Int1D & chr_pos_end,
@@ -96,7 +96,7 @@ void calc_ld_metrics(std::string fileout,
 
 void calc_ld_pairs(std::string fileout,
                    std::string filebim,
-                   MyMatrix & G,
+                   const MyMatrix & G,
                    const MyVector & F,
                    const Int1D & snp_pos,
                    const Int1D & chr_pos_end,

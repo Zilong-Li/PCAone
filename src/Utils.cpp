@@ -323,7 +323,7 @@ MyVector calc_sds(const MyMatrix & X)
 }
 
 void calc_ld_metrics(std::string fileout,
-                     MyMatrix & G,
+                     const MyMatrix & G,
                      const MyVector & F,
                      const Int1D & snp_pos,
                      const Int1D & chr_pos_end,
@@ -332,7 +332,7 @@ void calc_ld_metrics(std::string fileout,
                      bool verbose = false)
 {
     cao << tick.date() << "start calculating ld  metrics" << std::endl;
-    G.rowwise() -= G.colwise().mean(); // Centering
+    // G.rowwise() -= G.colwise().mean(); // Centering
 #if defined(DEBUG)
     std::ofstream ofs_res(fileout + ".residuals");
     ofs_res.write((char *)G.data(), G.size() * sizeof(double));
@@ -397,14 +397,14 @@ void calc_ld_metrics(std::string fileout,
 
 void calc_ld_pairs(std::string fileout,
                    std::string filebim,
-                   MyMatrix & G,
+                   const MyMatrix & G,
                    const MyVector & F,
                    const Int1D & snp_pos,
                    const Int1D & chr_pos_end,
                    const std::vector<std::string> & chrs)
 {
     cao << tick.date() << "start calculating pairwise ld r2 given a list of SNPs " << std::endl;
-    G.rowwise() -= G.colwise().mean(); // Centering
+    // G.rowwise() -= G.colwise().mean(); // Centering
     MyVector sds = 1.0 / calc_sds(G).array();
     const double df = 1.0 / (G.rows() - 1); // N-1
     Int2D idx_per_chr = get_target_snp_idx(filebim, snp_pos, chr_pos_end, chrs);
@@ -419,7 +419,7 @@ void calc_ld_pairs(std::string fileout,
         for(int j = 0; j < m; j++)
         {
             // output diagnal, k = j
-            for(int k = j ; k < m; k++)
+            for(int k = j; k < m; k++)
             {
                 double r =
                     (G.col(idx[j]).array() * G.col(idx[k]).array() * (sds(idx[j]) * sds(idx[k]))).sum() * df;
