@@ -26,8 +26,8 @@ if [ $platform == "Darwin" ];then
 
 elif [ $platform == "Linux" ];then
     echo "Publishing releases on Linux x86_x64";
-    make clean && make -j6 MKLROOT=/home/zilong/intel/oneapi/mkl/latest STATIC=1 AVX=0 && zip PCAone-x64-Linux.zip PCAone manual.pdf && mv PCAone-x64-Linux.zip $dir && echo "Publishing PCAone_Linux.zip PCAone-x64-Linux.zip done";
-    make clean && make -j6 MKLROOT=/home/zilong/intel/oneapi/mkl/latest STATIC=1 AVX=1  && zip PCAone-avx2-Linux.zip PCAone manual.pdf && mv PCAone-avx2-Linux.zip $dir && echo "Publishing PCAone_Linux.zip PCAone-avx2-Linux.zip done";
+    make clean && make -j6 MKLROOT=$HOME/intel/oneapi/mkl/latest STATIC=1 AVX=0 && zip PCAone-x64-Linux.zip PCAone manual.pdf && mv PCAone-x64-Linux.zip $dir && echo "Publishing PCAone_Linux.zip PCAone-x64-Linux.zip done";
+    make clean && make -j6 MKLROOT=$HOME/intel/oneapi/mkl/latest STATIC=1 AVX=1  && zip PCAone-avx2-Linux.zip PCAone manual.pdf && mv PCAone-avx2-Linux.zip $dir && echo "Publishing PCAone_Linux.zip PCAone-avx2-Linux.zip done";
     # awk ' NR==7 {$0="#"$0}; NR==5 {sub("# ", "")}; NR==16 {sub("0", "1")}; 1' Makefile >linux.makefile
     # awk 'NR==7 {$0="#"$0}; NR==5 {sub("# ", "")}; NR==16 || NR==18 {sub("0", "1")}; 1' Makefile >linux2.makefile
 

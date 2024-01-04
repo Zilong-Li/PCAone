@@ -64,7 +64,7 @@ ifeq ($(strip $(STATIC)),1)
 			# CFLAGS += -Xpreprocessor -fopenmp
 		endif
 	else
-		SLIBS    += /usr/lib/x86_64-linux-gnu/libz.a
+		SLIBS    += /usr/lib64/libz.a
 		ifeq ($(strip $(IOMP5)), 1)
 			CXXFLAGS += -static-libgcc -static-libstdc++
 		else
