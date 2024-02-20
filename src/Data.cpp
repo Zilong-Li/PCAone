@@ -85,29 +85,33 @@ void Data::prepare()
 
 void Data::filterSNPs_resizeF()
 {
-    // make a temp F
-    MyVector Fnew(F.size());
-    // filter snps and reassign nsnps;
-    Eigen::Index i = 0;
-    for(Eigen::Index j = 0; j < F.size(); j++)
-    {
-        if((F(j) > params.maf) && (F(j) < 1 - params.maf))
+    int i, j;
+    if(params.maf > 0 && params.maf <= 0.5)
+    { // filter snps, update keepSNPs, reassign nsnps;
+        MyVector Fnew(F.size()); // make a temp F
+        for(i = 0, j = 0; j < (int)F.size(); j++)
         {
-            keepSNPs.push_back(j); // keep track of index of element > maf
-            Fnew(i++) = F(j);
+            if((F(j) > params.maf) && (F(j) < 1 - params.maf))
+            {
+                keepSNPs.push_back(j); // keep track of index of element > maf
+                Fnew(i++) = F(j);
+            }
         }
+        nsnps = keepSNPs.size(); // new number of SNPs
+        cao << tick.date() << "number of SNPs after filtering by MAF > " << params.maf << ": " << nsnps
+            << endl;
+        if(nsnps < 1) throw std::runtime_error("no SNPs left after filtering!\n");
+        // resize F
+        F.noalias() = Fnew.head(nsnps);
     }
-    nsnps = keepSNPs.size(); // new number of SNPs
-    cao << tick.date() << "number of SNPs after filtering by MAF > " << params.maf << ": " << nsnps << endl;
-    if(nsnps < 1) throw std::runtime_error("no SNPs left after filtering!\n");
-    // resize F
-    F.noalias() = Fnew.head(nsnps);
-    // resize snp_pos
-    if(snp_pos.size())
-    {
+    else
+    { // no changes, keep all snps in sequential
+        for(j = 0; j < (int)F.size(); j++) keepSNPs.push_back(j);
+    }
+    if(params.ld && snp_pos.size())
+    { // resize snp_pos
         std::vector<int> snp_pos_tmp(nsnps);
-        int j = 0;
-        for(int i = 0; i < (int)keepSNPs.size(); i++)
+        for(i = 0, j = 0; i < (int)keepSNPs.size(); i++)
         {
             snp_pos_tmp[i] = snp_pos[keepSNPs[i]];
             if(keepSNPs[i] >= chr_pos_end[j])

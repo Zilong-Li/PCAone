@@ -126,6 +126,11 @@ Param::Param(int argc, char ** argv)
         if(bands < 4 || bands % 2 != 0)
             throw std::invalid_argument("the --batches must be a power of 2 and the minimun is 4. the recommended is 64\n");
         ld = tolld > 0 ? true : false;
+        if(maf > 0.5) {
+            std::cerr << "warning: you specify '--maf' a value greater than 0.5. will do 1-maf for you!\n";
+            maf = 1 - maf;
+        } 
+        keepbim = (ld || maf > 0) ? true : false;
         if(!ld_snps.empty())
             ld = true;
     }

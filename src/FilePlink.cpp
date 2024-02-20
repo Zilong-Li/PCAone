@@ -62,18 +62,21 @@ void FileBed::read_all()
     // filter and resize nsnps
     filterSNPs_resizeF();
     // output kept snps in bim file
-    std::ifstream ifs_bim(params.filein + ".bim");
-    std::ofstream ofs_bim(params.fileout + ".kept.bim");
-    std::string line;
-    i = 0, j = 0;
-    while(getline(ifs_bim, line))
+    if(params.keepbim)
     {
-        if(i == keepSNPs[j])
+        std::ifstream ifs_bim(params.filein + ".bim");
+        std::ofstream ofs_bim(params.fileout + ".kept.bim");
+        std::string line;
+        i = 0, j = 0;
+        while(getline(ifs_bim, line))
         {
-            ofs_bim << line << std::endl;
-            j++;
+            if(i == keepSNPs[j])
+            {
+                ofs_bim << line << std::endl;
+                j++;
+            }
+            i++;
         }
-        i++;
     }
 
     // fill in G with new size

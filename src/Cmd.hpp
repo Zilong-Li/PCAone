@@ -75,6 +75,7 @@ class Param
     bool out_of_core = false; // otherwise load all matrix into RAM.
     bool haploid = false;
     bool diploid = false;
+    bool keepbim = false;
 
     // ld
     double tolld = 0;

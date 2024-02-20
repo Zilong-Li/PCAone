@@ -1,3 +1,6 @@
+- v0.4.2
+  - fix slowness due to the ld logics
+    
 - v0.4.1
   - fix ld windows
   - keep sites with higher maf in /prune.in/
