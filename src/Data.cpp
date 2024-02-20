@@ -85,10 +85,10 @@ void Data::prepare()
 
 void Data::filterSNPs_resizeF()
 {
-    int i, j;
-    if(params.maf > 0 && params.maf <= 0.5)
+    if(params.keepsnp && params.maf > 0 && params.maf <= 0.5)
     { // filter snps, update keepSNPs, reassign nsnps;
         MyVector Fnew(F.size()); // make a temp F
+        int i, j;
         for(i = 0, j = 0; j < (int)F.size(); j++)
         {
             if((F(j) > params.maf) && (F(j) < 1 - params.maf))
@@ -104,24 +104,24 @@ void Data::filterSNPs_resizeF()
         // resize F
         F.noalias() = Fnew.head(nsnps);
     }
-    else
-    { // no changes, keep all snps in sequential
-        for(j = 0; j < (int)F.size(); j++) keepSNPs.push_back(j);
-    }
-    if(params.ld && snp_pos.size())
-    { // resize snp_pos
-        std::vector<int> snp_pos_tmp(nsnps);
-        for(i = 0, j = 0; i < (int)keepSNPs.size(); i++)
+    if(params.ld)
+    {
+        // save snps in bim file no matter keep snps or not
+        std::ifstream ifs_bim(params.filein + ".bim");
+        std::ofstream ofs_bim(params.fileout + ".kept.bim");
+        std::string line;
+        int i = 0, j = 0, s;
+        while(getline(ifs_bim, line))
         {
-            snp_pos_tmp[i] = snp_pos[keepSNPs[i]];
-            if(keepSNPs[i] >= chr_pos_end[j])
+            s = params.keepsnp ? keepSNPs[j] : j;
+            if(i == s)
             {
-                chr_pos_end[j] = i - 1;
+                ofs_bim << line << std::endl;
                 j++;
             }
+            i++;
         }
-        chr_pos_end[j] = i - 1;
-        snp_pos = snp_pos_tmp;
+        get_snp_pos_bim(params.fileout + ".kept.bim", snp_pos, chr_pos_end, chromosomes);
     }
 }
 
@@ -207,6 +207,7 @@ void Data::update_batch_E(const MyMatrix & U, const MyVector & svals, const MyMa
         for(uint j = 0; j < nsnps; ++j)
         {
             double p0, p1, p2;
+            uint s = params.keepsnp ? keepSNPs[j] : j;
             for(uint i = 0; i < nsamples; ++i)
             {
                 // Rescale individual allele frequencies
@@ -218,9 +219,9 @@ void Data::update_batch_E(const MyMatrix & U, const MyVector & svals, const MyMa
                 pt = (pt + 2.0 * F(j)) / 2.0;
                 pt = fmin(fmax(pt, 1e-4), 1.0 - 1e-4);
                 // update E, which is G here
-                p0 = P(2 * i + 0, keepSNPs[j]) * (1.0 - pt) * (1.0 - pt);
-                p1 = P(2 * i + 1, keepSNPs[j]) * 2 * pt * (1.0 - pt);
-                p2 = (1 - P(2 * i + 0, keepSNPs[j]) - P(2 * i + 1, keepSNPs[j])) * pt * pt;
+                p0 = P(2 * i + 0, s) * (1.0 - pt) * (1.0 - pt);
+                p1 = P(2 * i + 1, s) * 2 * pt * (1.0 - pt);
+                p2 = (1 - P(2 * i + 0, s) - P(2 * i + 1, s)) * pt * pt;
                 G(i, j) = (p1 + 2 * p2) / (p0 + p1 + p2) - 2.0 * F(j);
             }
         }
@@ -272,6 +273,7 @@ void Data::pcangsd_standardize_E(const MyMatrix & U, const MyVector & svals, con
         {
             double p0, p1, p2, pt, pSum, tmp;
             double norm = sqrt(2.0 * F(j) * (1.0 - F(j)));
+            uint s = params.keepsnp ? keepSNPs[j] : j;
             for(uint i = 0; i < nsamples; i++)
             {
                 // Rescale individual allele frequencies
@@ -283,9 +285,9 @@ void Data::pcangsd_standardize_E(const MyMatrix & U, const MyVector & svals, con
                 pt = (pt + 2.0 * F(j)) / 2.0;
                 pt = fmin(fmax(pt, 1e-4), 1.0 - 1e-4);
                 // Update e
-                p0 = P(2 * i + 0, keepSNPs[j]) * (1.0 - pt) * (1.0 - pt);
-                p1 = P(2 * i + 1, keepSNPs[j]) * 2 * pt * (1.0 - pt);
-                p2 = (1 - P(2 * i + 0, keepSNPs[j]) - P(2 * i + 1, keepSNPs[j])) * pt * pt;
+                p0 = P(2 * i + 0, s) * (1.0 - pt) * (1.0 - pt);
+                p1 = P(2 * i + 1, s) * 2 * pt * (1.0 - pt);
+                p2 = (1 - P(2 * i + 0, s) - P(2 * i + 1, s)) * pt * pt;
                 pSum = p0 + p1 + p2;
                 G(i, j) = (p1 + 2 * p2) / pSum - 2.0 * F(j);
                 if(norm > VAR_TOL) G(i, j) /= norm;

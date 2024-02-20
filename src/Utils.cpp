@@ -332,6 +332,10 @@ void calc_ld_metrics(std::string fileout,
                      bool verbose = false)
 {
     cao << tick.date() << "start calculating ld  metrics" << std::endl;
+    if(verbose)
+    {
+        cao << "G: " << G.rows() << "x" << G.cols() <<",F:" << F.size() << ", snps:" << snp_pos.size() << ", chr:" << chr_pos_end.size() << std::endl;
+    }
     // G.rowwise() -= G.colwise().mean(); // Centering
 #if defined(DEBUG)
     std::ofstream ofs_res(fileout + ".residuals");

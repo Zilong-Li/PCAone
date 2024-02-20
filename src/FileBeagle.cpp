@@ -94,11 +94,12 @@ void FileBeagle::read_all()
     for(uint j = 0; j < nsnps; j++)
     {
         double p0, p1, p2;
+        uint s = params.keepsnp ? keepSNPs[j] : j;
         for(uint i = 0; i < nsamples; i++)
         {
-            p0 = P(2 * i + 0, keepSNPs[j]) * (1.0 - F(j)) * (1.0 - F(j));
-            p1 = P(2 * i + 1, keepSNPs[j]) * 2 * F(j) * (1.0 - F(j));
-            p2 = (1 - P(2 * i + 0, keepSNPs[j]) - P(2 * i + 1, keepSNPs[j])) * F(j) * F(j);
+            p0 = P(2 * i + 0, s) * (1.0 - F(j)) * (1.0 - F(j));
+            p1 = P(2 * i + 1, s) * 2 * F(j) * (1.0 - F(j));
+            p2 = (1 - P(2 * i + 0, s) - P(2 * i + 1, s)) * F(j) * F(j);
             G(i, j) = (p1 + 2 * p2) / (p0 + p1 + p2) - 2.0 * F(j);
         }
     }

@@ -27,7 +27,6 @@ class FileBed : public Data
         std::string ffam = params.filein + ".fam";
         nsamples = count_lines(ffam);
         nsnps = count_lines(fbim);
-        get_snp_pos_bim(fbim, snp_pos, chr_pos_end, chromosomes);
         snpmajor = true;
         cao << tick.date() << "N samples is " << nsamples << ". M snps is " << nsnps << std::endl;
         bed_bytes_per_snp = (nsamples + 3) >> 2;

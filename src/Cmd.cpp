@@ -130,7 +130,8 @@ Param::Param(int argc, char ** argv)
             std::cerr << "warning: you specify '--maf' a value greater than 0.5. will do 1-maf for you!\n";
             maf = 1 - maf;
         } 
-        keepbim = (ld || maf > 0) ? true : false;
+        keepsnp =  maf > 0 ? true : false;
+        savebim =  ld ? true : false;
         if(!ld_snps.empty())
             ld = true;
     }

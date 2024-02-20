@@ -59,35 +59,18 @@ void FileBed::read_all()
         else
             F(i) /= c;
     }
-    // filter and resize nsnps
-    filterSNPs_resizeF();
-    // output kept snps in bim file
-    if(params.keepbim)
-    {
-        std::ifstream ifs_bim(params.filein + ".bim");
-        std::ofstream ofs_bim(params.fileout + ".kept.bim");
-        std::string line;
-        i = 0, j = 0;
-        while(getline(ifs_bim, line))
-        {
-            if(i == keepSNPs[j])
-            {
-                ofs_bim << line << std::endl;
-                j++;
-            }
-            i++;
-        }
-    }
 
-    // fill in G with new size
-    G = MyMatrix::Zero(nsamples, nsnps);
+    filterSNPs_resizeF(); // filter and resize nsnps
+
+    G = MyMatrix::Zero(nsamples, nsnps); // fill in G with new size
     if(params.runem) C = ArrayXb::Zero(nsnps * nsamples);
 #pragma omp parallel for private(i, j, b, c, k, buf)
     for(i = 0; i < nsnps; ++i)
     {
+        uint s = params.keepsnp ? keepSNPs[i] : i;
         for(b = 0, c = 0, j = 0; b < bed_bytes_per_snp; ++b)
         {
-            buf = inbed[keepSNPs[i] * bed_bytes_per_snp + b];
+            buf = inbed[s * bed_bytes_per_snp + b];
             for(k = 0; k < 4; ++k, ++j)
             {
                 if(j < nsamples)
