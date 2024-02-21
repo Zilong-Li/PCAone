@@ -252,6 +252,7 @@ std::vector<std::string> split_string(const std::string & s, const std::string &
 }
 
 // could use a new struct
+// chr_pos_end: 0-based index for last snp pos
 void get_snp_pos_bim(const std::string & filebim,
                      Int1D & pos,
                      Int1D & chr_pos_end,
@@ -268,14 +269,14 @@ void get_snp_pos_bim(const std::string & filebim,
         if(chr_prev.empty()) chrs.push_back(chr_cur);
         if(!chr_prev.empty() && chr_prev != chr_cur)
         {
-            chr_pos_end.push_back(i);
+            chr_pos_end.push_back(i - 1);
             chrs.push_back(chr_cur);
         }
         chr_prev = chr_cur;
         pos.push_back(std::stoi(tokens[3]));
         i++;
     }
-    chr_pos_end.push_back(i); // add the last SNP
+    chr_pos_end.push_back(i - 1); // add the last SNP
 }
 
 // given a list of snps, find its index per chr in the original pos
@@ -300,10 +301,10 @@ Int2D get_target_snp_idx(const std::string & filebim,
             if(chrs[c] == t_chrs[tc]) break;
         e = chr_pos_end[c];
         s = c > 0 ? chr_pos_end[c - 1] : 0;
-        for(i = s; i < e; i++) mpos[pos[i]] = i;
+        for(i = s; i <= e; i++) mpos[pos[i]] = i;
         e = t_chr_pos_end[tc];
         s = tc > 0 ? t_chr_pos_end[tc - 1] : 0;
-        for(i = s; i < e; i++)
+        for(i = s; i <= e; i++)
         {
             p = t_pos[i];
             if(mpos.count(p)) idx.push_back(mpos[p]);
@@ -332,10 +333,6 @@ void calc_ld_metrics(std::string fileout,
                      bool verbose = false)
 {
     cao << tick.date() << "start calculating ld  metrics" << std::endl;
-    if(verbose)
-    {
-        cao << "G: " << G.rows() << "x" << G.cols() <<",F:" << F.size() << ", snps:" << snp_pos.size() << ", chr:" << chr_pos_end.size() << std::endl;
-    }
     // G.rowwise() -= G.colwise().mean(); // Centering
 #if defined(DEBUG)
     std::ofstream ofs_res(fileout + ".residuals");

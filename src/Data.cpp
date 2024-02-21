@@ -121,6 +121,7 @@ void Data::filterSNPs_resizeF()
             }
             i++;
         }
+        ofs_bim.close();
         get_snp_pos_bim(params.fileout + ".kept.bim", snp_pos, chr_pos_end, chromosomes);
     }
 }

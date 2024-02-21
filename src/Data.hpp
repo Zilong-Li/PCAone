@@ -59,7 +59,7 @@ class Data
     MyVector Dc; // diagnal vector of covariance matrix
     ArrayXb C; // boolean array indicates if a ind's snp is missing and need to be predicted.
     MyArrayX centered_geno_lookup;
-    std::vector<Eigen::Index> keepSNPs; // store index of SNPs to keep
+    std::vector<int> keepSNPs; // store index of SNPs to keep
     std::vector<std::string> chromosomes; // for ld stuff
     std::vector<int> snp_pos; // for ld stuff
     std::vector<int> chr_pos_end; // store the last SNP in snp_pos in each chromosom
