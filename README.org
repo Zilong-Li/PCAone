@@ -37,7 +37,7 @@ PCAone is a fast and memory efficient PCA tool implemented in C++ aiming at prov
   - [[#output-files][Output files]]
   - [[#running-mode][Running mode]]
   - [[#normalization][Normalization]]
-  - [[#ld-prune][LD prune]]
+  - [[#ld-pruning-and-clumping][LD pruning and clumping]]
   - [[#examples][Examples]]
 - [[#citation][Citation]]
 - [[#acknowledgements][Acknowledgements]]
@@ -269,12 +269,15 @@ PCAone will automatically apply the standard normalization for genetic data. Add
 - 2: do count per median log transformation (usually for single cell RNA-seq data)
 One should choose proper normalization method for specific type of data.
 
-** LD prune
+** LD pruning and clumping
 
-This is a novel LD prune method on admixed population. For more details, see our paper.
+This is a novel statistics on LD calculation in admixed population. For more details, see our paper.
 
 #+begin_src shell
-PCAone -b plink -k 3 -n 20 --svd 0 --ld-r2 0.8 --ld-window 1000000 --maf 0.05
+# pruning
+PCAone -b plink -k 3 --ld-r2 0.8 --ld-bp 1000000 --maf 0.05
+# clumping
+PCAone -b plink -k 3 --clump plink.assoc --clump-p1 0.0001 --clump-p2 0.01 --clump-r2 0.5 --maf 0.05
 #+end_src
 
 ** Examples
