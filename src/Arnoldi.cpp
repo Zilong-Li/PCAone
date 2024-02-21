@@ -84,27 +84,21 @@ void run_pca_with_arnoldi(Data * data, const Param & params)
             data->write_eigs_files(evals, U, V);
             if(params.ld)
             {
-#if defined(DEBUG)
-                cao << tick.date() << "calc_ld_metrics with centered genotype matrix!\n";
-                std::ifstream fsrc(params.fileout + ".kept.bim", std::ios::binary);
-                std::ofstream fdes(params.fileout + ".std.kept.bim", std::ios::binary);
-                fdes << fsrc.rdbuf();
-                data->G.rowwise() -= data->G.colwise().mean(); // Centering
-                if(params.ld_snps.empty())
-                    calc_ld_metrics(params.fileout + ".std", data->G, data->F, data->snp_pos,
-                                    data->chr_pos_end, params.ld_window_bp, params.tolld, params.verbose);
+                if(params.ld_stats == 1)
+                {
+                    cao << tick.date() << "ld-stats=1: calc_ld_metrics using centered genotype matrix!\n";
+                }
                 else
-                    calc_ld_pairs(params.fileout + ".std", params.ld_snps, data->G, data->F, data->snp_pos,
-                                  data->chr_pos_end, data->chromosomes);
-#endif
-                cao << tick.date() << "calc_ld_metrics with residuals matrix!\n";
-                data->G -= U * svals.asDiagonal() * V.transpose(); // get residuals matrix
+                {
+                    cao << tick.date() << "ld-stats=0: calc_ld_metrics using residuals matrix!\n";
+                    data->G -= U * svals.asDiagonal() * V.transpose(); // get residuals matrix
+                }
                 data->G.rowwise() -= data->G.colwise().mean(); // Centering
-                if(params.ld_snps.empty())
+                if(params.clump.empty())
                     calc_ld_metrics(params.fileout, data->G, data->F, data->snp_pos, data->chr_pos_end,
-                                    params.ld_window_bp, params.tolld, params.verbose);
+                                    params.ld_bp, params.ld_r2, params.verbose);
                 else
-                    calc_ld_pairs(params.fileout, params.ld_snps, data->G, data->F, data->snp_pos,
+                    calc_ld_pairs(params.fileout, params.clump, data->G, data->F, data->snp_pos,
                                   data->chr_pos_end, data->chromosomes);
             }
             return;

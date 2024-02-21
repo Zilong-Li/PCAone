@@ -402,16 +402,23 @@ void run_pca_with_halko(Data * data, const Param & params)
             data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, rsvd->V);
         if(params.ld)
         {
-            cao << tick.date() << "calc_ld_metrics with residuals matrix!\n";
-            data->G -= rsvd->U * rsvd->S.asDiagonal() * rsvd->V.transpose(); // get residuals matrix
+            if(params.ld_stats == 1)
+            {
+                cao << tick.date() << "ld-stats=1: calc_ld_metrics using centered genotype matrix!\n";
+            }
+            else
+            {
+                cao << tick.date() << "ld-stats=0: calc_ld_metrics using residuals matrix!\n";
+                data->G -= rsvd->U * rsvd->S.asDiagonal() * rsvd->V.transpose(); // get residuals matrix
+            }
             if(params.svd_t == SvdType::PCAoneAlg2 && !params.noshuffle)
                 data->G = (data->perm * data->G.transpose()).transpose();
             data->G.rowwise() -= data->G.colwise().mean(); // Centering
-            if(params.ld_snps.empty())
+            if(params.clump.empty())
                 calc_ld_metrics(params.fileout, data->G, data->F, data->snp_pos, data->chr_pos_end,
-                                params.ld_window_bp, params.tolld, params.verbose);
+                                params.ld_bp, params.ld_r2, params.verbose);
             else
-                calc_ld_pairs(params.fileout, params.ld_snps, data->G, data->F, data->snp_pos,
+                calc_ld_pairs(params.fileout, params.clump, data->G, data->F, data->snp_pos,
                               data->chr_pos_end, data->chromosomes);
             return;
         }

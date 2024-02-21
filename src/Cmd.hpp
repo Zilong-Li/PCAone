@@ -59,6 +59,17 @@ class Param
     double tol = 1e-4;
     uint buffer = 2;
     uint rand = 1;
+    // for ld pruning
+    int ld_stats = 0;
+    double ld_r2 = 0;
+    bool ld = false; // true if tolld > 0
+    uint ld_bp = 1000000; // base pairs not number of snps
+    // for clumping
+    std::string clump;
+    double clump_p1 = 0.0001;
+    double clump_p2 = 0.01;
+    double clump_r2 = 0.5;
+    uint clump_bp = 250000;
 
     // general
     uint scale = 0; // do scaling. 0: just centering. 1: log scaling. 2: cpmed
@@ -76,13 +87,7 @@ class Param
     bool haploid = false;
     bool diploid = false;
     bool keepsnp = false;
-    bool savebim = false;
 
-    // ld
-    double tolld = 0;
-    bool ld = false; // true if tolld > 0
-    uint ld_window_bp = 1000000; // base pairs not number of snps
-    std::string ld_snps;
 
     std::ostringstream ss;
 };
