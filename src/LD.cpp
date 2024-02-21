@@ -285,7 +285,7 @@ void calc_ld_clump(std::string fileout,
     const auto pvals_per_chr = map_index_snps(fileassoc, colidx, clump_p2);
     const auto line_per_chr = map_assoc_file(fileassoc, colidx);
     // sort by pvalues and get new idx
-    MyVector sds = 1.0 / calc_sds(G).array();
+    const MyVector sds = 1.0 / calc_sds(G).array();
     const double df = 1.0 / (G.rows() - 1); // N-1
 #pragma omp parallel for
     for(int c = 0; c < (int)idx_per_chr.size(); c++)
@@ -313,25 +313,29 @@ void calc_ld_clump(std::string fileout,
             int p = ps[i];
             if(mpp.count(p) == 0)
                 continue; // if snps with pval < clump_p1 are already clumped with previous snps
-            int p2, k = mbp[p], j = mbp[p]; // j:cur, k:forward or backward
             Int1D clumped;
-            while(--k && k >= 0)
+            bool backward = true;
+            const int j = mbp[p]; // j:current
+            int k = j, p2; //  k:forward or backward
+            while(true)
             {
-                p2 = bp[k];
-                if(p2 < p - clump_bp) break;
-                double r =
-                    (G.col(idx[j]).array() * G.col(idx[k]).array() * (sds(idx[j]) * sds(idx[k]))).sum() * df;
-                if(r * r >= clump_r2)
+                if(backward)
                 {
-                    clumped.push_back(p2);
-                    mpp.erase(p2);
+                    --k;
+                    if(k < 0 || (bp[k] < p - clump_bp))
+                    {
+                        backward = false;
+                        k = j;
+                        continue;
+                    }
                 }
-            }
-            k = j;
-            while(++k && k < bp.size())
-            {
+                else
+                {
+                    ++k;
+                    if(k >= bp.size() || (bp[k] > p + clump_bp)) break;
+                }
                 p2 = bp[k];
-                if(p2 > p + clump_bp) break;
+                if(mpp.count(p2) == 0) continue;
                 double r =
                     (G.col(idx[j]).array() * G.col(idx[k]).array() * (sds(idx[j]) * sds(idx[k]))).sum() * df;
                 if(r * r >= clump_r2)
