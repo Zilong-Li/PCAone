@@ -16,9 +16,10 @@
 #include <iterator>
 #include <random>
 #include <stdexcept>
+#include <unordered_map>
+#include <vector>
 #include <string>
 #include <sys/utsname.h>
-#include <vector>
 
 // MAKE SOME TOOLS FULLY ACCESSIBLE THROUGHOUT THE SOFTWARE
 #ifdef _DECLARE_TOOLBOX_HERE
@@ -40,7 +41,7 @@ typedef unsigned long long uint64;
 using Int1D = std::vector<int>;
 using Int2D = std::vector<Int1D>;
 
-#define MAF(a) ((a)>0.5?(1-a):(a))
+#define MAF(a) ((a) > 0.5 ? (1 - a) : (a))
 
 struct Line
 {
@@ -83,35 +84,20 @@ void mev_rmse_byk(const MyMatrix & X, const MyMatrix & Y, MyVector & Vm, MyVecto
 
 double get_median(std::vector<double> v);
 
-MyVector calc_sds(const MyMatrix & X);
-
-void calc_ld_metrics(std::string fileout,
-                     const MyMatrix & G,
-                     const MyVector & F,
-                     const Int1D & snp_pos,
-                     const Int1D & chr_pos_end,
-                     int ld_window_bp,
-                     double r2_tol,
-                     bool verbose);
-
-void calc_ld_pairs(std::string fileout,
-                   std::string filebim,
-                   const MyMatrix & G,
-                   const MyVector & F,
-                   const Int1D & snp_pos,
-                   const Int1D & chr_pos_end,
-                   const std::vector<std::string> & chrs);
-
 std::vector<std::string> split_string(const std::string & s, const std::string & separators);
 
 void get_snp_pos_bim(const std::string & filebim,
                      Int1D & pos,
                      Int1D & chr_pos_end,
-                     std::vector<std::string> & chrs);
+                     std::vector<std::string> & chrs,
+                     bool header = false,
+                     Int1D idx = Int1D{0, 3});
 
 Int2D get_target_snp_idx(const std::string & filebim,
                          const Int1D & pos,
                          const Int1D & chr_pos_end,
-                         const std::vector<std::string> & chrs);
+                         const std::vector<std::string> & chrs,
+                         bool header = false,
+                         Int1D colidx = Int1D{0, 3});
 
 #endif // PCAONE_UTILES_

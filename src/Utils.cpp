@@ -1,8 +1,5 @@
 #include "Utils.hpp"
 
-#include <stdexcept>
-#include <unordered_map>
-#include <vector>
 
 using namespace std;
 
@@ -256,16 +253,19 @@ std::vector<std::string> split_string(const std::string & s, const std::string &
 void get_snp_pos_bim(const std::string & filebim,
                      Int1D & pos,
                      Int1D & chr_pos_end,
-                     std::vector<std::string> & chrs)
+                     std::vector<std::string> & chrs,
+                     bool header,
+                     Int1D idx)
 {
     std::ifstream fin(filebim);
     if(!fin.is_open()) throw invalid_argument("can not open " + filebim);
     std::string line, chr_cur, chr_prev, sep{" \t"};
     int i = 0;
+    if(header) getline(fin, line);
     while(getline(fin, line))
     {
         auto tokens = split_string(line, sep);
-        chr_cur = tokens[0];
+        chr_cur = tokens[idx[0]];
         if(chr_prev.empty()) chrs.push_back(chr_cur);
         if(!chr_prev.empty() && chr_prev != chr_cur)
         {
@@ -273,7 +273,7 @@ void get_snp_pos_bim(const std::string & filebim,
             chrs.push_back(chr_cur);
         }
         chr_prev = chr_cur;
-        pos.push_back(std::stoi(tokens[3]));
+        pos.push_back(std::stoi(tokens[idx[1]]));
         i++;
     }
     chr_pos_end.push_back(i - 1); // add the last SNP
@@ -281,18 +281,18 @@ void get_snp_pos_bim(const std::string & filebim,
 
 // given a list of snps, find its index per chr in the original pos
 // assume chromosomes are continuous
+// TODO check duplicated POS
 Int2D get_target_snp_idx(const std::string & filebim,
                          const Int1D & pos,
                          const Int1D & chr_pos_end,
-                         const std::vector<std::string> & chrs)
+                         const std::vector<std::string> & chrs,
+                         bool header,
+                         Int1D colidx)
 {
     Int1D t_pos, t_chr_pos_end, idx;
     std::vector<std::string> t_chrs;
-    get_snp_pos_bim(filebim, t_pos, t_chr_pos_end, t_chrs);
+    get_snp_pos_bim(filebim, t_pos, t_chr_pos_end, t_chrs, header, colidx);
     std::unordered_map<int, int> mpos;
-    std::ifstream fin(filebim);
-    if(!fin.is_open()) throw invalid_argument("can not open " + filebim);
-    std::string line, chr_cur, chr_prev, sep{" \t"};
     int c, s, e, p, i;
     Int2D ret(t_chrs.size());
     for(int tc = 0; tc < (int)t_chrs.size(); tc++)
@@ -316,117 +316,3 @@ Int2D get_target_snp_idx(const std::string & filebim,
     return ret;
 }
 
-MyVector calc_sds(const MyMatrix & X)
-{
-    // compute degree of freedom
-    const int df = X.rows() - 1; // N-1
-    return (X.array().square().colwise().sum() / df).sqrt();
-}
-
-void calc_ld_metrics(std::string fileout,
-                     const MyMatrix & G,
-                     const MyVector & F,
-                     const Int1D & snp_pos,
-                     const Int1D & chr_pos_end,
-                     int ld_window_bp,
-                     double r2_tol,
-                     bool verbose = false)
-{
-    cao << tick.date() << "start calculating ld  metrics" << std::endl;
-    // G.rowwise() -= G.colwise().mean(); // Centering
-#if defined(DEBUG)
-    std::ofstream ofs_res(fileout + ".residuals");
-    ofs_res.write((char *)G.data(), G.size() * sizeof(double));
-    std::ofstream ofs_win(fileout + ".ld.window");
-    ofs_win << "#window\tchr\tpos_start\tpos_end\tnsites" << std::endl;
-#endif
-    Int1D ws, we;
-    int nsnp = snp_pos.size();
-    int j{0}, c{0}, w{0}, nsites;
-    for(int i = 0; i < nsnp; i++)
-    {
-        if(snp_pos[i] == snp_pos[chr_pos_end[c]])
-        {
-            c++;
-            continue;
-        }
-        for(j = i; j <= chr_pos_end[c]; j++)
-            if(snp_pos[j] - snp_pos[i] > ld_window_bp) break;
-        nsites = j - i;
-        ws.push_back(i); // start pos in the window
-        we.push_back(nsites); // the number of sites
-#if defined(DEBUG)
-        ofs_win << w++ << "\t" << c + 1 << "\t" << snp_pos[i] << "\t" << snp_pos[j - 1] << "\t" << nsites
-                << std::endl;
-#endif
-    }
-    MyVector sds = 1.0 / calc_sds(G).array();
-    ArrayXb keep = ArrayXb::Constant(G.cols(), true);
-    const double df = 1.0 / (G.rows() - 1); // N-1
-    for(w = 0; w < (int)ws.size(); w++)
-    {
-        int i = ws[w];
-        if(!keep(i)) continue;
-#pragma omp parallel for
-        for(int j = 1; j < we[w]; j++)
-        {
-            int k = i + j;
-            if(!keep(k)) continue;
-            double r = (G.col(i).array() * G.col(k).array() * (sds(i) * sds(k))).sum() * df;
-            if(r * r > r2_tol)
-            {
-                int o = MAF(F(k)) > MAF(F(i)) ? i : k;
-                keep(o) = false;
-            }
-        }
-    }
-    std::ifstream fin(fileout + ".kept.bim");
-    if(!fin.is_open()) throw invalid_argument("can not open " + fileout + ".kept.bim");
-    std::ofstream ofs_out(fileout + ".ld.prune.out");
-    std::ofstream ofs_in(fileout + ".ld.prune.in");
-    std::string line;
-    int i = 0;
-    while(getline(fin, line))
-    {
-        if(keep(i))
-            ofs_in << line << std::endl;
-        else
-            ofs_out << line << std::endl;
-        i++;
-    }
-}
-
-void calc_ld_pairs(std::string fileout,
-                   std::string filebim,
-                   const MyMatrix & G,
-                   const MyVector & F,
-                   const Int1D & snp_pos,
-                   const Int1D & chr_pos_end,
-                   const std::vector<std::string> & chrs)
-{
-    cao << tick.date() << "start calculating pairwise ld r2 given a list of SNPs " << std::endl;
-    // G.rowwise() -= G.colwise().mean(); // Centering
-    MyVector sds = 1.0 / calc_sds(G).array();
-    const double df = 1.0 / (G.rows() - 1); // N-1
-    Int2D idx_per_chr = get_target_snp_idx(filebim, snp_pos, chr_pos_end, chrs);
-#pragma omp parallel for
-    for(int i = 0; i < (int)idx_per_chr.size(); i++)
-    {
-        auto idx = idx_per_chr[i];
-        std::ofstream ofs(fileout + ".ld.chr." + std::to_string(i + 1), std::ios::binary);
-        int m = idx.size();
-        ofs.write((char *)&m, sizeof(m));
-        // calc pairwise r2 for G[,idx]
-        for(int j = 0; j < m; j++)
-        {
-            // output diagnal, k = j
-            for(int k = j; k < m; k++)
-            {
-                double r =
-                    (G.col(idx[j]).array() * G.col(idx[k]).array() * (sds(idx[j]) * sds(idx[k]))).sum() * df;
-                r *= r;
-                ofs.write((char *)&r, sizeof(r));
-            }
-        }
-    }
-}
