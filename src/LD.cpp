@@ -235,6 +235,34 @@ std::vector<UMapIntDouble> map_index_snps(const std::string & fileassoc,
     return vm;
 }
 
+std::vector<UMapIntString> map_assoc_file(const std::string & fileassoc, const Int1D & colidx)
+{
+    std::ifstream fin(fileassoc);
+    if(!fin.is_open()) throw invalid_argument("can not open " + fileassoc);
+    vector<UMapIntString> vm;
+    UMapIntString m;
+    int c = 0, bp;
+    std::string line, chr_cur, chr_prev, sep{" \t"};
+    getline(fin, line);
+    m.insert({-1, line});
+    while(getline(fin, line))
+    {
+        auto tokens = split_string(line, sep);
+        chr_cur = tokens[colidx[0]];
+        bp = std::stoi(tokens[colidx[1]]);
+        m.insert({bp, line});
+        if(!chr_prev.empty() && chr_prev != chr_cur)
+        {
+            c++;
+            vm.push_back(m);
+            m.clear();
+        }
+        chr_prev = chr_cur;
+    }
+    vm.push_back(m); // add the last chr
+    return vm;
+}
+
 void calc_ld_clump(std::string fileout,
                    std::string fileassoc,
                    int clump_bp,
@@ -254,6 +282,7 @@ void calc_ld_clump(std::string fileout,
     std::tie(idx_per_chr, bp_per_chr) =
         get_target_snp_idx(fileassoc, snp_pos, chr_pos_end, chrs, true, colidx);
     const auto pvals_per_chr = map_index_snps(fileassoc, colidx, clump_p1);
+    const auto line_per_chr = map_assoc_file(fileassoc, colidx);
     // sort by pvalues and get new idx
     MyVector sds = 1.0 / calc_sds(G).array();
     const double df = 1.0 / (G.rows() - 1); // N-1
@@ -262,9 +291,11 @@ void calc_ld_clump(std::string fileout,
     {
         const auto idx = idx_per_chr[c];
         const auto bp = bp_per_chr[c];
-        UMapIntDouble pvals = pvals_per_chr[c]; // key: pos, val: pval
+        auto pvals = pvals_per_chr[c]; // key: pos, val: pval
         auto mbp = vector2map(bp);
+        auto lines = line_per_chr[c];
         std::ofstream ofs(fileout + ".clump.chr" + std::to_string(c + 1));
+        ofs << line_per_chr[0].at(-1) << "\tSP2\n";
         // greedy clumping algorithm
         for(auto i : sortidx(pvals))
         { // snps sorted by p value
@@ -299,7 +330,7 @@ void calc_ld_clump(std::string fileout,
                 }
             }
             // what we do with clumped SNPs. output them!
-            ofs << c + 1 << "\t" << p << "\t"; // or copy line from the input file
+            ofs << lines[p] << "\t"; // or copy line from the input file
             for(auto o : clumped) ofs << o << ",";
             ofs << std::endl;
         }

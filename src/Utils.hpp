@@ -42,6 +42,7 @@ using Int1D = std::vector<int>;
 using Int2D = std::vector<Int1D>;
 using UMapIntInt = std::unordered_map<int, int>;
 using UMapIntDouble = std::unordered_map<int, double>;
+using UMapIntString = std::unordered_map<int, std::string>;
 
 #define MAF(a) ((a) > 0.5 ? (1 - a) : (a))
 
