@@ -60,7 +60,7 @@ class Param
     uint buffer = 2;
     uint rand = 1;
     // for ld pruning
-    int ld_stats = 0;
+    int ld_stats = 0; // 0: adj; 1: std
     double ld_r2 = 0;
     bool ld = false; // true if tolld > 0
     uint ld_bp = 1000000; // base pairs not number of snps

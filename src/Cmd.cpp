@@ -16,7 +16,7 @@ Param::Param(int argc, char ** argv)
                       "       PCAone --csv csv.zst --svd 0 -m 2 -n 20 -k 10\n\n" +
     "\033[0m"};
     OptionParser opts(copyr + "Main options");
-    auto help_opt = opts.add<Switch>("h", "help", "print list of all options including hidden advanced options");
+    auto help_opt = opts.add<Switch>("h", "help", "print all options including hidden advanced options");
     auto svd_opt = opts.add<Value<uint>>("d", "svd", "svd method to be applied. default 2 is recommended for big data.\n"
                                          "0: the Implicitly Restarted Arnoldi Method (IRAM)\n"
                                          "1: the Yu's single-pass Randomized SVD with power iterations\n"
@@ -43,13 +43,13 @@ Param::Param(int argc, char ** argv)
     opts.add<Switch>("", "emu", "uses EMU algorithm for genotype input with missingness", &emu);
     opts.add<Switch>("", "pcangsd", "uses PCAngsd algorithm for genotype likelihood input", &pcangsd);
     opts.add<Value<double>>("", "maf", "skip variants with minor allele frequency below maf", maf, &maf);
-    auto ld_method  = opts.add<Implicit<int>>("", "ld-stats", "statistics for calculating ld-r2. (0: the adj; 1: the std)", 0);
+    opts.add<Value<int>>("", "ld-stats", "statistics for calculating ld-r2. (0: the adj; 1: the std)", ld_stats, &ld_stats);
     opts.add<Value<double>>("", "ld-r2", "r2 cutoff for ld pruning", ld_r2, &ld_r2);
     opts.add<Value<uint>>("", "ld-bp", "physical distance threshold in bases for ld pruning", ld_bp, &ld_bp);
-    auto clumpfile = opts.add<Value<std::string>>("", "clump", "a file with target variant and its pvalue for ld-based clumping", "", &clump);
-    opts.add<Value<double>>("", "clump-r2", "r2 cutoff for ld clumping", clump_r2, &clump_r2);
+    auto clumpfile = opts.add<Value<std::string>>("", "clump", "file with target variants and pvalues for ld-based clumping", "", &clump);
     opts.add<Value<double>>("", "clump-p1", "significance threshold for index SNPs", clump_p1, &clump_p1);
     opts.add<Value<double>>("", "clump-p2", "secondary significance threshold for clumped SNPs", clump_p2, &clump_p2);
+    opts.add<Value<double>>("", "clump-r2", "r2 cutoff for ld clumping", clump_r2, &clump_r2);
     opts.add<Value<uint>>("", "clump-bp", "physical distance threshold in bases for clumping", clump_bp, &clump_bp);
     opts.add<Switch, Attribute::advanced>("U", "printu", "output eigen vector of each epoch (for tests)", &printu);
     opts.add<Switch>("V", "printv", "output the right eigenvectors with suffix .loadings", &printv);
@@ -130,7 +130,6 @@ Param::Param(int argc, char ** argv)
         }
         if(bands < 4 || bands % 2 != 0)
             throw std::invalid_argument("the --batches must be a power of 2 and the minimun is 4. the recommended is 64\n");
-        ld_method->assign_to(&ld_stats);
         ld = ld_r2 > 0 ? true : false;
         if(maf > 0.5) {
             std::cerr << "warning: you specify '--maf' a value greater than 0.5. will do 1-maf for you!\n";
