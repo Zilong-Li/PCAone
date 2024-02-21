@@ -106,23 +106,26 @@ void Data::filterSNPs_resizeF()
     }
     if(params.ld)
     {
-        // save snps in bim file no matter keep snps or not
-        std::ifstream ifs_bim(params.filein + ".bim");
-        std::ofstream ofs_bim(params.fileout + ".kept.bim");
-        std::string line;
-        int i = 0, j = 0, s;
-        while(getline(ifs_bim, line))
+        // save snps in bim file if maf is applied
+        if(params.keepsnp)
         {
-            s = params.keepsnp ? keepSNPs[j] : j;
-            if(i == s)
+            std::ifstream ifs_bim(params.filein + ".bim");
+            std::ofstream ofs_bim(params.fileout + ".kept.bim");
+            std::string line;
+            int i = 0, j = 0, s;
+            while(getline(ifs_bim, line))
             {
-                ofs_bim << line << std::endl;
-                j++;
+                s = params.keepsnp ? keepSNPs[j] : j;
+                if(i == s)
+                {
+                    ofs_bim << line << std::endl;
+                    j++;
+                }
+                i++;
             }
-            i++;
+            ofs_bim.close();
         }
-        ofs_bim.close();
-        get_snp_pos_bim(params.fileout + ".kept.bim", snp_pos, chr_pos_end, chromosomes);
+        get_snp_pos_bim(params.filebim, snp_pos, chr_pos_end, chromosomes);
     }
 }
 

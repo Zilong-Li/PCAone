@@ -12,7 +12,8 @@ std::tuple<Int2D, Int2D> get_target_snp_idx(const std::string & filebim,
                                             bool header = false,
                                             Int1D colidx = Int1D{0, 3});
 
-void calc_ld_metrics(std::string fileout,
+void calc_ld_metrics(const std::string& fileout,
+                     const std::string& filebim,
                      const MyMatrix & G,
                      const MyVector & F,
                      const Int1D & snp_pos,

@@ -53,7 +53,8 @@ std::tuple<Int2D, Int2D> get_target_snp_idx(const std::string & filebim,
     return std::make_tuple(ret, ret2);
 }
 
-void calc_ld_metrics(std::string fileout,
+void calc_ld_metrics(const std::string & fileout,
+                     const std::string & filebim,
                      const MyMatrix & G,
                      const MyVector & F,
                      const Int1D & snp_pos,
@@ -110,7 +111,7 @@ void calc_ld_metrics(std::string fileout,
             }
         }
     }
-    std::ifstream fin(fileout + ".kept.bim");
+    std::ifstream fin(filebim);
     if(!fin.is_open()) throw invalid_argument("can not open " + fileout + ".kept.bim");
     std::ofstream ofs_out(fileout + ".ld.prune.out");
     std::ofstream ofs_in(fileout + ".ld.prune.in");
