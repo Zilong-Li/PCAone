@@ -51,16 +51,10 @@ inline std::vector<size_t> sortidx(const std::vector<T> & v)
 {
     std::vector<size_t> idx(v.size());
     std::iota(idx.begin(), idx.end(), 0);
-    std::sort(idx.begin(), idx.end(), [&v](size_t i1, size_t i2) { return v[i1] > v[i2]; });
+    std::sort(idx.begin(), idx.end(), [&v](size_t i1, size_t i2) { return v[i1] < v[i2]; });
     return idx;
 }
 
-inline std::vector<size_t> sortidx(const UMapIntDouble & m)
-{
-    std::vector<double> ps;
-    for(auto it = m.begin(); it != m.end(); it++) ps.push_back(it->second);
-    return sortidx(ps);
-}
 
 struct Line
 {

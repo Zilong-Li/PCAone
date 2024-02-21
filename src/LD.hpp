@@ -54,7 +54,7 @@ inline UMapIntInt vector2map(const Int1D & v)
 
 std::vector<UMapIntDouble> map_index_snps(const std::string & fileassoc,
                                           const Int1D & colidx,
-                                          double clump_p1);
+                                          double clump_p2);
 
 std::vector<UMapIntString> map_assoc_file(const std::string & fileassoc, const Int1D & colidx);
 

@@ -207,7 +207,7 @@ Int1D valid_assoc_file(const std::string & fileassoc)
 
 std::vector<UMapIntDouble> map_index_snps(const std::string & fileassoc,
                                           const Int1D & colidx,
-                                          double clump_p1)
+                                          double clump_p2)
 {
     std::ifstream fin(fileassoc);
     if(!fin.is_open()) throw invalid_argument("can not open " + fileassoc);
@@ -223,7 +223,7 @@ std::vector<UMapIntDouble> map_index_snps(const std::string & fileassoc,
         chr_cur = tokens[colidx[0]];
         bp = std::stoi(tokens[colidx[1]]);
         pval = std::stod(tokens[colidx[2]]);
-        if(pval <= clump_p1) m.insert({bp, pval});
+        if(pval <= clump_p2) m.insert({bp, pval});
         if(!chr_prev.empty() && chr_prev != chr_cur)
         {
             c++;
@@ -282,7 +282,7 @@ void calc_ld_clump(std::string fileout,
     Int2D idx_per_chr, bp_per_chr;
     std::tie(idx_per_chr, bp_per_chr) =
         get_target_snp_idx(fileassoc, snp_pos, chr_pos_end, chrs, true, colidx);
-    const auto pvals_per_chr = map_index_snps(fileassoc, colidx, clump_p1);
+    const auto pvals_per_chr = map_index_snps(fileassoc, colidx, clump_p2);
     const auto line_per_chr = map_assoc_file(fileassoc, colidx);
     // sort by pvalues and get new idx
     MyVector sds = 1.0 / calc_sds(G).array();
@@ -292,16 +292,26 @@ void calc_ld_clump(std::string fileout,
     {
         const auto idx = idx_per_chr[c];
         const auto bp = bp_per_chr[c];
-        auto pvals = pvals_per_chr[c]; // key: pos, val: pval
         auto mbp = vector2map(bp);
         auto lines = line_per_chr[c];
         std::ofstream ofs(fileout + ".clump.chr" + std::to_string(c + 1));
         ofs << line_per_chr[0].at(-1) << "\tSP2\n";
         // greedy clumping algorithm
-        for(auto i : sortidx(pvals))
+        auto mpp = pvals_per_chr[c]; // key: pos, val: pval
+        std::vector<double> pp;
+        std::vector<int> ps;
+        for(auto it = mpp.begin(); it != mpp.end(); it++)
+        {
+            if(it->second <= clump_p1)
+            {
+                ps.push_back(it->first);
+                pp.push_back(it->second);
+            }
+        }
+        for(auto i : sortidx(pp))
         { // snps sorted by p value
-            int p = bp[i];
-            if(pvals.count(p) == 0)
+            int p = ps[i];
+            if(mpp.count(p) == 0)
                 continue; // if snps with pval < clump_p1 are already clumped with previous snps
             int p2, k = mbp[p], j = mbp[p]; // j:cur, k:forward or backward
             Int1D clumped;
@@ -311,10 +321,10 @@ void calc_ld_clump(std::string fileout,
                 if(p2 < p - clump_bp) break;
                 double r =
                     (G.col(idx[j]).array() * G.col(idx[k]).array() * (sds(idx[j]) * sds(idx[k]))).sum() * df;
-                if(r * r >= clump_r2 && pvals[p2] <= clump_p2)
+                if(r * r >= clump_r2)
                 {
                     clumped.push_back(p2);
-                    if(pvals[p2]) pvals.erase(p2);
+                    mpp.erase(p2);
                 }
             }
             k = j;
@@ -324,10 +334,10 @@ void calc_ld_clump(std::string fileout,
                 if(p2 > p + clump_bp) break;
                 double r =
                     (G.col(idx[j]).array() * G.col(idx[k]).array() * (sds(idx[j]) * sds(idx[k]))).sum() * df;
-                if(r * r >= clump_r2 && pvals[p2] <= clump_p2)
+                if(r * r >= clump_r2)
                 {
                     clumped.push_back(p2);
-                    if(pvals[p2]) pvals.erase(p2);
+                    mpp.erase(p2);
                 }
             }
             // what we do with clumped SNPs. output them!
