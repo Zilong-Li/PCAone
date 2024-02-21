@@ -1,6 +1,5 @@
 #include "Utils.hpp"
 
-
 using namespace std;
 
 std::string get_machine()
@@ -277,42 +276,5 @@ void get_snp_pos_bim(const std::string & filebim,
         i++;
     }
     chr_pos_end.push_back(i - 1); // add the last SNP
-}
-
-// given a list of snps, find its index per chr in the original pos
-// assume chromosomes are continuous
-// TODO check duplicated POS
-Int2D get_target_snp_idx(const std::string & filebim,
-                         const Int1D & pos,
-                         const Int1D & chr_pos_end,
-                         const std::vector<std::string> & chrs,
-                         bool header,
-                         Int1D colidx)
-{
-    Int1D t_pos, t_chr_pos_end, idx;
-    std::vector<std::string> t_chrs;
-    get_snp_pos_bim(filebim, t_pos, t_chr_pos_end, t_chrs, header, colidx);
-    std::unordered_map<int, int> mpos;
-    int c, s, e, p, i;
-    Int2D ret(t_chrs.size());
-    for(int tc = 0; tc < (int)t_chrs.size(); tc++)
-    {
-        for(c = 0; c < (int)chrs.size(); c++)
-            if(chrs[c] == t_chrs[tc]) break;
-        e = chr_pos_end[c];
-        s = c > 0 ? chr_pos_end[c - 1] : 0;
-        for(i = s; i <= e; i++) mpos[pos[i]] = i;
-        e = t_chr_pos_end[tc];
-        s = tc > 0 ? t_chr_pos_end[tc - 1] : 0;
-        for(i = s; i <= e; i++)
-        {
-            p = t_pos[i];
-            if(mpos.count(p)) idx.push_back(mpos[p]);
-        }
-        ret[tc] = idx;
-        idx.clear();
-        mpos.clear();
-    }
-    return ret;
 }
 

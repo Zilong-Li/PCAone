@@ -16,10 +16,10 @@
 #include <iterator>
 #include <random>
 #include <stdexcept>
-#include <unordered_map>
-#include <vector>
 #include <string>
 #include <sys/utsname.h>
+#include <unordered_map>
+#include <vector>
 
 // MAKE SOME TOOLS FULLY ACCESSIBLE THROUGHOUT THE SOFTWARE
 #ifdef _DECLARE_TOOLBOX_HERE
@@ -40,8 +40,26 @@ typedef unsigned int uint;
 typedef unsigned long long uint64;
 using Int1D = std::vector<int>;
 using Int2D = std::vector<Int1D>;
+using UMapIntInt = std::unordered_map<int, int>;
+using UMapIntDouble = std::unordered_map<int, double>;
 
 #define MAF(a) ((a) > 0.5 ? (1 - a) : (a))
+
+template<typename T>
+inline std::vector<size_t> sortidx(const std::vector<T> & v)
+{
+    std::vector<size_t> idx(v.size());
+    std::iota(idx.begin(), idx.end(), 0);
+    std::sort(idx.begin(), idx.end(), [&v](size_t i1, size_t i2) { return v[i1] > v[i2]; });
+    return idx;
+}
+
+inline std::vector<size_t> sortidx(const UMapIntDouble & m)
+{
+    std::vector<double> ps;
+    for(auto it = m.begin(); it != m.end(); it++) ps.push_back(it->second);
+    return sortidx(ps);
+}
 
 struct Line
 {
@@ -92,12 +110,5 @@ void get_snp_pos_bim(const std::string & filebim,
                      std::vector<std::string> & chrs,
                      bool header = false,
                      Int1D idx = Int1D{0, 3});
-
-Int2D get_target_snp_idx(const std::string & filebim,
-                         const Int1D & pos,
-                         const Int1D & chr_pos_end,
-                         const std::vector<std::string> & chrs,
-                         bool header = false,
-                         Int1D colidx = Int1D{0, 3});
 
 #endif // PCAONE_UTILES_

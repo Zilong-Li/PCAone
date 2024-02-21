@@ -9,6 +9,50 @@ MyVector calc_sds(const MyMatrix & X)
     return (X.array().square().colwise().sum() / df).sqrt();
 }
 
+// given a list of snps, find its index per chr in the original pos
+// assume chromosomes are continuous
+// TODO check duplicated POS
+std::tuple<Int2D, Int2D> get_target_snp_idx(const std::string & filebim,
+                                            const Int1D & pos,
+                                            const Int1D & chr_pos_end,
+                                            const std::vector<std::string> & chrs,
+                                            bool header,
+                                            Int1D colidx)
+{
+    Int1D t_pos, t_chr_pos_end, idx, bp;
+    std::vector<std::string> t_chrs;
+    get_snp_pos_bim(filebim, t_pos, t_chr_pos_end, t_chrs, header, colidx);
+    UMapIntInt mpos;
+    int c, s, e, p, i;
+    Int2D ret(t_chrs.size());
+    Int2D ret2(t_chrs.size());
+    for(int tc = 0; tc < (int)t_chrs.size(); tc++)
+    {
+        for(c = 0; c < (int)chrs.size(); c++)
+            if(chrs[c] == t_chrs[tc]) break;
+        e = chr_pos_end[c];
+        s = c > 0 ? chr_pos_end[c - 1] : 0;
+        for(i = s; i <= e; i++) mpos[pos[i]] = i;
+        e = t_chr_pos_end[tc];
+        s = tc > 0 ? t_chr_pos_end[tc - 1] : 0;
+        for(i = s; i <= e; i++)
+        {
+            p = t_pos[i];
+            if(mpos.count(p))
+            {
+                bp.push_back(p);
+                idx.push_back(mpos[p]);
+            }
+        }
+        ret[tc] = idx;
+        ret2[tc] = bp;
+        bp.clear();
+        idx.clear();
+        mpos.clear();
+    }
+    return std::make_tuple(ret, ret2);
+}
+
 void calc_ld_metrics(std::string fileout,
                      const MyMatrix & G,
                      const MyVector & F,
@@ -94,7 +138,8 @@ void calc_ld_pairs(std::string fileout,
     // G.rowwise() -= G.colwise().mean(); // Centering
     MyVector sds = 1.0 / calc_sds(G).array();
     const double df = 1.0 / (G.rows() - 1); // N-1
-    Int2D idx_per_chr = get_target_snp_idx(filebim, snp_pos, chr_pos_end, chrs);
+    Int2D idx_per_chr, bp_per_chr;
+    std::tie(idx_per_chr, bp_per_chr) = get_target_snp_idx(filebim, snp_pos, chr_pos_end, chrs);
 #pragma omp parallel for
     for(int i = 0; i < (int)idx_per_chr.size(); i++)
     {
@@ -159,6 +204,37 @@ Int1D valid_assoc_file(const std::string & fileassoc)
     return idx;
 }
 
+std::vector<UMapIntDouble> map_index_snps(const std::string & fileassoc,
+                                          const Int1D & colidx,
+                                          double clump_p1)
+{
+    std::ifstream fin(fileassoc);
+    if(!fin.is_open()) throw invalid_argument("can not open " + fileassoc);
+    std::string line, chr_cur, chr_prev, sep{" \t"};
+    getline(fin, line);
+    vector<UMapIntDouble> vm;
+    UMapIntDouble m;
+    int c = 0, bp;
+    double pval;
+    while(getline(fin, line))
+    {
+        auto tokens = split_string(line, sep);
+        chr_cur = tokens[colidx[0]];
+        bp = std::stoi(tokens[colidx[1]]);
+        pval = std::stod(tokens[colidx[2]]);
+        if(pval <= clump_p1) m.insert({bp, pval});
+        if(!chr_prev.empty() && chr_prev != chr_cur)
+        {
+            c++;
+            vm.push_back(m);
+            m.clear();
+        }
+        chr_prev = chr_cur;
+    }
+    vm.push_back(m); // add the last chr
+    return vm;
+}
+
 void calc_ld_clump(std::string fileout,
                    std::string fileassoc,
                    int clump_bp,
@@ -171,27 +247,62 @@ void calc_ld_clump(std::string fileout,
                    const Int1D & chr_pos_end,
                    const std::vector<std::string> & chrs)
 {
+    cao << tick.date() << "start do LD-based clumping -> p1=" << clump_p1 << ", p2=" << clump_p2
+        << ", r2=" << clump_r2 << ", bp=" << clump_bp << std::endl;
     auto colidx = valid_assoc_file(fileassoc); // 0: chr, 1: pos, 2: pvalue
-    Int2D idx_per_chr = get_target_snp_idx(fileassoc, snp_pos, chr_pos_end, chrs, true, colidx);
+    Int2D idx_per_chr, bp_per_chr;
+    std::tie(idx_per_chr, bp_per_chr) =
+        get_target_snp_idx(fileassoc, snp_pos, chr_pos_end, chrs, true, colidx);
+    const auto pvals_per_chr = map_index_snps(fileassoc, colidx, clump_p1);
     // sort by pvalues and get new idx
     MyVector sds = 1.0 / calc_sds(G).array();
     const double df = 1.0 / (G.rows() - 1); // N-1
 #pragma omp parallel for
-    for(int i = 0; i < (int)idx_per_chr.size(); i++)
+    for(int c = 0; c < (int)idx_per_chr.size(); c++)
     {
-        auto idx = idx_per_chr[i];
-        int m = idx.size();
-        ArrayXb keep = ArrayXb::Constant(m, true);
-        for(int j = 0; j < m; j++)
-        {
-            if(!keep(j)) continue;
-            for(int k = j + 1; k < m; k++)
+        const auto idx = idx_per_chr[c];
+        const auto bp = bp_per_chr[c];
+        UMapIntDouble pvals = pvals_per_chr[c]; // key: pos, val: pval
+        auto mbp = vector2map(bp);
+        std::ofstream ofs(fileout + ".clump.chr" + std::to_string(c + 1));
+        // greedy clumping algorithm
+        for(auto i : sortidx(pvals))
+        { // snps sorted by p value
+            int p = bp[i];
+            if(pvals.count(p) == 0)
+                continue; // if snps with pval < clump_p1 are already clumped with previous snps
+            int p2, k = mbp[p], j = mbp[p]; // j:cur, k:forward or backward
+            Int1D clumped;
+            while(--k && k >= 0)
             {
+                p2 = bp[k];
+                if(p2 < p - clump_bp) break;
                 double r =
                     (G.col(idx[j]).array() * G.col(idx[k]).array() * (sds(idx[j]) * sds(idx[k]))).sum() * df;
-                if(r * r > clump_r2) keep(k) = false;
+                if(r * r >= clump_r2 && pvals[p2] <= clump_p2)
+                {
+                    clumped.push_back(p2);
+                    if(pvals[p2]) pvals.erase(p2);
+                }
             }
+            k = j;
+            while(++k && k < bp.size())
+            {
+                p2 = bp[k];
+                if(p2 > p + clump_bp) break;
+                double r =
+                    (G.col(idx[j]).array() * G.col(idx[k]).array() * (sds(idx[j]) * sds(idx[k]))).sum() * df;
+                if(r * r >= clump_r2 && pvals[p2] <= clump_p2)
+                {
+                    clumped.push_back(p2);
+                    if(pvals[p2]) pvals.erase(p2);
+                }
+            }
+            // what we do with clumped SNPs. output them!
+            ofs << c + 1 << "\t" << p << "\t"; // or copy line from the input file
+            for(auto o : clumped) ofs << o << ",";
+            ofs << std::endl;
         }
-        // now output current chr
+        // end current chr
     }
 }
