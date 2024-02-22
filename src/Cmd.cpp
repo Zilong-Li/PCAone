@@ -10,10 +10,10 @@ Param::Param(int argc, char ** argv)
     std::string copyr{"PCA All In One (v" + (std::string)VERSION + ")        https://github.com/Zilong-Li/PCAone\n" +
                       "(C) 2021-2024 Zilong Li        GNU General Public License v3\n\n" +
     "\x1B[32m" +
-                      "Usage: use plink files as input and apply the window-based RSVD method\n" +
-                      "       PCAone --bfile plink -m 2 -n 20 -k 10\n\n" +
+                      "Usage: use plink files as input and apply default window-based RSVD method\n" +
+                      "       PCAone --bfile plink -m 2 -n 20 \n\n" +
                       "       use csv file as input and apply the Implicitly Restarted Arnoldi Method\n" +
-                      "       PCAone --csv csv.zst --svd 0 -m 2 -n 20 -k 10\n\n" +
+                      "       PCAone --csv csv.zst --svd 0 -m 2 -n 20 \n\n" +
     "\033[0m"};
     OptionParser opts(copyr + "Main options");
     auto help_opt = opts.add<Switch>("h", "help", "print all options including hidden advanced options");
@@ -44,9 +44,9 @@ Param::Param(int argc, char ** argv)
     opts.add<Switch>("", "pcangsd", "uses PCAngsd algorithm for genotype likelihood input", &pcangsd);
     opts.add<Value<double>>("", "maf", "skip variants with minor allele frequency below maf", maf, &maf);
     opts.add<Value<int>>("", "ld-stats", "statistics for calculating ld-r2. (0: the adj; 1: the std)", ld_stats, &ld_stats);
-    opts.add<Value<double>>("", "ld-r2", "r2 cutoff for ld pruning", ld_r2, &ld_r2);
+    opts.add<Value<double>>("", "ld-r2", "r2 cutoff for ld pruning. A value>0 activates ld calculation", ld_r2, &ld_r2);
     opts.add<Value<uint>>("", "ld-bp", "physical distance threshold in bases for ld pruning", ld_bp, &ld_bp);
-    auto clumpfile = opts.add<Value<std::string>>("", "clump", "assoc-like file with target variants and pvalues for ld-based clumping", "", &clump);
+    auto clumpfile = opts.add<Value<std::string>>("", "clump", "assoc-like file with target variants and pvalues for clumping", "", &clump);
     opts.add<Value<double>>("", "clump-p1", "significance threshold for index SNPs", clump_p1, &clump_p1);
     opts.add<Value<double>>("", "clump-p2", "secondary significance threshold for clumped SNPs", clump_p2, &clump_p2);
     opts.add<Value<double>>("", "clump-r2", "r2 cutoff for ld clumping", clump_r2, &clump_r2);

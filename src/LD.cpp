@@ -345,8 +345,9 @@ void calc_ld_clump(std::string fileout,
                 }
             }
             // what we do with clumped SNPs. output them!
-            ofs << lines[p] << "\t"; // or copy line from the input file
+            ofs << lines[p] << "\t"; 
             for(auto o : clumped) ofs << o << ",";
+            if(clumped.empty()) ofs << "NONE";
             ofs << std::endl;
         }
         // end current chr
