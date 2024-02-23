@@ -1,3 +1,7 @@
+- v0.4.3
+  - new output =eigvecs2= for plink input
+  - fix ld clumping and sort snps by pvalues
+
 - v0.4.2
   - fix slowness due to the ld logics
   - add ld-clump functions

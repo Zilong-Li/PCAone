@@ -109,6 +109,9 @@ int main(int argc, char * argv[])
     cao << tick.date() << "total elapsed wall time: " << tick.abstime() << " seconds" << endl;
     cao << tick.date() << "eigenvecs and eigenvals are saved. have a nice day. bye!\n";
 
+    if(params.file_t == FileType::PLINK)
+        make_plink2_eigenvec_file(params.k, params.fileout + ".eigvecs2", params.fileout + ".eigvecs",
+                                  params.filein + ".fam");
     delete data;
 
     return 0;

@@ -56,7 +56,6 @@ inline std::vector<size_t> sortidx(const std::vector<T> & v)
     return idx;
 }
 
-
 struct Line
 {
     std::string data;
@@ -106,5 +105,7 @@ void get_snp_pos_bim(const std::string & filebim,
                      std::vector<std::string> & chrs,
                      bool header = false,
                      Int1D idx = Int1D{0, 3});
+
+void make_plink2_eigenvec_file(int K, std::string fout, const std::string & fin, const std::string & fam);
 
 #endif // PCAONE_UTILES_

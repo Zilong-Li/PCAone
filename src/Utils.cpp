@@ -278,3 +278,19 @@ void get_snp_pos_bim(const std::string & filebim,
     chr_pos_end.push_back(i - 1); // add the last SNP
 }
 
+void make_plink2_eigenvec_file(int K, std::string fout, const std::string & fin, const std::string & fam)
+{
+    std::ifstream ifam(fam);
+    std::ifstream ifin(fin);
+    std::ofstream ofs(fout);
+    ofs << "#FID\tIID";
+    for(int i = 0; i < K; i++) ofs << "\tPC" << i + 1;
+    ofs << "\n";
+    std::string line1, line2, sep{" \t"};
+    while(getline(ifam, line1))
+    {
+        auto tokens = split_string(line1, sep);
+        getline(ifin, line2);
+        ofs << tokens[0] + "\t" + tokens[1] + "\t" << line2 << std::endl;
+    }
+}
