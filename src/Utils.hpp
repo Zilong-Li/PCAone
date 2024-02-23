@@ -40,6 +40,7 @@ typedef unsigned int uint;
 typedef unsigned long long uint64;
 using Int1D = std::vector<int>;
 using Int2D = std::vector<Int1D>;
+using Double1D = std::vector<double>;
 using UMapIntInt = std::unordered_map<int, int>;
 using UMapIntDouble = std::unordered_map<int, double>;
 using UMapIntString = std::unordered_map<int, std::string>;

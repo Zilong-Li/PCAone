@@ -298,8 +298,8 @@ void calc_ld_clump(std::string fileout,
         ofs << line_per_chr[0].at(-1) << "\tSP2\n";
         // greedy clumping algorithm
         auto mpp = pvals_per_chr[c]; // key: pos, val: pval
-        std::vector<double> pp;
-        std::vector<int> ps;
+        Double1D pp;
+        Int1D ps;
         for(auto it = mpp.begin(); it != mpp.end(); it++)
         {
             if(it->second <= clump_p1)
@@ -310,13 +310,13 @@ void calc_ld_clump(std::string fileout,
         }
         for(auto i : sortidx(pp))
         { // snps sorted by p value
-            int p = ps[i];
+            int p = ps[i], p2;
             if(mpp.count(p) == 0)
                 continue; // if snps with pval < clump_p1 are already clumped with previous snps
             Int1D clumped;
             bool backward = true;
-            const int j = mbp[p]; // j:current
-            int k = j, p2; //  k:forward or backward
+            const size_t j = mbp[p]; // j:current
+            size_t k = j; //  k:forward or backward
             while(true)
             {
                 if(backward)
@@ -344,10 +344,18 @@ void calc_ld_clump(std::string fileout,
                     mpp.erase(p2);
                 }
             }
-            // what we do with clumped SNPs. output them!
-            ofs << lines[p] << "\t"; 
-            for(auto o : clumped) ofs << o << ",";
-            if(clumped.empty()) ofs << "NONE";
+            // what we do with clumped SNPs. sort them by pval?
+            ofs << lines[p] << "\t";
+            if(clumped.empty())
+            {
+                ofs << "NONE";
+            }
+            else
+            {
+                Double1D opp;
+                for(auto op : clumped) opp.push_back(pvals_per_chr[c].at(op));
+                for(auto oi : sortidx(opp)) ofs << clumped[oi] << ",";
+            }
             ofs << std::endl;
         }
         // end current chr
