@@ -400,29 +400,6 @@ void run_pca_with_halko(Data * data, const Param & params)
             data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, data->perm * rsvd->V);
         else
             data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, rsvd->V);
-        if(params.ld)
-        {
-            if(params.ld_stats == 1)
-            {
-                cao << tick.date() << "ld-stats=1: calc_ld_metrics using centered genotype matrix!\n";
-            }
-            else
-            {
-                cao << tick.date() << "ld-stats=0: calc_ld_metrics using residuals matrix!\n";
-                data->G -= rsvd->U * rsvd->S.asDiagonal() * rsvd->V.transpose(); // get residuals matrix
-            }
-            if(params.svd_t == SvdType::PCAoneAlg2 && !params.noshuffle)
-                data->G = (data->perm * data->G.transpose()).transpose();
-            data->G.rowwise() -= data->G.colwise().mean(); // Centering
-            if(params.clump.empty())
-                calc_ld_metrics(params.fileout, params.filebim, data->G, data->F, data->snp_pos,
-                                data->chr_pos_end, params.ld_bp, params.ld_r2, params.verbose);
-            else
-                calc_ld_clump(params.fileout, params.clump, params.assoc_colnames, params.clump_bp,
-                              params.clump_r2, params.clump_p1, params.clump_p2, data->G, data->F,
-                              data->snp_pos, data->chr_pos_end, data->chromosomes);
-            return;
-        }
     }
     else
     {
@@ -432,7 +409,7 @@ void run_pca_with_halko(Data * data, const Param & params)
         // flip_UV(rsvd->U, rsvd->V, false);
         double diff;
         rsvd->setFlags(true, false, false);
-        cao << tick.date() << "begin to do EM-PCA with PCAone RSVD." << endl;
+        cao << tick.date() << "begin to do EM-PCA with PCAone." << endl;
         for(uint i = 0; i < params.maxiter; ++i)
         {
             Vpre = rsvd->V;
@@ -472,6 +449,30 @@ void run_pca_with_halko(Data * data, const Param & params)
             rsvd->computeUSV(params.maxp, params.tol);
             data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, rsvd->V);
         }
+    }
+
+    if(params.ld && !params.out_of_core)
+    {
+        if(params.ld_stats == 1)
+        {
+            cao << tick.date() << "ld-stats=1: calc_ld_metrics using centered genotype matrix!\n";
+        }
+        else
+        {
+            cao << tick.date() << "ld-stats=0: calc_ld_metrics using residuals matrix!\n";
+            data->G -= rsvd->U * rsvd->S.asDiagonal() * rsvd->V.transpose(); // get residuals matrix
+        }
+        // could be time-consuming
+        if(params.svd_t == SvdType::PCAoneAlg2 && !params.noshuffle)
+            data->G = (data->perm * data->G.transpose()).transpose();
+        data->G.rowwise() -= data->G.colwise().mean(); // Centering
+        if(params.clump.empty())
+            calc_ld_metrics(params.fileout, params.filebim, data->G, data->F, data->snp_pos,
+                            data->chr_pos_end, params.ld_bp, params.ld_r2, params.verbose);
+        else
+            calc_ld_clump(params.fileout, params.clump, params.assoc_colnames, params.clump_bp,
+                          params.clump_r2, params.clump_p1, params.clump_p2, data->G, data->F, data->snp_pos,
+                          data->chr_pos_end, data->chromosomes);
     }
 
     delete rsvd;
