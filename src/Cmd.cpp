@@ -47,6 +47,7 @@ Param::Param(int argc, char ** argv)
     opts.add<Value<double>>("", "ld-r2", "r2 cutoff for ld pruning. A value>0 activates ld calculation", ld_r2, &ld_r2);
     opts.add<Value<uint>>("", "ld-bp", "physical distance threshold in bases for ld pruning", ld_bp, &ld_bp);
     auto clumpfile = opts.add<Value<std::string>>("", "clump", "assoc-like file with target variants and pvalues for clumping", "", &clump);
+    auto assocnames = opts.add<Value<std::string>>("", "clump-names", "column names in assoc-like file used for locating chr, pos and pvalue in order. default is 'CHR,BP,P,A1,A2'", "", &assoc_colnames);
     opts.add<Value<double>>("", "clump-p1", "significance threshold for index SNPs", clump_p1, &clump_p1);
     opts.add<Value<double>>("", "clump-p2", "secondary significance threshold for clumped SNPs", clump_p2, &clump_p2);
     opts.add<Value<double>>("", "clump-r2", "r2 cutoff for ld clumping", clump_r2, &clump_r2);

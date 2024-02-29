@@ -1,3 +1,6 @@
+- v0.4.4
+  - add =--clump-names= option
+    
 - v0.4.3
   - new output =eigvecs2= for plink input
   - fix ld clumping and sort snps by pvalues

@@ -67,6 +67,7 @@ class Param
     uint ld_bp = 1000000; // base pairs not number of snps
     // for clumping
     std::string clump;
+    std::string assoc_colnames;
     double clump_p1 = 0.0001;
     double clump_p2 = 0.01;
     double clump_r2 = 0.5;

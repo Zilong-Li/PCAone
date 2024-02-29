@@ -32,6 +32,7 @@ void calc_ld_pairs(std::string fileout,
 
 void calc_ld_clump(std::string fileout,
                    std::string fileassoc,
+                   std::string colnames,
                    int clump_bp,
                    double clump_r2,
                    double clump_p1,
@@ -42,7 +43,7 @@ void calc_ld_clump(std::string fileout,
                    const Int1D & chr_pos_end,
                    const std::vector<std::string> & chrs);
 
-Int1D valid_assoc_file(const std::string & fileassoc);
+Int1D valid_assoc_file(const std::string & fileassoc, const std::string & colnames);
 
 inline UMapIntInt vector2map(const Int1D & v)
 {

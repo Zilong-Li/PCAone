@@ -163,34 +163,36 @@ void calc_ld_pairs(std::string fileout,
     }
 }
 
-Int1D valid_assoc_file(const std::string & fileassoc)
+Int1D valid_assoc_file(const std::string & fileassoc, const std::string & colnames)
 {
     std::ifstream fin(fileassoc);
     if(!fin.is_open()) throw invalid_argument("can not open " + fileassoc);
-    std::string line, sep{"\t"};
+    std::string line, sep{"\t"}, sep2{","};
     getline(fin, line);
     const auto fields = split_string(line, sep);
+    std::vector<std::string> fields_users{"CHR", "BP", "P", "A1", "A2"};
+    if(!colnames.empty()) fields_users = split_string(colnames, sep2);
     Int1D idx(5, -1);
     int j = 0;
     for(auto col : fields)
     {
-        if(col == "CHR")
+        if(col == fields_users[0])
         {
             idx[0] = j;
         }
-        else if(col == "BP")
+        else if(col == fields_users[1])
         {
             idx[1] = j;
         }
-        else if(col == "P")
+        else if(col == fields_users[2])
         {
             idx[2] = j;
         }
-        else if(col == "A1")
+        else if(col == fields_users[3])
         {
             idx[3] = j;
         }
-        else if(col == "A2")
+        else if(col == fields_users[4])
         {
             idx[4] = j;
         }
@@ -199,7 +201,7 @@ Int1D valid_assoc_file(const std::string & fileassoc)
     j = 0;
     for(auto i : idx)
     {
-        if(i < 0) cao.error("the " + to_string(j) + "-th field did not exists");
+        if(i < 0) cao.error("the assoc-like file has no " + fields_users[j] + " column");
         j++;
     }
     return idx;
@@ -266,6 +268,7 @@ std::vector<UMapIntString> map_assoc_file(const std::string & fileassoc, const I
 
 void calc_ld_clump(std::string fileout,
                    std::string fileassoc,
+                   std::string colnames,
                    int clump_bp,
                    double clump_r2,
                    double clump_p1,
@@ -278,7 +281,7 @@ void calc_ld_clump(std::string fileout,
 {
     cao << tick.date() << "start do LD-based clumping -> p1=" << clump_p1 << ", p2=" << clump_p2
         << ", r2=" << clump_r2 << ", bp=" << clump_bp << std::endl;
-    auto colidx = valid_assoc_file(fileassoc); // 0: chr, 1: pos, 2: pvalue
+    auto colidx = valid_assoc_file(fileassoc, colnames); // 0: chr, 1: pos, 2: pvalue
     Int2D idx_per_chr, bp_per_chr;
     std::tie(idx_per_chr, bp_per_chr) =
         get_target_snp_idx(fileassoc, snp_pos, chr_pos_end, chrs, true, colidx);

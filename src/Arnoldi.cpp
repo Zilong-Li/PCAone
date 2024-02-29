@@ -99,9 +99,9 @@ void run_pca_with_arnoldi(Data * data, const Param & params)
                     calc_ld_metrics(params.fileout, params.filebim, data->G, data->F, data->snp_pos,
                                     data->chr_pos_end, params.ld_bp, params.ld_r2, params.verbose);
                 else
-                    calc_ld_clump(params.fileout, params.clump, params.clump_bp, params.clump_r2,
-                                  params.clump_p1, params.clump_p2, data->G, data->F, data->snp_pos,
-                                  data->chr_pos_end, data->chromosomes);
+                    calc_ld_clump(params.fileout, params.clump, params.assoc_colnames, params.clump_bp,
+                                  params.clump_r2, params.clump_p1, params.clump_p2, data->G, data->F,
+                                  data->snp_pos, data->chr_pos_end, data->chromosomes);
             }
             return;
         }
