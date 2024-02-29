@@ -170,9 +170,9 @@ Int1D valid_assoc_file(const std::string & fileassoc, const std::string & colnam
     std::string line, sep{"\t"}, sep2{","};
     getline(fin, line);
     const auto fields = split_string(line, sep);
-    std::vector<std::string> fields_users{"CHR", "BP", "P", "A1", "A2"};
+    std::vector<std::string> fields_users{"CHR", "BP", "P"};
     if(!colnames.empty()) fields_users = split_string(colnames, sep2);
-    Int1D idx(5, -1);
+    Int1D idx(3, -1);
     int j = 0;
     for(auto col : fields)
     {
@@ -187,14 +187,6 @@ Int1D valid_assoc_file(const std::string & fileassoc, const std::string & colnam
         else if(col == fields_users[2])
         {
             idx[2] = j;
-        }
-        else if(col == fields_users[3])
-        {
-            idx[3] = j;
-        }
-        else if(col == fields_users[4])
-        {
-            idx[4] = j;
         }
         j++;
     }
