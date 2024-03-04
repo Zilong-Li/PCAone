@@ -22,16 +22,23 @@ void test_permute_matrix()
     cout << "m: after permutation by columns" << endl;
     m = m * p;
     cout << m << endl;
-    cout << "m: recover the origianl by p*t(m)" << endl;
+    cout << "m: recover the origianl by t(p*t(m))" << endl;
     m = (p * m.transpose()).transpose();
     cout << m << endl;
     cout << "o: the ordering for mapping the original to the permuted matrix" << endl;
+    cout << "use p to get o" << endl;
     VectorXi ord(5);
-    ord << 1, 4, 3, 0, 2;
+    for(int i = 0; i < 5; i++) {
+        for(int j = 0; j < 5; j++)
+            if(indices[j] == i) {
+                ord[i] = j;break;
+            }
+    }
+    // ord << 1, 4, 3, 0, 2;
     cout << ord.transpose() << endl;
     cout << "the relationship between p and o" << endl;
     for(int i = 0; i < 5; i++) cout << "i:"<< i << ", p:" << indices[i] << ", o:" << ord[i] << "\n";
     cout << "p[o[i]] = i" << endl;
-    for(int i = 0; i < 5; i++) cout << indices[ord[i]] << "\n";
+    for(int i = 0; i < 5; i++) cout << p.indices()[ord[i]] << "\n";
 }
 

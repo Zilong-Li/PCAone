@@ -1,7 +1,9 @@
-library(genio)
 library(Rcpp)
 
+library(genio)
+
 sourceCpp("tests/test-permutation.cpp")
+test_permute_matrix()
 
 ## n <- 10000
 ## x <- runif(n)
