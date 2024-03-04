@@ -203,10 +203,8 @@ void Data::write_eigs_files(const MyVector & S, const MyMatrix & U, const MyMatr
 
 void Data::write_residuals(const MyVector & S, const MyMatrix & U, const MyMatrix & V)
 {
-    cao << tick.date() << "output residuals values" << std::endl;
     std::ofstream ofs(params.fileout + ".residuals", std::ios::binary);
     const uint ibyte = 4;
-    const uint magic = ibyte * 2;
     uint64 bytes_per_snp = nsamples * ibyte;
     ofs.write((char *)&nsnps, ibyte);
     ofs.write((char *)&nsamples, ibyte);
@@ -215,25 +213,21 @@ void Data::write_residuals(const MyVector & S, const MyMatrix & U, const MyMatri
 
         if(params.ld_stats == 1)
         {
-            cao << tick.date() << "ld-stats=1: calc_ld_metrics using centered genotype matrix!\n";
+            cao << tick.date() << "ld-stats=1: calc_ld_metrics using centered genotype matrix!" << endl;
         }
         else
         {
-            cao << tick.date() << "ld-stats=0: calc_ld_metrics using residuals matrix!\n";
+            cao << tick.date() << "ld-stats=0: calc_ld_metrics using residuals matrix!" << endl;
             G -= U * S.asDiagonal() * V.transpose(); // get residuals matrix
         }
         G.rowwise() -= G.colwise().mean(); // Centering
+        cao << tick.date() << "output residuals values" << endl;
+        if(params.svd_t == SvdType::PCAoneAlg2 && !params.noshuffle) G = (perm * G.transpose()).transpose();
         // TODO: compress me!
         Eigen::VectorXf fg;
-        uint64 idx;
         for(Eigen::Index i = 0; i < G.cols(); i++)
         {
             fg = G.col(i).cast<float>();
-            if(params.svd_t == SvdType::PCAoneAlg2 && !params.noshuffle)
-            {
-                idx = magic + perm.indices()[i] * bytes_per_snp;
-                ofs.seekp(idx, std::ios_base::beg);
-            }
             ofs.write((char *)fg.data(), bytes_per_snp);
         }
     }
