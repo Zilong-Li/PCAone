@@ -1,6 +1,8 @@
 #ifndef PCAONE_LD_
 #define PCAONE_LD_
 
+#include "Cmd.hpp"
+#include "Data.hpp"
 #include "Utils.hpp"
 
 MyVector calc_sds(const MyMatrix & X);
@@ -12,8 +14,8 @@ std::tuple<Int2D, Int2D> get_target_snp_idx(const std::string & filebim,
                                             bool header = false,
                                             Int1D colidx = Int1D{0, 3});
 
-void calc_ld_metrics(const std::string& fileout,
-                     const std::string& filebim,
+void calc_ld_metrics(const std::string & fileout,
+                     const std::string & filebim,
                      const MyMatrix & G,
                      const MyVector & F,
                      const Int1D & snp_pos,
@@ -24,7 +26,7 @@ void calc_ld_metrics(const std::string& fileout,
 
 void calc_ld_pairs(std::string fileout,
                    std::string filebim,
-                   const MyMatrix & G,
+                   MyMatrix & G,
                    const MyVector & F,
                    const Int1D & snp_pos,
                    const Int1D & chr_pos_end,
@@ -38,7 +40,6 @@ void calc_ld_clump(std::string fileout,
                    double clump_p1,
                    double clump_p2,
                    const MyMatrix & G,
-                   const MyVector & F,
                    const Int1D & snp_pos,
                    const Int1D & chr_pos_end,
                    const std::vector<std::string> & chrs);
@@ -58,5 +59,9 @@ std::vector<UMapIntDouble> map_index_snps(const std::string & fileassoc,
                                           double clump_p2);
 
 std::vector<UMapIntString> map_assoc_file(const std::string & fileassoc, const Int1D & colidx);
+
+void run_ld_stuff(const Param & params);
+
+void run_ld_stuff(const Param & params, Data * data);
 
 #endif // PCAONE_LD_

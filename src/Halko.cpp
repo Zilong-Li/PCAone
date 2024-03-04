@@ -1,7 +1,5 @@
 #include "Halko.hpp"
 
-#include "LD.hpp"
-
 using namespace std;
 
 void RsvdOpData::computeUSV(int p, double tol)

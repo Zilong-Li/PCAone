@@ -54,6 +54,7 @@ class Data
     uint bandFactor = 1;
     uint nops = 0;
     std::vector<uint> start, stop;
+    PermMat perm;
     MyMatrix G; // genotype matrix, can be initial E or centered E, which is nsamples x nsnps;
     MyMatrix P; // genotype probability, nsamples x 3 x nsnps.
     MyVector F; // observed or estimated population allele frequency
@@ -61,10 +62,6 @@ class Data
     ArrayXb C; // boolean array indicates if a ind's snp is missing and need to be predicted.
     MyArrayX centered_geno_lookup;
     std::vector<int> keepSNPs; // store index of SNPs to keep
-    std::vector<std::string> chromosomes; // for ld stuff
-    std::vector<int> snp_pos; // for ld stuff
-    std::vector<int> chr_pos_end; // store the last SNP in snp_pos in each chromosom
-    PermMat perm;
 };
 
 #endif // PCAONE_DATA_

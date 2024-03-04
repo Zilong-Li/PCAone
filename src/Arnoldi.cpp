@@ -1,6 +1,4 @@
 #include "Arnoldi.hpp"
-
-#include "LD.hpp"
 #include "Utils.hpp"
 #include <Spectra/SymEigsSolver.h>
 #include <Spectra/contrib/PartialSVDSolver.h>

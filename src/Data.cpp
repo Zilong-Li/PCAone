@@ -125,7 +125,7 @@ void Data::filterSNPs_resizeF()
             }
             ofs_bim.close();
         }
-        get_snp_pos_bim(params.filebim, snp_pos, chr_pos_end, chromosomes);
+        // get_snp_pos_bim(params.filebim, snp_pos, chr_pos_end, chromosomes);
     }
 }
 
@@ -205,6 +205,10 @@ void Data::write_residuals(const MyVector & S, const MyMatrix & U, const MyMatri
 {
     cao << tick.date() << "output residuals values" << std::endl;
     std::ofstream ofs(params.fileout + ".residuals", std::ios::binary);
+    const uint ibyte = 4;
+    uint64 bytes_per_snp = nsamples * ibyte;
+    ofs.write((char *)&nsnps, ibyte);
+    ofs.write((char *)&nsamples, ibyte);
     if(!params.out_of_core)
     {
 
@@ -220,7 +224,13 @@ void Data::write_residuals(const MyVector & S, const MyMatrix & U, const MyMatri
         // could be time-consuming
         if(params.svd_t == SvdType::PCAoneAlg2 && !params.noshuffle) G = (perm * G.transpose()).transpose();
         G.rowwise() -= G.colwise().mean(); // Centering
-        ofs.write((char *)G.data(), G.size() * sizeof(double)); // TODO: compress me
+        // TODO: compress me!
+        Eigen::VectorXf fg;
+        for(Eigen::Index i = 0; i < G.cols(); i++)
+        {
+            fg = G.col(i).cast<float>();
+            ofs.write((char *)fg.data(), bytes_per_snp);
+        }
     }
     else
     {

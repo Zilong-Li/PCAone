@@ -2,6 +2,7 @@
 
 using namespace std;
 
+
 MyVector calc_sds(const MyMatrix & X)
 {
     // compute degree of freedom
@@ -55,7 +56,7 @@ std::tuple<Int2D, Int2D> get_target_snp_idx(const std::string & filebim,
 
 void calc_ld_metrics(const std::string & fileout,
                      const std::string & filebim,
-                     const MyMatrix & G,
+                     MyMatrix & G,
                      const MyVector & F,
                      const Int1D & snp_pos,
                      const Int1D & chr_pos_end,
@@ -63,11 +64,10 @@ void calc_ld_metrics(const std::string & fileout,
                      double r2_tol,
                      bool verbose = false)
 {
-    cao << tick.date() << "start calculating ld  metrics" << std::endl;
-    // G.rowwise() -= G.colwise().mean(); // Centering
+    const bool pick_random_one = F.size() > 0 ? false : true;
+    cao << tick.date() << "start ld pruning and pick_random_one =" << pick_random_one << std::endl;
+    G.rowwise() -= G.colwise().mean(); // Centering first
 #if defined(DEBUG)
-    std::ofstream ofs_res(fileout + ".residuals");
-    ofs_res.write((char *)G.data(), G.size() * sizeof(double));
     std::ofstream ofs_win(fileout + ".ld.window");
     ofs_win << "#window\tchr\tpos_start\tpos_end\tnsites" << std::endl;
 #endif
@@ -106,7 +106,8 @@ void calc_ld_metrics(const std::string & fileout,
             double r = (G.col(i).array() * G.col(k).array() * (sds(i) * sds(k))).sum() * df;
             if(r * r > r2_tol)
             {
-                int o = MAF(F(k)) > MAF(F(i)) ? i : k;
+                int o = k; // or i
+                if(!pick_random_one) o = MAF(F(k)) > MAF(F(i)) ? i : k;
                 keep(o) = false;
             }
         }
@@ -266,7 +267,6 @@ void calc_ld_clump(std::string fileout,
                    double clump_p1,
                    double clump_p2,
                    const MyMatrix & G,
-                   const MyVector & F,
                    const Int1D & snp_pos,
                    const Int1D & chr_pos_end,
                    const std::vector<std::string> & chrs)
@@ -355,4 +355,35 @@ void calc_ld_clump(std::string fileout,
         }
         // end current chr
     }
+}
+
+void run_ld_stuff(const Param & params)
+{
+    std::vector<std::string> chromosomes; // for ld stuff
+    Int1D snp_pos; // for ld stuff
+    Int1D chr_pos_end; // store the last SNP in snp_pos in each chromosom
+    get_snp_pos_bim(params.filebim, snp_pos, chr_pos_end, chromosomes);
+    MyMatrix G; // get G from .residuals file
+    MyVector F; // allele frequency
+    if(params.clump.empty())
+        calc_ld_metrics(params.fileout, params.filebim, G, F, snp_pos, chr_pos_end, params.ld_bp,
+                        params.ld_r2, params.verbose);
+    else
+        calc_ld_clump(params.fileout, params.clump, params.assoc_colnames, params.clump_bp, params.clump_r2,
+                      params.clump_p1, params.clump_p2, G, snp_pos, chr_pos_end, chromosomes);
+}
+
+void run_ld_stuff(const Param & params, Data * data)
+{
+    std::vector<std::string> chromosomes; // for ld stuff
+    Int1D snp_pos; // for ld stuff
+    Int1D chr_pos_end; // store the last SNP in snp_pos in each chromosom
+    get_snp_pos_bim(params.filebim, snp_pos, chr_pos_end, chromosomes);
+    MyVector F; // allele frequency
+    if(params.clump.empty())
+        calc_ld_metrics(params.fileout, params.filebim, data->G, F, snp_pos, chr_pos_end, params.ld_bp,
+                        params.ld_r2, params.verbose);
+    else
+        calc_ld_clump(params.fileout, params.clump, params.assoc_colnames, params.clump_bp, params.clump_r2,
+                      params.clump_p1, params.clump_p2, data->G, snp_pos, chr_pos_end, chromosomes);
 }

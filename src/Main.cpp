@@ -10,6 +10,7 @@
 #include "FileCsv.hpp"
 #include "FilePlink.hpp"
 #include "Halko.hpp"
+#include "LD.hpp"
 #include <omp.h>
 
 #ifdef WITH_OPENBLAS
@@ -86,9 +87,19 @@ int main(int argc, char * argv[])
             cao.error("invalid input files.\n");
         }
     }
+
+    if((params.file_t == FileType::BINARY) && params.ld)
+    {
+        data->read_all();
+        run_ld_stuff(params, data);
+        delete data;
+        cao << tick.date() << "total elapsed wall time: " << tick.abstime() << " seconds" << endl;
+        return 0;
+    }
+    if(params.ld && params.out_of_core)
+        cao.error("only supports outputting residuals matrix for in-core mode");
     // ready for run
     data->prepare();
-    if(params.ld && params.out_of_core) cao.error("only supports --ld for in-core mode\n");
     // begin to run
     if(params.svd_t == SvdType::IRAM)
         run_pca_with_arnoldi(data, params);
@@ -105,6 +116,8 @@ int main(int argc, char * argv[])
     else
         throw invalid_argument("unsupported PCA method was applied");
 
+    delete data;
+
     cao << tick.date() << "total elapsed reading time: " << data->readtime << " seconds" << endl;
     cao << tick.date() << "total elapsed wall time: " << tick.abstime() << " seconds" << endl;
     cao << tick.date() << "eigenvecs and eigenvals are saved. have a nice day. bye!\n";
@@ -112,7 +125,6 @@ int main(int argc, char * argv[])
     if(params.file_t == FileType::PLINK)
         make_plink2_eigenvec_file(params.k, params.fileout + ".eigvecs2", params.fileout + ".eigvecs",
                                   params.filein + ".fam");
-    delete data;
 
     return 0;
 }
