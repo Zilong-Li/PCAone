@@ -2,7 +2,6 @@
 
 using namespace std;
 
-
 MyVector calc_sds(const MyMatrix & X)
 {
     // compute degree of freedom
@@ -354,6 +353,16 @@ void calc_ld_clump(std::string fileout,
             ofs << std::endl;
         }
         // end current chr
+    }
+    std::ofstream ofs(fileout + ".clump.txt");
+    string fn;
+    for(int c = 0; c < (int)idx_per_chr.size(); c++)
+    {
+        fn = fileout + ".clump.chr" + std::to_string(c + 1);
+        std::ifstream ifs(fn);
+        ofs << ifs.rdbuf();
+        ifs.close();
+        std::remove(fn.c_str());
     }
 }
 
