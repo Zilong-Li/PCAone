@@ -35,6 +35,7 @@ class Data
     void pcangsd_standardize_E(const MyMatrix & U, const MyVector & svals, const MyMatrix & VT);
     void update_batch_E(const MyMatrix & U, const MyVector & svals, const MyMatrix & VT);
     void write_eigs_files(const MyVector & S, const MyMatrix & U, const MyMatrix & V);
+    void write_residuals(const MyVector & S, const MyMatrix & U, const MyMatrix & V);
     // for blockwise
     void calcu_vt_initial(const MyMatrix & T, MyMatrix & VT, bool standardize);
     void calcu_vt_update(const MyMatrix & T,

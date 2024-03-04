@@ -181,7 +181,7 @@ void Data::calcu_vt_update(const MyMatrix & T,
 
 void Data::write_eigs_files(const MyVector & S, const MyMatrix & U, const MyMatrix & V)
 {
-    cao << tick.date() << "outputting eigen values" << std::endl;
+    cao << tick.date() << "output eigen values" << std::endl;
     std::ofstream outs(params.fileout + ".eigvals");
     std::ofstream outu(params.fileout + ".eigvecs");
     Eigen::IOFormat fmt(6, Eigen::DontAlignCols, "\t", "\n");
@@ -198,7 +198,35 @@ void Data::write_eigs_files(const MyVector & S, const MyMatrix & U, const MyMatr
         std::ofstream outv(params.fileout + ".loadings");
         if(outv.is_open()) outv << V.format(fmt) << '\n';
     }
-    cao << tick.date() << "done outputting eigen values" << std::endl;
+    cao << tick.date() << "done output eigen values" << std::endl;
+}
+
+void Data::write_residuals(const MyVector & S, const MyMatrix & U, const MyMatrix & V)
+{
+    cao << tick.date() << "output residuals values" << std::endl;
+    std::ofstream ofs(params.fileout + ".residuals", std::ios::binary);
+    if(!params.out_of_core)
+    {
+
+        if(params.ld_stats == 1)
+        {
+            cao << tick.date() << "ld-stats=1: calc_ld_metrics using centered genotype matrix!\n";
+        }
+        else
+        {
+            cao << tick.date() << "ld-stats=0: calc_ld_metrics using residuals matrix!\n";
+            G -= U * S.asDiagonal() * V.transpose(); // get residuals matrix
+        }
+        // could be time-consuming
+        if(params.svd_t == SvdType::PCAoneAlg2 && !params.noshuffle) G = (perm * G.transpose()).transpose();
+        G.rowwise() -= G.colwise().mean(); // Centering
+        ofs.write((char *)G.data(), G.size() * sizeof(double)); // TODO: compress me
+    }
+    else
+    {
+        ;
+    }
+    cao << tick.date() << "done output residuals values" << std::endl;
 }
 
 void Data::update_batch_E(const MyMatrix & U, const MyVector & svals, const MyMatrix & VT)

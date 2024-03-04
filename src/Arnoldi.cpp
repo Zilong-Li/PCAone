@@ -45,7 +45,7 @@ void ArnoldiOpData::perform_op(const double * x_in, double * y_out) const
                           * std::chrono::duration<double>::period::num
                           / std::chrono::duration<double>::period::den;
         // TODO: Kahan summation
-        //  optimal evaluation see https://eigen.tuxfamily.org/dox/TopicWritingEfficientProductExpression.html
+        // optimal evaluation see https://eigen.tuxfamily.org/dox/TopicWritingEfficientProductExpression.html
         y.noalias() += data->G * (data->G.transpose() * x);
     }
     data->nops++;
@@ -67,17 +67,13 @@ void run_pca_with_arnoldi(Data * data, const Param & params)
         PartialSVDSolver<MyMatrix> svds(data->G, params.k, params.ncv);
         if(!params.ld && !params.runem
            && (params.file_t == FileType::PLINK || params.file_t == FileType::BGEN))
-        {
             data->standardize_E();
-        }
         nconv = svds.compute(params.imaxiter, params.itol);
         if(nconv != params.k) cao.error("the nconv is not equal to k.");
         U = svds.matrix_U(params.k);
         V = svds.matrix_V(params.k);
         svals = svds.singular_values();
         evals.noalias() = svals.array().square().matrix() / data->nsnps;
-        data->write_eigs_files(evals, U, V);
-        cao << tick.date() << "first SVD done!\n";
         if(params.runem)
         {
             flip_UV(U, V);
@@ -110,10 +106,7 @@ void run_pca_with_arnoldi(Data * data, const Param & params)
                 C.array() /= (double)data->nsnps;
                 C.diagonal() = data->Dc.array() / (double)data->nsnps;
                 std::ofstream out_cov(params.fileout + ".cov");
-                if(out_cov.is_open())
-                {
-                    out_cov << C << "\n";
-                }
+                if(out_cov.is_open()) out_cov << C << "\n";
                 // calculate eigenvectors
                 DenseSymMatProd<double> op2(C);
                 SymEigsSolver<DenseSymMatProd<double>> eigs2(op2, params.k, params.ncv);
@@ -121,8 +114,9 @@ void run_pca_with_arnoldi(Data * data, const Param & params)
                 nconv = eigs2.compute(SortRule::LargestAlge, params.imaxiter, params.itol);
                 assert(eigs2.info() == CompInfo::Successful);
                 nu = min(params.k, nconv);
-                data->write_eigs_files(eigs2.eigenvalues(), eigs2.eigenvectors().leftCols(nu),
-                                       eigs2.eigenvectors().leftCols(nu));
+                U = eigs2.eigenvectors().leftCols(nu);
+                V = eigs2.eigenvectors().leftCols(nu);
+                evals = eigs2.eigenvalues();
             }
             else
             {
@@ -132,12 +126,13 @@ void run_pca_with_arnoldi(Data * data, const Param & params)
                 U = svds.matrix_U(params.k);
                 V = svds.matrix_V(params.k);
                 flip_UV(U, V);
-                cao << tick.date() << "final SVD done!\n";
                 evals.noalias() = svals.array().square().matrix() / data->nsnps;
-                // write to files;
-                data->write_eigs_files(evals, U, V);
             }
         }
+        // write to files;
+        data->write_eigs_files(evals, U, V);
+        // NOTE: pcangsd only gives us evals of covariance matrix
+        if(params.ld && !params.pcangsd) data->write_residuals(svals, U, V);
     }
     else
     {
@@ -165,8 +160,6 @@ void run_pca_with_arnoldi(Data * data, const Param & params)
         op->VT = MyMatrix::Zero(U.rows(), data->nsnps);
         data->calcu_vt_initial(U, op->VT, true);
         evals.noalias() = eigs->eigenvalues() / data->nsnps;
-        data->write_eigs_files(evals, op->U, op->VT.transpose());
-        cao << tick.date() << "first SVD done!\n";
         if(params.runem)
         {
             data->calcu_vt_initial(U, op->VT, false);
@@ -179,31 +172,25 @@ void run_pca_with_arnoldi(Data * data, const Param & params)
                 eigs->init();
                 nconv = eigs->compute(SortRule::LargestAlge, params.imaxiter, params.itol);
                 if(nconv < params.k) cao.error("the nconv is not equal to k.");
-                if(eigs->info() == CompInfo::Successful)
-                {
-                    nu = min(params.k, nconv);
-                    U = (eigs->eigenvectors().leftCols(nu).transpose().array().colwise()
-                         / eigs->eigenvalues().head(nu).array().sqrt())
-                            .matrix();
+                assert(eigs->info() == CompInfo::Successful);
+                nu = min(params.k, nconv);
+                U = (eigs->eigenvectors().leftCols(nu).transpose().array().colwise()
+                     / eigs->eigenvalues().head(nu).array().sqrt())
+                    .matrix();
 
-                    data->calcu_vt_update(U, op->U, op->S, op->VT, false);
-                    op->S = eigs->eigenvalues().cwiseSqrt();
-                    op->U = eigs->eigenvectors().leftCols(nu);
-                    flip_UV(op->U, op->VT);
-                    diff = rmse(op->VT, V);
-                    if(params.verbose)
-                        cao << tick.date() << "individual allele frequencies estimated (iter=" << i
-                            << "), RMSE=" << diff << ".\n";
-                    if(diff < params.tol)
+                data->calcu_vt_update(U, op->U, op->S, op->VT, false);
+                op->S = eigs->eigenvalues().cwiseSqrt();
+                op->U = eigs->eigenvectors().leftCols(nu);
+                flip_UV(op->U, op->VT);
+                diff = rmse(op->VT, V);
+                if(params.verbose)
+                    cao << tick.date() << "individual allele frequencies estimated (iter=" << i
+                        << "), RMSE=" << diff << ".\n";
+                if(diff < params.tol)
                     {
                         cao << tick.date() << "come to convergence!\n";
                         break;
                     }
-                }
-                else
-                {
-                    cao.error("something wrong with Spectra SymEigsSolver.");
-                }
             }
 
             cao << tick.date() << "begin to standardize the matrix\n";
@@ -221,32 +208,13 @@ void run_pca_with_arnoldi(Data * data, const Param & params)
             op->U = eigs->eigenvectors().leftCols(nu);
             flip_UV(op->U, op->VT);
             evals.noalias() = eigs->eigenvalues() / data->nsnps;
-            data->write_eigs_files(evals, op->U, op->VT.transpose());
         }
+        data->write_eigs_files(evals, op->U, op->VT.transpose());
         delete op;
         delete eigs;
     }
-    cao << tick.date() << "final SVD done!\n";
+    
+    cao << tick.date() << "run_pca_with_arnoldi done\n";
 
-    if(params.ld && !params.out_of_core)
-    {
-        if(params.ld_stats == 1)
-        {
-            cao << tick.date() << "ld-stats=1: calc_ld_metrics using centered genotype matrix!\n";
-        }
-        else
-        {
-            cao << tick.date() << "ld-stats=0: calc_ld_metrics using residuals matrix!\n";
-            data->G -= U * svals.asDiagonal() * V.transpose(); // get residuals matrix
-        }
-        data->G.rowwise() -= data->G.colwise().mean(); // Centering
-        if(params.clump.empty())
-            calc_ld_metrics(params.fileout, params.filebim, data->G, data->F, data->snp_pos,
-                            data->chr_pos_end, params.ld_bp, params.ld_r2, params.verbose);
-        else
-            calc_ld_clump(params.fileout, params.clump, params.assoc_colnames, params.clump_bp,
-                          params.clump_r2, params.clump_p1, params.clump_p2, data->G, data->F, data->snp_pos,
-                          data->chr_pos_end, data->chromosomes);
-    }
     return;
 }

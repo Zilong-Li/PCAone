@@ -396,10 +396,6 @@ void run_pca_with_halko(Data * data, const Param & params)
             rsvd->setFlags(false, false, true);
         }
         rsvd->computeUSV(params.maxp, params.tol);
-        if(params.svd_t == SvdType::PCAoneAlg2 && !params.noshuffle)
-            data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, data->perm * rsvd->V);
-        else
-            data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, rsvd->V);
     }
     else
     {
@@ -447,33 +443,19 @@ void run_pca_with_halko(Data * data, const Param & params)
         {
             rsvd->setFlags(true, true, false);
             rsvd->computeUSV(params.maxp, params.tol);
-            data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, rsvd->V);
         }
+    }
+    if(!params.pcangsd)
+    {
+        if(params.svd_t == SvdType::PCAoneAlg2 && !params.noshuffle)
+            data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, data->perm * rsvd->V);
+        else
+            data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, rsvd->V);
+        if(params.ld && !params.out_of_core) data->write_residuals(rsvd->S, rsvd->U, rsvd->V);
     }
 
-    if(params.ld && !params.out_of_core)
-    {
-        if(params.ld_stats == 1)
-        {
-            cao << tick.date() << "ld-stats=1: calc_ld_metrics using centered genotype matrix!\n";
-        }
-        else
-        {
-            cao << tick.date() << "ld-stats=0: calc_ld_metrics using residuals matrix!\n";
-            data->G -= rsvd->U * rsvd->S.asDiagonal() * rsvd->V.transpose(); // get residuals matrix
-        }
-        // could be time-consuming
-        if(params.svd_t == SvdType::PCAoneAlg2 && !params.noshuffle)
-            data->G = (data->perm * data->G.transpose()).transpose();
-        data->G.rowwise() -= data->G.colwise().mean(); // Centering
-        if(params.clump.empty())
-            calc_ld_metrics(params.fileout, params.filebim, data->G, data->F, data->snp_pos,
-                            data->chr_pos_end, params.ld_bp, params.ld_r2, params.verbose);
-        else
-            calc_ld_clump(params.fileout, params.clump, params.assoc_colnames, params.clump_bp,
-                          params.clump_r2, params.clump_p1, params.clump_p2, data->G, data->F, data->snp_pos,
-                          data->chr_pos_end, data->chromosomes);
-    }
+    cao << tick.date() << "run_pca_with_halko done\n";
 
     delete rsvd;
+    return;
 }
