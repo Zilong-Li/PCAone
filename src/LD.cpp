@@ -235,7 +235,7 @@ void calc_ld_clump(std::string fileout,
                    const std::vector<std::string> & chrs)
 {
     cao << tick.date() << "start do LD-based clumping -> p1=" << clump_p1 << ", p2=" << clump_p2
-        << ", r2=" << clump_r2 << ", bp=" << clump_bp << std::endl;
+        << ", r2=" << clump_r2 << ", bp=" << clump_bp << ", assoc file:" + fileassoc << std::endl;
     auto colidx = valid_assoc_file(fileassoc, colnames); // 0: chr, 1: pos, 2: pvalue
     Int2D idx_per_chr, bp_per_chr;
     std::tie(idx_per_chr, bp_per_chr) =
@@ -357,6 +357,12 @@ void run_ld_stuff(const Param & params, Data * data)
         calc_ld_metrics(params.fileout, params.filebim, data->G, F, snp_pos, chr_pos_end, params.ld_bp,
                         params.ld_r2, params.verbose);
     else
-        calc_ld_clump(params.fileout, params.clump, params.assoc_colnames, params.clump_bp, params.clump_r2,
-                      params.clump_p1, params.clump_p2, data->G, snp_pos, chr_pos_end, chromosomes);
+    {
+        std::string sep{","};
+        const auto assocfiles = split_string(params.clump, sep);
+        for(size_t i = 0; i < assocfiles.size(); i++)
+            calc_ld_clump(params.fileout + ".pheno" + to_string(i), assocfiles[i], params.assoc_colnames,
+                          params.clump_bp, params.clump_r2, params.clump_p1, params.clump_p2, data->G,
+                          snp_pos, chr_pos_end, chromosomes);
+    }
 }

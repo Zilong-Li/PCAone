@@ -279,7 +279,7 @@ int shuffle_bgen_to_bin(std::string & fin, std::string fout, uint gb, bool stand
         stop_idx = stop_idx >= nsnps ? nsnps - 1 : stop_idx;
         read_bgen_block(G, F, bg, dosages, probs1d, frequency_was_estimated, nsamples, nsnps, blocksize,
                         start_idx, stop_idx, standardize);
-        for(size_t p = 0; p < G.cols(); p++, cur++)
+        for(Eigen::Index p = 0; p < G.cols(); p++, cur++)
         {
             ofs2 << perm[cur] << "\n";
             idx = magic + perm[cur] * bytes_per_snp;

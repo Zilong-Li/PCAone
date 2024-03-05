@@ -292,7 +292,7 @@ PermMat shuffle_csvzstd_to_bin(std::string & fin, std::string fout, uint gb, uin
         stop_idx = stop_idx >= nsnps ? nsnps - 1 : stop_idx;
         read_csvzstd_block(zbuf, blocksize, start_idx, stop_idx, G, nsamples, libsize, tidx, median_libsize,
                            scale);
-        for(size_t p = 0; p < G.cols(); p++, ia++)
+        for(Eigen::Index p = 0; p < G.cols(); p++, ia++)
         {
             ib = perm[ia];
             indices(ib) = ia;
