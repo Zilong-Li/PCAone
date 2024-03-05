@@ -169,7 +169,7 @@ std::vector<UMapIntDouble> map_index_snps(const std::string & fileassoc,
 {
     std::ifstream fin(fileassoc);
     if(!fin.is_open()) throw invalid_argument("can not open " + fileassoc);
-    std::string line, chr_cur, chr_prev, sep{" \t"};
+    std::string line, chr_cur, chr_prev, sep{"\t"};
     getline(fin, line);
     vector<UMapIntDouble> vm;
     UMapIntDouble m;
@@ -201,7 +201,7 @@ std::vector<UMapIntString> map_assoc_file(const std::string & fileassoc, const I
     vector<UMapIntString> vm;
     UMapIntString m;
     int c = 0, bp;
-    std::string line, chr_cur, chr_prev, sep{" \t"};
+    std::string line, chr_cur, chr_prev, sep{"\t"};
     getline(fin, line);
     m.insert({-1, line});
     while(getline(fin, line))
