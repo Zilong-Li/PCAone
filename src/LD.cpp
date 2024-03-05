@@ -248,13 +248,13 @@ void calc_ld_clump(std::string fileout,
     // sort by pvalues and get new idx
     const MyVector sds = 1.0 / calc_sds(G).array();
     const double df = 1.0 / (G.rows() - 1); // N-1
-#pragma omp parallel for
+    std::ofstream ofs(fileout + ".clump.txt");
+    ofs << head + "\tSP2" << std::endl;
     for(int c = 0; c < (int)idx_per_chr.size(); c++)
     {
         const auto idx = idx_per_chr[c];
         const auto bp = bp_per_chr[c];
         const auto mbp = vector2map(bp);
-        std::ofstream ofs(fileout + ".clump.chr" + std::to_string(c + 1));
         // greedy clumping algorithm
         auto mpp = pvals_per_chr[c]; // key: pos, val: pval
         Double1D pp;
@@ -321,17 +321,6 @@ void calc_ld_clump(std::string fileout,
             ofs << std::endl;
         }
         // end current chr
-    }
-    std::ofstream ofs(fileout + ".clump.txt");
-    ofs << head + "\tSP2" << std::endl;
-    string fn;
-    for(int c = 0; c < (int)idx_per_chr.size(); c++)
-    {
-        fn = fileout + ".clump.chr" + std::to_string(c + 1);
-        std::ifstream ifs(fn);
-        ofs << ifs.rdbuf();
-        ifs.close();
-        std::remove(fn.c_str());
     }
 }
 
