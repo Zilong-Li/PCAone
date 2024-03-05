@@ -24,14 +24,6 @@ void calc_ld_metrics(const std::string & fileout,
                      double r2_tol,
                      bool verbose);
 
-void calc_ld_pairs(std::string fileout,
-                   std::string filebim,
-                   MyMatrix & G,
-                   const MyVector & F,
-                   const Int1D & snp_pos,
-                   const Int1D & chr_pos_end,
-                   const std::vector<std::string> & chrs);
-
 void calc_ld_clump(std::string fileout,
                    std::string fileassoc,
                    std::string colnames,

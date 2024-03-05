@@ -203,7 +203,6 @@ void Data::write_eigs_files(const MyVector & S, const MyMatrix & U, const MyMatr
 
 void Data::write_residuals(const MyVector & S, const MyMatrix & U, const MyMatrix & V)
 {
-    cao << tick.date() << "output residuals values" << std::endl;
     std::ofstream ofs(params.fileout + ".residuals", std::ios::binary);
     const uint ibyte = 4;
     const uint magic = ibyte * 2;
@@ -224,6 +223,7 @@ void Data::write_residuals(const MyVector & S, const MyMatrix & U, const MyMatri
         }
         G.rowwise() -= G.colwise().mean(); // Centering
         // TODO: compress me!
+        cao << tick.date() << "output residuals values" << std::endl;
         Eigen::VectorXf fg;
         uint64 idx;
         for(Eigen::Index i = 0; i < G.cols(); i++)

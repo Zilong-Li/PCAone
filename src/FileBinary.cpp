@@ -47,7 +47,7 @@ void FileBin::read_all()
     check_file_offset_first_var();
     G = MyMatrix::Zero(nsamples, nsnps);
     Eigen::VectorXf fg(nsamples);
-    for(size_t i = 0; i < G.cols(); i++)
+    for(Eigen::Index i = 0; i < G.cols(); i++)
     {
         ifs_bin.read((char *)fg.data(), bytes_per_snp);
         G.col(i) = fg.cast<double>();
@@ -64,7 +64,7 @@ void FileBin::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
     uint actual_block_size = stop_idx - start_idx + 1;
     G = MyMatrix(nsamples, actual_block_size);
     Eigen::VectorXf fg(nsamples);
-    for(size_t i = 0; i < G.cols(); i++)
+    for(Eigen::Index i = 0; i < G.cols(); i++)
     {
         ifs_bin.read((char *)fg.data(), bytes_per_snp);
         G.col(i) = fg.cast<double>();
