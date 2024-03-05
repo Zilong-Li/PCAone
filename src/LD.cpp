@@ -11,18 +11,19 @@ MyVector calc_sds(const MyMatrix & X)
 
 // NEXT: could use a new struct
 // chr_pos_end: 0-based index for last snp pos
-void get_snp_pos_bim(const std::string & filebim,
-                     Int1D & pos,
-                     Int1D & chr_pos_end,
-                     std::vector<std::string> & chrs,
-                     bool header,
-                     Int1D idx)
+std::string get_snp_pos_bim(const std::string & filebim,
+                            Int1D & pos,
+                            Int1D & chr_pos_end,
+                            std::vector<std::string> & chrs,
+                            bool header,
+                            Int1D idx)
 {
     std::ifstream fin(filebim);
     if(!fin.is_open()) throw invalid_argument("can not open " + filebim);
-    std::string line, chr_cur, chr_prev, sep{" \t"};
+    std::string ret, line{""}, chr_cur, chr_prev, sep{" \t"};
     int i = 0;
     if(header) getline(fin, line);
+    ret = line;
     while(getline(fin, line))
     {
         auto tokens = split_string(line, sep);
@@ -38,21 +39,22 @@ void get_snp_pos_bim(const std::string & filebim,
         i++;
     }
     chr_pos_end.push_back(i - 1); // add the last SNP
+    return ret;
 }
 
 // given a list of snps, find its index per chr in the original pos
 // assume chromosomes are continuous
 // TODO check duplicated POS
-std::tuple<Int2D, Int2D> get_target_snp_idx(const std::string & filebim,
-                                            const Int1D & pos,
-                                            const Int1D & chr_pos_end,
-                                            const std::vector<std::string> & chrs,
-                                            bool header,
-                                            Int1D colidx)
+std::tuple<Int2D, Int2D, std::string> get_target_snp_idx(const std::string & filebim,
+                                                         const Int1D & pos,
+                                                         const Int1D & chr_pos_end,
+                                                         const std::vector<std::string> & chrs,
+                                                         bool header,
+                                                         Int1D colidx)
 {
     Int1D t_pos, t_chr_pos_end, idx, bp;
     std::vector<std::string> t_chrs;
-    get_snp_pos_bim(filebim, t_pos, t_chr_pos_end, t_chrs, header, colidx);
+    auto head = get_snp_pos_bim(filebim, t_pos, t_chr_pos_end, t_chrs, header, colidx);
     UMapIntInt mpos;
     int c, s, e, p, i;
     Int2D ret(t_chrs.size());
@@ -81,7 +83,7 @@ std::tuple<Int2D, Int2D> get_target_snp_idx(const std::string & filebim,
         idx.clear();
         mpos.clear();
     }
-    return std::make_tuple(ret, ret2);
+    return std::make_tuple(ret, ret2, head);
 }
 
 void calc_ld_metrics(const std::string & fileout,
@@ -204,7 +206,6 @@ std::vector<UMapIntPds> map_index_snps(const std::string & fileassoc, const Int1
     UMapIntPds m;
     int c = 0, bp;
     double pval;
-    m.insert({-1, {-0.05, line}});
     while(getline(fin, line))
     {
         auto tokens = split_string(line, sep);
@@ -240,7 +241,8 @@ void calc_ld_clump(std::string fileout,
         << ", r2=" << clump_r2 << ", bp=" << clump_bp << ", assoc file:" + fileassoc << std::endl;
     auto colidx = valid_assoc_file(fileassoc, colnames); // 0: chr, 1: pos, 2: pvalue
     Int2D idx_per_chr, bp_per_chr;
-    std::tie(idx_per_chr, bp_per_chr) =
+    std::string head;
+    std::tie(idx_per_chr, bp_per_chr, head) =
         get_target_snp_idx(fileassoc, snp_pos, chr_pos_end, chrs, true, colidx);
     const auto pvals_per_chr = map_index_snps(fileassoc, colidx, clump_p2);
     // sort by pvalues and get new idx
@@ -253,7 +255,6 @@ void calc_ld_clump(std::string fileout,
         const auto bp = bp_per_chr[c];
         const auto mbp = vector2map(bp);
         std::ofstream ofs(fileout + ".clump.chr" + std::to_string(c + 1));
-        ofs << pvals_per_chr[0].at(-1).second << "\tSP2\n";
         // greedy clumping algorithm
         auto mpp = pvals_per_chr[c]; // key: pos, val: pval
         Double1D pp;
@@ -322,6 +323,7 @@ void calc_ld_clump(std::string fileout,
         // end current chr
     }
     std::ofstream ofs(fileout + ".clump.txt");
+    ofs << head + "\tSP2" << std::endl;
     string fn;
     for(int c = 0; c < (int)idx_per_chr.size(); c++)
     {
