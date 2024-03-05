@@ -9,6 +9,37 @@ MyVector calc_sds(const MyMatrix & X)
     return (X.array().square().colwise().sum() / df).sqrt();
 }
 
+// NEXT: could use a new struct
+// chr_pos_end: 0-based index for last snp pos
+void get_snp_pos_bim(const std::string & filebim,
+                     Int1D & pos,
+                     Int1D & chr_pos_end,
+                     std::vector<std::string> & chrs,
+                     bool header,
+                     Int1D idx)
+{
+    std::ifstream fin(filebim);
+    if(!fin.is_open()) throw invalid_argument("can not open " + filebim);
+    std::string line, chr_cur, chr_prev, sep{" \t"};
+    int i = 0;
+    if(header) getline(fin, line);
+    while(getline(fin, line))
+    {
+        auto tokens = split_string(line, sep);
+        chr_cur = tokens[idx[0]];
+        if(chr_prev.empty()) chrs.push_back(chr_cur);
+        if(!chr_prev.empty() && chr_prev != chr_cur)
+        {
+            chr_pos_end.push_back(i - 1);
+            chrs.push_back(chr_cur);
+        }
+        chr_prev = chr_cur;
+        pos.push_back(std::stoi(tokens[idx[1]]));
+        i++;
+    }
+    chr_pos_end.push_back(i - 1); // add the last SNP
+}
+
 // given a list of snps, find its index per chr in the original pos
 // assume chromosomes are continuous
 // TODO check duplicated POS
@@ -163,53 +194,24 @@ Int1D valid_assoc_file(const std::string & fileassoc, const std::string & colnam
     return idx;
 }
 
-std::vector<UMapIntDouble> map_index_snps(const std::string & fileassoc,
-                                          const Int1D & colidx,
-                                          double clump_p2)
+std::vector<UMapIntPds> map_index_snps(const std::string & fileassoc, const Int1D & colidx, double clump_p2)
 {
     std::ifstream fin(fileassoc);
     if(!fin.is_open()) throw invalid_argument("can not open " + fileassoc);
     std::string line, chr_cur, chr_prev, sep{"\t"};
     getline(fin, line);
-    vector<UMapIntDouble> vm;
-    UMapIntDouble m;
+    vector<UMapIntPds> vm;
+    UMapIntPds m;
     int c = 0, bp;
     double pval;
+    m.insert({-1, {-0.05, line}});
     while(getline(fin, line))
     {
         auto tokens = split_string(line, sep);
         chr_cur = tokens[colidx[0]];
         bp = std::stoi(tokens[colidx[1]]);
         pval = std::stod(tokens[colidx[2]]);
-        if(pval <= clump_p2) m.insert({bp, pval});
-        if(!chr_prev.empty() && chr_prev != chr_cur)
-        {
-            c++;
-            vm.push_back(m);
-            m.clear();
-        }
-        chr_prev = chr_cur;
-    }
-    vm.push_back(m); // add the last chr
-    return vm;
-}
-
-std::vector<UMapIntString> map_assoc_file(const std::string & fileassoc, const Int1D & colidx)
-{
-    std::ifstream fin(fileassoc);
-    if(!fin.is_open()) throw invalid_argument("can not open " + fileassoc);
-    vector<UMapIntString> vm;
-    UMapIntString m;
-    int c = 0, bp;
-    std::string line, chr_cur, chr_prev, sep{"\t"};
-    getline(fin, line);
-    m.insert({-1, line});
-    while(getline(fin, line))
-    {
-        auto tokens = split_string(line, sep);
-        chr_cur = tokens[colidx[0]];
-        bp = std::stoi(tokens[colidx[1]]);
-        m.insert({bp, line});
+        if(pval <= clump_p2) m.insert({bp, {pval, line}});
         if(!chr_prev.empty() && chr_prev != chr_cur)
         {
             c++;
@@ -241,7 +243,6 @@ void calc_ld_clump(std::string fileout,
     std::tie(idx_per_chr, bp_per_chr) =
         get_target_snp_idx(fileassoc, snp_pos, chr_pos_end, chrs, true, colidx);
     const auto pvals_per_chr = map_index_snps(fileassoc, colidx, clump_p2);
-    const auto line_per_chr = map_assoc_file(fileassoc, colidx);
     // sort by pvalues and get new idx
     const MyVector sds = 1.0 / calc_sds(G).array();
     const double df = 1.0 / (G.rows() - 1); // N-1
@@ -250,31 +251,33 @@ void calc_ld_clump(std::string fileout,
     {
         const auto idx = idx_per_chr[c];
         const auto bp = bp_per_chr[c];
-        auto mbp = vector2map(bp);
-        auto lines = line_per_chr[c];
+        const auto mbp = vector2map(bp);
         std::ofstream ofs(fileout + ".clump.chr" + std::to_string(c + 1));
-        ofs << line_per_chr[0].at(-1) << "\tSP2\n";
+        ofs << pvals_per_chr[0].at(-1).second << "\tSP2\n";
         // greedy clumping algorithm
         auto mpp = pvals_per_chr[c]; // key: pos, val: pval
         Double1D pp;
         Int1D ps;
         for(auto it = mpp.begin(); it != mpp.end(); it++)
         {
-            if(it->second <= clump_p1)
+            if(it->second.first <= clump_p1)
             {
                 ps.push_back(it->first);
-                pp.push_back(it->second);
+                pp.push_back(it->second.first);
             }
         }
+        size_t j, k;
+        int p, p2;
         for(auto i : sortidx(pp))
         { // snps sorted by p value
-            int p = ps[i], p2;
+            p = ps[i];
             if(mpp.count(p) == 0)
                 continue; // if snps with pval < clump_p1 are already clumped with previous snps
             Int1D clumped;
             bool backward = true;
-            const size_t j = mbp[p]; // j:current
-            size_t k = j; //  k:forward or backward
+            if(mbp.count(p) == 0) continue;
+            j = mbp.at(p); // j:current
+            k = j; //  k:forward or backward
             while(true)
             {
                 if(backward)
@@ -303,7 +306,7 @@ void calc_ld_clump(std::string fileout,
                 }
             }
             // what we do with clumped SNPs. sort them by pval?
-            ofs << lines[p] << "\t";
+            ofs << pvals_per_chr[c].at(p).second << "\t";
             if(clumped.empty())
             {
                 ofs << "NONE";
@@ -311,7 +314,7 @@ void calc_ld_clump(std::string fileout,
             else
             {
                 Double1D opp;
-                for(auto op : clumped) opp.push_back(pvals_per_chr[c].at(op));
+                for(auto op : clumped) opp.push_back(pvals_per_chr[c].at(op).first);
                 for(auto oi : sortidx(opp)) ofs << clumped[oi] << ",";
             }
             ofs << std::endl;

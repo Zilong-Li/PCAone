@@ -247,36 +247,6 @@ std::vector<std::string> split_string(const std::string & s, const std::string &
     return ret;
 }
 
-// could use a new struct
-// chr_pos_end: 0-based index for last snp pos
-void get_snp_pos_bim(const std::string & filebim,
-                     Int1D & pos,
-                     Int1D & chr_pos_end,
-                     std::vector<std::string> & chrs,
-                     bool header,
-                     Int1D idx)
-{
-    std::ifstream fin(filebim);
-    if(!fin.is_open()) throw invalid_argument("can not open " + filebim);
-    std::string line, chr_cur, chr_prev, sep{" \t"};
-    int i = 0;
-    if(header) getline(fin, line);
-    while(getline(fin, line))
-    {
-        auto tokens = split_string(line, sep);
-        chr_cur = tokens[idx[0]];
-        if(chr_prev.empty()) chrs.push_back(chr_cur);
-        if(!chr_prev.empty() && chr_prev != chr_cur)
-        {
-            chr_pos_end.push_back(i - 1);
-            chrs.push_back(chr_cur);
-        }
-        chr_prev = chr_cur;
-        pos.push_back(std::stoi(tokens[idx[1]]));
-        i++;
-    }
-    chr_pos_end.push_back(i - 1); // add the last SNP
-}
 
 void make_plink2_eigenvec_file(int K, std::string fout, const std::string & fin, const std::string & fam)
 {

@@ -44,6 +44,8 @@ using Double1D = std::vector<double>;
 using UMapIntInt = std::unordered_map<int, int>;
 using UMapIntDouble = std::unordered_map<int, double>;
 using UMapIntString = std::unordered_map<int, std::string>;
+using Pds = std::pair<double, std::string>;
+using UMapIntPds = std::unordered_map<int, Pds>;
 
 #define MAF(a) ((a) > 0.5 ? (1 - a) : (a))
 
@@ -99,12 +101,6 @@ double get_median(std::vector<double> v);
 
 std::vector<std::string> split_string(const std::string & s, const std::string & separators);
 
-void get_snp_pos_bim(const std::string & filebim,
-                     Int1D & pos,
-                     Int1D & chr_pos_end,
-                     std::vector<std::string> & chrs,
-                     bool header = false,
-                     Int1D idx = Int1D{0, 3});
 
 void make_plink2_eigenvec_file(int K, std::string fout, const std::string & fin, const std::string & fam);
 

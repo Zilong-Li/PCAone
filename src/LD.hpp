@@ -7,6 +7,13 @@
 
 MyVector calc_sds(const MyMatrix & X);
 
+void get_snp_pos_bim(const std::string & filebim,
+                     Int1D & pos,
+                     Int1D & chr_pos_end,
+                     std::vector<std::string> & chrs,
+                     bool header = false,
+                     Int1D idx = Int1D{0, 3});
+
 std::tuple<Int2D, Int2D> get_target_snp_idx(const std::string & filebim,
                                             const Int1D & pos,
                                             const Int1D & chr_pos_end,
@@ -46,7 +53,7 @@ inline UMapIntInt vector2map(const Int1D & v)
     return m;
 }
 
-std::vector<UMapIntDouble> map_index_snps(const std::string & fileassoc,
+std::vector<UMapIntPds> map_index_snps(const std::string & fileassoc,
                                           const Int1D & colidx,
                                           double clump_p2);
 
