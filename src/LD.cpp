@@ -366,8 +366,11 @@ void run_ld_stuff(const Param & params, Data * data)
         std::string sep{","};
         const auto assocfiles = split_string(params.clump, sep);
         for(size_t i = 0; i < assocfiles.size(); i++)
-            calc_ld_clump(params.fileout + ".pheno" + to_string(i), assocfiles[i], params.assoc_colnames,
-                          params.clump_bp, params.clump_r2, params.clump_p1, params.clump_p2, data->G,
-                          snp_pos, chr_pos_end, chromosomes);
+        {
+            std::string fn = assocfiles[i].substr(assocfiles[i].find_last_of("/\\") + 1);
+            calc_ld_clump(params.fileout + "." + fn, assocfiles[i], params.assoc_colnames, params.clump_bp,
+                          params.clump_r2, params.clump_p1, params.clump_p2, data->G, snp_pos, chr_pos_end,
+                          chromosomes);
+        }
     }
 }
