@@ -267,8 +267,7 @@ void calc_ld_clump(std::string fileout,
                 pp.push_back(it->second.first);
             }
         }
-        size_t j, k;
-        int p, p2;
+        int p, p2, j, k;
         for(auto i : sortidx(pp))
         { // snps sorted by p value
             p = ps[i];
@@ -316,7 +315,15 @@ void calc_ld_clump(std::string fileout,
             {
                 Double1D opp;
                 for(auto op : clumped) opp.push_back(pvals_per_chr[c].at(op).first);
-                for(auto oi : sortidx(opp)) ofs << clumped[oi] << ",";
+                k = 0;
+                for(auto oi : sortidx(opp))
+                {
+                    if(k == opp.size() - 1)
+                        ofs << clumped[oi];
+                    else
+                        ofs << clumped[oi] << ",";
+                    k++;
+                }
             }
             ofs << std::endl;
         }
