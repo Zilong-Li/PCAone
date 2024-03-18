@@ -37,7 +37,8 @@ PCAone is a fast and memory efficient PCA tool implemented in C++ aiming at prov
   - [[#output-files][Output files]]
   - [[#running-mode][Running mode]]
   - [[#normalization][Normalization]]
-  - [[#ld-pruning-and-clumping][LD pruning and clumping]]
+  - [[#ld-prunning][LD prunning]]
+  - [[#ld-clumping][LD clumping]]
   - [[#examples][Examples]]
 - [[#citation][Citation]]
 - [[#acknowledgements][Acknowledgements]]
@@ -67,9 +68,7 @@ We will find those files in your current directory.
 ├── example           # folder of example data
 ├── pcaone.eigvals    # eigenvalues
 ├── pcaone.eigvecs    # eigenvectors, the PCs you need to plot
-├── pcaone.perm.bed   # the permuted bed file, only for PCAone
-├── pcaone.perm.bim   # the permuted bim file, only for PCAone
-├── pcaone.perm.fam   # the permuted fam file, only for PCAone
+├── pcaone.eigvecs2   # eigenvectors with header line
 └── pcaone.log        # log file
 #+end_src
 
@@ -115,7 +114,7 @@ See [[file:CHANGELOG.org][change log]] here.
 - Supports a general comma separated CSV format for single cell RNA-seq or bulk RNA-seq data compressed by [[https://github.com/facebook/zstd][zstd]].
 - Supports [[https://github.com/Rosemeis/emu][EMU]] algorithm for scenario with large proportion of missingness.
 - Supports [[https://github.com/Rosemeis/pcangsd][PCAngsd]] algorithm for low coverage sequencing scenario with genotype likelihood as input.
-- novel LD prune method for admixed population.
+- Novel LD prunning and clumping method for admixed population.
 
 * Installation
 There are 3 ways to install PCAone.
@@ -188,33 +187,43 @@ run =./PCAone --help= to see all options. Below are some useful and important op
 
 #+begin_src example
 Main options:
--h, --help                print list of all options including hidden advanced options
--d, --svd arg (=2)        svd method to be applied. 0 is the recommended for big data
-                          0: the implicitly restarted arnoldi method
-                          1: the yu's single-pass randomized svd with power iterations
-                          2: the proposed window-based randomized svd method
-                          3: the full singular value decomposition.
--b, --bfile arg           prefix to PLINK .bed/.bim/.fam files
--B, --binary arg          path of binary file
--c, --csv arg             path of comma seperated CSV file compressed by zstd
--g, --bgen arg            path of BGEN file
--G, --beagle arg          path of BEAGLE file
--k, --pc arg (=10)        top k components to be calculated
--m, --memory arg (=0)     specify the RAM usage in GB unit. default [0] uses all RAM
--n, --threads arg (=10)   number of threads for multithreading
--o, --out arg (=pcaone)   prefix to output files. default [pcaone]
--p, --maxp arg (=40)      maximum number of power iterations for RSVD algorithm
--S, --no-shuffle          do not shuffle the data if it is already permuted
--v, --verbose             verbose message output
--w, --batches arg (=64)   number of mini-batches to be used by PCAone (algorithm2)
--C, --scale arg (=0)      do scaling for input file.
-                          0: do just centering
-                          1: do log transformation eg. log(x+0.01) for RNA-seq data
-                          2: do count per median log transformation(CPMED) for scRNAs
---emu                     use EMU algorithm for genotype data with missingness
---pcangsd                 use PCAngsd algorithm for genotype likelihood input
---maf arg (=0)            skip variants with minor allele frequency below maf
--V, --printv              output the right eigen vectors with suffix .loadings
+  -h, --help                     print all options including hidden advanced options
+  -d, --svd arg (=2)             svd method to be applied. default 2 is recommended for big data.
+                                 0: the Implicitly Restarted Arnoldi Method (IRAM)
+                                 1: the Yu's single-pass Randomized SVD with power iterations
+                                 2: the proposed window-based Randomized SVD method
+                                 3: the full Singular Value Decomposition.
+  -b, --bfile arg                prefix to PLINK .bed/.bim/.fam files
+  -B, --binary arg               path of binary file (experimental and in-core mode)
+  -c, --csv arg                  path of comma seperated CSV file compressed by zstd
+  -g, --bgen arg                 path of BGEN file compressed by gzip/zstd
+  -G, --beagle arg               path of BEAGLE file compressed by gzip
+  -k, --pc arg (=10)             top k eigenvalues (PCs) to be calculated
+  -m, --memory arg (=0)          desired RAM usage in GB unit. default [0] uses all RAM
+  -n, --threads arg (=10)        number of threads for multithreading
+  -o, --out arg (=pcaone)        prefix to output files. default [pcaone]
+  -p, --maxp arg (=40)           maximum number of power iterations for RSVD algorithm
+  -S, --no-shuffle               do not shuffle the data if it is already permuted
+  -v, --verbose                  verbose message output
+  -w, --batches arg (=64)        number of mini-batches to be used by PCAone --svd 2
+  -C, --scale arg (=0)           do scaling for input file.
+                                 0: do just centering
+                                 1: do log transformation eg. log(x+0.01) for RNA-seq data
+                                 2: do count per median log transformation (CPMED) for scRNAs
+  --emu                          uses EMU algorithm for genotype input with missingness
+  --pcangsd                      uses PCAngsd algorithm for genotype likelihood input
+  --maf arg (=0)                 skip variants with minor allele frequency below maf
+  -V, --printv                   output the right eigenvectors with suffix .loadings
+  --ld                           output a binary matrix for LD related stuff
+  --ld-r2 arg (=0)               cutoff for ld pruning. A value > 0 activates ld pruning
+  --ld-bp arg (=1000000)         physical distance threshold in bases for ld pruning
+  --ld-stats arg (=0)            statistics for calculating ld-r2. (0: the adj; 1: the std)
+  --clump arg                    assoc-like file with target variants and pvalues for clumping
+  --clump-names arg (=CHR,BP,P)  olumn names in assoc-like file for locating chr, pos and pvalue respectively
+  --clump-p1 arg (=0.0001)       significance threshold for index SNPs
+  --clump-p2 arg (=0.01)         secondary significance threshold for clumped SNPs
+  --clump-r2 arg (=0.5)          r2 cutoff for ld clumping
+  --clump-bp arg (=250000)       physical distance threshold in bases for clumping
 #+end_src
 
 ** Input formats
@@ -269,16 +278,25 @@ PCAone will automatically apply the standard normalization for genetic data. Add
 - 2: do count per median log transformation (usually for single cell RNA-seq data)
 One should choose proper normalization method for specific type of data.
 
-** LD pruning and clumping
+** LD prunning
 
 This is a novel statistics on LD calculation in admixed population. For more details, see our paper.
 
 #+begin_src shell
-# pruning
-PCAone -b plink -k 3 --ld-r2 0.8 --ld-bp 1000000 --maf 0.05
-# clumping
-PCAone -b plink -k 3 --clump plink.assoc --clump-p1 0.0001 --clump-p2 0.01 --clump-r2 0.5 --maf 0.05
+PCAone -b plink -k 3 --ld-stats 0 --ld-r2 0.8 --ld-bp 1000000
 #+end_src
+
+** LD clumping
+
+If you already done LD prunning with PCAone, then you can find a binary file named =.residuals=, which will be used by LD clumping here.
+
+#+begin_src shell
+# first output a LD matrix 
+PCAone -b plink -k 3 --ld
+# do clumping given the LD matrix and user-defined association results
+PCAone -B pcaone.residuals  --clump plink.assoc --clump-p1 5e-8 --clump-p2 1e-6 --clump-r2 0.01 --clump-bp 10000000
+#+end_src
+
 
 ** Examples
 
