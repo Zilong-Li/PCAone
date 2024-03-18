@@ -114,13 +114,16 @@ Param::Param(int argc, char ** argv)
 
         ncv = 20 > (2 * k + 1) ? 20 : (2 * k + 1);
         oversamples = 10 > k ? 10 : k;
-        // beagle only represents genotype likelihood for pcangsd algorithm now
+        // beagle.gz only represents genotype likelihood for pcangsd algorithm now
         if(file_t == FileType::BEAGLE && svd_t == SvdType::PCAoneAlg2)
-            throw std::invalid_argument("not supporting PCAone algorithm 2 for PCAngsd algorithm yet! please use --svd option");
+            throw std::invalid_argument("not supporting PCAone algorithm 2 for PCAngsd algorithm yet! please use --svd 1 or 0 option");
         if(file_t == FileType::BEAGLE) pcangsd = true;
         if((file_t == FileType::PLINK || file_t == FileType::BGEN) && !haploid) diploid = true;
-        if(emu || pcangsd)
+        if(emu || pcangsd) {
             runem = true;
+            if(svd_t == SvdType::PCAoneAlg2) 
+                throw std::invalid_argument("not supporting PCAone algorithm 2 for PCAngsd or EMU algorithm yet! please specify --svd 1 or 0");
+        }
         else
             maxiter = 0;
         if(memory > 0)

@@ -372,7 +372,7 @@ void run_pca_with_halko(Data * data, const Param & params)
     MyMatrix Vpre;
     MyVector S;
     RsvdOpData * rsvd;
-    if(!params.runem && params.svd_t == SvdType::PCAoneAlg2)
+    if(params.svd_t == SvdType::PCAoneAlg2)
     {
         rsvd = new FancyRsvdOpData(data, params.k, params.oversamples);
     }
