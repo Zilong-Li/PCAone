@@ -96,8 +96,7 @@ int main(int argc, char * argv[])
         cao << tick.date() << "total elapsed wall time: " << tick.abstime() << " seconds" << endl;
         return 0;
     }
-    if(params.ld && params.out_of_core)
-        cao.error("only supports outputting residuals matrix for in-core mode");
+    if(params.ld && params.out_of_core) cao.error("only supports LD stuff for in-core mode");
     // ready for run
     data->prepare();
     // begin to run
@@ -115,6 +114,8 @@ int main(int argc, char * argv[])
     }
     else
         throw invalid_argument("unsupported PCA method was applied");
+
+    if(params.ld_r2 > 0) run_ld_pruning(params, data->G, data->F);
 
     delete data;
 

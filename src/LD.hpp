@@ -57,7 +57,7 @@ std::vector<UMapIntPds> map_index_snps(const std::string & fileassoc, const Int1
 
 std::vector<UMapIntString> map_assoc_file(const std::string & fileassoc, const Int1D & colidx);
 
-void run_ld_stuff(const Param & params);
+void run_ld_pruning(const Param & params, const MyMatrix & G, const MyVector & F);
 
 void run_ld_stuff(const Param & params, Data * data);
 
