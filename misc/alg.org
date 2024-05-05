@@ -1,0 +1,83 @@
+#+title: Overview
+
+* Test fonts 
+
+#+begin_src plantuml :file font.png
+@startuml
+listfonts
+@enduml
+#+end_src
+
+#+RESULTS:
+[[file:font.png]]
+
+* UML 
+
+#+begin_src plantuml :file architecture.png
+skinparam dpi 300
+skinparam defaultFontName FiraCode Nerd Font Med
+skinparam groupInheritance 2
+skinparam packageStyle rectangle
+hide empty fields
+hide empty members
+abstract class Data {
+  -Matrix A
+  +void {abstract} read_all()
+  +void {abstract} read_block()
+}
+Data <|-- FilePlink
+Data <|-- FileBeagle
+Data <|-- FileBgen
+Data <|-- FileCSV
+Data <|-- OtherFormats
+class FilePlink {
+  +normalization()
+}
+class FileBeagle {
+  +normalization()
+}
+class FileBgen {
+  +normalization()
+}
+class FileCSV {
+  +normalization()
+}
+class OtherFormats {
+  +normalization()
+}
+package "PCA methods" as PCA {
+  class PCAone {
+    +InCore Y
+    +OutOfCore Y
+  }
+  class IRAM {
+    +InCore Y
+    +OutOfCore Y
+  }
+  class RSVD {
+    +InCore Y
+    +OutOfCore Y
+  }
+  class FullSVD {
+    +InCore Y
+  }
+}
+
+class "PCA Related" as PCAem {
+  +EMU()
+  +PCAngsd()
+  +LD_pruning()
+  +LD_clumping()
+}
+FullSVD <-- Data: <:astonished:>
+IRAM <-- Data: <:smile:>
+RSVD <-- Data: <:nerd_face:>
+PCAone <-- Data: <:sunglasses:> 
+PCA -left-> PCAem 
+Data -left[dashed]-> PCAem: <:boom:> 
+#+end_src
+
+#+RESULTS:
+[[file:architecture.png]]
+
+
