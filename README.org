@@ -108,7 +108,8 @@ We will find those files in your current directory.
 #+end_src
 
 ** Download PCAone
-*** Linux
+On Linux platform,
+
 #+begin_src shell
 pkg=https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-avx2-Linux.zip
 wget $pkg || curl -LO $pkg
@@ -123,12 +124,6 @@ wget $pkg || curl -LO $pkg
 unzip -o PCAone-x64-Linux.zip
 #+end_src
 
-*** Mac
-#+begin_src shell
-pkg=https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-avx2-Mac.zip
-curl -LO $pkg || wget $pkg
-unzip -o PCAone-avx2-Mac.zip
-#+end_src
 
 ** Download example dataset
 #+begin_src shell
@@ -161,9 +156,8 @@ PCAone --help
 - GCC/Clang compiler with C++11 support
 - GNU make
 - zlib
-- llvm or libomp for MacOS
 
-We *recommend* building the software from source with MKL as backend to maximize the performance. For MacOS users, we recommend using =llvm= or =gcc= by =brew install llvm gcc= instead of the default =clang= shipped with MacOS. One should run =export CC=$(find $(brew --prefix)/bin/ -name "gcc-[0-9]*" | tail -1); export CXX=$(find $(brew --prefix)/bin/ -name "g++-[0-9]*" | tail -1)= and check the similar [[https://github.com/Zilong-Li/PCAone/blob/dev/.github/workflows/mac.yml#L21][mac workflow]].
+We *recommend* building the software from source with MKL as backend to maximize the performance. For MacOS users, we recommend using =llvm= by =brew install llvm= instead of the default =clang= shipped with MacOS. Check out the [[https://github.com/Zilong-Li/PCAone/blob/dev/.github/workflows/mac.yml#L21][mac workflow]].
 
 *** With MKL or OpenBLAS as backend
 
