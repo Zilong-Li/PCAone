@@ -1,12 +1,17 @@
+/*******************************************************************************
+ * @file        https://github.com/Zilong-Li/PCAone/src/Cmd.cpp
+ * @author      Zilong Li
+ * Copyright (C) 2022-2024. Use of this code is governed by the LICENSE file.
+ ******************************************************************************/
+
 #include "Cmd.hpp"
 
 #include "popl/popl.hpp"
 
 using namespace popl;
 
-Param::Param(int argc, char ** argv)
-{
-    // clang-format off
+Param::Param(int argc, char **argv) {
+  // clang-format off
     std::string copyr{"PCA All In One (v" + (std::string)VERSION + ")        https://github.com/Zilong-Li/PCAone\n" +
                       "(C) 2021-2024 Zilong Li        GNU General Public License v3\n\n" +
     "\x1B[32m" +
