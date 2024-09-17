@@ -49,7 +49,7 @@ Param::Param(int argc, char **argv) {
     opts.add<Switch>("", "pcangsd", "uses PCAngsd algorithm for genotype likelihood input", &pcangsd);
     opts.add<Value<double>>("", "maf", "skip variants with minor allele frequency below maf", maf, &maf);
     opts.add<Switch>("V", "printv", "output the right eigenvectors with suffix .loadings", &printv);
-    opts.add<Switch>("", "ld", "output a binary matrix for LD related stuff", &printv);
+    opts.add<Switch>("", "ld", "output a binary matrix for LD related stuff", &ld);
     opts.add<Value<double>>("", "ld-r2", "cutoff for ld pruning. A value > 0 activates ld pruning", ld_r2, &ld_r2);
     opts.add<Value<uint>>("", "ld-bp", "physical distance threshold in bases for ld pruning", ld_bp, &ld_bp);
     opts.add<Value<int>>("", "ld-stats", "statistics for calculating ld-r2. (0: the adj; 1: the std)", ld_stats, &ld_stats);
@@ -145,7 +145,7 @@ Param::Param(int argc, char **argv) {
             maf = 1 - maf;
         } 
         keepsnp =  maf > 0 ? true : false;
-        ld = (ld_r2 > 0 || !clump.empty())? true : false;
+        ld = (ld || ld_r2 > 0 || !clump.empty())? true : false;
         if(ld && keepsnp) filebim = fileout + ".kept.bim";
         else filebim = filein + ".bim";
     }

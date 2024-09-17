@@ -24,6 +24,7 @@ class RsvdOpData {
 
   virtual void computeGandH(MyMatrix& G, MyMatrix& H, int pi) = 0;
 
+  /// update, standardize, verbose
   inline void setFlags(bool is_update, bool is_standardize, bool is_verbose) {
     update = is_update;
     standardize = is_standardize;

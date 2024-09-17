@@ -2,6 +2,7 @@
 #define LOGGER_H_
 
 #include <fstream>
+#include <initializer_list>
 #include <iomanip>
 #include <iostream>
 
@@ -27,12 +28,25 @@ class Logger {
     return *this;
   }
 
-  void print(std::string s) {
-    if (is_screen) std::cout << std::setprecision(16) << s << std::endl;
-    cao << s << std::endl;
+  template <class S>
+  void printSpace(std::ostream &os, const S &val) {
+    os << val << " ";
   }
 
-  void warning(std::string s) {
+  template <typename... Args>
+  void print(const Args &...args) {
+    std::initializer_list<int>{(printSpace(cao, args), 0)...};
+    cao << std::endl;
+    if (is_screen) {
+      std::cout.precision(6);
+      std::cout.flags(std::ios::fixed | std::ios::right);
+      std::initializer_list<int>{(printSpace(std::cout, args), 0)...};
+      std::cout << std::endl;
+    }
+  }
+
+  template <class T>
+  void warning(const T &s) {
     if (is_screen)
       std::cout << std::endl
                 << "\x1B[33m"
@@ -41,7 +55,8 @@ class Logger {
     cao << std::endl << "WARNING: " << s << std::endl;
   }
 
-  void error(std::string s) {
+  template <class T>
+  void error(const T &s) {
     if (is_screen)
       std::cout << std::endl
                 << "\x1B[31m"
@@ -51,7 +66,8 @@ class Logger {
     exit(EXIT_FAILURE);
   }
 
-  void done(std::string s) {
+  template <class T>
+  void done(const T &s) {
     if (is_screen)
       std::cout << std::endl
                 << "\x1B[32m"

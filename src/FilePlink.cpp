@@ -46,8 +46,7 @@ void FileBed::read_all() {
             F(i) += BED2GENO[buf & 3];
             c++;
           }
-          buf >>=
-              2;  // shift packed data and throw away genotype just processed.
+          buf >>= 2;
         }
       }
     }
@@ -76,8 +75,7 @@ void FileBed::read_all() {
             // 1 indicate G(i,j) need to be predicted and updated.
             if (params.runem) C[i * nsamples + j] = 1;
           }
-          buf >>=
-              2;  // shift packed data and throw away genotype just processed.
+          buf >>= 2;
         }
       }
     }
@@ -125,8 +123,7 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx,
             G(j, i) = centered_geno_lookup(buf & 3, snp_idx);
             if (standardize && sqrt(F(snp_idx) * (1 - F(snp_idx))) > VAR_TOL)
               G(j, i) /= sqrt(F(snp_idx) * (1 - F(snp_idx)));
-            buf >>=
-                2;  // shift packed data and throw away genotype just processed.
+            buf >>= 2;
           }
         }
       }
@@ -146,8 +143,7 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx,
               F(snp_idx) += BED2GENO[buf & 3];
               c++;
             }
-            buf >>=
-                2;  // shift packed data and throw away genotype just processed.
+            buf >>= 2;
           }
         }
       }
@@ -172,8 +168,7 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx,
             G(j, i) = centered_geno_lookup(buf & 3, snp_idx);
             if (standardize && sqrt(F(snp_idx) * (1 - F(snp_idx))) > VAR_TOL)
               G(j, i) /= sqrt(F(snp_idx) * (1 - F(snp_idx)));
-            buf >>=
-                2;  // shift packed data and throw away genotype just processed.
+            buf >>= 2;
           }
         }
       }
@@ -222,8 +217,8 @@ void FileBed::read_block_update(uint64 start_idx, uint64 stop_idx,
           }
           if (standardize && sqrt(F(snp_idx) * (1 - F(snp_idx))) > VAR_TOL)
             G(j, i) /= sqrt(F(snp_idx) * (1 - F(snp_idx)));
-          buf >>=
-              2;  // shift packed data and throw away genotype just processed.
+          // shift packed data and throw away genotype just processed.
+          buf >>= 2;
         }
       }
     }

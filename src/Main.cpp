@@ -51,10 +51,10 @@ int main(int argc, char* argv[]) {
       data = new FileBin(params);
       data->perm = perm;
     } else {
-      throw runtime_error("wrong file type used!\n");
+      cao.error("wrong file type used!");
     }
-    cao << tick.date() << "elapsed time of permuting data: " << tick.reltime()
-        << " seconds" << std::endl;
+    cao.print(tick.date(), "elapsed time of permuting data:", tick.reltime(),
+              "seconds");
   } else {
     if (params.file_t == FileType::PLINK) {
       data = new FileBed(params);
@@ -67,7 +67,7 @@ int main(int argc, char* argv[]) {
     } else if (params.file_t == FileType::CSV) {
       data = new FileCsv(params);
     } else {
-      cao.error("invalid input files.\n");
+      cao.error("invalid input files!");
     }
   }
 
@@ -75,46 +75,45 @@ int main(int argc, char* argv[]) {
     data->read_all();
     run_ld_stuff(params, data);
     delete data;
-    cao << tick.date() << "total elapsed wall time: " << tick.abstime()
-        << " seconds" << endl;
+    cao.print(tick.date(), "total elapsed wall time:", tick.abstime(),
+              "seconds");
     return 0;
   }
-  if (params.ld && params.out_of_core)
-    cao.error("only supports LD stuff for in-core mode");
   // ready for run
   data->prepare();
   // begin to run
-  if (params.svd_t == SvdType::IRAM)
+  if (params.svd_t == SvdType::IRAM) {
     run_pca_with_arnoldi(data, params);
-  else if (params.svd_t == SvdType::PCAoneAlg1 ||
-           params.svd_t == SvdType::PCAoneAlg2)
+  } else if (params.svd_t == SvdType::PCAoneAlg1 ||
+             params.svd_t == SvdType::PCAoneAlg2) {
     run_pca_with_halko(data, params);
-  else if (params.svd_t == SvdType::FULL) {
-    cao << tick.date() << "running the Full SVD with in-core mode." << endl;
+  } else if (params.svd_t == SvdType::FULL) {
+    cao.print(tick.date(), "running the Full SVD with in-core mode.");
     if (params.file_t == FileType::PLINK || params.file_t == FileType::BGEN)
       data->standardize_E();
     Eigen::JacobiSVD<MyMatrix> svd(data->G,
                                    Eigen::ComputeThinU | Eigen::ComputeThinV);
     data->write_eigs_files(svd.singularValues().array().square() / data->nsnps,
                            svd.matrixU(), svd.matrixV());
-  } else
-    throw invalid_argument("unsupported PCA method was applied");
+  } else {
+    cao.error("unsupported PCA method!");
+  }
 
+  // TODO : remove this and work on binary input instead
   if (params.ld_r2 > 0) run_ld_pruning(params, data->G, data->F);
 
   delete data;
-
-  cao << tick.date() << "total elapsed reading time: " << data->readtime
-      << " seconds" << endl;
-  cao << tick.date() << "total elapsed wall time: " << tick.abstime()
-      << " seconds" << endl;
-  cao << tick.date()
-      << "eigenvecs and eigenvals are saved. have a nice day. bye!\n";
 
   if (params.file_t == FileType::PLINK)
     make_plink2_eigenvec_file(params.k, params.fileout + ".eigvecs2",
                               params.fileout + ".eigvecs",
                               params.filein + ".fam");
+
+  cao.print(tick.date(), "total elapsed reading time: ", data->readtime,
+            "seconds");
+  cao.print(tick.date(), "total elapsed wall time:", tick.abstime(), "seconds");
+  cao.print(tick.date(),
+            "eigenvecs and eigenvals are saved. have a nice day. bye!");
 
   return 0;
 }

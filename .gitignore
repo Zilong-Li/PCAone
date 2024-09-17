@@ -1,5 +1,5 @@
 t.*
-examples*
+example*
 *TAGS
 GRTAGS
 GPATH
@@ -19,8 +19,11 @@ log
 .DS_Store
 lib*.a
 out.*
+test*
+run.sh
 tutorial
 .ccls
+plink*
 pcaone.*
 releases
 *.bin

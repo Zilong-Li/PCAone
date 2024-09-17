@@ -88,9 +88,7 @@ void NormalRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi) {
   }
   if (!data->params.out_of_core) {
     if (pi == 0) {
-      cao << tick.date()
-          << "running Yu+Halko RSVD (PCAone algorithm1) with in-core mode."
-          << endl;
+      cao.print(tick.date(), "running PCAone (algorithm1) with in-code mode.");
       if (update) {
         data->update_batch_E(U, S, V.transpose());
       }
@@ -114,9 +112,8 @@ void NormalRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi) {
   } else {
     // for block version
     if (pi == 0)
-      cao << tick.date()
-          << "running Yu+Halko RSVD (PCAone algorithm1) with out-of-core mode."
-          << endl;
+      cao.print(tick.date(),
+                "running PCAone (algorithm1) with out-of-code mode.");
     // data->G is always nsamples x nsnps;
     if (data->snpmajor || true) {
       // for nsnps > nsamples
@@ -153,7 +150,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi) {
   // check size of G and H first;
   if (H.cols() != size || H.rows() != cols() || G.cols() != size ||
       G.rows() != rows()) {
-    throw std::runtime_error("Error: the size of G or H doesn't match.\n");
+    cao.error("the size of G or H doesn't match with each other.");
   }
   if (pi == 0) {
     auto rng = std::default_random_engine{};
@@ -172,8 +169,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi) {
   }
   if (!data->params.out_of_core) {
     if (pi == 0) {
-      cao << tick.date() << "running in memory mode with PCAone (algorithm2)."
-          << endl;
+      cao.print(tick.date(), "running PCAone (algorithm2) with in-code mode.");
       if (update) {
         data->update_batch_E(U, S, V.transpose());
       }
@@ -254,10 +250,8 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi) {
     }
   } else {
     if (pi == 0) {
-      cao << tick.date()
-          << "running the window-based RSVD (PCAone algorithm 2) with "
-             "out-of-core mode."
-          << endl;
+      cao.print(tick.date(),
+                "running PCAone (algorithm2) with out-of-code mode.");
       band = data->bandFactor;
     }
     {
@@ -329,10 +323,9 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi) {
 
 void run_pca_with_halko(Data* data, const Param& params) {
   if (params.out_of_core) {
-    cao << tick.date() << "begin to run PCAone RSVD with out-of-core mode"
-        << endl;
+    cao.print(tick.date(), "begin to run PCAone RSVD with out-of-core mode");
   } else {
-    cao << tick.date() << "begin to run PCAone RSVD with in-core mode" << endl;
+    cao.print(tick.date(), "begin to run PCAone RSVD with in-core mode");
   }
   MyMatrix Vpre;
   MyVector S;
@@ -359,7 +352,7 @@ void run_pca_with_halko(Data* data, const Param& params) {
     // flip_UV(rsvd->U, rsvd->V, false);
     double diff;
     rsvd->setFlags(true, false, false);
-    cao << tick.date() << "begin to do EM-PCA with PCAone." << endl;
+    cao.print(tick.date(), "do EM-PCA algorithms for data with uncertainty.");
     for (uint i = 0; i < params.maxiter; ++i) {
       Vpre = rsvd->V;
       rsvd->computeUSV(params.maxp, params.tol);
@@ -368,15 +361,14 @@ void run_pca_with_halko(Data* data, const Param& params) {
         diff = 1.0 - mev(rsvd->V, Vpre);
       else
         diff = minSSE(rsvd->V, Vpre).sum() / Vpre.cols();
-      cao << tick.date()
-          << "individual allele frequencies estimated (iter=" << i + 1
-          << "), diff=" << diff << endl;
+      cao.print(tick.date(),
+                "individual allele frequencies estimated (iter =", i + 1,
+                "), diff =", diff);
       if (diff < params.tolem) {
-        cao << tick.date() << "come to convergence!" << endl;
+        cao.print(tick.date(), "come to convergence!");
         break;
       }
     }
-    cao << tick.date() << "begin to standardize the matrix." << endl;
 
     // if pcangsd, estimate GRM.
     if (params.pcangsd) {
@@ -404,12 +396,11 @@ void run_pca_with_halko(Data* data, const Param& params) {
     else
       data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U,
                              rsvd->V);
-    if (params.ld && !params.out_of_core)
-      data->write_residuals(rsvd->S, rsvd->U, rsvd->V);
+    if (params.ld) data->write_residuals(rsvd->S, rsvd->U, rsvd->V);
   }
 
-  cao << tick.date() << "run_pca_with_halko done\n";
-
   delete rsvd;
+
+  cao.print(tick.date(), "PCAone - Randomized SVD done");
   return;
 }

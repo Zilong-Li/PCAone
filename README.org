@@ -50,6 +50,7 @@ missingness and uncertainty.
   - [[#output-files][Output files]]
   - [[#running-mode][Running mode]]
   - [[#normalization][Normalization]]
+  - [[#ancestry-adjusted-ld][Ancestry-Adjusted LD]]
   - [[#ld-prunning][LD prunning]]
   - [[#ld-clumping][LD clumping]]
   - [[#examples][Examples]]
@@ -294,9 +295,16 @@ PCAone will automatically apply the standard normalization for genetic data. Add
 - 2: do count per median log transformation (usually for single cell RNA-seq data)
 One should choose proper normalization method for specific type of data.
 
-** LD prunning
+** Ancestry-Adjusted LD
 
 This is a novel statistics on LD calculation in admixed population. For more details, see our paper.
+
+#+begin_src shell
+PCAone -b plink -k 3 --ld
+#+end_src
+
+** LD prunning
+
 
 #+begin_src shell
 PCAone -b plink -k 3 --ld-stats 0 --ld-r2 0.8 --ld-bp 1000000

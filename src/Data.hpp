@@ -11,7 +11,7 @@ using PermMat = Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic>;
 class Data {
  public:
   Data(Param& params_) : params(params_) {
-    cao << tick.date() << "program started" << std::endl;
+    cao.print(tick.date(), "program started");
   }
 
   virtual ~Data() {}

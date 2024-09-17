@@ -40,9 +40,9 @@ void Data::prepare() {
           nsamples);
     }
     nblocks = (unsigned int)ceil((double)nsnps / params.blocksize);
-    cao << tick.date()
-        << "initial setting by -m/--memory: blocksize=" << params.blocksize
-        << ", nblocks=" << nblocks << ", factor=" << bandFactor << ".\n";
+    cao.print(tick.date(),
+              "initial setting by -m/--memory: blocksize =", params.blocksize,
+              ", nblocks =", nblocks, ", factor =", bandFactor);
     if (nblocks == 1) {
       params.out_of_core = false;
       read_all();
@@ -124,10 +124,7 @@ void Data::filterSNPs_resizeF() {
 
 void Data::calcu_vt_initial(const MyMatrix &T, MyMatrix &VT, bool standardize) {
   if (nblocks == 1) {
-    cao.warning(
-        "only one block exists. please use in-memory mode instead by removing "
-        "--memory.");
-    exit(EXIT_SUCCESS);
+    cao.error("only one block exists. please use in-memory mode instead");
   }
   uint actual_block_size;
   check_file_offset_first_var();
@@ -146,10 +143,7 @@ void Data::calcu_vt_update(const MyMatrix &T, const MyMatrix &U,
                            const MyVector &svals, MyMatrix &VT,
                            bool standardize) {
   if (nblocks == 1) {
-    cao.warning(
-        "only one block exists. please use in-memory mode instead by removing "
-        "--memory.");
-    exit(EXIT_SUCCESS);
+    cao.error("only one block exists. please use in-memory mode instead");
   }
   uint actual_block_size;
   check_file_offset_first_var();
@@ -166,7 +160,7 @@ void Data::calcu_vt_update(const MyMatrix &T, const MyMatrix &U,
 
 void Data::write_eigs_files(const MyVector &S, const MyMatrix &U,
                             const MyMatrix &V) {
-  cao << tick.date() << "output eigen values" << std::endl;
+  cao.print(tick.date(), "save eigen values");
   std::ofstream outs(params.fileout + ".eigvals");
   std::ofstream outu(params.fileout + ".eigvecs");
   Eigen::IOFormat fmt(6, Eigen::DontAlignCols, "\t", "\n");
@@ -181,7 +175,7 @@ void Data::write_eigs_files(const MyVector &S, const MyMatrix &U,
     std::ofstream outv(params.fileout + ".loadings");
     if (outv.is_open()) outv << V.format(fmt) << '\n';
   }
-  cao << tick.date() << "done output eigen values" << std::endl;
+  cao.print(tick.date(), "done saving eigen values");
 }
 
 void Data::write_residuals(const MyVector &S, const MyMatrix &U,
@@ -192,20 +186,22 @@ void Data::write_residuals(const MyVector &S, const MyMatrix &U,
   uint64 bytes_per_snp = nsamples * ibyte;
   ofs.write((char *)&nsnps, ibyte);
   ofs.write((char *)&nsamples, ibyte);
+  Eigen::VectorXf fg;
+  uint64 idx;
+  if (params.ld_stats == 1) {
+    cao.print(tick.date(),
+              "ld-stats=1: calculate standardized genotype matrix!");
+  } else {
+    cao.print(tick.date(),
+              "ld-stats=0: calculate the ancestry adjusted LD matrix!");
+  }
   if (!params.out_of_core) {
-    if (params.ld_stats == 1) {
-      cao << tick.date()
-          << "ld-stats=1: calc_ld_metrics using centered genotype matrix!\n";
-    } else {
-      cao << tick.date()
-          << "ld-stats=0: calc_ld_metrics using residuals matrix!\n";
+    if (params.ld_stats == 0)
       G -= U * S.asDiagonal() * V.transpose();  // get residuals matrix
-    }
-    G.rowwise() -= G.colwise().mean();  // Centering
+    G.rowwise() -= G.colwise().mean();          // Centering
+    cao.print(tick.date(),
+              "save the matrix in binary file with suffix residuals");
     // TODO: compress me!
-    cao << tick.date() << "output residuals values" << std::endl;
-    Eigen::VectorXf fg;
-    uint64 idx;
     for (Eigen::Index i = 0; i < G.cols(); i++) {
       fg = G.col(i).cast<float>();
       if (params.svd_t == SvdType::PCAoneAlg2 && !params.noshuffle) {
@@ -215,9 +211,21 @@ void Data::write_residuals(const MyVector &S, const MyMatrix &U,
       ofs.write((char *)fg.data(), bytes_per_snp);
     }
   } else {
-    ;
+    check_file_offset_first_var();
+    for (uint i = 0; i < nblocks; ++i) {
+      // G (nsamples, actual_block_size)
+      if (params.ld_stats == 0) {  // get residuals matrix
+        G -= U * S.asDiagonal() * V.middleRows(start[i], G.cols()).transpose();
+      }
+      G.rowwise() -= G.colwise().mean();  // Centering
+      read_block_initial(start[i], stop[i], false);
+      for (Eigen::Index i = 0; i < G.cols(); i++) {
+        fg = G.col(i).cast<float>();
+        ofs.write((char *)fg.data(), bytes_per_snp);
+      }
+    }
   }
-  cao << tick.date() << "done output residuals values" << std::endl;
+  cao.print(tick.date(), "done output the matrix to a file");
 }
 
 void Data::update_batch_E(const MyMatrix &U, const MyVector &svals,
@@ -274,6 +282,7 @@ void Data::standardize_E() {
 
 void Data::pcangsd_standardize_E(const MyMatrix &U, const MyVector &svals,
                                  const MyMatrix &VT) {
+  cao.print(tick.date(), "begin to standardize the matrix for pcangsd");
   uint ks = svals.size();
   Dc = MyVector::Zero(nsamples);
 #pragma omp parallel
