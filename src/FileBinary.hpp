@@ -10,7 +10,7 @@ bool isZstdCompressed(const char *filename);
 class FileBin : public Data {
  public:
   FileBin(Param &params_) : Data(params_) {
-    cao << tick.date() << "start parsing binary format" << std::endl;
+    cao.print(tick.date(), "start parsing binary format");
     ifs_bin.open(params.filein, std::ios::in | std::ios::binary);
     is_zstd = isZstdCompressed(params.filein.c_str());
     if (is_zstd) {
@@ -18,8 +18,8 @@ class FileBin : public Data {
     } else {
       ifs_bin.read((char *)&nsnps, ibyte);
       ifs_bin.read((char *)&nsamples, ibyte);
-      cao << tick.date() << "shape of input matrix (features x samples) is ("
-          << nsnps << ", " << nsamples << ")" << std::endl;
+      cao.print(tick.date(), "shape of input matrix (features x samples) is (",
+                nsnps, ",", nsamples, ")");
       bytes_per_snp = nsamples * ibyte;
     }
   }

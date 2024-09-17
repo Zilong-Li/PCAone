@@ -54,11 +54,10 @@ void FileCsv::read_all() {
   G.rowwise() -= G.colwise().mean();  // do centering
 
   if (zbuf.lastRet != 0)
-    throw std::runtime_error("EOF before end of ZSTD_decompressStream.\n");
+    cao.error("EOF before end of ZSTD_decompressStream.\n");
 
   // deal with the case there is no "\n" for the last line of file
-  if (lastSNP != nsnps)
-    throw std::runtime_error("error when parsing csv file\n");
+  if (lastSNP != nsnps) cao.error("error when parsing csv file\n");
 }
 
 void FileCsv::check_file_offset_first_var() {
@@ -139,8 +138,7 @@ void parse_csvzstd(ZstdBuffer &zbuf, uint &nsamples, uint &nsnps, uint scale,
   }
 
   if (isEmpty) cao.error("input file is empty.");
-  if (zbuf.lastRet != 0)
-    throw std::runtime_error("EOF before end of ZSTD_decompressStream.\n");
+  if (zbuf.lastRet != 0) cao.error("EOF before end of ZSTD_decompressStream.");
 
   nsamples = ncol;
   zbuf.lastRet = 1;

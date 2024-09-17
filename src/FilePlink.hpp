@@ -20,14 +20,13 @@ class FileBed : public Data {
  public:
   //
   FileBed(Param &params_) : Data(params_) {
-    cao << tick.date() << "start parsing PLINK format" << std::endl;
+    cao.print(tick.date(), "start parsing PLINK format");
     std::string fbim = params.filein + ".bim";
     std::string ffam = params.filein + ".fam";
     nsamples = count_lines(ffam);
     nsnps = count_lines(fbim);
+    cao.print(tick.date(), "N (# samples):", nsamples, ", M (# SNPs):", nsnps);
     snpmajor = true;
-    cao << tick.date() << "N samples is " << nsamples << ". M snps is " << nsnps
-        << std::endl;
     bed_bytes_per_snp = (nsamples + 3) >> 2;
     std::string fbed = params.filein + ".bed";
     bed_ifstream.open(fbed, std::ios::in | std::ios::binary);

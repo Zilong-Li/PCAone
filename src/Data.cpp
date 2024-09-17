@@ -12,12 +12,9 @@ void Data::prepare() {
   if (nsamples > nsnps) nsamples_ge_nsnps = true;
 
   if (!params.out_of_core) {
-    auto t1 = std::chrono::high_resolution_clock::now();
+    tick.clock();
     read_all();
-    auto t2 = std::chrono::high_resolution_clock::now();
-    readtime += std::chrono::duration<double>(t2 - t1).count() *
-                std::chrono::duration<double>::period::num /
-                std::chrono::duration<double>::period::den;
+    readtime += tick.reltime();
   } else {
     // some common settings
     if (params.svd_t == SvdType::IRAM) {
@@ -59,9 +56,9 @@ void Data::prepare() {
         }
         nblocks = (unsigned int)ceil((double)nsnps / params.blocksize);
         if (params.verbose)
-          cao << tick.date() << "after adjustment by PCAone windows: blocksize="
-              << params.blocksize << ", nblocks=" << nblocks
-              << ", factor=" << bandFactor << ".\n";
+          cao.print(
+              tick.date(), "after adjustment by PCAone windows: blocksize =",
+              params.blocksize, ", nblocks=", nblocks, ", factor=", bandFactor);
       }
       start.resize(nblocks);
       stop.resize(nblocks);
@@ -90,9 +87,9 @@ void Data::filterSNPs_resizeF() {
       }
     }
     nsnps = keepSNPs.size();  // new number of SNPs
-    cao << tick.date() << "number of SNPs after filtering by MAF > "
-        << params.maf << ": " << nsnps << endl;
-    if (nsnps < 1) throw std::runtime_error("no SNPs left after filtering!\n");
+    cao.print(tick.date(), "number of SNPs after filtering by MAF >",
+              params.maf, ":", nsnps);
+    if (nsnps < 1) cao.error("no SNPs left after filtering!");
     // resize F
     F.noalias() = Fnew.head(nsnps);
   }

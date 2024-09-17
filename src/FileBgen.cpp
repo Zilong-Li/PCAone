@@ -57,11 +57,10 @@ void FileBgen::read_all() {
       }
     }
     if (k == 0)
-      throw std::runtime_error(
-          "the number of SNPs after filtering should be 0!\n");
+      cao.error("the number of SNPs after filtering should be 0!");
     else
-      cao << tick.date() << "number of SNPs after filtering by MAF > "
-          << params.maf << ": " << k << endl;
+      cao.print(tick.date(), "number of SNPs after filtering by MAF >",
+                params.maf, ":", k);
     // resize G, F, C;
     nsnps = k;  // resize nsnps;
     G.conservativeResize(Eigen::NoChange, nsnps);
@@ -84,8 +83,7 @@ void FileBgen::read_all() {
       }
     }
     assert(j == nsnps);
-    cao << tick.date() << "begin to estimate allele frequencies using GP"
-        << endl;
+    cao.print(tick.date(), "begin to estimate allele frequencies using GP");
     MyVector Ft(nsnps);
     F = MyVector::Constant(nsnps, 0.25);
     // run EM to estimate allele frequencies
@@ -107,10 +105,10 @@ void FileBgen::read_all() {
       diff = sqrt((F - Ft).array().square().sum() / nsnps);
       // Check for convergence
       if (diff < params.tolmaf) {
-        cao << "EM (MAF) converged at iteration: " << it + 1 << endl;
+        cao.print(tick.date(), "EM (MAF) converged at iteration:", it + 1);
         break;
       } else if (it == (params.maxiter - 1)) {
-        cao << "EM (MAF) did not converge.\n";
+        cao.print(tick.date(), "EM (MAF) not converged");
       }
     }
     filterSNPs_resizeF();
@@ -182,9 +180,7 @@ void read_bgen_block(MyMatrix &G, MyVector &F, bgen::CppBgenReader *bg,
         }
       }
       if (gc == 0)
-        throw std::runtime_error(
-            "Error: the allele frequency should not be 0. should do filtering "
-            "first.");
+        cao.error("the allele frequency should not be 0. do filtering first");
       F(snp_idx) = (double)gs / gc;
 // do centering
 #pragma omp parallel for
@@ -205,7 +201,7 @@ void read_bgen_block(MyMatrix &G, MyVector &F, bgen::CppBgenReader *bg,
 // this would be fast
 int shuffle_bgen_to_bin(std::string &fin, std::string fout, uint gb,
                         bool standardize) {
-  cao << tick.date() << "begin to permute BGEN into BINARY file.\n";
+  cao.print(tick.date(), "begin to permute BGEN into BINARY file");
   bgen::CppBgenReader *bg = new bgen::CppBgenReader(fin, "", true);
   uint nsamples = bg->header.nsamples;
   uint nsnps = bg->header.nvariants;
@@ -272,7 +268,7 @@ void permute_bgen_thread(uint nsamples, std::vector<int> idx, std::string fin,
 }
 
 PermMat permute_bgen(std::string &fin, std::string fout, int nthreads) {
-  cao << tick.date() << "begin to permute BGEN file.\n";
+  cao.print(tick.date(), "begin to permute BGEN file");
   uint nsamples, nsnps;
   {
     bgen::CppBgenReader br(fin, "", true);

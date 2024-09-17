@@ -52,8 +52,7 @@ void RsvdOpData::computeUSV(int p, double tol) {
       else
         diff = minSSE(U, Upre).sum() / Upre.cols();
       if (verbose)
-        cao << tick.date() << "running of epoch=" << pi << ", diff=" << diff
-            << endl;
+        cao.print(tick.date(), "running of epoch =", pi, ", diff =", diff);
       if (diff < tol || pi == p) {
         if (data->params.svd_t == SvdType::PCAoneAlg2 &&
             std::pow(2, pi) < data->params.bands) {
@@ -62,8 +61,7 @@ void RsvdOpData::computeUSV(int p, double tol) {
         } else {
           V.noalias() = G * svd.matrixU().leftCols(k);
           S = svd.singularValues().head(k);
-          if (verbose)
-            cao << tick.date() << "stops at epoch=" << pi + 1 << endl;
+          if (verbose) cao.print(tick.date(), "stops at epoch =", pi + 1);
           break;
         }
       } else {
@@ -88,7 +86,7 @@ void NormalRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi) {
   }
   if (!data->params.out_of_core) {
     if (pi == 0) {
-      cao.print(tick.date(), "running PCAone (algorithm1) with in-code mode.");
+      cao.print(tick.date(), "running PCAone (algorithm1) with in-core mode.");
       if (update) {
         data->update_batch_E(U, S, V.transpose());
       }
@@ -113,7 +111,7 @@ void NormalRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi) {
     // for block version
     if (pi == 0)
       cao.print(tick.date(),
-                "running PCAone (algorithm1) with out-of-code mode.");
+                "running PCAone (algorithm1) with out-of-core mode.");
     // data->G is always nsamples x nsnps;
     if (data->snpmajor || true) {
       // for nsnps > nsamples
@@ -127,17 +125,14 @@ void NormalRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi) {
         start_idx = data->start[i];
         stop_idx = data->stop[i];
         actual_block_size = stop_idx - start_idx + 1;
-        auto t1 = std::chrono::steady_clock::now();
+        tick.clock();
         if (update) {
           data->read_block_update(start_idx, stop_idx, U, S, V.transpose(),
                                   standardize);
         } else {
           data->read_block_initial(start_idx, stop_idx, standardize);
         }
-        auto t2 = std::chrono::steady_clock::now();
-        data->readtime += std::chrono::duration<double>(t2 - t1).count() *
-                          std::chrono::duration<double>::period::num /
-                          std::chrono::duration<double>::period::den;
+        data->readtime += tick.reltime();
         G.middleRows(start_idx, actual_block_size).noalias() =
             data->G.transpose() * Omg;
         H.noalias() += data->G * G.middleRows(start_idx, actual_block_size);
@@ -169,7 +164,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi) {
   }
   if (!data->params.out_of_core) {
     if (pi == 0) {
-      cao.print(tick.date(), "running PCAone (algorithm2) with in-code mode.");
+      cao.print(tick.date(), "running PCAone (algorithm2) with in-core mode.");
       if (update) {
         data->update_batch_E(U, S, V.transpose());
       }
@@ -251,7 +246,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi) {
   } else {
     if (pi == 0) {
       cao.print(tick.date(),
-                "running PCAone (algorithm2) with out-of-code mode.");
+                "running PCAone (algorithm2) with out-of-core mode.");
       band = data->bandFactor;
     }
     {
@@ -262,17 +257,14 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi) {
         start_idx = data->start[b];
         stop_idx = data->stop[b];
         actual_block_size = stop_idx - start_idx + 1;
-        auto t1 = std::chrono::steady_clock::now();
+        tick.clock();
         if (update) {
           data->read_block_update(start_idx, stop_idx, U, S, V.transpose(),
                                   standardize);
         } else {
           data->read_block_initial(start_idx, stop_idx, standardize);
         }
-        auto t2 = std::chrono::steady_clock::now();
-        data->readtime += std::chrono::duration<double>(t2 - t1).count() *
-                          std::chrono::duration<double>::period::num /
-                          std::chrono::duration<double>::period::den;
+        data->readtime += tick.reltime();
         G.middleRows(start_idx, actual_block_size).noalias() =
             data->G.transpose() * Omg;
         if (pi > 0 && j <= std::pow(2, pi - 1) * data->bandFactor &&

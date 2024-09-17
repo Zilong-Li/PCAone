@@ -26,8 +26,7 @@ class FileBeagle : public Data {
       strtok_r(buffer, delims, &buffer);
       while (strtok_r(NULL, delims, &buffer)) nCol++;
       if (nCol % 3) {
-        throw std::runtime_error(
-            "Number of columns should be a multiple of 3.\n");
+        cao.error("Number of columns should be a multiple of 3.");
       }
       nsamples = nCol / 3 - 1;
       // continue getting the number of sites

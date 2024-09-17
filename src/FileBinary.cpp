@@ -53,7 +53,7 @@ void FileBin::read_block_initial(uint64 start_idx, uint64 stop_idx,
   // check where we are
   long long offset = magic + start_idx * bytes_per_snp;
   if (ifs_bin.tellg() != offset)
-    throw std::runtime_error("Error: something wrong with read_snp_block!\n");
+    cao.error("Error: something wrong with read_snp_block!\n");
   uint actual_block_size = stop_idx - start_idx + 1;
   G = MyMatrix(nsamples, actual_block_size);
   Eigen::VectorXf fg(nsamples);

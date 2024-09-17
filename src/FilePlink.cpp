@@ -98,7 +98,7 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx,
   // check where we are
   long long offset = 3 + start_idx * bed_bytes_per_snp;
   if (bed_ifstream.tellg() != offset)
-    throw std::runtime_error("Error: something wrong with read_snp_block!\n");
+    cao.error("Error: something wrong with read_snp_block!");
   // if G is not initial then initial it
   // if actual_block_size is smaller than blocksize, don't resize G;
   if (G.cols() < params.blocksize || (actual_block_size < params.blocksize)) {
@@ -190,7 +190,7 @@ void FileBed::read_block_update(uint64 start_idx, uint64 stop_idx,
   if (params.verbose) {
     long long offset = 3 + start_idx * bed_bytes_per_snp;
     if (bed_ifstream.tellg() != offset) {
-      throw std::runtime_error("Error: something wrong with read_snp_block!\n");
+      cao.error("Error: something wrong with read_snp_block!");
     }
   }
   uint64 b, i, j, snp_idx;
@@ -231,8 +231,8 @@ PermMat permute_plink(std::string &fin, const std::string &fout, uint gb,
   uint nsnps = count_lines(fin + ".bim");
   uint nsamples = count_lines(fin + ".fam");
   uint bed_bytes_per_snp = (nsamples + 3) >> 2;
-  cao << tick.date() << "permute plink files. nsnps:" << nsnps
-      << ", nsamples:" << nsamples << endl;
+  cao.print(tick.date(), "permute plink files. nsnps:", nsnps,
+            ", nsamples:", nsamples);
 
   // calculate the readin number of snps of certain big buffer like 2GB.
   // must be a multiple of nbands.

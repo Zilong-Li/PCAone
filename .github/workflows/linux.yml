@@ -2,7 +2,7 @@ name: Linux
 
 on:
   push:
-    branches: [ main, dev ]
+    branches: [ main, dev, ld ]
   pull_request:
     branches: [ main ]
 

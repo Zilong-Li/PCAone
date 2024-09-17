@@ -39,11 +39,10 @@ PermMat shuffle_csvzstd_to_bin(std::string& fin, std::string fout, uint gb,
 class FileCsv : public Data {
  public:
   FileCsv(Param& params_) : Data(params_) {
-    cao << tick.date() << "start parsing CSV format compressed by ZSTD"
-        << std::endl;
+    cao.print(tick.date(), "start parsing CSV format compressed by ZSTD");
+
     if (params.nsnps > 0 && params.nsamples > 0 && !params.cpmed) {
-      cao << tick.date() << "use nsamples and nsnps given by user."
-          << std::endl;
+      cao.print(tick.date(), "use nsamples and nsnps given by user.");
       nsamples = params.nsamples;
       nsnps = params.nsnps;
     } else {
@@ -51,8 +50,8 @@ class FileCsv : public Data {
       parse_csvzstd(zbuf, nsamples, nsnps, params.scale, libsize, tidx,
                     median_libsize);
     }
-    cao << tick.date() << "shape of input matrix(samples x features) is ("
-        << nsamples << ", " << nsnps << ")" << std::endl;
+    cao.print(tick.date(), "shape of input matrix (features x samples) is (",
+              nsnps, ",", nsamples, ")");
   }
 
   ~FileCsv() {}

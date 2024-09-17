@@ -20,7 +20,7 @@ std::string get_snp_pos_bim(const std::string& filebim, Int1D& pos,
                             Int1D& chr_pos_end, std::vector<std::string>& chrs,
                             bool header, Int1D idx) {
   std::ifstream fin(filebim);
-  if (!fin.is_open()) throw invalid_argument("can not open " + filebim);
+  if (!fin.is_open()) cao.error("can not open " + filebim);
   std::string ret, line{""}, chr_cur, chr_prev, sep{" \t"};
   int i = 0;
   if (header) getline(fin, line);
@@ -84,9 +84,7 @@ void calc_ld_metrics(const std::string& fileout, const std::string& filebim,
                      const Int1D& chr_pos_end, int ld_window_bp, double r2_tol,
                      bool verbose = false) {
   const bool pick_random_one = F.size() > 0 ? false : true;
-  cao << tick.date()
-      << "start ld pruning and pick_random_one=" << pick_random_one
-      << std::endl;
+  cao.print(tick.date(), "LD pruning, pick_random_one =", pick_random_one);
   // G.rowwise() -= G.colwise().mean(); // Centering first
 #if defined(DEBUG)
   std::ofstream ofs_win(fileout + ".ld.window");
@@ -130,8 +128,7 @@ void calc_ld_metrics(const std::string& fileout, const std::string& filebim,
     }
   }
   std::ifstream fin(filebim);
-  if (!fin.is_open())
-    throw invalid_argument("can not open " + fileout + ".kept.bim");
+  if (!fin.is_open()) cao.error("can not open " + fileout + ".kept.bim");
   std::ofstream ofs_out(fileout + ".ld.prune.out");
   std::ofstream ofs_in(fileout + ".ld.prune.in");
   std::string line;
@@ -148,7 +145,7 @@ void calc_ld_metrics(const std::string& fileout, const std::string& filebim,
 Int1D valid_assoc_file(const std::string& fileassoc,
                        const std::string& colnames) {
   std::ifstream fin(fileassoc);
-  if (!fin.is_open()) throw invalid_argument("can not open " + fileassoc);
+  if (!fin.is_open()) cao.error("can not open " + fileassoc);
   std::string line, sep{"\t"}, sep2{","};
   getline(fin, line);
   const auto fields = split_string(line, sep);
@@ -178,7 +175,7 @@ Int1D valid_assoc_file(const std::string& fileassoc,
 std::vector<UMapIntPds> map_index_snps(const std::string& fileassoc,
                                        const Int1D& colidx, double clump_p2) {
   std::ifstream fin(fileassoc);
-  if (!fin.is_open()) throw invalid_argument("can not open " + fileassoc);
+  if (!fin.is_open()) cao.error("can not open " + fileassoc);
   std::string line, chr_cur, chr_prev, sep{"\t"};
   getline(fin, line);
   vector<UMapIntPds> vm;
@@ -207,11 +204,11 @@ void calc_ld_clump(std::string fileout, std::string fileassoc,
                    double clump_p1, double clump_p2, const MyMatrix& G,
                    const Int1D& snp_pos, const Int1D& chr_pos_end,
                    const std::vector<std::string>& chrs) {
-  cao << tick.date() << "start do LD-based clumping -> p1=" << clump_p1
-      << ", p2=" << clump_p2 << ", r2=" << clump_r2 << ", bp=" << clump_bp
-      << ", assoc file:" + fileassoc << std::endl;
-  auto colidx =
-      valid_assoc_file(fileassoc, colnames);  // 0: chr, 1: pos, 2: pvalue
+  cao.print(tick.date(), "LD-based clumping: p1 =", clump_p1,
+            ", p2 =", clump_p2, ", r2 =", clump_r2, ", bp =", clump_bp,
+            ", associated file:", fileassoc);
+  // 0: chr, 1: pos, 2: pvalue
+  auto colidx = valid_assoc_file(fileassoc, colnames);
   Int2D idx_per_chr, bp_per_chr;
   std::string head;
   std::tie(idx_per_chr, bp_per_chr, head) =
