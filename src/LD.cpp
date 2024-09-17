@@ -6,6 +6,8 @@
 
 #include "LD.hpp"
 
+#include <string>
+
 using namespace std;
 
 MyVector calc_sds(const MyMatrix& X) {
@@ -14,7 +16,7 @@ MyVector calc_sds(const MyMatrix& X) {
   return (X.array().square().colwise().sum() / df).sqrt();
 }
 
-// NEXT: could use a new struct
+// TODO: could use a new struct
 // chr_pos_end: 0-based index for last snp pos
 std::string get_snp_pos_bim(const std::string& filebim, Int1D& pos,
                             Int1D& chr_pos_end, std::vector<std::string>& chrs,
@@ -83,6 +85,8 @@ void calc_ld_metrics(const std::string& fileout, const std::string& filebim,
                      const MyMatrix& G, const MyVector& F, const Int1D& snp_pos,
                      const Int1D& chr_pos_end, int ld_window_bp, double r2_tol,
                      bool verbose = false) {
+  if (snp_pos.size() != G.cols())
+    cao.error("The number of variants is not matching the LD matrix");
   const bool pick_random_one = F.size() > 0 ? false : true;
   cao.print(tick.date(), "LD pruning, pick_random_one =", pick_random_one);
   // G.rowwise() -= G.colwise().mean(); // Centering first
@@ -204,6 +208,8 @@ void calc_ld_clump(std::string fileout, std::string fileassoc,
                    double clump_p1, double clump_p2, const MyMatrix& G,
                    const Int1D& snp_pos, const Int1D& chr_pos_end,
                    const std::vector<std::string>& chrs) {
+  if (snp_pos.size() != G.cols())
+    cao.error("The number of variants is not matching the LD matrix");
   cao.print(tick.date(), "LD-based clumping: p1 =", clump_p1,
             ", p2 =", clump_p2, ", r2 =", clump_r2, ", bp =", clump_bp,
             ", associated file:", fileassoc);
@@ -217,7 +223,7 @@ void calc_ld_clump(std::string fileout, std::string fileassoc,
   // sort by pvalues and get new idx
   const MyVector sds = 1.0 / calc_sds(G).array();
   const double df = 1.0 / (G.rows() - 1);  // N-1
-  std::ofstream ofs(fileout + ".clump.txt");
+  std::ofstream ofs(fileout);
   ofs << head + "\tSP2" << std::endl;
   for (int c = 0; c < (int)idx_per_chr.size(); c++) {
     const auto idx = idx_per_chr[c];
@@ -304,19 +310,17 @@ void run_ld_stuff(const Param& params, Data* data) {
   Int1D chr_pos_end;  // store the last SNP in snp_pos in each chromosom
   get_snp_pos_bim(params.filebim, snp_pos, chr_pos_end, chromosomes);
   MyVector F;  // allele frequency
-  if (params.clump.empty())
+  if (params.clump.empty()) {
     calc_ld_metrics(params.fileout, params.filebim, data->G, F, snp_pos,
                     chr_pos_end, params.ld_bp, params.ld_r2, params.verbose);
-  else {
+  } else {
     std::string sep{","};
     const auto assocfiles = split_string(params.clump, sep);
     for (size_t i = 0; i < assocfiles.size(); i++) {
-      std::string fn =
-          assocfiles[i].substr(assocfiles[i].find_last_of("/\\") + 1);
-      calc_ld_clump(params.fileout + "." + fn, assocfiles[i],
-                    params.assoc_colnames, params.clump_bp, params.clump_r2,
-                    params.clump_p1, params.clump_p2, data->G, snp_pos,
-                    chr_pos_end, chromosomes);
+      calc_ld_clump(params.fileout + ".p" + std::to_string(i) + ".clump",
+                    assocfiles[i], params.assoc_colnames, params.clump_bp,
+                    params.clump_r2, params.clump_p1, params.clump_p2, data->G,
+                    snp_pos, chr_pos_end, chromosomes);
     }
   }
 }

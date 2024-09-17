@@ -157,7 +157,6 @@ void Data::calcu_vt_update(const MyMatrix &T, const MyMatrix &U,
 
 void Data::write_eigs_files(const MyVector &S, const MyMatrix &U,
                             const MyMatrix &V) {
-  cao.print(tick.date(), "save eigen values");
   std::ofstream outs(params.fileout + ".eigvals");
   std::ofstream outu(params.fileout + ".eigvecs");
   Eigen::IOFormat fmt(6, Eigen::DontAlignCols, "\t", "\n");
@@ -172,7 +171,7 @@ void Data::write_eigs_files(const MyVector &S, const MyMatrix &U,
     std::ofstream outv(params.fileout + ".loadings");
     if (outv.is_open()) outv << V.format(fmt) << '\n';
   }
-  cao.print(tick.date(), "done saving eigen values");
+  cao.print(tick.date(), "saved eigen vectors and values");
 }
 
 void Data::write_residuals(const MyVector &S, const MyMatrix &U,
@@ -222,7 +221,7 @@ void Data::write_residuals(const MyVector &S, const MyMatrix &U,
       }
     }
   }
-  cao.print(tick.date(), "done output the matrix to a file");
+  cao.print(tick.date(), "outputted the matrix to a file");
 }
 
 void Data::update_batch_E(const MyMatrix &U, const MyVector &svals,

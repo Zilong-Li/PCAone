@@ -28,3 +28,5 @@ pcaone.*
 releases
 *.bin
 PCAone
+adj_ld*
+Rplots.pdf

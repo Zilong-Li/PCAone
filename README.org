@@ -37,7 +37,7 @@ missingness and uncertainty.
 #+BEGIN_QUOTE
 - [[#cite-the-work][Cite the work]]
 - [[#features][Features]]
-- [[#quickstart][Quickstart]]
+- [[#quick-start][Quick start]]
   - [[#download-pcaone][Download PCAone]]
   - [[#download-example-dataset][Download example dataset]]
 - [[#installation][Installation]]
@@ -48,24 +48,24 @@ missingness and uncertainty.
   - [[#options][Options]]
   - [[#input-formats][Input formats]]
   - [[#output-files][Output files]]
-  - [[#running-mode][Running mode]]
+  - [[#memory-efficient-modes][Memory-efficient modes]]
   - [[#normalization][Normalization]]
-  - [[#ancestry-adjusted-ld][Ancestry-Adjusted LD]]
-  - [[#ld-prunning][LD prunning]]
-  - [[#ld-clumping][LD clumping]]
-  - [[#examples][Examples]]
+  - [[#ancestry-adjusted-ld-matrix][Ancestry-Adjusted LD matrix]]
+  - [[#prunning-based-on-ancestry-adjusted-ld][Prunning based on Ancestry-Adjusted LD]]
+  - [[#clumping-based-on-ancestry-adjusted-ld][Clumping based on Ancestry-Adjusted LD]]
+  - [[#more-examples][More Examples]]
 - [[#acknowledgements][Acknowledgements]]
 #+END_QUOTE
 
 * Cite the work
 
-- If you find PCAone helpful, please cite our paper on genome reseach [[https://genome.cshlp.org/content/early/2023/10/05/gr.277525.122][Fast and accurate out-of-core PCA framework for large scale biobank data]].
+- If you use PCAone, please first cite our paper on genome reseach [[https://genome.cshlp.org/content/early/2023/10/05/gr.277525.122][Fast and accurate out-of-core PCA framework for large scale biobank data]].
 
 - If using the EMU algorithm, please also cite [[https://academic.oup.com/bioinformatics/article/37/13/1868/6103565][Large-scale inference of population structure in presence of missingness using PCA]].
 
 - If using the PCAngsd algorithm, please also cite [[https://www.genetics.org/content/210/2/719][Inferring Population Structure and Admixture Proportions in Low-Depth NGS Data]].
   
-- If using the LD pruning and clumping algorithm, please also cite [[https://www.biorxiv.org/content/10.1101/2024.05.02.592187v1][Measuring linkage disequilibrium and improvement of pruning and clumping in structured populations]].
+- If using the ancestry ajusted LD statistics for pruning and clumping, please also cite [[https://doi.org/10.1101/2024.05.02.592187][Measuring linkage disequilibrium and improvement of pruning and clumping in structured populations]].
 
 * Features
 
@@ -80,7 +80,7 @@ See [[file:CHANGELOG.org][change log]] here.
 - Supports [[https://github.com/Rosemeis/pcangsd][PCAngsd]] algorithm for low coverage sequencing scenario with genotype likelihood as input.
 - Novel [[https://www.biorxiv.org/content/10.1101/2024.05.02.592187v1][LD]] prunning and clumping method for admixed population.
 
-* Quickstart
+* Quick start
 
 We can run the following on Linux to have a quick start.
 
@@ -90,12 +90,14 @@ wget $pkg
 unzip -o PCAone-avx2-Linux.zip
 wget http://popgen.dk/zilong/datahub/pca/example.tar.gz
 tar -xzf example.tar.gz && rm -f example.tar.gz
-# in default calculating top 10 PCs with in-core mode if having enough RAM
-./PCAone --bfile example/plink -k 10
-R -s -e 'df=read.table("pcaone.eigvecs", h=F);plot(df[,1:2], xlab="PC1", ylab="PC2");'
+# in default calculating top 10 PCs with in-memory mode 
+./PCAone -b example/plink
+R -s -e 'd=read.table("pcaone.eigvecs2", h=F);
+plot(d[,1:2+2], col=factor(d[,1]), xlab="PC1", ylab="PC2");
+legend("topright", legend=unique(d[,1]), col=1:4, pch = 21, cex=1.2);'
 #+end_src
 
-We will find those files in your current directory.
+We will find those files in current directory.
 
 #+begin_src shell
 .
@@ -109,7 +111,8 @@ We will find those files in your current directory.
 #+end_src
 
 ** Download PCAone
-On Linux platform,
+
+For most modern CPUs and Linux systems, download the one named with =avx2=.
 
 #+begin_src shell
 pkg=https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-avx2-Linux.zip
@@ -117,7 +120,7 @@ wget $pkg || curl -LO $pkg
 unzip -o PCAone-avx2-Linux.zip
 #+end_src
 
-If the server is too old to support =avx2= instruction, one can download the following version.
+If the server is too old to support =avx2= instruction, download the alternative version.
 
 #+begin_src shell
 pkg=https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-x64-Linux.zip
@@ -125,20 +128,24 @@ wget $pkg || curl -LO $pkg
 unzip -o PCAone-x64-Linux.zip
 #+end_src
 
-
 ** Download example dataset
+
 #+begin_src shell
 pkg=http://popgen.dk/zilong/datahub/pca/example.tar.gz
 wget $pkg || curl -LO $pkg
 tar -xzf example.tar.gz && rm -f example.tar.gz
 #+end_src
-We should find a fold named =example= with some example data.
+
+You should find a fold named =example= with some example data.
 
 * Installation
+
 There are 3 ways to install PCAone.
+
 ** Download compiled binary
 
-There are compiled binaries provided for both Linux and Mac platform. Check [[https://github.com/Zilong-Li/PCAone/releases][the releases page]] to download one.
+There are compiled binaries provided for both Linux and Mac platform. Check
+[[https://github.com/Zilong-Li/PCAone/releases][the releases page]] to download one.
 
 ** Via Conda
 
@@ -152,17 +159,24 @@ PCAone --help
 
 ** Build from source
 
-=PCAone= can be running on a normal computer/laptop with =x86-64= instruction set architecture. =PCAone= has been tested on both =Linux= and =MacOS= system. To build PCAone from the source code, the following dependencies are required:
+=PCAone= can be running on a normal computer/laptop with =x86-64= instruction
+set architecture. =PCAone= has been tested on both =Linux= and =MacOS= system. To
+build PCAone from the source code, the following dependencies are required:
 
 - GCC/Clang compiler with C++11 support
 - GNU make
 - zlib
 
-We *recommend* building the software from source with MKL as backend to maximize the performance. For MacOS users, we recommend using =llvm= by =brew install llvm= instead of the default =clang= shipped with MacOS. Check out the [[https://github.com/Zilong-Li/PCAone/blob/dev/.github/workflows/mac.yml#L21][mac workflow]].
+We *recommend* building the software from source with MKL as backend to
+maximize the performance. For MacOS users, we recommend using =llvm= by =brew
+install llvm= instead of the default =clang= shipped with MacOS. Check out the
+[[https://github.com/Zilong-Li/PCAone/blob/dev/.github/workflows/mac.yml#L21][mac workflow]].
 
 *** With MKL or OpenBLAS as backend
 
-Build PCAone dynamically with MKL can maximize the performance since the faster threading layer =libiomp5= will be linked at runtime. One can obtain the MKL by one of the following option:
+Build PCAone dynamically with MKL can maximize the performance since the
+faster threading layer =libiomp5= will be linked at runtime. One can obtain
+the MKL by one of the following option:
 
 - install =mkl= by conda
 
@@ -177,26 +191,32 @@ make -j4 MKLROOT=${CONDA_PREFIX}
 
 - download =mkl= from [[https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl.html][the website]]
 
-After having =mkl= installed, find the =mkl= root path and replace the path below with your own.
+After having =mkl= installed, find the =mkl= root path and replace the path
+below with your own.
+
 #+begin_src shell
 # if libiomp5 is not in the mklroot path, please link it to $MKLROOT/lib folder
 make -j4 MKLROOT=/path/to/mklroot
 #+end_src
 
-Alternatively, for advanced user, modify variables directly in =Makefile= and run =make= to use MKL or OpenBlas as backend.
+Alternatively, for advanced user, modify variables directly in =Makefile=
+and run =make= to use MKL or OpenBlas as backend.
 
 *** Without MKL or OpenBLAS dependency
 
 If you don't want any optimized math library as backend, just run:
+
 #+begin_src shell
 git clone https://github.com/Zilong-Li/PCAone.git
 cd PCAone
 make -j4
 ./PCAone -h
 #+end_src
+
 If this doesn't work because the server is too outdated, run =make clean && make -j4 AVX=0= instead.
 
 \newpage
+
 * Documentation
 ** Options
 
@@ -245,21 +265,42 @@ Main options:
 
 ** Input formats
 
-PCAone is designed to be extensible to accept many different formats. Currently, PCAone can work with SNP major genetic formats to study population structure. such as [[https://www.cog-genomics.org/plink/1.9/formats#bed][PLINK]], [[https://www.well.ox.ac.uk/~gav/bgen_format][BGEN]] and [[http://www.popgen.dk/angsd/index.php/Input#Beagle_format][Beagle]]. Also, PCAone supports a comma delimited CSV format compressed by zstd, which is useful for other datasets requiring specific normalization such as single cell RNAs data.
+PCAone is designed to be extensible to accept many different formats.
+Currently, PCAone can work with SNP major genetic formats to study
+population structure. such as [[https://www.cog-genomics.org/plink/1.9/formats#bed][PLINK]], [[https://www.well.ox.ac.uk/~gav/bgen_format][BGEN]] and [[http://www.popgen.dk/angsd/index.php/Input#Beagle_format][Beagle]]. Also, PCAone supports
+a comma delimited CSV format compressed by zstd, which is useful for other
+datasets requiring specific normalization such as single cell RNAs data.
 
 ** Output files
+
 *** Eigen vectors
-Eigen vectors are saved in file with suffix =.eigvecs=. Each row represents a sample and each col represents a PC.
+
+Eigen vectors are saved in file with suffix =.eigvecs=. Each row represents
+a sample and each col represents a PC.
+
 *** Eigen values
-Eigen values are saved in file with suffix =.eigvals=. Each row represents the eigenvalue of corresponding PC.
+
+Eigen values are saved in file with suffix =.eigvals=. Each row represents
+the eigenvalue of corresponding PC.
+
 *** Features Loadings
-Features Loadings are saved in file with suffix =.loadings=. Each row represents a feature and each col represents a PC. need to use =--printv= option to print it.
 
-** Running mode
+Features Loadings are saved in file with suffix =.loadings=. Each row
+represents a feature and each col represents a PC. need to use =--printv=
+option to print it.
 
-PCAone has both *in-core* and *out-of-core* mode for 3 different partial SVD algorithms, which are IRAM (=--svd 0=), Yu+Halko RSVD (=--svd 1=) and PCAone window-based RSVD (=--svd 2=). Also, PCAone supports full SVD (=--svd 3=) but with only *in-core* mode. Therefore, there are *7* ways in total for doing PCA in PCAone. In default PCAone uses *in-core* mode with =--memory 0=, which is the fastest way to do calculation. However, in case the server runs out of memory with =in-core= mode, the user can trigger =out-of-core mode= by specifying the amount of memory using =--memory= option with a value greater than 0.
+** Memory-efficient modes
 
-*** run the window-based RSVD method (algorithm2) with in-core mode
+PCAone has both *in-core* and *out-of-core* mode for 3 different partial SVD
+algorithms, which are IRAM (=--svd 0=), Yu+Halko RSVD (=--svd 1=) and PCAone
+window-based RSVD (=--svd 2=). Also, PCAone supports full SVD (=--svd 3=) but
+with only *in-core* mode. Therefore, there are *7* ways for doing PCA in PCAone.
+In default PCAone uses *in-core* mode with =--memory 0=, which is the fastest
+way to do calculation. However, in case the server runs out of memory with
+=in-core= mode, the user can trigger =out-of-core mode= by specifying the amount
+of memory using =--memory= option with a value greater than 0.
+
+*** run the window-based RSVD method (algorithm2, default) with in-core mode
 #+begin_src shell
 ./PCAone --bfile example/plink --svd 2
 #+end_src
@@ -287,6 +328,7 @@ PCAone has both *in-core* and *out-of-core* mode for 3 different partial SVD alg
 #+begin_src shell
 ./PCAone --bfile example/plink --svd 3
 #+end_src
+
 ** Normalization
 
 PCAone will automatically apply the standard normalization for genetic data. Additionally, there are 3 different normalization method implemented with =--scale= option.
@@ -295,36 +337,58 @@ PCAone will automatically apply the standard normalization for genetic data. Add
 - 2: do count per median log transformation (usually for single cell RNA-seq data)
 One should choose proper normalization method for specific type of data.
 
-** Ancestry-Adjusted LD
+** Ancestry-Adjusted LD matrix
 
-This is a novel statistics on LD calculation in admixed population. For more details, see our paper.
+LD patterns vary across diverse ancestry and structured groups, and
+conventional LD statistics, e.g. the implementation in =plink --ld=, failed to
+model the LD in admixed populations. Thus, we proposed the so-called
+ancestry-adjusted LD statistics to account for the population structure in
+LD. See our [[https://doi.org/10.1101/2024.05.02.592187][paper]] for more details.
 
-#+begin_src shell
-PCAone -b plink -k 3 --ld
-#+end_src
-
-** LD prunning
-
-
-#+begin_src shell
-PCAone -b plink -k 3 --ld-stats 0 --ld-r2 0.8 --ld-bp 1000000
-#+end_src
-
-** LD clumping
-
-If you already done LD prunning with PCAone, then you can find a binary file named =.residuals=, which will be used by LD clumping here.
+To calculate the ancestry-adjusted LD matrix, we need to specify the number
+of principal components (=-k/--pc=), which can be thought of the number of
+distinct ancestral groups and can capture the population structure. In this
+example, we calculate and output the ancestry adjusted LD matrix in a file
+named =adj_ld.residuals=, assuming that 3 PCs can accout for population
+structure.
 
 #+begin_src shell
-# first output a LD matrix 
-PCAone -b plink -k 3 --ld
-# do clumping given the LD matrix and user-defined association results
-PCAone -B pcaone.residuals  --clump plink.assoc --clump-p1 5e-8 --clump-p2 1e-6 --clump-r2 0.01 --clump-bp 10000000
+./PCAone -b example/plink -k 3 -m 2 --ld -o adj_ld
 #+end_src
 
+** Prunning based on Ancestry-Adjusted LD
 
-** Examples
+Do prunning based on the Ancestry-Adjusted LD matrix and user-defined
+thresholds and windows
 
-Let's download the example data first.
+#+begin_src shell
+./PCAone -B adj_ld.residuals \
+         --ld-bim example/plink.bim \
+         --ld-r2 0.8 \
+         --ld-bp 1000000 \
+         -o adj_ld
+#+end_src
+
+** Clumping based on Ancestry-Adjusted LD
+
+Do clumping based on the Ancestry-Adjusted LD matrix and user-defined
+association results
+
+#+begin_src shell
+./PCAone -B adj_ld.residuals \
+         --ld-bim example/plink.bim \
+         --clump example/plink.pheno0.assoc,example/plink.pheno1.assoc  \
+         --clump-p1 0.05 \
+         --clump-p2 0.01 \
+         --clump-r2 0.1 \
+         --clump-bp 10000000 \
+         -o adj_ld
+#+end_src
+
+** More Examples
+
+Let's download the example data first if you haven't done so.
+
 #+begin_src shell
 wget http://popgen.dk/zilong/datahub/pca/example.tar.gz
 tar -xzf example.tar.gz && rm -f example.tar.gz
@@ -332,18 +396,19 @@ tar -xzf example.tar.gz && rm -f example.tar.gz
 
 *** Genotype data (PLINK)
 
-We want to compute the top 10 PCs for this genotype dataset using 4 threads and only 2GB memory. We will use the proposed window-based RSVD algorithm with default setting =--svd 2=.
+We want to compute the top 10 PCs for this genotype dataset using 4
+threads and only 2GB memory. We will use the proposed window-based RSVD
+algorithm with default setting =--svd 2=.
+
 #+begin_src shell
-./PCAone --bfile example/plink -k 10 -n 4 -m 2
+./PCAone --bfile example/plink -k 5 -m 2
 #+end_src
 
 Then, we can make a PCA plot in R.
 #+begin_src R
-pcs <- read.table("pcaone.eigvecs",h=F)
-fam <- read.table("example/plink.fam",h=F)
-pop <- fam[,1]
-plot(pcs[,1:2], col=factor(pop), xlab = "PC1", ylab = "PC2")
-legend("topright", legend=unique(pop), col=factor(unique(pop)), pch = 21, cex=1.2)
+pcs <- read.table("pcaone.eigvecs2",h=F)
+plot(pcs[,1:2+2], col=factor(pcs[,1]), xlab = "PC1", ylab = "PC2")
+legend("topright", legend=unique(pcs[,1]), col=1:4, pch = 21, cex=1.2)
 #+end_src
 
 *** Genotype dosage (BGEN)

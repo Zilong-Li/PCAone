@@ -16,9 +16,9 @@ Param::Param(int argc, char **argv) {
                       "(C) 2021-2024 Zilong Li        GNU General Public License v3\n\n" +
     "\x1B[32m" +
                       "Usage: use plink files as input and apply default window-based RSVD method\n" +
-                      "       PCAone --bfile plink -m 2 -n 20 \n\n" +
+                      "       PCAone --bfile plink -m 2 \n\n" +
                       "       use csv file as input and apply the Implicitly Restarted Arnoldi Method\n" +
-                      "       PCAone --csv csv.zst --svd 0 -m 2 -n 20 \n\n" +
+                      "       PCAone --csv csv.zst --svd 0 -m 2 \n\n" +
     "\033[0m"};
     OptionParser opts(copyr + "Main options");
     auto help_opt = opts.add<Switch>("h", "help", "print all options including hidden advanced options");
@@ -37,7 +37,7 @@ Param::Param(int argc, char **argv) {
     opts.add<Value<uint>>("n", "threads", "number of threads for multithreading", threads, &threads);
     opts.add<Value<std::string>>("o", "out", "prefix to output files. default [pcaone]", fileout, &fileout);
     opts.add<Value<uint>>("p", "maxp", "maximum number of power iterations for RSVD algorithm", maxp, &maxp);
-    opts.add<Switch>("S", "no-shuffle", "do not shuffle the data if it is already permuted", &noshuffle);
+    opts.add<Switch>("S", "no-shuffle", "do not shuffle the data for --svd 2 if it is already permuted", &noshuffle);
     opts.add<Switch>("v", "verbose", "verbose message output", &verbose);
     opts.add<Value<uint>>("w", "batches", "number of mini-batches to be used by PCAone --svd 2", bands, &bands);
     opts.add<Value<uint>>("C", "scale", "do scaling for input file.\n"
@@ -47,14 +47,15 @@ Param::Param(int argc, char **argv) {
                           scale,  &scale);
     opts.add<Switch>("", "emu", "uses EMU algorithm for genotype input with missingness", &emu);
     opts.add<Switch>("", "pcangsd", "uses PCAngsd algorithm for genotype likelihood input", &pcangsd);
-    opts.add<Value<double>>("", "maf", "skip variants with minor allele frequency below maf", maf, &maf);
+    opts.add<Value<double>>("", "maf", "exclude variants with MAF lower than this value (in-core mode)", maf, &maf);
     opts.add<Switch>("V", "printv", "output the right eigenvectors with suffix .loadings", &printv);
     opts.add<Switch>("", "ld", "output a binary matrix for LD related stuff", &ld);
-    opts.add<Value<double>>("", "ld-r2", "cutoff for ld pruning. A value > 0 activates ld pruning", ld_r2, &ld_r2);
+    auto bimfile = opts.add<Value<std::string>>("", "ld-bim", "LD variants information in plink bim file", "", &filebim);
+    opts.add<Value<double>>("", "ld-r2", "cutoff for ld pruning.", ld_r2, &ld_r2);
     opts.add<Value<uint>>("", "ld-bp", "physical distance threshold in bases for ld pruning", ld_bp, &ld_bp);
     opts.add<Value<int>>("", "ld-stats", "statistics for calculating ld-r2. (0: the adj; 1: the std)", ld_stats, &ld_stats);
     auto clumpfile = opts.add<Value<std::string>>("", "clump", "assoc-like file with target variants and pvalues for clumping", "", &clump);
-    auto assocnames = opts.add<Value<std::string>>("", "clump-names", "olumn names in assoc-like file for locating chr, pos and pvalue respectively", "CHR,BP,P", &assoc_colnames);
+    auto assocnames = opts.add<Value<std::string>>("", "clump-names", "column names in assoc-like file for locating chr, pos and pvalue", "CHR,BP,P", &assoc_colnames);
     opts.add<Value<double>>("", "clump-p1", "significance threshold for index SNPs", clump_p1, &clump_p1);
     opts.add<Value<double>>("", "clump-p2", "secondary significance threshold for clumped SNPs", clump_p2, &clump_p2);
     opts.add<Value<double>>("", "clump-r2", "r2 cutoff for ld clumping", clump_r2, &clump_r2);
@@ -146,8 +147,6 @@ Param::Param(int argc, char **argv) {
         } 
         keepsnp =  maf > 0 ? true : false;
         ld = (ld || ld_r2 > 0 || !clump.empty())? true : false;
-        if(ld && keepsnp) filebim = fileout + ".kept.bim";
-        else filebim = filein + ".bim";
     }
     catch(const popl::invalid_option & e)
     {

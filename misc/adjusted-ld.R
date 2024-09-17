@@ -59,7 +59,7 @@ bins <- c(1000, 5000, 10000, 50000, 100000, 500000, 1e6, 5e6)
 system.time(d <- ld_curve_cpp(m, pos, bins))
 
 str(d)
-plot(o[,2]/o[,1])
+plot(d[["r2_sum"]]/d[["counts"]])
 
 dev.off()
 gc()
@@ -67,19 +67,6 @@ gc()
 
 close(con)
 
-bytes_per_snp <- nsamples * 4
-
-a <- readBin(con, numeric(), n = nsamples, size = 4)
-b <- readBin(con, numeric(), n = nsamples, size = 4)
-o <- cor(a,b, method = "pearson")**2
-
-
-n <- 100 
-
-for(i in 1:n){
-  b <- readBin(con, numeric(), n = nsamples, size = 4)
-  o <- c(o, cor(a,b, method = "pearson")**2)
-}
 
 cummean <- function(x) cumsum(x)/1:length(x)
 

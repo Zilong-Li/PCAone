@@ -98,7 +98,7 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx,
   // check where we are
   long long offset = 3 + start_idx * bed_bytes_per_snp;
   if (bed_ifstream.tellg() != offset)
-    cao.error("Error: something wrong with read_snp_block!");
+    cao.error("something wrong with read_snp_block!");
   // if G is not initial then initial it
   // if actual_block_size is smaller than blocksize, don't resize G;
   if (G.cols() < params.blocksize || (actual_block_size < params.blocksize)) {
@@ -190,7 +190,7 @@ void FileBed::read_block_update(uint64 start_idx, uint64 stop_idx,
   if (params.verbose) {
     long long offset = 3 + start_idx * bed_bytes_per_snp;
     if (bed_ifstream.tellg() != offset) {
-      cao.error("Error: something wrong with read_snp_block!");
+      cao.error("something wrong with read_snp_block!");
     }
   }
   uint64 b, i, j, snp_idx;

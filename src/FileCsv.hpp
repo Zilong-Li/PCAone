@@ -50,8 +50,8 @@ class FileCsv : public Data {
       parse_csvzstd(zbuf, nsamples, nsnps, params.scale, libsize, tidx,
                     median_libsize);
     }
-    cao.print(tick.date(), "shape of input matrix (features x samples) is (",
-              nsnps, ",", nsamples, ")");
+    cao.print(tick.date(), "shape of input matrix (features x samples) is",
+              nsnps, "x", nsamples);
   }
 
   ~FileCsv() {}
