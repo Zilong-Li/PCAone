@@ -8,6 +8,8 @@
 
 #include <string>
 
+#include "Utils.hpp"
+
 using namespace std;
 
 MyVector calc_sds(const MyMatrix& X) {
@@ -20,7 +22,7 @@ MyVector calc_sds(const MyMatrix& X) {
 // chr_pos_end: 0-based index for last snp pos
 std::string get_snp_pos_bim(const std::string& filebim, Int1D& pos,
                             Int1D& chr_pos_end, std::vector<std::string>& chrs,
-                            bool header, Int1D idx) {
+                            Double1D& F, bool header, Int1D idx) {
   std::ifstream fin(filebim);
   if (!fin.is_open()) cao.error("can not open " + filebim);
   std::string ret, line{""}, chr_cur, chr_prev, sep{" \t"};
@@ -29,6 +31,7 @@ std::string get_snp_pos_bim(const std::string& filebim, Int1D& pos,
   ret = line;
   while (getline(fin, line)) {
     auto tokens = split_string(line, sep);
+    if ((int)tokens.size() == 7 && !header) F.push_back(std::stod(tokens[6]));
     chr_cur = tokens[idx[0]];
     if (chr_prev.empty()) chrs.push_back(chr_cur);
     if (!chr_prev.empty() && chr_prev != chr_cur) {
@@ -51,8 +54,9 @@ std::tuple<Int2D, Int2D, std::string> get_target_snp_idx(
     const std::vector<std::string>& chrs, bool header, Int1D colidx) {
   Int1D t_pos, t_chr_pos_end, idx, bp;
   std::vector<std::string> t_chrs;
+  Double1D F;
   auto head =
-      get_snp_pos_bim(filebim, t_pos, t_chr_pos_end, t_chrs, header, colidx);
+      get_snp_pos_bim(filebim, t_pos, t_chr_pos_end, t_chrs, F, header, colidx);
   UMapIntInt mpos;
   int c, s, e, p, i;
   Int2D ret(t_chrs.size());
@@ -82,7 +86,7 @@ std::tuple<Int2D, Int2D, std::string> get_target_snp_idx(
 }
 
 void calc_ld_metrics(const std::string& fileout, const std::string& filebim,
-                     const MyMatrix& G, const MyVector& F, const Int1D& snp_pos,
+                     const MyMatrix& G, const Double1D& F, const Int1D& snp_pos,
                      const Int1D& chr_pos_end, int ld_window_bp, double r2_tol,
                      bool verbose = false) {
   if (snp_pos.size() != G.cols())
@@ -126,7 +130,7 @@ void calc_ld_metrics(const std::string& fileout, const std::string& filebim,
           (G.col(i).array() * G.col(k).array() * (sds(i) * sds(k))).sum() * df;
       if (r * r > r2_tol) {
         int o = k;  // or i
-        if (!pick_random_one) o = MAF(F(k)) > MAF(F(i)) ? i : k;
+        if (!pick_random_one) o = MAF(F[k]) > MAF(F[i]) ? i : k;
         keep(o) = false;
       }
     }
@@ -295,21 +299,12 @@ void calc_ld_clump(std::string fileout, std::string fileassoc,
   }
 }
 
-void run_ld_pruning(const Param& params, const MyMatrix& G, const MyVector& F) {
-  std::vector<std::string> chromosomes;  // for ld stuff
-  Int1D snp_pos;                         // for ld stuff
-  Int1D chr_pos_end;  // store the last SNP in snp_pos in each chromosom
-  get_snp_pos_bim(params.filebim, snp_pos, chr_pos_end, chromosomes);
-  calc_ld_metrics(params.fileout, params.filebim, G, F, snp_pos, chr_pos_end,
-                  params.ld_bp, params.ld_r2, params.verbose);
-}
-
 void run_ld_stuff(const Param& params, Data* data) {
   std::vector<std::string> chromosomes;  // for ld stuff
   Int1D snp_pos;                         // for ld stuff
   Int1D chr_pos_end;  // store the last SNP in snp_pos in each chromosom
-  get_snp_pos_bim(params.filebim, snp_pos, chr_pos_end, chromosomes);
-  MyVector F;  // allele frequency
+  Double1D F;         // allele frequency
+  get_snp_pos_bim(params.filebim, snp_pos, chr_pos_end, chromosomes, F);
   if (params.clump.empty()) {
     calc_ld_metrics(params.fileout, params.filebim, data->G, F, snp_pos,
                     chr_pos_end, params.ld_bp, params.ld_r2, params.verbose);

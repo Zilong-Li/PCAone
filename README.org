@@ -11,9 +11,10 @@
 
 [[https://github.com/Zilong-Li/PCAone/actions/workflows/linux.yml/badge.svg]]
 [[https://github.com/Zilong-Li/PCAone/actions/workflows/mac.yml/badge.svg]]
-[[https://anaconda.org/bioconda/pcaone][https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat]]
+[[https://bioconda.github.io/recipes/pcaone/README.html][https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat]]
 [[https://github.com/Zilong-Li/PCAone/releases/latest][https://img.shields.io/github/v/release/Zilong-Li/PCAone.svg]]
 [[https://anaconda.org/bioconda/pcaone/badges/downloads.svg]]
+
 
 PCAone is a fast and memory efficient PCA tool implemented in C++
 aiming at providing comprehensive features and algorithms for

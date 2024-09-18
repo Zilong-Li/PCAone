@@ -99,9 +99,6 @@ int main(int argc, char* argv[]) {
     cao.error("unsupported PCA method!");
   }
 
-  // TODO : remove this and work on binary input instead
-  // if (params.ld_r2 > 0) run_ld_pruning(params, data->G, data->F);
-
   delete data;
 
   if (params.file_t == FileType::PLINK)

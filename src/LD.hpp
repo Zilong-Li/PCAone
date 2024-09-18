@@ -9,7 +9,8 @@ MyVector calc_sds(const MyMatrix& X);
 
 std::string get_snp_pos_bim(const std::string& filebim, Int1D& pos,
                             Int1D& chr_pos_end, std::vector<std::string>& chrs,
-                            bool header = false, Int1D idx = Int1D{0, 3});
+                            Double1D& F, bool header = false,
+                            Int1D idx = Int1D{0, 3});
 
 std::tuple<Int2D, Int2D, std::string> get_target_snp_idx(
     const std::string& filebim, const Int1D& pos, const Int1D& chr_pos_end,
@@ -42,8 +43,6 @@ std::vector<UMapIntPds> map_index_snps(const std::string& fileassoc,
 
 std::vector<UMapIntString> map_assoc_file(const std::string& fileassoc,
                                           const Int1D& colidx);
-
-void run_ld_pruning(const Param& params, const MyMatrix& G, const MyVector& F);
 
 void run_ld_stuff(const Param& params, Data* data);
 
