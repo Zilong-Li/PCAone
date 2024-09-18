@@ -27,7 +27,8 @@ class Data {
 
   void prepare();
   void standardize_E();
-  void filterSNPs_resizeF();
+  void filter_snps_resize_F();
+  void save_snps_in_bim();
   void pcangsd_standardize_E(const MyMatrix& U, const MyVector& svals,
                              const MyMatrix& VT);
   void update_batch_E(const MyMatrix& U, const MyVector& svals,

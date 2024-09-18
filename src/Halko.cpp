@@ -86,7 +86,6 @@ void NormalRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi) {
   }
   if (!data->params.out_of_core) {
     if (pi == 0) {
-      cao.print(tick.date(), "running PCAone (algorithm1) with in-core mode.");
       if (update) {
         data->update_batch_E(U, S, V.transpose());
       }
@@ -109,9 +108,6 @@ void NormalRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi) {
     }
   } else {
     // for block version
-    if (pi == 0)
-      cao.print(tick.date(),
-                "running PCAone (algorithm1) with out-of-core mode.");
     // data->G is always nsamples x nsnps;
     if (data->snpmajor || true) {
       // for nsnps > nsamples
@@ -164,7 +160,6 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi) {
   }
   if (!data->params.out_of_core) {
     if (pi == 0) {
-      cao.print(tick.date(), "running PCAone (algorithm2) with in-core mode.");
       if (update) {
         data->update_batch_E(U, S, V.transpose());
       }
@@ -245,8 +240,6 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi) {
     }
   } else {
     if (pi == 0) {
-      cao.print(tick.date(),
-                "running PCAone (algorithm2) with out-of-core mode.");
       band = data->bandFactor;
     }
     {
@@ -388,7 +381,9 @@ void run_pca_with_halko(Data* data, const Param& params) {
     else
       data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U,
                              rsvd->V);
-    if (params.ld) data->write_residuals(rsvd->S, rsvd->U, rsvd->V);
+    if (params.ld) {
+      data->write_residuals(rsvd->S, rsvd->U, rsvd->V);
+    }
   }
 
   delete rsvd;

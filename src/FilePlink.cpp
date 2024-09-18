@@ -56,7 +56,7 @@ void FileBed::read_all() {
       F(i) /= c;
   }
 
-  filterSNPs_resizeF();  // filter and resize nsnps
+  filter_snps_resize_F();  // filter and resize nsnps
 
   G = MyMatrix::Zero(nsamples, nsnps);  // fill in G with new size
   if (params.runem) C = ArrayXb::Zero(nsnps * nsamples);

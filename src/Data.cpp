@@ -75,13 +75,13 @@ void Data::prepare() {
   }
 }
 
-void Data::filterSNPs_resizeF() {
+void Data::filter_snps_resize_F() {
   if (params.keepsnp && params.maf > 0 &&
       params.maf <= 0.5) {    // filter snps, update keepSNPs, reassign nsnps;
     MyVector Fnew(F.size());  // make a temp F
     int i, j;
     for (i = 0, j = 0; j < (int)F.size(); j++) {
-      if ((F(j) > params.maf) && (F(j) < 1 - params.maf)) {
+      if (MAF(F(j)) > params.maf) {
         keepSNPs.push_back(j);  // keep track of index of element > maf
         Fnew(i++) = F(j);
       }
@@ -93,24 +93,24 @@ void Data::filterSNPs_resizeF() {
     // resize F
     F.noalias() = Fnew.head(nsnps);
   }
-  if (params.ld) {
-    // save snps in bim file if maf is applied
-    if (params.keepsnp) {
-      std::ifstream ifs_bim(params.filein + ".bim");
-      std::ofstream ofs_bim(params.fileout + ".kept.bim");
-      std::string line;
-      int i = 0, j = 0, s;
-      while (getline(ifs_bim, line)) {
-        s = params.keepsnp ? keepSNPs[j] : j;
-        if (i == s) {
-          ofs_bim << line << std::endl;
-          j++;
-        }
-        i++;
-      }
-      ofs_bim.close();
+}
+
+void Data::save_snps_in_bim() {
+  // only works for plink inputs
+  std::ifstream ifs_bim(params.filein + ".bim");
+  std::ofstream ofs_bim(params.fileout + ".kept.bim");
+  std::string line;
+  int i = 0, j = 0, s;
+  // maybe save snps in bim file only if maf is applied
+  while (getline(ifs_bim, line)) {
+    s = params.keepsnp ? keepSNPs[j] : j;
+    if (i == s) {
+      ofs_bim << line << "\t" << F(j) << std::endl;
+      j++;
     }
+    i++;
   }
+  ofs_bim.close();
 }
 
 /**
@@ -176,6 +176,15 @@ void Data::write_eigs_files(const MyVector &S, const MyMatrix &U,
 
 void Data::write_residuals(const MyVector &S, const MyMatrix &U,
                            const MyMatrix &V) {
+  // we always filter snps for in-core mode
+  if (params.out_of_core) filter_snps_resize_F();
+  if (params.ld_stats == 1) {
+    cao.print(tick.date(),
+              "ld-stats=1: calculate standardized genotype matrix!");
+  } else {
+    cao.print(tick.date(),
+              "ld-stats=0: calculate the ancestry adjusted LD matrix!");
+  }
   std::ofstream ofs(params.fileout + ".residuals", std::ios::binary);
   const uint ibyte = 4;
   const uint magic = ibyte * 2;
@@ -184,44 +193,50 @@ void Data::write_residuals(const MyVector &S, const MyMatrix &U,
   ofs.write((char *)&nsamples, ibyte);
   Eigen::VectorXf fg;
   uint64 idx;
-  if (params.ld_stats == 1) {
-    cao.print(tick.date(),
-              "ld-stats=1: calculate standardized genotype matrix!");
-  } else {
-    cao.print(tick.date(),
-              "ld-stats=0: calculate the ancestry adjusted LD matrix!");
-  }
+  int i, j, s;
   if (!params.out_of_core) {
     if (params.ld_stats == 0)
       G -= U * S.asDiagonal() * V.transpose();  // get residuals matrix
     G.rowwise() -= G.colwise().mean();          // Centering
-    cao.print(tick.date(),
-              "save the matrix in binary file with suffix residuals");
     // TODO: compress me!
-    for (Eigen::Index i = 0; i < G.cols(); i++) {
-      fg = G.col(i).cast<float>();
-      if (params.svd_t == SvdType::PCAoneAlg2 && !params.noshuffle) {
-        idx = magic + perm.indices()[i] * bytes_per_snp;
-        ofs.seekp(idx, std::ios_base::beg);
+    i = 0, j = 0;
+    for (Eigen::Index ib = 0; ib < G.cols(); ib++) {
+      s = params.keepsnp ? keepSNPs[j] : j;
+      if (i == s) {
+        fg = G.col(ib).cast<float>();
+        if (params.svd_t == SvdType::PCAoneAlg2 && !params.noshuffle) {
+          idx = magic + perm.indices()[ib] * bytes_per_snp;
+          ofs.seekp(idx, std::ios_base::beg);
+        }
+        ofs.write((char *)fg.data(), bytes_per_snp);
+        j++;
       }
-      ofs.write((char *)fg.data(), bytes_per_snp);
+      i++;
     }
   } else {
     check_file_offset_first_var();
-    for (uint i = 0; i < nblocks; ++i) {
+    i = 0, j = 0;
+    for (uint b = 0; b < nblocks; ++b) {
       // G (nsamples, actual_block_size)
       if (params.ld_stats == 0) {  // get residuals matrix
-        G -= U * S.asDiagonal() * V.middleRows(start[i], G.cols()).transpose();
+        G -= U * S.asDiagonal() * V.middleRows(start[b], G.cols()).transpose();
       }
       G.rowwise() -= G.colwise().mean();  // Centering
-      read_block_initial(start[i], stop[i], false);
-      for (Eigen::Index i = 0; i < G.cols(); i++) {
-        fg = G.col(i).cast<float>();
-        ofs.write((char *)fg.data(), bytes_per_snp);
+      read_block_initial(start[b], stop[b], false);
+      for (Eigen::Index ib = 0; ib < G.cols(); ib++) {
+        s = params.keepsnp ? keepSNPs[j] : j;
+        if (i == s) {
+          fg = G.col(ib).cast<float>();
+          ofs.write((char *)fg.data(), bytes_per_snp);
+          j++;
+        }
+        i++;
       }
     }
   }
-  cao.print(tick.date(), "outputted the matrix to a file");
+
+  save_snps_in_bim();
+  cao.print(tick.date(), "the LD matrix and SNPs info are saved");
 }
 
 void Data::update_batch_E(const MyMatrix &U, const MyVector &svals,

@@ -46,7 +46,7 @@ class Param {
   uint buffer = 2;
   uint rand = 1;
   // for ld pruning
-  std::string filebim;
+  std::string filebim; // the 7-th column can be MAF
   int ld_stats = 0;  // 0: adj; 1: std
   double ld_r2 = 0;
   bool ld = false;       // true if tolld > 0

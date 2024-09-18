@@ -111,7 +111,7 @@ void FileBgen::read_all() {
         cao.print(tick.date(), "EM (MAF) not converged");
       }
     }
-    filterSNPs_resizeF();
+    filter_snps_resize_F();
     // initial E which is G
     G = MyMatrix::Zero(nsamples, nsnps);
 #pragma omp parallel for

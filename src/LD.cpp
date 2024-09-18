@@ -132,7 +132,7 @@ void calc_ld_metrics(const std::string& fileout, const std::string& filebim,
     }
   }
   std::ifstream fin(filebim);
-  if (!fin.is_open()) cao.error("can not open " + fileout + ".kept.bim");
+  if (!fin.is_open()) cao.error("can not open " + filebim);
   std::ofstream ofs_out(fileout + ".ld.prune.out");
   std::ofstream ofs_in(fileout + ".ld.prune.in");
   std::string line;

@@ -121,7 +121,9 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
     // write to files;
     data->write_eigs_files(evals, U, V);
     // NOTE: pcangsd only gives us evals of covariance matrix
-    if (params.ld && !params.pcangsd) data->write_residuals(svals, U, V);
+    if (params.ld && !params.pcangsd) {
+      data->write_residuals(svals, U, V);
+    }
   } else {
     // for blockwise
     ArnoldiOpData* op = new ArnoldiOpData(data);

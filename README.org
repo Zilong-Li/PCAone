@@ -47,9 +47,9 @@ missingness and uncertainty.
 - [[#documentation][Documentation]]
   - [[#options][Options]]
   - [[#input-formats][Input formats]]
-  - [[#output-files][Output files]]
+  - [[#output-formats][Output formats]]
   - [[#memory-efficient-modes][Memory-efficient modes]]
-  - [[#normalization][Normalization]]
+  - [[#data-normalization][Data Normalization]]
   - [[#ancestry-adjusted-ld-matrix][Ancestry-Adjusted LD matrix]]
   - [[#prunning-based-on-ancestry-adjusted-ld][Prunning based on Ancestry-Adjusted LD]]
   - [[#clumping-based-on-ancestry-adjusted-ld][Clumping based on Ancestry-Adjusted LD]]
@@ -271,8 +271,7 @@ population structure. such as [[https://www.cog-genomics.org/plink/1.9/formats#b
 a comma delimited CSV format compressed by zstd, which is useful for other
 datasets requiring specific normalization such as single cell RNAs data.
 
-** Output files
-
+** Output formats
 *** Eigen vectors
 
 Eigen vectors are saved in file with suffix =.eigvecs=. Each row represents
@@ -283,11 +282,11 @@ a sample and each col represents a PC.
 Eigen values are saved in file with suffix =.eigvals=. Each row represents
 the eigenvalue of corresponding PC.
 
-*** Features Loadings
+*** Features loadings
 
 Features Loadings are saved in file with suffix =.loadings=. Each row
-represents a feature and each col represents a PC. need to use =--printv=
-option to print it.
+represents a feature and each column represents a corresponding PC. Use
+=--printv= option to print it.
 
 ** Memory-efficient modes
 
@@ -300,41 +299,44 @@ way to do calculation. However, in case the server runs out of memory with
 =in-core= mode, the user can trigger =out-of-core mode= by specifying the amount
 of memory using =--memory= option with a value greater than 0.
 
-*** run the window-based RSVD method (algorithm2, default) with in-core mode
+*** Run PCAone window-based RSVD method (default) with in-core mode
 #+begin_src shell
-./PCAone --bfile example/plink --svd 2
+./PCAone --bfile example/plink
 #+end_src
-*** run the window-based RSVD method (algorithm2) with out-of-core mode
+*** Run PCAone window-based RSVD method (default) with out-of-core mode
 #+begin_src shell
-./PCAone --bfile example/plink --svd 2 -m 2
+./PCAone --bfile example/plink -m 2
 #+end_src
-*** run the Yu+Halko RSVD method (algorithm1) with in-core mode
+*** Run Yu+Halko RSVD method with in-core mode
 #+begin_src shell
 ./PCAone --bfile example/plink --svd 1
 #+end_src
-*** run the Yu+Halko RSVD method (algorithm1) with out-of-core mode
+*** Run Yu+Halko RSVD method with out-of-core mode
 #+begin_src shell
 ./PCAone --bfile example/plink --svd 1 -m 2
 #+end_src
-*** run the IRAM method with in-core mode
+*** Run IRAM method with in-core mode
 #+begin_src shell
 ./PCAone --bfile example/plink --svd 0 -m 2
 #+end_src
-*** run the IRAM method with out-of-core mode
+*** Run IRAM method with out-of-core mode
 #+begin_src shell
 ./PCAone --bfile example/plink --svd 0 -m 2
 #+end_src
-*** run the Full SVD method with in-core mode
+*** Run Full SVD method with in-core mode
 #+begin_src shell
 ./PCAone --bfile example/plink --svd 3
 #+end_src
 
-** Normalization
+** Data Normalization
 
-PCAone will automatically apply the standard normalization for genetic data. Additionally, there are 3 different normalization method implemented with =--scale= option.
+PCAone will automatically apply the standard normalization for genetic data.
+Additionally, there are 3 different normalization method implemented with
+=--scale= option.
 - 0: do just centering by substracting the mean
 - 1: do log transformation (usually for count data, such as bulk RNA-seq data)
 - 2: do count per median log transformation (usually for single cell RNA-seq data)
+  
 One should choose proper normalization method for specific type of data.
 
 ** Ancestry-Adjusted LD matrix
@@ -342,18 +344,17 @@ One should choose proper normalization method for specific type of data.
 LD patterns vary across diverse ancestry and structured groups, and
 conventional LD statistics, e.g. the implementation in =plink --ld=, failed to
 model the LD in admixed populations. Thus, we proposed the so-called
-ancestry-adjusted LD statistics to account for the population structure in
+ancestry-adjusted LD statistics to account for population structure in
 LD. See our [[https://doi.org/10.1101/2024.05.02.592187][paper]] for more details.
 
-To calculate the ancestry-adjusted LD matrix, we need to specify the number
-of principal components (=-k/--pc=), which can be thought of the number of
-distinct ancestral groups and can capture the population structure. In this
-example, we calculate and output the ancestry adjusted LD matrix in a file
-named =adj_ld.residuals=, assuming that 3 PCs can accout for population
-structure.
+To calculate the ancestry-adjusted LD matrix, we first figure out the number
+of principal components (=-k/--pc=) that capture population structure. In this
+example, we enable =--ld= option to calculate and output the ancestry adjusted
+LD matrix in a file with suffix =.residuals=, assuming that 3 PCs can accout
+for population structure. Also, we keep only sites with MAF > 0.1
 
 #+begin_src shell
-./PCAone -b example/plink -k 3 -m 2 --ld -o adj_ld
+./PCAone -b example/plink -k 3 -m 4 --ld -o adj --maf 0.1
 #+end_src
 
 ** Prunning based on Ancestry-Adjusted LD
@@ -362,11 +363,11 @@ Do prunning based on the Ancestry-Adjusted LD matrix and user-defined
 thresholds and windows
 
 #+begin_src shell
-./PCAone -B adj_ld.residuals \
-         --ld-bim example/plink.bim \
+./PCAone -B adj.residuals \
+         --ld-bim adj.kept.bim \
          --ld-r2 0.8 \
          --ld-bp 1000000 \
-         -o adj_ld
+         -o adj
 #+end_src
 
 ** Clumping based on Ancestry-Adjusted LD
@@ -376,13 +377,13 @@ association results
 
 #+begin_src shell
 ./PCAone -B adj_ld.residuals \
-         --ld-bim example/plink.bim \
+         --ld-bim adj.kept.bim \
          --clump example/plink.pheno0.assoc,example/plink.pheno1.assoc  \
          --clump-p1 0.05 \
          --clump-p2 0.01 \
          --clump-r2 0.1 \
          --clump-bp 10000000 \
-         -o adj_ld
+         -o adj
 #+end_src
 
 ** More Examples
@@ -396,12 +397,12 @@ tar -xzf example.tar.gz && rm -f example.tar.gz
 
 *** Genotype data (PLINK)
 
-We want to compute the top 10 PCs for this genotype dataset using 4
-threads and only 2GB memory. We will use the proposed window-based RSVD
+We want to compute the top 40 PCs for this genotype dataset using 20
+threads and only 2 GBs memory. We will use the proposed window-based RSVD
 algorithm with default setting =--svd 2=.
 
 #+begin_src shell
-./PCAone --bfile example/plink -k 5 -m 2
+./PCAone --bfile example/plink -k 40 -m 2 -n 20
 #+end_src
 
 Then, we can make a PCA plot in R.
@@ -413,22 +414,28 @@ legend("topright", legend=unique(pcs[,1]), col=1:4, pch = 21, cex=1.2)
 
 *** Genotype dosage (BGEN)
 
-Imputation tools usually generate the genotype probabilities or dosages in BGEN format. To do PCA with the imputed genotype probabilities, we can work on BGEN file with =--bgen= option instead.
+Imputation tools usually generate the genotype probabilities or dosages in
+BGEN format. To do PCA with the imputed genotype probabilities, we can
+work on BGEN file with =--bgen= option instead.
+
 #+begin_src shell
 ./PCAone --bgen example/test.bgen -k 10 -n 4 -m 2
 #+end_src
+
 Then, we can make a PCA plot in R.
+
 #+begin_src R
 pcs <- read.table("pcaone.eigvecs",h=F)
-fam <- read.table("example/plink.fam",h=F)
-pop <- fam[,1]
+pop <- read.table("example/plink.fam",h=F)[,1]
 plot(pcs[,1:2], col=factor(pop), xlab = "PC1", ylab = "PC2")
 legend("topright", legend=unique(pop), col=factor(unique(pop)), pch = 21, cex=1.2)
 #+end_src
 
 *** Single cell RNA-seq data (CSV)
 
-In this example, we run PCA for the single cell RNAs-seq data using a different input format with a normalization method called count per median log transformation (CPMED).
+In this example, we run PCA for the single cell RNAs-seq data using a
+different input format with a normalization method called count per median
+log transformation (CPMED).
 
 #+begin_src shell
 ./PCAone --csv example/BrainSpinalCord.csv.zst -k 10 -n 20 -m 4 --scale 2 --svd 1
