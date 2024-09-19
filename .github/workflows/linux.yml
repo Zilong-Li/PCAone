@@ -23,5 +23,11 @@ jobs:
     - name: make
       run: make -j4
 
-    - name: test
-      run: ./PCAone --help
+    - name: download example data
+      run: make data
+
+    - name: test LD module
+      run: |
+        make ld_matrix
+        make ld_prune
+        make ld_clump

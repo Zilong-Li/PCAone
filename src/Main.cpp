@@ -32,6 +32,18 @@ int main(int argc, char* argv[]) {
   // openblas_set_num_threads(params.threads);
   omp_set_num_threads(params.threads);
   Data* data = nullptr;
+
+  // particular case for LD
+  if ((params.file_t == FileType::BINARY) &&
+      (params.ld_r2 > 0 || !params.clump.empty())) {
+    data = new FileBin(params);
+    run_ld_stuff(params, data);
+    delete data;
+    cao.print(tick.date(), "total elapsed wall time:", tick.abstime(),
+              "seconds");
+    return 0;
+  }
+
   if (params.svd_t == SvdType::PCAoneAlg2 && !params.noshuffle &&
       params.out_of_core) {
     tick.clock();
@@ -71,17 +83,10 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  if ((params.file_t == FileType::BINARY) && params.ld) {
-    data->read_all();
-    run_ld_stuff(params, data);
-    delete data;
-    cao.print(tick.date(), "total elapsed wall time:", tick.abstime(),
-              "seconds");
-    return 0;
-  }
-  // ready for run
+  // be prepared for run
   data->prepare();
-  // begin to run
+
+  // begin to run PCA
   if (params.svd_t == SvdType::IRAM) {
     run_pca_with_arnoldi(data, params);
   } else if (params.svd_t == SvdType::PCAoneAlg1 ||

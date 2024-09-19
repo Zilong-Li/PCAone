@@ -171,3 +171,24 @@ clean:
 	(cd ./external/bgen/; $(MAKE) clean)
 	(cd ./external/zstd/lib/; $(MAKE) clean)
 
+data:
+	wget http://popgen.dk/zilong/datahub/pca/example.tar.gz
+	tar -xzf example.tar.gz && rm -f example.tar.gz
+
+ld_matrix:
+	./PCAone -b example/plink -k 3 -m 2 --ld -o adj
+
+ld_prune:
+	./PCAone -B adj.residuals --ld-bim adj.kept.bim  --ld-r2 0.8  --ld-bp 1000000 -o adj_m0 -m 0
+	./PCAone -B adj.residuals --ld-bim adj.kept.bim  --ld-r2 0.8  --ld-bp 1000000 -o adj_m1 -m 1
+	diff adj_m0.ld.prune.out adj_m1.ld.prune.out
+
+ld_clump:
+	./PCAone -B adj.residuals \
+	--ld-bim adj.kept.bim \
+	--clump example/plink.pheno0.assoc,example/plink.pheno1.assoc  \
+	--clump-p1 0.05 \
+	--clump-p2 0.01 \
+	--clump-r2 0.1 \
+	--clump-bp 10000000 \
+	-o adj_m0

@@ -46,7 +46,7 @@ void FileBin::read_all() {
   }
 }
 
-// TODO : implement standardize
+// TODO : can standardize
 void FileBin::read_block_initial(uint64 start_idx, uint64 stop_idx,
                                  bool standardize) {
   // magic += missing_points.size() * sizeof(uint64);

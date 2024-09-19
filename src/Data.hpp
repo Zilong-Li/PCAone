@@ -42,6 +42,7 @@ class Data {
                        const MyVector& svals, MyMatrix& VT, bool standardize);
 
   Param& params;
+
   bool snpmajor = true;
   bool nsamples_ge_nsnps = false;  // if nsamples greater than or equal to nsnps
   bool initialFonly = false;
@@ -61,6 +62,7 @@ class Data {
                 // be predicted.
   MyArrayX centered_geno_lookup;
   std::vector<int> keepSNPs;  // store index of SNPs to keep
+
 };
 
 #endif  // PCAONE_DATA_

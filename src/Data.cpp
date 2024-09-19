@@ -6,6 +6,8 @@
 
 #include "Data.hpp"
 
+#include "LD.hpp"
+
 using namespace std;
 
 void Data::prepare() {
@@ -60,6 +62,7 @@ void Data::prepare() {
               tick.date(), "after adjustment by PCAone windows: blocksize =",
               params.blocksize, ", nblocks=", nblocks, ", factor=", bandFactor);
       }
+      // NOTE: re-do chunking with respect to the LD windows
       start.resize(nblocks);
       stop.resize(nblocks);
       for (uint i = 0; i < nblocks; i++) {

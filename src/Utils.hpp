@@ -62,10 +62,18 @@ inline std::vector<size_t> sortidx(const std::vector<T>& v) {
 
 struct Line {
   std::string data;
-  operator std::string const&() const { return data; }
+  operator std::string const &() const { return data; }
   friend std::istream& operator>>(std::istream& is, Line& line) {
     return std::getline(is, line.data);
   }
+};
+
+struct SNPld {
+  std::vector<int> pos;          // pos of each SNP
+  std::vector<int> end_pos;      // 0-based index for last snp pos
+  std::vector<std::string> chr;  // chr of each SNP
+  std::vector<int> ws, we;       // store SNPs information in LD window
+  Double1D af;                   // allele frequency
 };
 
 std::string get_machine();
