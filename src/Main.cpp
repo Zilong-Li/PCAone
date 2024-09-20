@@ -37,6 +37,7 @@ int main(int argc, char* argv[]) {
   if ((params.file_t == FileType::BINARY) &&
       (params.ld_r2 > 0 || !params.clump.empty())) {
     data = new FileBin(params);
+    data->prepare();
     run_ld_stuff(params, data);
     delete data;
     cao.print(tick.date(), "total elapsed wall time:", tick.abstime(),

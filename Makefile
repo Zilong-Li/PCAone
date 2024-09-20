@@ -181,7 +181,7 @@ ld_matrix:
 ld_prune:
 	./PCAone -B adj.residuals --ld-bim adj.kept.bim  --ld-r2 0.8  --ld-bp 1000000 -o adj_m0 -m 0
 	./PCAone -B adj.residuals --ld-bim adj.kept.bim  --ld-r2 0.8  --ld-bp 1000000 -o adj_m1 -m 1
-	diff adj_m0.ld.prune.out adj_m1.ld.prune.out
+	diff adj_m0.ld.prune.out adj_m1.ld.prune.out > /dev/null
 
 ld_clump:
 	./PCAone -B adj.residuals \

@@ -6,17 +6,25 @@
 
 #include "LD.hpp"
 
-#include <string>
-
 #include "Data.hpp"
 #include "Utils.hpp"
 
 using namespace std;
 
-MyVector calc_sds(const MyMatrix& X) {
+MyArray calc_sds(const MyMatrix& X) {
   // compute degree of freedom
-  const int df = X.rows() - 1;  // N-1
-  return (X.array().square().colwise().sum() / df).sqrt();
+  const double df = 1.0 / (X.rows() - 1);  // N-1
+  return (X.array().square().colwise().sum() * df).sqrt();
+}
+
+// df = 1.0 / (N - 1)
+// should check x.size()==y.size()
+double calc_cor(const MyVector& x, const MyVector& y, const double df) {
+  int N = x.size();
+  double numerator = x.dot(y);
+  double sd_x = 1.0 / std::sqrt(x.dot(x) / (N - 1));
+  double sd_y = 1.0 / std::sqrt(y.dot(y) / (N - 1));
+  return numerator * sd_x * sd_y * df;
 }
 
 std::string get_snp_pos_bim(SNPld& snp, const std::string& filebim, bool header,
@@ -104,24 +112,39 @@ void ld_prune_small(Data* data, const std::string& fileout,
   const bool pick_random_one = snp.af.size() > 0 ? false : true;
   ArrayXb keep = ArrayXb::Constant(snp.af.size(), true);
   const double df = 1.0 / (data->nsamples - 1);  // N-1
+  int b = 0, start = 0, end = 0;
   data->check_file_offset_first_var();
-  int start = 0, end = 0;
+  data->read_block_initial(data->start[b], data->stop[b], false);
+  MyMatrix G = data->G;  // make a copy. we need two G anyway
+  b++;
+  data->read_block_initial(data->start[b], data->stop[b], false);
   for (int w = 0; w < (int)snp.ws.size(); w++) {
     int i = snp.ws[w];
     if (!keep(i)) continue;
-    // NOTE: read in G by block here
-    start = i;
+    start = i;  // ensure start >= data->start[b-1]
+    if (start < data->start[b - 1]) cao.error("BUG: ld_prune_small ");
     end = snp.we[w] + i - 1;
-    data->read_block_initial(start, end, false);
-    MyVector sds = 1.0 / calc_sds(data->G).array();
+    if (end > data->stop[b]) {  // renew G and data->G
+      G = data->G;              // copy
+      b++;
+      data->read_block_initial(data->start[b], data->stop[b], false);
+    }
 #pragma omp parallel for
     for (int j = 1; j < snp.we[w]; j++) {
       int k = i + j;
       if (!keep(k)) continue;
-      double r =
-          (data->G.col(0).array() * data->G.col(j).array() * (sds(0) * sds(j)))
-              .sum() *
-          df;
+      double r = 0;
+      if (i >= data->start[b - 1] && k <= data->stop[b - 1]) {
+        r = calc_cor(G.col(i - data->start[b - 1]),
+                     G.col(k - data->start[b - 1]), df);
+      } else if (i >= data->start[b] && k <= data->stop[b]) {
+        r = calc_cor(data->G.col(i - data->start[b]),
+                     data->G.col(k - data->start[b]), df);
+
+      } else {
+        r = calc_cor(G.col(i - data->start[b - 1]),
+                     data->G.col(k - data->start[b]), df);
+      }
       if (r * r > r2_tol) {
         int o = k;  // or i
         if (!pick_random_one) o = MAF(snp.af[k]) > MAF(snp.af[i]) ? i : k;
@@ -152,7 +175,7 @@ void ld_prune_big(const std::string& fileout, const std::string& filebim,
   // TODO: maybe add an option in CLI
   const bool pick_random_one = snp.af.size() > 0 ? false : true;
   cao.print(tick.date(), "LD pruning, pick_random_one =", pick_random_one);
-  MyVector sds = 1.0 / calc_sds(G).array();
+  MyArray sds = 1.0 / calc_sds(G);
   ArrayXb keep = ArrayXb::Constant(G.cols(), true);
   const double df = 1.0 / (G.rows() - 1);  // N-1
   for (int w = 0; w < (int)snp.ws.size(); w++) {
@@ -162,8 +185,9 @@ void ld_prune_big(const std::string& fileout, const std::string& filebim,
     for (int j = 1; j < snp.we[w]; j++) {
       int k = i + j;
       if (!keep(k)) continue;
-      double r =
-          (G.col(i).array() * G.col(k).array() * (sds(i) * sds(k))).sum() * df;
+      // double r = calc_cor2(G.col(i), G.col(k), df);
+      double r = G.col(i).dot(G.col(k)) * (sds(i) * sds(k) * df);
+      // (G.col(i).array() * G.col(k).array() * (sds(i) * sds(k))).sum() * df;
       if (r * r > r2_tol) {
         int o = k;  // or i
         if (!pick_random_one) o = MAF(snp.af[k]) > MAF(snp.af[i]) ? i : k;
@@ -260,7 +284,7 @@ void ld_clump_big(std::string fileout, std::string fileassoc,
       get_target_snp_idx(fileassoc, snp, true, colidx);
   const auto pvals_per_chr = map_index_snps(fileassoc, colidx, clump_p2);
   // sort by pvalues and get new idx
-  const MyVector sds = 1.0 / calc_sds(G).array();
+  const MyArray sds = 1.0 / calc_sds(G);
   const double df = 1.0 / (G.rows() - 1);  // N-1
   std::ofstream ofs(fileout);
   ofs << head + "\tSP2" << std::endl;
@@ -303,10 +327,8 @@ void ld_clump_big(std::string fileout, std::string fileassoc,
         }
         p2 = bp[k];
         if (mpp.count(p2) == 0) continue;
-        double r = (G.col(idx[j]).array() * G.col(idx[k]).array() *
-                    (sds(idx[j]) * sds(idx[k])))
-                       .sum() *
-                   df;
+        double r =
+            G.col(idx[j]).dot(G.col(idx[k])) * (sds(idx[j]) * sds(idx[k]) * df);
         if (r * r >= clump_r2) {
           clumped.push_back(p2);
           mpp.erase(p2);
@@ -339,7 +361,7 @@ void run_ld_stuff(const Param& params, Data* data) {
   get_snp_pos_bim(snp, params.filebim);
   divide_pos_by_window(snp, params.ld_bp);
   if (!params.out_of_core) {
-    data->read_all();
+    // data->read_all();
     if (params.clump.empty()) {
       ld_prune_big(params.fileout, params.filebim, data->G, snp, params.ld_bp,
                    params.ld_r2);

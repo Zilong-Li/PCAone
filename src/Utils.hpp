@@ -35,6 +35,7 @@ extern Logger cao;
 typedef Eigen::MatrixXd MyMatrix;
 typedef Eigen::VectorXd MyVector;
 typedef Eigen::ArrayXXd MyArrayX;
+typedef Eigen::ArrayXd MyArray;
 typedef Eigen::Array<bool, Eigen::Dynamic, 1> ArrayXb;
 
 typedef unsigned char uchar;

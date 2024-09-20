@@ -5,7 +5,9 @@
 #include "Data.hpp"
 #include "Utils.hpp"
 
-MyVector calc_sds(const MyMatrix& X);
+MyArray calc_sds(const MyMatrix& X);
+
+double calc_cor(const MyVector& x, const MyVector& y, const double df);
 
 std::string get_snp_pos_bim(SNPld& snp, const std::string& filebim,
                             bool header = false, Int1D idx = Int1D{0, 3});
