@@ -14,11 +14,15 @@
 #+latex_header: \hypersetup{colorlinks=true, linkcolor=blue}
 #+latex: \clearpage
 
+* Badges :noexport:
+
 [[https://github.com/Zilong-Li/PCAone/actions/workflows/linux.yml/badge.svg]]
 [[https://github.com/Zilong-Li/PCAone/actions/workflows/mac.yml/badge.svg]]
 [[https://bioconda.github.io/recipes/pcaone/README.html][https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat]]
 [[https://github.com/Zilong-Li/PCAone/releases/latest][https://img.shields.io/github/v/release/Zilong-Li/PCAone.svg]]
 [[https://anaconda.org/bioconda/pcaone/badges/downloads.svg]]
+
+* Introduction
 
 PCAone is a fast and memory efficient PCA tool implemented in C++
 aiming at providing comprehensive features and algorithms for
@@ -34,12 +38,13 @@ here. PCAone supports multiple different input formats, such as [[https://www.co
 [[https://www.well.ox.ac.uk/~gav/bgen_format][BGEN]], [[http://www.popgen.dk/angsd/index.php/Input#Beagle_format][Beagle]] genetic data formats and a general comma separated CSV
 format for other data, such as scRNAs and bulk RNAs. For genetics
 data, PCAone also implements [[https://github.com/Rosemeis/emu][EMU]] and [[https://github.com/Rosemeis/pcangsd][PCAngsd]] algorithm for data with
-missingness and uncertainty.
+missingness and uncertainty. The PDF manual can be downloaded [[https://github.com/Zilong-Li/PCAone/blob/main/PCAone.pdf][here]].
 
 [[file:misc/architecture.png]]
 
-* Table of Contents :TOC:QUOTE:noexport:
+* Table of Contents :toc:quote:noexport:
 #+BEGIN_QUOTE
+- [[#introduction][Introduction]]
 - [[#cite-the-work][Cite the work]]
 - [[#features][Features]]
 - [[#quick-start][Quick start]]
@@ -51,6 +56,7 @@ missingness and uncertainty.
   - [[#build-from-source][Build from source]]
 - [[#documentation][Documentation]]
   - [[#options][Options]]
+  - [[#which-svd-method-to-use][Which SVD method to use]]
   - [[#input-formats][Input formats]]
   - [[#output-formats][Output formats]]
   - [[#memory-efficient-modes][Memory-efficient modes]]
@@ -225,7 +231,7 @@ If this doesn't work because the server is too outdated, run =make clean && make
 * Documentation
 ** Options
 
-Run =./PCAone --help= to see all options including hidden advanced options. Below are some useful and important options.
+Run =./PCAone --help= to see all options including hidden advanced options. The below are some useful options.
 
 #+begin_src example
 Main options:
@@ -268,6 +274,23 @@ Main options:
   --clump-r2 arg (=0.5)          r2 cutoff for LD-based clumping
   --clump-bp arg (=250000)       physical distance threshold in bases for clumping
 #+end_src
+
+\newpage
+
+** Which SVD method to use
+
+This depends on your datasets, particularlly the relationship between number
+of samples (=N=) and the number of variants / features (=M=) and the top PCs
+(=k=). Here is an overview and the recommendation.
+
+|-------------------+-----------+---------+----------------------|
+| Method            | Accuracy  | Option  | Scenario             |
+|-------------------+-----------+---------+----------------------|
+| IRAM              | Very high | --svd 0 | =N < 5000=             |
+| RSVD              | High      | --svd 1 | accuracy insensitive |
+| Window-Based RSVD | Very high | --svd 2 | =M > 1,000,000=        |
+| Full SVD          | Exact     | --svd 3 | =N,M < 1000=           |
+|-------------------+-----------+---------+----------------------|
 
 ** Input formats
 
