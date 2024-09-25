@@ -127,10 +127,16 @@ void Data::save_snps_in_bim() {
       ofs_bim << bims2[j] << "\t" << Ftmp(j) << "\n";
     }
   } else {  // plink.bim is not permuted
-    j = 0;
+    j = 0, i = 0;
     while (getline(ifs_bim, line)) {
-      i = params.keepsnp ? keepSNPs[j] : j;
-      if (i == j) ofs_bim << line << "\t" << F(i) << "\n";
+      if (params.keepsnp) {
+        if (keepSNPs[i] == j) {
+          ofs_bim << line << "\t" << F(i) << "\n";
+          i++;
+        }
+      } else {
+        ofs_bim << line << "\t" << F(j) << "\n";
+      }
       j++;
     }
   }
@@ -218,8 +224,8 @@ void Data::write_residuals(const MyVector &S, const MyMatrix &U,
   uint64 idx;
   if (!params.out_of_core) {
     if (params.ld_stats == 0)
-      G -= U * S.asDiagonal() * VT;  // get residuals matrix
-    G.rowwise() -= G.colwise().mean();          // Centering
+      G -= U * S.asDiagonal() * VT;     // get residuals matrix
+    G.rowwise() -= G.colwise().mean();  // Centering
     for (Eigen::Index ib = 0; ib < G.cols(); ib++) {
       fg = G.col(ib).cast<float>();
       if (params.perm) {
