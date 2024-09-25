@@ -123,7 +123,7 @@ void Data::save_snps_in_bim() {
       Ftmp(i) = F(j);
       j++;
     }
-    for (j = 0; j < bims2.size(); j++) {
+    for (j = 0; j < (int)bims2.size(); j++) {
       ofs_bim << bims2[j] << "\t" << Ftmp(j) << "\n";
     }
   } else {  // plink.bim is not permuted

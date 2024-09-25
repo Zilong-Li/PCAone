@@ -266,15 +266,15 @@ std::vector<UMapIntPds> map_index_snps(const std::string& fileassoc,
   return vm;
 }
 
-void ld_clump_single_pheno(std::string fileout, int clump_bp, double clump_r2,
-                           double clump_p1, double clump_p2, std::string head,
-                           const MyMatrix& Gs, const SNPld& snp_t,
-                           const SNPld& snp, const Int2D& idx_per_chr,
+void ld_clump_single_pheno(std::string fileout, const std::string& head,
+                           const int clump_bp, const double clump_r2,
+                           const double clump_p1, const double clump_p2,
+                           const MyMatrix& G, const Int2D& idx_per_chr,
                            const Int2D& bp_per_chr,
                            const std::vector<UMapIntPds>& pvals_per_chr) {
   // sort by pvalues and get new idx
-  const MyArray sds = 1.0 / calc_sds(Gs);
-  const double df = 1.0 / (Gs.rows() - 1);  // N-1
+  const MyArray sds = 1.0 / calc_sds(G);
+  const double df = 1.0 / (G.rows() - 1);  // N-1
   std::ofstream ofs(fileout);
   ofs << head + "\tSP2" << std::endl;
   for (int c = 0; c < (int)bp_per_chr.size(); c++) {
@@ -295,8 +295,7 @@ void ld_clump_single_pheno(std::string fileout, int clump_bp, double clump_r2,
     for (auto i : sortidx(pp)) {  // snps sorted by p value
       p = ps[i];
       if (mpp.count(p) == 0)
-        continue;  // if snps with pval < clump_p1 are already clumped with
-      // previous snps
+        continue;  // if snps with pval < clump_p1 are already clumped
       Int1D clumped;
       bool backward = true;
       if (mbp.count(p) == 0) continue;
@@ -316,8 +315,8 @@ void ld_clump_single_pheno(std::string fileout, int clump_bp, double clump_r2,
         }
         p2 = bp[k];
         if (mpp.count(p2) == 0) continue;
-        double r = Gs.col(idx[j]).dot(Gs.col(idx[k])) *
-                   (sds(idx[j]) * sds(idx[k]) * df);
+        double r =
+            G.col(idx[j]).dot(G.col(idx[k])) * (sds(idx[j]) * sds(idx[k]) * df);
         // double r =
         //     G.col(idx[j]).dot(G.col(idx[k])) * (sds(idx[j]) * sds(idx[k]) *
         //     df);
@@ -362,9 +361,8 @@ void run_ld_stuff(const Param& params, Data* data) {
   } else {
     const auto assocfiles = split_string(params.clump, ",");
     for (size_t i = 0; i < assocfiles.size(); i++) {
-      // cao.print(tick.date(), "LD-based clumping: p1 =", clump_p1,
-      //           ", p2 =", clump_p2, ", r2 =", clump_r2, ", bp =", clump_bp,
-      //           ", associated file:", fileassoc);
+      cao.print(tick.date(),
+                "LD-based clumping for associated file:", assocfiles[i]);
       auto colidx = valid_assoc_file(assocfiles[i], params.assoc_colnames);
       SNPld snp_t;
       std::string head = get_snp_pos_bim(snp_t, assocfiles[i], true, colidx);
@@ -389,19 +387,18 @@ void run_ld_stuff(const Param& params, Data* data) {
             sidx++;
             i++;
           }
-          cao.print("snp_t size", snp_t.pos.size(), "sidx", sidx);
         }
 
         ld_clump_single_pheno(
-            params.fileout + ".p" + std::to_string(i) + ".clump",
+            params.fileout + ".p" + std::to_string(i) + ".clump", head,
             params.clump_bp, params.clump_r2, params.clump_p1, params.clump_p2,
-            head, G, snp_t, snp, idx_per_chr, bp_per_chr, pvals_per_chr);
+            G, idx_per_chr, bp_per_chr, pvals_per_chr);
 
       } else {
         ld_clump_single_pheno(
-            params.fileout + ".p" + std::to_string(i) + ".clump",
+            params.fileout + ".p" + std::to_string(i) + ".clump", head,
             params.clump_bp, params.clump_r2, params.clump_p1, params.clump_p2,
-            head, data->G, snp_t, snp, idx_per_chr, bp_per_chr, pvals_per_chr);
+            data->G, idx_per_chr, bp_per_chr, pvals_per_chr);
       }
     }
   }

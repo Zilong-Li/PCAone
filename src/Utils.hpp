@@ -112,4 +112,11 @@ std::vector<std::string> split_string(const std::string& s,
 void make_plink2_eigenvec_file(int K, std::string fout, const std::string& fin,
                                const std::string& fam);
 
+inline UMapIntInt vector2map(const Int1D& v) {
+  UMapIntInt m;
+  int i = 0;
+  for (const auto& k : v) m.insert({k, i++});
+  return m;
+}
+
 #endif  // PCAONE_UTILES_

@@ -24,21 +24,15 @@ void ld_prune_small(Data* data, const std::string& fileout,
 void ld_prune_big(const std::string& fileout, const std::string& filebim,
                   const MyMatrix& G, const SNPld& snp, double r2_tol);
 
-void ld_clump_single_pheno(std::string fileout, int clump_bp, double clump_r2,
-                  double clump_p1, double clump_p2, std::string head,
-                  const MyMatrix& G, const SNPld& snp_t, const SNPld& snp,
-                  const Int2D& idx_per_chr, const Int2D& bp_per_chr,
-                  const std::vector<UMapIntPds>& pvals_per_chr);
+void ld_clump_single_pheno(std::string fileout, const std::string& head,
+                           const int clump_bp, const double clump_r2,
+                           const double clump_p1, const double clump_p2,
+                           const MyMatrix& G, const Int2D& idx_per_chr,
+                           const Int2D& bp_per_chr,
+                           const std::vector<UMapIntPds>& pvals_per_chr);
 
 Int1D valid_assoc_file(const std::string& fileassoc,
                        const std::string& colnames);
-
-inline UMapIntInt vector2map(const Int1D& v) {
-  UMapIntInt m;
-  int i = 0;
-  for (auto k : v) m.insert({k, i++});
-  return m;
-}
 
 std::vector<UMapIntPds> map_index_snps(const std::string& fileassoc,
                                        const Int1D& colidx, double clump_p2);
