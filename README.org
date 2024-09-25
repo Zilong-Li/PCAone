@@ -1,9 +1,14 @@
-#+TITLE: PCAone - Principal Component Analysis All in One
-#+options: toc:2 num:nil email:t
+#+TITLE: PCAone: Principal Component Analysis All in One
+#+options: toc:2 num:t email:t
+#+author: Zilong Li
 #+email: zilong.dk@gmail.com
+#+latex_compiler: xelatex
 #+latex_class: article
 #+latex_class_options: [a4paper, 11pt]
+#+latex_header: \usepackage{fontspec}
+#+latex_header: \setmainfont{RobotoMono-VariableFont_wght}[Path=/usr/local/share/fonts/TTF/]
 #+latex_header: \usepackage[margin=0.9in,bmargin=1.0in,tmargin=1.0in]{geometry}
+#+latex_header: \usepackage{amssymb}
 #+latex_header: \usepackage{adjustbox}
 #+latex_header: \usepackage{upquote}
 #+latex_header: \hypersetup{colorlinks=true, linkcolor=blue}
@@ -14,7 +19,6 @@
 [[https://bioconda.github.io/recipes/pcaone/README.html][https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat]]
 [[https://github.com/Zilong-Li/PCAone/releases/latest][https://img.shields.io/github/v/release/Zilong-Li/PCAone.svg]]
 [[https://anaconda.org/bioconda/pcaone/badges/downloads.svg]]
-
 
 PCAone is a fast and memory efficient PCA tool implemented in C++
 aiming at providing comprehensive features and algorithms for
@@ -346,6 +350,7 @@ of memory using =--memory= option with a value greater than 0.
 PCAone will automatically apply the standard normalization for genetic data.
 Additionally, there are 3 different normalization method implemented with
 =--scale= option.
+
 - 0: do just centering by substracting the mean
 - 1: do log transformation (usually for count data, such as bulk RNA-seq data)
 - 2: do count per median log transformation (usually for single cell RNA-seq data)

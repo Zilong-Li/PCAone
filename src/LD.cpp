@@ -75,7 +75,7 @@ std::tuple<Int2D, Int2D> get_target_snp_idx(const SNPld& snp_t,
     }
     if (!std::is_sorted(ord.begin(), ord.end()))
       cao.error(
-          "the association file may be not soted or not matching the order of "
+          "the association file may be not sorted or not matching the order of "
           ".kept.bim file!");
   }
 
