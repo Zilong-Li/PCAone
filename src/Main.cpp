@@ -45,8 +45,7 @@ int main(int argc, char* argv[]) {
     return 0;
   }
 
-  if (params.svd_t == SvdType::PCAoneAlg2 && !params.noshuffle &&
-      params.out_of_core) {
+  if (params.perm && params.out_of_core) {
     tick.clock();
     if (params.file_t == FileType::PLINK) {
       auto perm = permute_plink(params.filein, params.fileout, params.buffer,

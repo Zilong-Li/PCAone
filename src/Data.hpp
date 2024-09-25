@@ -52,17 +52,16 @@ class Data {
   uint bandFactor = 1;
   uint nops = 0;
   std::vector<uint> start, stop;
-  PermMat perm;
-  MyMatrix G;   // genotype matrix, can be initial E or centered E, which is
-                // nsamples x nsnps;
-  MyMatrix P;   // genotype probability, nsamples x 3 x nsnps.
-  MyVector F;   // observed or estimated population allele frequency
-  MyVector Dc;  // diagnal vector of covariance matrix
-  ArrayXb C;    // boolean array indicates if a ind's snp is missing and need to
-                // be predicted.
+  PermMat perm;  // permuation order of SNPs
+  MyMatrix G;    // genotype matrix, can be initial E or centered E, which is
+                 // nsamples x nsnps;
+  MyMatrix P;    // genotype probability, nsamples x 3 x nsnps.
+  MyVector F;    // observed or estimated population allele frequency
+  MyVector Dc;   // diagnal vector of covariance matrix
+  ArrayXb C;     // if a ind's snp is missing and need to
+                 // be predicted.
   MyArrayX centered_geno_lookup;
   std::vector<int> keepSNPs;  // store index of SNPs to keep
-
 };
 
 #endif  // PCAONE_DATA_

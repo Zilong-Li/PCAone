@@ -6,6 +6,7 @@
 
 #include "LD.hpp"
 
+#include "Cmd.hpp"
 #include "Data.hpp"
 #include "Utils.hpp"
 
@@ -56,11 +57,9 @@ std::string get_snp_pos_bim(SNPld& snp, const std::string& filebim, bool header,
 // given a list of snps, find its index per chr in the original pos
 // assume chromosomes are continuous
 // TODO: check duplicated POS
-std::tuple<Int2D, Int2D, std::string> get_target_snp_idx(
-    const std::string& filebim, const SNPld& snp, bool header, Int1D colidx) {
+std::tuple<Int2D, Int2D> get_target_snp_idx(const SNPld& snp_t,
+                                            const SNPld& snp) {
   Int1D idx, bp;
-  SNPld snp_t;
-  auto head = get_snp_pos_bim(snp_t, filebim, header, colidx);
   UMapIntInt mpos;
   int c, s, e, p, i;
   Int2D ret(snp_t.chr.size());
@@ -86,7 +85,7 @@ std::tuple<Int2D, Int2D, std::string> get_target_snp_idx(
     idx.clear();
     mpos.clear();
   }
-  return std::make_tuple(ret, ret2, head);
+  return std::make_tuple(ret, ret2);
 }
 
 /// return ws, we
@@ -110,7 +109,8 @@ void ld_prune_small(Data* data, const std::string& fileout,
                     const std::string& filebim, const SNPld& snp,
                     const double r2_tol) {
   const bool pick_random_one = snp.af.size() > 0 ? false : true;
-  ArrayXb keep = ArrayXb::Constant(snp.af.size(), true);
+  cao.print(tick.date(), "LD pruning, pick_random_one =", pick_random_one);
+  ArrayXb keep = ArrayXb::Constant(data->nsnps, true);
   const double df = 1.0 / (data->nsamples - 1);  // N-1
   int b = 0, start = 0, end = 0;
   data->check_file_offset_first_var();
@@ -168,8 +168,7 @@ void ld_prune_small(Data* data, const std::string& fileout,
 }
 
 void ld_prune_big(const std::string& fileout, const std::string& filebim,
-                  const MyMatrix& G, const SNPld& snp, int ld_window_bp,
-                  double r2_tol) {
+                  const MyMatrix& G, const SNPld& snp, double r2_tol) {
   if ((long int)snp.pos.size() != G.cols())
     cao.error("The number of variants is not matching the LD matrix");
   // TODO: maybe add an option in CLI
@@ -278,10 +277,11 @@ void ld_clump_big(std::string fileout, std::string fileassoc,
             ", associated file:", fileassoc);
   // 0: chr, 1: pos, 2: pvalue
   auto colidx = valid_assoc_file(fileassoc, colnames);
+  SNPld snp_t;
+  std::string head = get_snp_pos_bim(snp_t, fileassoc, true, colidx);
+
   Int2D idx_per_chr, bp_per_chr;
-  std::string head;
-  std::tie(idx_per_chr, bp_per_chr, head) =
-      get_target_snp_idx(fileassoc, snp, true, colidx);
+  std::tie(idx_per_chr, bp_per_chr) = get_target_snp_idx(snp_t, snp);
   const auto pvals_per_chr = map_index_snps(fileassoc, colidx, clump_p2);
   // sort by pvalues and get new idx
   const MyArray sds = 1.0 / calc_sds(G);
@@ -307,12 +307,12 @@ void ld_clump_big(std::string fileout, std::string fileassoc,
       p = ps[i];
       if (mpp.count(p) == 0)
         continue;  // if snps with pval < clump_p1 are already clumped with
-                   // previous snps
+      // previous snps
       Int1D clumped;
       bool backward = true;
       if (mbp.count(p) == 0) continue;
       j = mbp.at(p);  // j:current
-      k = j;          //  k:forward or backward
+      k = j;          // k:forward or backward
       while (true) {
         if (backward) {
           --k;
@@ -357,26 +357,128 @@ void ld_clump_big(std::string fileout, std::string fileassoc,
 }
 
 void run_ld_stuff(const Param& params, Data* data) {
+  cao.print(tick.date(), "run ld stuff");
   SNPld snp;  // SNPs information for LD prunning
   get_snp_pos_bim(snp, params.filebim);
-  divide_pos_by_window(snp, params.ld_bp);
-  if (!params.out_of_core) {
-    // data->read_all();
-    if (params.clump.empty()) {
-      ld_prune_big(params.fileout, params.filebim, data->G, snp, params.ld_bp,
-                   params.ld_r2);
+  if (params.clump.empty()) {
+    divide_pos_by_window(snp, params.ld_bp);
+    if (params.out_of_core) {
+      ld_prune_small(data, params.fileout, params.filebim, snp, params.ld_r2);
     } else {
-      std::string sep{","};
-      const auto assocfiles = split_string(params.clump, sep);
-      for (size_t i = 0; i < assocfiles.size(); i++) {
+      ld_prune_big(params.fileout, params.filebim, data->G, snp, params.ld_r2);
+    }
+  } else {
+    const auto assocfiles = split_string(params.clump, ",");
+    for (size_t i = 0; i < assocfiles.size(); i++) {
+      // TODO: subset G for each pheno and compared with it
+      if (params.out_of_core) {
+        auto colidx = valid_assoc_file(assocfiles[i], params.assoc_colnames);
+        Int2D idx_per_chr, bp_per_chr;
+        SNPld snp_t;
+        std::string head = get_snp_pos_bim(snp_t, assocfiles[i], true, colidx);
+        std::tie(idx_per_chr, bp_per_chr) = get_target_snp_idx(snp_t, snp);
+        const auto pvals_per_chr =
+            map_index_snps(assocfiles[i], colidx, params.clump_p2);
+        MyMatrix G(data->nsamples, snp_t.pos.size());
+        int b = 0, sidx = 0;
+        data->check_file_offset_first_var();
+        data->read_block_initial(data->start[b], data->stop[b], false);
+        Int1D cumlen(idx_per_chr.size());
+        int cl = 0;
+        for (int c = 0; c < (int)idx_per_chr.size(); c++) {
+          for (auto icol : idx_per_chr[c]) {
+            if (icol >= data->start[b] && icol <= data->stop[b]) {
+              G.col(sidx) = data->G.col(icol - data->start[b]);
+            } else {
+              b++;
+              data->read_block_initial(data->start[b], data->stop[b], false);
+              G.col(sidx) = data->G.col(icol - data->start[b]);
+            }
+            sidx++;
+          }
+          cl += idx_per_chr[c].size();
+          cumlen[c] = cl;
+        }
+        const MyArray sds = 1.0 / calc_sds(G);
+        const double df = 1.0 / (G.rows() - 1);  // N-1
+        std::string fileout =
+            params.fileout + ".p" + std::to_string(i) + ".clump";
+        std::ofstream ofs(fileout);
+        ofs << head + "\tSP2" << std::endl;
+        for (int c = 0; c < (int)idx_per_chr.size(); c++) {
+          const auto bp = bp_per_chr[c];
+          const auto mbp = vector2map(bp);
+          // greedy clumping algorithm
+          auto mpp = pvals_per_chr[c];  // key: pos, val: pval
+          Double1D pp;
+          Int1D ps;
+          for (auto it = mpp.begin(); it != mpp.end(); it++) {
+            if (it->second.first <= params.clump_p1) {
+              ps.push_back(it->first);
+              pp.push_back(it->second.first);
+            }
+          }
+          int p, p2, j, k;
+          for (auto i : sortidx(pp)) {  // snps sorted by p value
+            p = ps[i];
+            if (mpp.count(p) == 0)
+              continue;  // if snps with pval < clump_p1 are already clumped
+                         // with
+            // previous snps
+            Int1D clumped;
+            bool backward = true;
+            if (mbp.count(p) == 0) continue;
+            j = mbp.at(p);  // j:current
+            k = j;          // k:forward or backward
+            while (true) {
+              if (backward) {
+                --k;
+                if (k < 0 || (bp[k] < p - params.clump_bp)) {
+                  backward = false;
+                  k = j;
+                  continue;
+                }
+              } else {
+                ++k;
+                if (k >= (int)bp.size() || (bp[k] > p + params.clump_bp)) break;
+              }
+              p2 = bp[k];
+              if (mpp.count(p2) == 0) continue;
+              int cj = c > 0 ? cumlen[c - 1] + j - 1 : j;
+              int ck = c > 0 ? cumlen[c - 1] + k - 1 : k;
+              double r = G.col(cj).dot(G.col(ck)) * (sds(cj) * sds(ck) * df);
+              if (r * r >= params.clump_r2) {
+                clumped.push_back(p2);
+                mpp.erase(p2);
+              }
+            }
+            // what we do with clumped SNPs. sort them by pval?
+            ofs << pvals_per_chr[c].at(p).second << "\t";
+            if (clumped.empty()) {
+              ofs << "NONE";
+            } else {
+              Double1D opp;
+              for (auto op : clumped)
+                opp.push_back(pvals_per_chr[c].at(op).first);
+              k = 0;
+              for (auto oi : sortidx(opp)) {
+                if (k == opp.size() - 1)
+                  ofs << clumped[oi];
+                else
+                  ofs << clumped[oi] << ",";
+                k++;
+              }
+            }
+            ofs << std::endl;
+          }
+          // end current chr
+        }
+      } else {
         ld_clump_big(params.fileout + ".p" + std::to_string(i) + ".clump",
                      assocfiles[i], params.assoc_colnames, params.clump_bp,
                      params.clump_r2, params.clump_p1, params.clump_p2, snp,
                      data->G);
       }
     }
-  } else {
-    if (params.clump.empty())
-      ld_prune_small(data, params.fileout, params.filebim, snp, params.ld_r2);
   }
 }

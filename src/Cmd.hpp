@@ -29,6 +29,7 @@ class Param {
   uint threads = 10;
   uint blocksize = 0;
   uint bands = 64;
+  bool pca = true;
   // for emu iteration
   uint maxiter = 100;
   double alpha = 0.001;
@@ -45,9 +46,10 @@ class Param {
   double tol = 1e-4;
   uint buffer = 2;
   uint rand = 1;
+  bool perm = false;  // wheather data is permuted
   // for ld pruning
-  std::string filebim; // the 7-th column can be MAF
-  int ld_stats = 0;  // 0: adj; 1: std
+  std::string filebim;  // the 7-th column can be MAF
+  int ld_stats = 0;     // 0: adj; 1: std
   double ld_r2 = 0;
   bool ld = false;       // true if tolld > 0
   uint ld_bp = 1000000;  // base pairs not number of snps

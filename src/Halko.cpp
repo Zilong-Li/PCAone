@@ -178,7 +178,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi) {
             "method.");
       // permute snps of G, see
       // https://stackoverflow.com/questions/15858569/randomly-permute-rows-columns-of-a-matrix-with-eigen
-      if (!data->params.noshuffle) PCAone::permute_matrix(data->G, data->perm);
+      if (data->params.perm) PCAone::permute_matrix(data->G, data->perm);
     }
     {
       // band : 2, 4, 8, 16, 32, 64, 128
@@ -375,7 +375,7 @@ void run_pca_with_halko(Data* data, const Param& params) {
     }
   }
   if (!params.pcangsd) {
-    if (params.svd_t == SvdType::PCAoneAlg2 && !params.noshuffle)
+    if (params.perm)
       data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U,
                              data->perm * rsvd->V);
     else

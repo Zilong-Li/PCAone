@@ -6,7 +6,12 @@
 
 #include "Data.hpp"
 
+#include <string>
+#include <vector>
+
+#include "Eigen/src/Core/util/Meta.h"
 #include "LD.hpp"
+#include "Utils.hpp"
 
 using namespace std;
 
@@ -47,7 +52,7 @@ void Data::prepare() {
       read_all();
       cao.warning("only one block exists. will run with in-core mode");
     } else {
-      if (params.svd_t == SvdType::PCAoneAlg2) {
+      if (params.svd_t == SvdType::PCAoneAlg2 && params.pca) {
         // decrease blocksize to fit the fancy halko
         if (nblocks < params.bands) {
           params.blocksize = (unsigned int)ceil((double)nsnps / params.bands);
@@ -57,12 +62,10 @@ void Data::prepare() {
               (unsigned int)ceil((double)nsnps / (params.bands * bandFactor));
         }
         nblocks = (unsigned int)ceil((double)nsnps / params.blocksize);
-        if (params.verbose)
-          cao.print(
-              tick.date(), "after adjustment by PCAone windows: blocksize =",
-              params.blocksize, ", nblocks=", nblocks, ", factor=", bandFactor);
+        cao.print(tick.date(), "after adjustment by PCAone: -w =", params.bands,
+                  ", blocksize =", params.blocksize, ", nblocks =", nblocks,
+                  ", factor =", bandFactor);
       }
-      // NOTE: re-do chunking with respect to the LD windows
       start.resize(nblocks);
       stop.resize(nblocks);
       for (uint i = 0; i < nblocks; i++) {
@@ -71,7 +74,9 @@ void Data::prepare() {
         stop[i] = stop[i] >= nsnps ? nsnps - 1 : stop[i];
       }
       // initial some variables for blockwise for specific files here.
-      if (params.file_t != FileType::CSV) F = MyVector::Zero(nsnps);
+      if ((params.file_t != FileType::CSV) &&
+          (params.file_t != FileType::BINARY))
+        F = MyVector::Zero(nsnps);
       if (params.file_t == FileType::PLINK)
         centered_geno_lookup = MyArrayX::Zero(4, nsnps);  // for plink input
     }
@@ -98,20 +103,36 @@ void Data::filter_snps_resize_F() {
   }
 }
 
+// only works for plink inputs
 void Data::save_snps_in_bim() {
-  // only works for plink inputs
+  cao.print(tick.date(), "save kept sites in bim file and params.perm is",
+            params.perm);
+  // could be permuted
   std::ifstream ifs_bim(params.filein + ".bim");
   std::ofstream ofs_bim(params.fileout + ".kept.bim");
   std::string line;
-  int i = 0, j = 0, s;
-  // maybe save snps in bim file only if maf is applied
-  while (getline(ifs_bim, line)) {
-    s = params.keepsnp ? keepSNPs[j] : j;
-    if (i == s) {
-      ofs_bim << line << "\t" << F(j) << std::endl;
+  int i, j;
+  if (params.perm && params.out_of_core) {
+    vector<std::string> bims2;
+    bims2.resize(nsnps);
+    MyVector Ftmp(F.size());
+    j = 0;
+    while (getline(ifs_bim, line)) {
+      i = perm.indices()[j];
+      bims2[i] = line;
+      Ftmp(i) = F(j);
       j++;
     }
-    i++;
+    for (j = 0; j < bims2.size(); j++) {
+      ofs_bim << bims2[j] << "\t" << Ftmp(j) << "\n";
+    }
+  } else {  // plink.bim is not permuted
+    j = 0;
+    while (getline(ifs_bim, line)) {
+      i = params.keepsnp ? keepSNPs[j] : j;
+      if (i == j) ofs_bim << line << "\t" << F(i) << "\n";
+      j++;
+    }
   }
   ofs_bim.close();
 }
@@ -180,7 +201,6 @@ void Data::write_eigs_files(const MyVector &S, const MyMatrix &U,
 void Data::write_residuals(const MyVector &S, const MyMatrix &U,
                            const MyMatrix &V) {
   // we always filter snps for in-core mode
-  if (params.out_of_core) filter_snps_resize_F();
   if (params.ld_stats == 1) {
     cao.print(tick.date(),
               "ld-stats=1: calculate standardized genotype matrix!");
@@ -196,44 +216,34 @@ void Data::write_residuals(const MyVector &S, const MyMatrix &U,
   ofs.write((char *)&nsamples, ibyte);
   Eigen::VectorXf fg;
   uint64 idx;
-  int i, j, s;
   if (!params.out_of_core) {
     if (params.ld_stats == 0)
       G -= U * S.asDiagonal() * V.transpose();  // get residuals matrix
     G.rowwise() -= G.colwise().mean();          // Centering
-    // TODO: compress me!
-    i = 0, j = 0;
     for (Eigen::Index ib = 0; ib < G.cols(); ib++) {
-      s = params.keepsnp ? keepSNPs[j] : j;
-      if (i == s) {
-        fg = G.col(ib).cast<float>();
-        if (params.svd_t == SvdType::PCAoneAlg2 && !params.noshuffle) {
-          idx = magic + perm.indices()[ib] * bytes_per_snp;
-          ofs.seekp(idx, std::ios_base::beg);
-        }
-        ofs.write((char *)fg.data(), bytes_per_snp);
-        j++;
+      fg = G.col(ib).cast<float>();
+      if (params.perm) {
+        idx = magic + perm.indices()[ib] * bytes_per_snp;
+        ofs.seekp(idx, std::ios_base::beg);
       }
-      i++;
+      ofs.write((char *)fg.data(), bytes_per_snp);
     }
   } else {
     check_file_offset_first_var();
-    i = 0, j = 0;
+    int i = 0;
     for (uint b = 0; b < nblocks; ++b) {
-      // G (nsamples, actual_block_size)
-      if (params.ld_stats == 0) {  // get residuals matrix
-        G -= U * S.asDiagonal() * V.middleRows(start[b], G.cols()).transpose();
-      }
-      G.rowwise() -= G.colwise().mean();  // Centering
       read_block_initial(start[b], stop[b], false);
-      for (Eigen::Index ib = 0; ib < G.cols(); ib++) {
-        s = params.keepsnp ? keepSNPs[j] : j;
-        if (i == s) {
-          fg = G.col(ib).cast<float>();
-          ofs.write((char *)fg.data(), bytes_per_snp);
-          j++;
+      // G (nsamples, actual_block_size)
+      if (params.ld_stats == 0)
+        G -= U * S.asDiagonal() * V.transpose().middleCols(start[b], G.cols());
+      G.rowwise() -= G.colwise().mean();  // Centering
+      for (Eigen::Index ib = 0; ib <= stop[b] - start[b]; ib++, i++) {
+        fg = G.col(ib).cast<float>();
+        if (params.perm) {
+          idx = magic + perm.indices()[i] * bytes_per_snp;
+          ofs.seekp(idx, std::ios_base::beg);
         }
-        i++;
+        ofs.write((char *)fg.data(), bytes_per_snp);
       }
     }
   }

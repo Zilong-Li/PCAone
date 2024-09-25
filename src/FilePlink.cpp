@@ -225,6 +225,7 @@ void FileBed::read_block_update(uint64 start_idx, uint64 stop_idx,
   }
 }
 
+// TODO: support MAF filters
 // structured permutation with cached buffer
 PermMat permute_plink(std::string &fin, const std::string &fout, uint gb,
                       uint nbands) {

@@ -12,9 +12,8 @@ double calc_cor(const MyVector& x, const MyVector& y, const double df);
 std::string get_snp_pos_bim(SNPld& snp, const std::string& filebim,
                             bool header = false, Int1D idx = Int1D{0, 3});
 
-std::tuple<Int2D, Int2D, std::string> get_target_snp_idx(
-    const std::string& filebim, const SNPld& snp, bool header = false,
-    Int1D colidx = Int1D{0, 3});
+std::tuple<Int2D, Int2D> get_target_snp_idx(const SNPld& snp_t,
+                                            const SNPld& snp);
 
 void divide_pos_by_window(SNPld& snp, const int ld_window_bp);
 
@@ -23,8 +22,7 @@ void ld_prune_small(Data* data, const std::string& fileout,
                     const double r2_tol);
 
 void ld_prune_big(const std::string& fileout, const std::string& filebim,
-                  const MyMatrix& G, const SNPld& snp, int ld_window_bp,
-                  double r2_tol);
+                  const MyMatrix& G, const SNPld& snp, double r2_tol);
 
 void ld_clump_big(std::string fileout, std::string fileassoc,
                   std::string colnames, int clump_bp, double clump_r2,

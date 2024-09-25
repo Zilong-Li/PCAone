@@ -13,13 +13,13 @@ using namespace popl;
 Param::Param(int argc, char **argv) {
   // clang-format off
     std::string copyr{"PCA All In One (v" + (std::string)VERSION + ")        https://github.com/Zilong-Li/PCAone\n" +
-                      "(C) 2021-2024 Zilong Li        GNU General Public License v3\n\n" +
-    "\x1B[32m" +
+                      "(C) 2021-2024 Zilong Li        GNU General Public License v3\n" +
+    "\x1B[32m\n" +
                       "Usage: use plink files as input and apply default window-based RSVD method\n" +
                       "       PCAone --bfile plink -m 2 \n\n" +
                       "       use csv file as input and apply the Implicitly Restarted Arnoldi Method\n" +
-                      "       PCAone --csv csv.zst --svd 0 -m 2 \n\n" +
-    "\033[0m"};
+                      "       PCAone --csv csv.zst --svd 0 -m 2 \n" +
+    "\033[0m\n"};
     OptionParser opts(copyr + "Main options");
     auto help_opt = opts.add<Switch>("h", "help", "print all options including hidden advanced options");
     auto svd_opt = opts.add<Value<uint>>("d", "svd", "svd method to be applied. default 2 is recommended for big data.\n"
@@ -146,7 +146,8 @@ Param::Param(int argc, char **argv) {
             maf = 1 - maf;
         } 
         keepsnp =  maf > 0 ? true : false;
-        ld = (ld || ld_r2 > 0 || !clump.empty())? true : false;
+        if (ld_r2 > 0 || !clump.empty()) pca = false;
+        if (svd_t == SvdType::PCAoneAlg2 && !noshuffle) perm = true;
     }
     catch(const popl::invalid_option & e)
     {
