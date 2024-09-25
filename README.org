@@ -221,7 +221,7 @@ If this doesn't work because the server is too outdated, run =make clean && make
 * Documentation
 ** Options
 
-run =./PCAone --help= to see all options. Below are some useful and important options.
+Run =./PCAone --help= to see all options including hidden advanced options. Below are some useful and important options.
 
 #+begin_src example
 Main options:
@@ -232,16 +232,16 @@ Main options:
                                  2: the proposed window-based Randomized SVD method
                                  3: the full Singular Value Decomposition.
   -b, --bfile arg                prefix to PLINK .bed/.bim/.fam files
-  -B, --binary arg               path of binary file (experimental and in-core mode)
+  -B, --binary arg               path of binary file
   -c, --csv arg                  path of comma seperated CSV file compressed by zstd
   -g, --bgen arg                 path of BGEN file compressed by gzip/zstd
   -G, --beagle arg               path of BEAGLE file compressed by gzip
-  -k, --pc arg (=10)             top k eigenvalues (PCs) to be calculated
-  -m, --memory arg (=0)          desired RAM usage in GB unit. default [0] uses all RAM
-  -n, --threads arg (=10)        number of threads for multithreading
+  -k, --pc arg (=10)             top k principal components (PCs) to be calculated
+  -m, --memory arg (=0)          desired RAM usage in GB unit for out-of-core mode. 0 is for in-core mode
+  -n, --threads arg (=10)        number of threads to be used
   -o, --out arg (=pcaone)        prefix to output files. default [pcaone]
   -p, --maxp arg (=40)           maximum number of power iterations for RSVD algorithm
-  -S, --no-shuffle               do not shuffle the data if it is already permuted
+  -S, --no-shuffle               do not shuffle the data for --svd 2 if it is already permuted
   -v, --verbose                  verbose message output
   -w, --batches arg (=64)        number of mini-batches to be used by PCAone --svd 2
   -C, --scale arg (=0)           do scaling for input file.
@@ -250,17 +250,18 @@ Main options:
                                  2: do count per median log transformation (CPMED) for scRNAs
   --emu                          uses EMU algorithm for genotype input with missingness
   --pcangsd                      uses PCAngsd algorithm for genotype likelihood input
-  --maf arg (=0)                 skip variants with minor allele frequency below maf
+  --maf arg (=0)                 exclude variants with MAF lower than this value (in-core mode only)
   -V, --printv                   output the right eigenvectors with suffix .loadings
-  --ld                           output a binary matrix for LD related stuff
-  --ld-r2 arg (=0)               cutoff for ld pruning. A value > 0 activates ld pruning
+  --ld                           output a binary matrix for downstream LD related analysis
+  --ld-bim arg                   variants information in plink bim file related to LD matrix
+  --ld-r2 arg (=0)               r2 cutoff for LD-based pruning.
   --ld-bp arg (=1000000)         physical distance threshold in bases for ld pruning
-  --ld-stats arg (=0)            statistics for calculating ld-r2. (0: the adj; 1: the std)
+  --ld-stats arg (=0)            statistics to get r2 for LD. (0: the ancestry adjusted, 1: the standard)
   --clump arg                    assoc-like file with target variants and pvalues for clumping
-  --clump-names arg (=CHR,BP,P)  olumn names in assoc-like file for locating chr, pos and pvalue respectively
+  --clump-names arg (=CHR,BP,P)  column names in assoc-like file for locating chr, pos and pvalue
   --clump-p1 arg (=0.0001)       significance threshold for index SNPs
   --clump-p2 arg (=0.01)         secondary significance threshold for clumped SNPs
-  --clump-r2 arg (=0.5)          r2 cutoff for ld clumping
+  --clump-r2 arg (=0.5)          r2 cutoff for LD-based clumping
   --clump-bp arg (=250000)       physical distance threshold in bases for clumping
 #+end_src
 
@@ -288,6 +289,17 @@ the eigenvalue of corresponding PC.
 Features Loadings are saved in file with suffix =.loadings=. Each row
 represents a feature and each column represents a corresponding PC. Use
 =--printv= option to print it.
+
+*** LD matrix
+
+The matrix for calculating the ancestry-adjusted LD is saved in a file
+with suffix =.residuals=, and its associated variants information is
+stored in a file named with =.kept.bim=. For the binary file, the first
+4-bytes stores the number of variants/SNPs, and the second 4-bytes stores
+the number of samples in the matrix. Then, the rest of the file is a
+sequence of *M* blocks of *N x 4* bytes each, where *M* is the number of
+variants and *N* is the number of samples. The first block corresponds to
+the first marker in the =.kept.bim= file, etc.
 
 ** Memory-efficient modes
 
@@ -350,18 +362,18 @@ LD. See our [[https://doi.org/10.1101/2024.05.02.592187][paper]] for more detail
 
 To calculate the ancestry-adjusted LD matrix, we first figure out the number
 of principal components (=-k/--pc=) that capture population structure. In this
-example, we enable =--ld= option to calculate and output the ancestry adjusted
-LD matrix in a file with suffix =.residuals=, assuming that 3 PCs can accout
-for population structure. Also, we keep only sites with MAF > 0.1
+example, assuming that 3 PCs can accout for population structure, we enable
+=--ld= option to calculate and output the ancestry adjusted LD matrix in a
+file with suffix =.residuals=.
 
 #+begin_src shell
-./PCAone -b example/plink -k 3 -m 4 --ld -o adj --maf 0.1
+./PCAone -b example/plink -k 3 --ld -o adj -m 4
 #+end_src
 
 ** Prunning based on Ancestry-Adjusted LD
 
-Do prunning based on the Ancestry-Adjusted LD matrix and user-defined
-thresholds and windows
+Given the LD binary file =.residuals= and its associated variant file
+=.kept.bim=, we can do pruning based on user-defined thresholds and windows
 
 #+begin_src shell
 ./PCAone -B adj.residuals \
@@ -373,8 +385,8 @@ thresholds and windows
 
 ** Clumping based on Ancestry-Adjusted LD
 
-Do clumping based on the Ancestry-Adjusted LD matrix and user-defined
-association results
+Likewise, we can do clumping based on the Ancestry-Adjusted LD matrix and
+user-defined association results
 
 #+begin_src shell
 ./PCAone -B adj_ld.residuals \

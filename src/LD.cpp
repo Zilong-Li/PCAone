@@ -6,6 +6,8 @@
 
 #include "LD.hpp"
 
+#include <algorithm>
+
 #include "Cmd.hpp"
 #include "Data.hpp"
 #include "Utils.hpp"
@@ -62,8 +64,23 @@ std::tuple<Int2D, Int2D> get_target_snp_idx(const SNPld& snp_t,
   Int1D idx, bp;
   UMapIntInt mpos;
   int c, s, e, p, i;
-  Int2D ret(snp_t.chr.size());
-  Int2D ret2(snp_t.chr.size());
+  {
+    Int1D ord;
+    for (c = 0; c < (int)snp.chr.size(); c++) {
+      i = 0;
+      while (snp_t.chr[i] != snp.chr[c]) {
+        i++;
+      }
+      ord.push_back(i);
+    }
+    if (!std::is_sorted(ord.begin(), ord.end()))
+      cao.error(
+          "the association file may be not soted or not matching the order of "
+          ".kept.bim file!");
+  }
+
+  Int2D idx_per_chr(snp_t.chr.size());
+  Int2D bp_per_chr(snp_t.chr.size());
   for (int tc = 0; tc < (int)snp_t.chr.size(); tc++) {
     for (c = 0; c < (int)snp.chr.size(); c++)
       if (snp.chr[c] == snp_t.chr[tc]) break;
@@ -79,13 +96,13 @@ std::tuple<Int2D, Int2D> get_target_snp_idx(const SNPld& snp_t,
         idx.push_back(mpos[p]);
       }
     }
-    ret[tc] = idx;
-    ret2[tc] = bp;
+    idx_per_chr[tc] = idx;
+    bp_per_chr[tc] = bp;
     bp.clear();
     idx.clear();
     mpos.clear();
   }
-  return std::make_tuple(ret, ret2);
+  return std::make_tuple(idx_per_chr, bp_per_chr);
 }
 
 /// return ws, we
