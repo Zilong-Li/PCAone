@@ -148,6 +148,7 @@ Param::Param(int argc, char **argv) {
             maf = 1 - maf;
         } 
         keepsnp =  maf > 0 ? true : false;
+        if(maf && out_of_core) std::cerr << "does not support --maf filters for out-of-core mode!\n" ;
         if (ld_r2 > 0 || !clump.empty()) pca = false;
         if (svd_t == SvdType::PCAoneAlg2 && !noshuffle) perm = true;
         if(svd_t == SvdType::FULL) out_of_core = false;

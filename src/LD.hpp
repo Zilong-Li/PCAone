@@ -24,10 +24,11 @@ void ld_prune_small(Data* data, const std::string& fileout,
 void ld_prune_big(const std::string& fileout, const std::string& filebim,
                   const MyMatrix& G, const SNPld& snp, double r2_tol);
 
-void ld_clump_big(std::string fileout, std::string fileassoc,
-                  std::string colnames, int clump_bp, double clump_r2,
-                  double clump_p1, double clump_p2, const SNPld& snp,
-                  const MyMatrix& G);
+void ld_clump_single_pheno(std::string fileout, int clump_bp, double clump_r2,
+                  double clump_p1, double clump_p2, std::string head,
+                  const MyMatrix& G, const SNPld& snp_t, const SNPld& snp,
+                  const Int2D& idx_per_chr, const Int2D& bp_per_chr,
+                  const std::vector<UMapIntPds>& pvals_per_chr);
 
 Int1D valid_assoc_file(const std::string& fileassoc,
                        const std::string& colnames);
