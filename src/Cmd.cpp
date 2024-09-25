@@ -6,6 +6,8 @@
 
 #include "Cmd.hpp"
 
+#include <iostream>
+
 #include "popl/popl.hpp"
 
 using namespace popl;
@@ -115,7 +117,7 @@ Param::Param(int argc, char **argv) {
         else if(svd_opt->value()==2)
             svd_t = SvdType::PCAoneAlg2;
         else if(svd_opt->value()==3)
-            svd_t = SvdType::FULL, out_of_core = false;
+            svd_t = SvdType::FULL;
         else
             svd_t = SvdType::PCAoneAlg2;
 
@@ -148,6 +150,7 @@ Param::Param(int argc, char **argv) {
         keepsnp =  maf > 0 ? true : false;
         if (ld_r2 > 0 || !clump.empty()) pca = false;
         if (svd_t == SvdType::PCAoneAlg2 && !noshuffle) perm = true;
+        if(svd_t == SvdType::FULL) out_of_core = false;
     }
     catch(const popl::invalid_option & e)
     {

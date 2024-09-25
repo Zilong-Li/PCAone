@@ -35,7 +35,8 @@ class Data {
                       const MyMatrix& VT);
   void write_eigs_files(const MyVector& S, const MyMatrix& U,
                         const MyMatrix& V);
-  void write_residuals(const MyVector& S, const MyMatrix& U, const MyMatrix& V);
+  void write_residuals(const MyVector& S, const MyMatrix& U,
+                       const MyMatrix& VT);
   // for blockwise
   void calcu_vt_initial(const MyMatrix& T, MyMatrix& VT, bool standardize);
   void calcu_vt_update(const MyMatrix& T, const MyMatrix& U,

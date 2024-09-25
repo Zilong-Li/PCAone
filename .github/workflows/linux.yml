@@ -29,5 +29,4 @@ jobs:
     - name: test LD module
       run: |
         make ld_matrix
-        make ld_prune
-        make ld_clump
+        make ld_tests

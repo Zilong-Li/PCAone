@@ -199,7 +199,7 @@ void Data::write_eigs_files(const MyVector &S, const MyMatrix &U,
 }
 
 void Data::write_residuals(const MyVector &S, const MyMatrix &U,
-                           const MyMatrix &V) {
+                           const MyMatrix &VT) {
   // we always filter snps for in-core mode
   if (params.ld_stats == 1) {
     cao.print(tick.date(),
@@ -218,7 +218,7 @@ void Data::write_residuals(const MyVector &S, const MyMatrix &U,
   uint64 idx;
   if (!params.out_of_core) {
     if (params.ld_stats == 0)
-      G -= U * S.asDiagonal() * V.transpose();  // get residuals matrix
+      G -= U * S.asDiagonal() * VT;  // get residuals matrix
     G.rowwise() -= G.colwise().mean();          // Centering
     for (Eigen::Index ib = 0; ib < G.cols(); ib++) {
       fg = G.col(ib).cast<float>();
@@ -235,7 +235,7 @@ void Data::write_residuals(const MyVector &S, const MyMatrix &U,
       read_block_initial(start[b], stop[b], false);
       // G (nsamples, actual_block_size)
       if (params.ld_stats == 0)
-        G -= U * S.asDiagonal() * V.transpose().middleCols(start[b], G.cols());
+        G -= U * S.asDiagonal() * VT.middleCols(start[b], G.cols());
       G.rowwise() -= G.colwise().mean();  // Centering
       for (Eigen::Index ib = 0; ib <= stop[b] - start[b]; ib++, i++) {
         fg = G.col(ib).cast<float>();

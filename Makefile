@@ -143,7 +143,7 @@ SLIBS += ./external/bgen/bgenlib.a ./external/zstd/lib/libzstd.a
 
 LIBS += ${SLIBS} ${DLIBS} -lm -ldl
 
-.PHONY: all clean ld_matrix ld_prune ld_clump
+.PHONY: all clean ld_matrix ld_prune ld_clump ld_tests
 
 all: ${program}
 
@@ -176,11 +176,12 @@ data:
 	tar -xzf example.tar.gz && rm -f example.tar.gz
 
 ld_matrix:
-	./PCAone -b example/plink -k 3 --ld -o adj -m 1
-	./PCAone -b example/plink -k 3 --ld -o pcaone
+	./PCAone -b example/plink -k 3 --ld -o adj -d 2 -m 4
+	./PCAone -b example/plink -k 3 --ld -o pcaone -d 2
 	diff adj.kept.bim pcaone.kept.bim
 	cut -f1 adj.kept.bim | sort -cn  ## check if sorted
 	awk '$$1==3' adj.kept.bim | cut -f4 | sort -cn
+	rm -f pcaone.*
 
 ld_prune:
 	./PCAone -B adj.residuals --ld-bim adj.kept.bim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0
@@ -188,20 +189,31 @@ ld_prune:
 	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
 
 ld_clump:
-	./PCAone -B adj.residuals \
-	--ld-bim adj.kept.bim \
-	--clump example/plink.pheno0.assoc,example/plink.pheno1.assoc  \
-	--clump-p1 0.01 \
-	--clump-p2 0.05 \
-	--clump-r2 0.1 \
-	--clump-bp 10000000 \
-	-o adj_clump_m0
+	./PCAone -B adj.residuals --ld-bim adj.kept.bim --clump example/plink.pheno0.assoc --clump-p1 0.01 --clump-p2 0.05 --clump-r2 0.1 --clump-bp 10000000 -m 0 -o adj_clump_m0 
+	./PCAone -B adj.residuals --ld-bim adj.kept.bim --clump example/plink.pheno0.assoc --clump-p1 0.01 --clump-p2 0.05 --clump-r2 0.1 --clump-bp 10000000 -m 1 -o adj_clump_m1 
 
-	./PCAone -B adj.residuals \
-	--ld-bim adj.kept.bim \
-	--clump example/plink.pheno0.assoc,example/plink.pheno1.assoc  \
-	--clump-p1 0.01 \
-	--clump-p2 0.05 \
-	--clump-r2 0.1 \
-	--clump-bp 10000000 \
-	-o adj_clump_m1 -m 1
+ld_tests:
+	./PCAone -b example/plink -k 3 --ld -o adj -d 0 -m 4
+	./PCAone -B adj.residuals --ld-bim adj.kept.bim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0
+	./PCAone -B adj.residuals --ld-bim adj.kept.bim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 2
+	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
+	./PCAone -b example/plink -k 3 --ld -o adj -d 0 --maf 0.1
+	./PCAone -B adj.residuals --ld-bim adj.kept.bim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0
+	./PCAone -B adj.residuals --ld-bim adj.kept.bim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 2
+	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
+	./PCAone -b example/plink -k 3 --ld -o adj -d 1 -m 4
+	./PCAone -B adj.residuals --ld-bim adj.kept.bim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0
+	./PCAone -B adj.residuals --ld-bim adj.kept.bim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 2
+	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
+	./PCAone -b example/plink -k 3 --ld -o adj -d 1 --maf 0.1
+	./PCAone -B adj.residuals --ld-bim adj.kept.bim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0
+	./PCAone -B adj.residuals --ld-bim adj.kept.bim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 2
+	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
+	./PCAone -b example/plink -k 3 --ld -o adj -d 2 -m 4
+	./PCAone -B adj.residuals --ld-bim adj.kept.bim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0
+	./PCAone -B adj.residuals --ld-bim adj.kept.bim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 2
+	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
+	./PCAone -b example/plink -k 3 --ld -o adj -d 2 --maf 0.1
+	./PCAone -B adj.residuals --ld-bim adj.kept.bim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0
+	./PCAone -B adj.residuals --ld-bim adj.kept.bim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 2
+	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
