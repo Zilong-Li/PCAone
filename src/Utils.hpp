@@ -44,6 +44,7 @@ typedef unsigned long long uint64;
 using Int1D = std::vector<int>;
 using Int2D = std::vector<Int1D>;
 using Double1D = std::vector<double>;
+using String1D = std::vector<std::string>;
 using UMapIntInt = std::unordered_map<int, int>;
 using UMapIntDouble = std::unordered_map<int, double>;
 using UMapIntString = std::unordered_map<int, std::string>;
@@ -64,17 +65,18 @@ inline std::vector<size_t> sortidx(const std::vector<T>& v) {
 struct Line {
   std::string data;
   operator std::string const &() const { return data; }
-  friend std::istream& operator>>(std::istream& is, Line& line) {
-    return std::getline(is, line.data);
+  friend std::istream& operator>>(std::istream& ifs, Line& line) {
+    return std::getline(ifs, line.data);
   }
 };
 
 struct SNPld {
   std::vector<int> pos;          // pos of each SNP
   std::vector<int> end_pos;      // 0-based index for last snp pos
-  std::vector<std::string> chr;  // chr of each SNP
-  std::vector<int> ws, we;       // store SNPs information in LD window
-  Double1D af;                   // allele frequency
+  std::vector<std::string> chr;  // chr sequences
+  std::vector<int> ws;           //  the snp index, i.e the index for lead SNP
+  std::vector<int> we;  // the number of SNPs (including lead SNP) in a window
+  Double1D af;          // allele frequency
 };
 
 std::string get_machine();
@@ -118,5 +120,17 @@ inline UMapIntInt vector2map(const Int1D& v) {
   for (const auto& k : v) m.insert({k, i++});
   return m;
 }
+
+// get the chr, bp, id
+struct BIM {
+  std::string data;
+  operator std::string const &() const { return data; }
+  friend std::istream& operator>>(std::istream& ifs, BIM& BIM) {
+    std::getline(ifs, BIM.data);
+    auto token = split_string(BIM.data, " \t");
+    BIM.data = token[0] + "\t" + token[3] + "\t" + token[1];
+    return ifs;
+  }
+};
 
 #endif  // PCAONE_UTILES_

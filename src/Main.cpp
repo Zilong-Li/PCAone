@@ -35,7 +35,7 @@ int main(int argc, char* argv[]) {
 
   // particular case for LD
   if ((params.file_t == FileType::BINARY) &&
-      (params.ld_r2 > 0 || !params.clump.empty())) {
+      (params.print_r2 || params.ld_r2 > 0 || !params.clump.empty())) {
     data = new FileBin(params);
     data->prepare();
     run_ld_stuff(params, data);

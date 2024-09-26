@@ -40,6 +40,12 @@ std::vector<UMapIntPds> map_index_snps(const std::string& fileassoc,
 std::vector<UMapIntString> map_assoc_file(const std::string& fileassoc,
                                           const Int1D& colidx);
 
+void ld_r2_big(const MyMatrix& G, const SNPld& snp, const std::string& filebim,
+               const std::string& fileout);
+
+void ld_r2_small(Data* data, const SNPld& snp, const std::string& filebim,
+                 const std::string& fileout);
+
 void run_ld_stuff(const Param& params, Data* data);
 
 #endif  // PCAONE_LD_

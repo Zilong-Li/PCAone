@@ -6,7 +6,10 @@
 
 #include "LD.hpp"
 
+#include <zlib.h>
+
 #include <algorithm>
+#include <string>
 
 #include "Cmd.hpp"
 #include "Data.hpp"
@@ -44,6 +47,7 @@ std::string get_snp_pos_bim(SNPld& snp, const std::string& filebim, bool header,
       snp.af.push_back(std::stod(tokens[6]));
     chr_cur = tokens[idx[0]];
     if (chr_prev.empty()) snp.chr.push_back(chr_cur);
+    // when starting a new chromosome
     if (!chr_prev.empty() && chr_prev != chr_cur) {
       snp.end_pos.push_back(i - 1);
       snp.chr.push_back(chr_cur);
@@ -201,9 +205,7 @@ void ld_prune_big(const std::string& fileout, const std::string& filebim,
     for (int j = 1; j < snp.we[w]; j++) {
       int k = i + j;
       if (!keep(k)) continue;
-      // double r = calc_cor2(G.col(i), G.col(k), df);
       double r = G.col(i).dot(G.col(k)) * (sds(i) * sds(k) * df);
-      // (G.col(i).array() * G.col(k).array() * (sds(i) * sds(k))).sum() * df;
       if (r * r > r2_tol) {
         int o = k;  // or i
         if (!pick_random_one) o = MAF(snp.af[k]) > MAF(snp.af[i]) ? i : k;
@@ -364,17 +366,118 @@ void ld_clump_single_pheno(std::string fileout, const std::string& head,
   }
 }
 
+void ld_r2_small(Data* data, const SNPld& snp, const std::string& filebim,
+                 const std::string& fileout) {
+  std::ifstream fin(filebim);
+  if (!fin.is_open()) cao.error("can not open " + filebim);
+  String1D bims(std::istream_iterator<BIM>{fin}, std::istream_iterator<BIM>{});
+  const double df = 1.0 / (data->nsamples - 1);  // N-1
+  int b = 0;
+  data->check_file_offset_first_var();
+  data->read_block_initial(data->start[b], data->stop[b], false);
+  MyMatrix G = data->G;  // make a copy. we need two G anyway
+  b++;
+  data->read_block_initial(data->start[b], data->stop[b], false);
+
+  gzFile gzfp = gzopen(fileout.c_str(), "wb");
+  const std::string head{"CHR_A\tBP_A\tSNP_A\tCHR_B\tBP_B\tSNP_B\tR2\n"};
+  gzwrite(gzfp, head.c_str(), head.size());
+  String1D out;
+
+  for (int w = 0; w < (int)snp.ws.size(); w++) {
+    int i = snp.ws[w];
+    if (i < data->start[b - 1]) cao.error("BUG: ld_prune_small ");
+    if (snp.we[w] + i - 1 > data->stop[b]) {  // renew G and data->G
+      G = data->G;                            // copy
+      b++;
+      data->read_block_initial(data->start[b], data->stop[b], false);
+    }
+    out.resize(snp.we[w] - 1);
+    
+#pragma omp parallel for
+    for (int j = 1; j < snp.we[w]; j++) {
+      int k = i + j;
+      double r = 0;
+      if (i >= data->start[b - 1] && k <= data->stop[b - 1]) {
+        r = calc_cor(G.col(i - data->start[b - 1]),
+                     G.col(k - data->start[b - 1]), df);
+      } else if (i >= data->start[b] && k <= data->stop[b]) {
+        r = calc_cor(data->G.col(i - data->start[b]),
+                     data->G.col(k - data->start[b]), df);
+
+      } else {
+        r = calc_cor(G.col(i - data->start[b - 1]),
+                     data->G.col(k - data->start[b]), df);
+      }
+
+      out[j - 1] =
+          bims[i] + "\t" + bims[k] + "\t" + std::to_string(r * r) + "\n";
+    }
+
+    for (const auto& str : out) {
+      if (gzwrite(gzfp, str.c_str(), str.size()) !=
+          static_cast<int>(str.size()))
+        cao.error("failed to write data in gzip");
+    }
+  }
+  gzclose(gzfp);
+}
+
+void ld_r2_big(const MyMatrix& G, const SNPld& snp, const std::string& filebim,
+               const std::string& fileout) {
+  std::ifstream fin(filebim);
+  if (!fin.is_open()) cao.error("can not open " + filebim);
+  String1D bims(std::istream_iterator<BIM>{fin}, std::istream_iterator<BIM>{});
+  MyArray sds = 1.0 / calc_sds(G);
+  const double df = 1.0 / (G.rows() - 1);  // N-1
+  gzFile gzfp = gzopen(fileout.c_str(), "wb");
+  const std::string head{"CHR_A\tBP_A\tSNP_A\tCHR_B\tBP_B\tSNP_B\tR2\n"};
+  gzwrite(gzfp, head.c_str(), head.size());
+  String1D out;
+
+  for (int w = 0; w < (int)snp.ws.size(); w++) {
+    int i = snp.ws[w];
+    out.resize(snp.we[w] - 1);
+#pragma omp parallel for
+    for (int j = 1; j < snp.we[w]; j++) {
+      int k = i + j;
+      double r = G.col(i).dot(G.col(k)) * (sds(i) * sds(k) * df);
+      out[j - 1] =
+          bims[i] + "\t" + bims[k] + "\t" + std::to_string(r * r) + "\n";
+    }
+
+    for (const auto& str : out) {
+      if (gzwrite(gzfp, str.c_str(), str.size()) !=
+          static_cast<int>(str.size()))
+        cao.error("failed to write data in gzip");
+    }
+  }
+  gzclose(gzfp);
+}
+
 void run_ld_stuff(const Param& params, Data* data) {
-  cao.print(tick.date(), "run ld stuff");
+  cao.print(tick.date(), "run LD stuff");
   SNPld snp;  // SNPs information for LD prunning
   get_snp_pos_bim(snp, params.filebim);
+
   if (params.clump.empty()) {
     divide_pos_by_window(snp, params.ld_bp);
+
     if (params.out_of_core) {
-      ld_prune_small(data, params.fileout, params.filebim, snp, params.ld_r2);
+      if (params.print_r2) {
+        ld_r2_small(data, snp, params.filebim, params.fileout + ".ld.gz");
+      } else {
+        ld_prune_small(data, params.fileout, params.filebim, snp, params.ld_r2);
+      }
     } else {
-      ld_prune_big(params.fileout, params.filebim, data->G, snp, params.ld_r2);
+      if (params.print_r2) {
+        ld_r2_big(data->G, snp, params.filebim, params.fileout + ".ld.gz");
+      } else {
+        ld_prune_big(params.fileout, params.filebim, data->G, snp,
+                     params.ld_r2);
+      }
     }
+
   } else {
     const auto assocfiles = split_string(params.clump, ",");
     for (size_t i = 0; i < assocfiles.size(); i++) {

@@ -47,6 +47,8 @@ class Param {
   uint buffer = 2;
   uint rand = 1;
   bool perm = false;  // wheather data is permuted
+  // for ld stuff
+  bool print_r2 = false;
   // for ld pruning
   std::string filebim;  // the 7-th column can be MAF
   int ld_stats = 0;     // 0: adj; 1: std
