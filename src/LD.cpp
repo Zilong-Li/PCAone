@@ -9,6 +9,7 @@
 #include <zlib.h>
 
 #include <algorithm>
+#include <cstring>
 #include <string>
 
 #include "Cmd.hpp"
@@ -336,9 +337,6 @@ void ld_clump_single_pheno(std::string fileout, const std::string& head,
         if (mpp.count(p2) == 0) continue;
         double r =
             G.col(idx[j]).dot(G.col(idx[k])) * (sds(idx[j]) * sds(idx[k]) * df);
-        // double r =
-        //     G.col(idx[j]).dot(G.col(idx[k])) * (sds(idx[j]) * sds(idx[k]) *
-        //     df);
         if (r * r >= clump_r2) {
           clumped.push_back(p2);
           mpp.erase(p2);
@@ -380,9 +378,8 @@ void ld_r2_small(Data* data, const SNPld& snp, const std::string& filebim,
   data->read_block_initial(data->start[b], data->stop[b], false);
 
   gzFile gzfp = gzopen(fileout.c_str(), "wb");
-  const std::string head{"CHR_A\tBP_A\tSNP_A\tCHR_B\tBP_B\tSNP_B\tR2\n"};
-  gzwrite(gzfp, head.c_str(), head.size());
-  String1D out;
+  std::string line{"CHR_A\tBP_A\tSNP_A\tCHR_B\tBP_B\tSNP_B\tR2\n"};
+  gzwrite(gzfp, line.c_str(), line.size());
 
   for (int w = 0; w < (int)snp.ws.size(); w++) {
     int i = snp.ws[w];
@@ -392,9 +389,7 @@ void ld_r2_small(Data* data, const SNPld& snp, const std::string& filebim,
       b++;
       data->read_block_initial(data->start[b], data->stop[b], false);
     }
-    out.resize(snp.we[w] - 1);
-    
-#pragma omp parallel for
+
     for (int j = 1; j < snp.we[w]; j++) {
       int k = i + j;
       double r = 0;
@@ -409,15 +404,12 @@ void ld_r2_small(Data* data, const SNPld& snp, const std::string& filebim,
         r = calc_cor(G.col(i - data->start[b - 1]),
                      data->G.col(k - data->start[b]), df);
       }
+      //// FIXME: this would be slow
+      line = bims[i] + "\t" + bims[k] + "\t" + std::to_string(r * r) + "\n";
 
-      out[j - 1] =
-          bims[i] + "\t" + bims[k] + "\t" + std::to_string(r * r) + "\n";
-    }
-
-    for (const auto& str : out) {
-      if (gzwrite(gzfp, str.c_str(), str.size()) !=
-          static_cast<int>(str.size()))
-        cao.error("failed to write data in gzip");
+      if (gzwrite(gzfp, line.c_str(), line.size()) !=
+          static_cast<int>(line.size()))
+        cao.error("failed to write data to ld.gz file");
     }
   }
   gzclose(gzfp);
@@ -431,25 +423,20 @@ void ld_r2_big(const MyMatrix& G, const SNPld& snp, const std::string& filebim,
   MyArray sds = 1.0 / calc_sds(G);
   const double df = 1.0 / (G.rows() - 1);  // N-1
   gzFile gzfp = gzopen(fileout.c_str(), "wb");
-  const std::string head{"CHR_A\tBP_A\tSNP_A\tCHR_B\tBP_B\tSNP_B\tR2\n"};
-  gzwrite(gzfp, head.c_str(), head.size());
-  String1D out;
+  std::string line{"CHR_A\tBP_A\tSNP_A\tCHR_B\tBP_B\tSNP_B\tR2\n"};
+  gzwrite(gzfp, line.c_str(), line.size());
 
   for (int w = 0; w < (int)snp.ws.size(); w++) {
     int i = snp.ws[w];
-    out.resize(snp.we[w] - 1);
-#pragma omp parallel for
+
     for (int j = 1; j < snp.we[w]; j++) {
       int k = i + j;
       double r = G.col(i).dot(G.col(k)) * (sds(i) * sds(k) * df);
-      out[j - 1] =
-          bims[i] + "\t" + bims[k] + "\t" + std::to_string(r * r) + "\n";
-    }
-
-    for (const auto& str : out) {
-      if (gzwrite(gzfp, str.c_str(), str.size()) !=
-          static_cast<int>(str.size()))
-        cao.error("failed to write data in gzip");
+      //// FIXME: this would be slow
+      line = bims[i] + "\t" + bims[k] + "\t" + std::to_string(r * r) + "\n";
+      if (gzwrite(gzfp, line.c_str(), line.size()) !=
+          static_cast<int>(line.size()))
+        cao.error("failed to write data to ld.gz file");
     }
   }
   gzclose(gzfp);

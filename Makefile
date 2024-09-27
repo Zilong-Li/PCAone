@@ -176,8 +176,8 @@ data:
 	tar -xzf example.tar.gz && rm -f example.tar.gz
 
 ld_matrix:
-	./PCAone -b example/plink -k 3 --ld -o adj -d 2 -m 4
-	./PCAone -b example/plink -k 3 --ld -o pcaone -d 2
+	./PCAone -b example/plink -k 3 --ld -o adj -d 2 
+	./PCAone -b example/plink -k 3 --ld -o pcaone -d 2 -m 2
 	diff adj.kept.bim pcaone.kept.bim
 	cut -f1 adj.kept.bim | sort -cn  ## check if sorted
 	awk '$$1==3' adj.kept.bim | cut -f4 | sort -cn
