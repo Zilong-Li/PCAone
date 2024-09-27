@@ -36,7 +36,7 @@ void ld_prune_small(Data* data, const std::string& fileout,
 void ld_prune_big(const std::string& fileout, const std::string& filebim,
                   const MyMatrix& G, const SNPld& snp, double r2_tol);
 
-void ld_clump_single_pheno(std::string fileout, const std::string& head,
+void ld_clump_single_pheno(const std::string& fileout, const std::string& head,
                            const int clump_bp, const double clump_r2,
                            const double clump_p1, const double clump_p2,
                            const MyMatrix& G, const Int2D& idx_per_chr,
