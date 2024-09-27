@@ -3,7 +3,6 @@
 
 #include <sys/utsname.h>
 
-#include <Eigen/Dense>
 #include <algorithm>
 #include <cassert>
 #include <chrono>
@@ -16,12 +15,11 @@
 #include <iterator>
 #include <random>
 #include <stdexcept>
-#include <string>
-#include <unordered_map>
-#include <vector>
 
+#include "Common.hpp"
 #include "Logger.hpp"
 #include "Timer.hpp"
+#include "zstd.h"
 
 // MAKE SOME TOOLS FULLY ACCESSIBLE THROUGHOUT THE SOFTWARE
 #ifdef _DECLARE_TOOLBOX_HERE
@@ -31,27 +29,6 @@ Timer tick;  // Timer
 extern Timer tick;
 extern Logger cao;
 #endif
-
-typedef Eigen::MatrixXd MyMatrix;
-typedef Eigen::VectorXd MyVector;
-typedef Eigen::ArrayXXd MyArrayX;
-typedef Eigen::ArrayXd MyArray;
-typedef Eigen::Array<bool, Eigen::Dynamic, 1> ArrayXb;
-
-typedef unsigned char uchar;
-typedef unsigned int uint;
-typedef unsigned long long uint64;
-using Int1D = std::vector<int>;
-using Int2D = std::vector<Int1D>;
-using Double1D = std::vector<double>;
-using String1D = std::vector<std::string>;
-using UMapIntInt = std::unordered_map<int, int>;
-using UMapIntDouble = std::unordered_map<int, double>;
-using UMapIntString = std::unordered_map<int, std::string>;
-using Pds = std::pair<double, std::string>;
-using UMapIntPds = std::unordered_map<int, Pds>;
-
-#define MAF(a) ((a) > 0.5 ? (1 - a) : (a))
 
 template <typename T>
 inline std::vector<size_t> sortidx(const std::vector<T>& v) {
@@ -114,23 +91,22 @@ std::vector<std::string> split_string(const std::string& s,
 void make_plink2_eigenvec_file(int K, std::string fout, const std::string& fin,
                                const std::string& fam);
 
-inline UMapIntInt vector2map(const Int1D& v) {
-  UMapIntInt m;
-  int i = 0;
-  for (const auto& k : v) m.insert({k, i++});
-  return m;
-}
-
-// get the chr, bp, id
-struct BIM {
-  std::string data;
-  operator std::string const &() const { return data; }
-  friend std::istream& operator>>(std::istream& ifs, BIM& BIM) {
-    std::getline(ifs, BIM.data);
-    auto token = split_string(BIM.data, " \t");
-    BIM.data = token[0] + "\t" + token[3] + "\t" + token[1];
-    return ifs;
+struct ZstdBuffer {
+  ZstdBuffer() {
+    buffInTmp.reserve(buffInSize);
+    buffOutTmp.reserve(buffOutSize);
   }
+  ~ZstdBuffer() {
+    ZSTD_freeDCtx(dctx);
+    fcloseOrDie(fin);
+  }
+  FILE* fin = nullptr;
+  size_t const buffInSize = ZSTD_DStreamInSize();
+  size_t const buffOutSize = ZSTD_DStreamOutSize();
+  ZSTD_DCtx* const dctx = ZSTD_createDCtx();
+  size_t lastRet = 1;
+  std::string buffCur = "";
+  std::string buffLine, buffInTmp, buffOutTmp;
 };
 
 #endif  // PCAONE_UTILES_

@@ -5,6 +5,18 @@
 #include "Data.hpp"
 #include "Utils.hpp"
 
+// get the chr, bp, id
+struct BIM {
+  std::string data;
+  operator std::string const &() const { return data; }
+  friend std::istream& operator>>(std::istream& ifs, BIM& BIM) {
+    std::getline(ifs, BIM.data);
+    auto token = split_string(BIM.data, " \t");
+    BIM.data = token[0] + "\t" + token[3] + "\t" + token[1];
+    return ifs;
+  }
+};
+
 MyArray calc_sds(const MyMatrix& X);
 
 double calc_cor(const MyVector& x, const MyVector& y, const double df);

@@ -2,25 +2,6 @@
 #define PCAONE_FILECSV_
 
 #include "Data.hpp"
-#include "zstd.h"
-
-struct ZstdBuffer {
-  ZstdBuffer() {
-    buffInTmp.reserve(buffInSize);
-    buffOutTmp.reserve(buffOutSize);
-  }
-  ~ZstdBuffer() {
-    ZSTD_freeDCtx(dctx);
-    fcloseOrDie(fin);
-  }
-  FILE* fin = nullptr;
-  size_t const buffInSize = ZSTD_DStreamInSize();
-  size_t const buffOutSize = ZSTD_DStreamOutSize();
-  ZSTD_DCtx* const dctx = ZSTD_createDCtx();
-  size_t lastRet = 1;
-  std::string buffCur = "";
-  std::string buffLine, buffInTmp, buffOutTmp;
-};
 
 void parse_csvzstd(ZstdBuffer& zbuf, uint& nsamples, uint& nsnps, uint scale,
                    std::vector<double>& libsize, std::vector<size_t>& tidx,

@@ -30,7 +30,7 @@ $(info "building PCAone on ${Platform} -- version ${VERSION}")
 ####### INC, LPATHS, LIBS, MYFLAGS
 program       = PCAone
 CXX           ?= g++    # use default g++ only if not set in env
-CXXSTD         = c++11  # default c++11 if not set by the user
+CXXSTD         = c++17  # default c++17 if not set by the user
 CXXFLAGS	  += -O3 -Wall -std=$(CXXSTD) -m64 -fPIC
 MYFLAGS        = -DVERSION=\"$(VERSION)\"
 LDFLAGS       += -s  # this is obsolete and will be igonored on mac
