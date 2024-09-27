@@ -1,3 +1,7 @@
+- v0.4.5
+  - *can do LD prunning and clumpint out-of-core*
+  - add =--ld-bims, --print-r2= options
+
 - v0.4.4
   - add =--clump-names= option
     

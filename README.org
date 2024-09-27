@@ -1,5 +1,5 @@
-#+TITLE: PCAone: Principal Component Analysis All in One
-#+options: toc:2 num:t email:t
+#+TITLE: Principal Component Analysis All in One
+#+options: toc:2 num:nil email:t
 #+author: Zilong Li
 #+email: zilong.dk@gmail.com
 #+latex_compiler: xelatex
@@ -14,7 +14,6 @@
 #+latex_header: \hypersetup{colorlinks=true, linkcolor=blue}
 #+latex: \clearpage
 
-* Badges :noexport:
 
 [[https://github.com/Zilong-Li/PCAone/actions/workflows/linux.yml/badge.svg]]
 [[https://github.com/Zilong-Li/PCAone/actions/workflows/mac.yml/badge.svg]]
@@ -62,6 +61,7 @@ missingness and uncertainty. The PDF manual can be downloaded [[https://github.c
   - [[#memory-efficient-modes][Memory-efficient modes]]
   - [[#data-normalization][Data Normalization]]
   - [[#ancestry-adjusted-ld-matrix][Ancestry-Adjusted LD matrix]]
+  - [[#report-ld-statistics][Report LD statistics]]
   - [[#prunning-based-on-ancestry-adjusted-ld][Prunning based on Ancestry-Adjusted LD]]
   - [[#clumping-based-on-ancestry-adjusted-ld][Clumping based on Ancestry-Adjusted LD]]
   - [[#more-examples][More Examples]]
@@ -267,6 +267,7 @@ Main options:
   --ld-r2 arg (=0)               r2 cutoff for LD-based pruning.
   --ld-bp arg (=1000000)         physical distance threshold in bases for ld pruning
   --ld-stats arg (=0)            statistics to get r2 for LD. (0: the ancestry adjusted, 1: the standard)
+  --print-r2                     print LD r2 for pairse-wise SNPs in a ld-window (saved in <prefix>.ld.gz)
   --clump arg                    assoc-like file with target variants and pvalues for clumping
   --clump-names arg (=CHR,BP,P)  column names in assoc-like file for locating chr, pos and pvalue
   --clump-p1 arg (=0.0001)       significance threshold for index SNPs
@@ -283,14 +284,14 @@ This depends on your datasets, particularlly the relationship between number
 of samples (=N=) and the number of variants / features (=M=) and the top PCs
 (=k=). Here is an overview and the recommendation.
 
-|-------------------+-----------+---------+----------------------|
-| Method            | Accuracy  | Option  | Scenario             |
-|-------------------+-----------+---------+----------------------|
-| IRAM              | Very high | --svd 0 | =N < 5000=             |
-| RSVD              | High      | --svd 1 | accuracy insensitive |
-| Window-Based RSVD | Very high | --svd 2 | =M > 1,000,000=        |
-| Full SVD          | Exact     | --svd 3 | =N,M < 1000=           |
-|-------------------+-----------+---------+----------------------|
+|--------------------------+-----------+----------------------|
+| Method                   | Accuracy  | Scenario             |
+|--------------------------+-----------+----------------------|
+| IRAM (-d 0)              | Very high | =N < 1000=             |
+| Window-Based RSVD (-d 2) | Very high | =M > 1,000,000=        |
+| RSVD   (-d 1)            | High      | accuracy insensitive |
+| Full SVD     (-d 3)      | Exact     | cost insensitive     |
+|--------------------------+-----------+----------------------|
 
 ** Input formats
 
@@ -327,6 +328,12 @@ the number of samples in the matrix. Then, the rest of the file is a
 sequence of *M* blocks of *N x 4* bytes each, where *M* is the number of
 variants and *N* is the number of samples. The first block corresponds to
 the first marker in the =.kept.bim= file, etc.
+
+*** LD r2
+
+The LD r2 for pairwise SNPs within a window can be outputted to a file
+with suffix =ld.gz= via =--print-r2= option. This file uses the same format
+as the one [[https://www.cog-genomics.org/plink/1.9/ld#r][plink]] used.
 
 ** Memory-efficient modes
 
@@ -384,7 +391,7 @@ One should choose proper normalization method for specific type of data.
 
 LD patterns vary across diverse ancestry and structured groups, and
 conventional LD statistics, e.g. the implementation in =plink --ld=, failed to
-model the LD in admixed populations. Thus, we proposed the so-called
+model the LD in admixed populations. Thus, we can use the so-called
 ancestry-adjusted LD statistics to account for population structure in
 LD. See our [[https://doi.org/10.1101/2024.05.02.592187][paper]] for more details.
 
@@ -397,6 +404,19 @@ file with suffix =.residuals=.
 #+begin_src shell
 ./PCAone -b example/plink -k 3 --ld -o adj -m 4
 #+end_src
+
+** Report LD statistics
+
+Currently, the LD r2 for pairwise SNPs within a window can be outputted via =--print-r2= option.
+
+#+begin_src shell
+./PCAone -B adj.residuals \
+         --ld-bim adj.kept.bim \
+         --ld-bp 1000000 \
+         --print-r2 \
+         -o adj
+#+end_src
+
 
 ** Prunning based on Ancestry-Adjusted LD
 

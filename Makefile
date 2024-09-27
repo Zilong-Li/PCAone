@@ -143,7 +143,7 @@ SLIBS += ./external/bgen/bgenlib.a ./external/zstd/lib/libzstd.a
 
 LIBS += ${SLIBS} ${DLIBS} -lm -ldl
 
-.PHONY: all clean ld_matrix ld_prune ld_clump ld_tests
+.PHONY: all clean ld_matrix ld_r2 ld_prune ld_clump ld_tests
 
 all: ${program}
 
@@ -182,6 +182,10 @@ ld_matrix:
 	cut -f1 adj.kept.bim | sort -cn  ## check if sorted
 	awk '$$1==3' adj.kept.bim | cut -f4 | sort -cn
 	rm -f pcaone.*
+
+ld_r2:
+	./PCAone -B adj.residuals --ld-bim adj.kept.bim --ld-bp 1000 --print-r2 -o adj_r2
+
 
 ld_prune:
 	./PCAone -B adj.residuals --ld-bim adj.kept.bim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0

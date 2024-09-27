@@ -56,7 +56,7 @@ Param::Param(int argc, char **argv) {
   opts.add<Value<double>>("", "ld-r2", "r2 cutoff for LD-based pruning.", ld_r2, &ld_r2);
   opts.add<Value<uint>>("", "ld-bp", "physical distance threshold in bases for ld pruning", ld_bp, &ld_bp);
   opts.add<Value<int>>("", "ld-stats", "statistics to get r2 for LD. (0: the ancestry adjusted, 1: the standard)", ld_stats, &ld_stats);
-  opts.add<Switch>("", "print-r2", "print out r2 for pairse-wise SNPs within a ld-window", &print_r2);
+  opts.add<Switch>("", "print-r2", "print LD r2 for pairse-wise SNPs in a ld-window (saved in <prefix>.ld.gz)", &print_r2);
   auto clumpfile = opts.add<Value<std::string>>("", "clump", "assoc-like file with target variants and pvalues for clumping", "", &clump);
   auto assocnames = opts.add<Value<std::string>>("", "clump-names", "column names in assoc-like file for locating chr, pos and pvalue", "CHR,BP,P", &assoc_colnames);
   opts.add<Value<double>>("", "clump-p1", "significance threshold for index SNPs", clump_p1, &clump_p1);

@@ -28,9 +28,7 @@ jobs:
 
     - name: test LD module
       run: |
-        ./PCAone -b example/plink -k 3 --ld -o adj
-        ./PCAone -B adj.residuals --ld-bim adj.kept.bim --clump example/plink.pheno0.assoc --clump-p1 0.01 --clump-p2 0.05 --clump-r2 0.1 --clump-bp 10000000 -m 1 -o adj_clump_m1
-        ./PCAone -B adj.residuals --ld-bim adj.kept.bim --clump example/plink.pheno0.assoc --clump-p1 0.01 --clump-p2 0.05 --clump-r2 0.1 --clump-bp 10000000 -m 0 -o adj_clump_m0
-        # make ld_matrix
-        # make ld_clump
-        # make ld_tests
+        make ld_matrix
+        make ld_r2
+        make ld_clump
+        make ld_tests
