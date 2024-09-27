@@ -305,7 +305,6 @@ void ld_clump_single_pheno(const std::string& fileout, const std::string& head,
     auto mpp = pvals_per_chr[c];  // key: pos, val: pval
     Double1D pp;
     Int1D ps;
-    cao.print("process chr", c);
     for (auto it = mpp.begin(); it != mpp.end(); it++) {
       if (it->second.first <= clump_p1) {
         ps.push_back(it->first);
@@ -313,7 +312,6 @@ void ld_clump_single_pheno(const std::string& fileout, const std::string& head,
       }
     }
     int p, p2, j, k;
-    cao.print("start clumping", c);
     for (auto i : sortidx(pp)) {  // snps sorted by p value
       p = ps[i];
       if (mpp.count(p) == 0)
