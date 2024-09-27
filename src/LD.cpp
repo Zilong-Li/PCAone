@@ -66,23 +66,23 @@ std::string get_snp_pos_bim(SNPld& snp, const std::string& filebim, bool header,
 // TODO: check duplicated POS
 std::tuple<Int2D, Int2D> get_target_snp_idx(const SNPld& snp_t,
                                             const SNPld& snp) {
+  cao.print(tick.date(), "try to match target SNPs to the SNPs in LD matrix");
   Int1D idx, bp;
   UMapIntInt mpos;
   int c, s, e, p, i;
-  {
-    Int1D ord;
-    for (c = 0; c < (int)snp.chr.size(); c++) {
-      i = 0;
-      while (snp_t.chr[i] != snp.chr[c]) {
-        i++;
-      }
-      ord.push_back(i);
+  Int1D ord;
+  for (c = 0; c < (int)snp.chr.size(); c++) {
+    i = 0;
+    while (snp_t.chr[i] != snp.chr[c]) {
+      i++;
+      if (i == (int)snp_t.chr.size()) break;
     }
-    if (!std::is_sorted(ord.begin(), ord.end()))
-      cao.error(
-          "the association file may be not sorted or not matching the order of "
-          ".kept.bim file!");
+    ord.push_back(i);
   }
+  if (!std::is_sorted(ord.begin(), ord.end()))
+    cao.error(
+        "the association file may be not sorted or not matching the order of "
+        ".kept.bim file!");
 
   Int2D idx_per_chr(snp_t.chr.size());
   Int2D bp_per_chr(snp_t.chr.size());
