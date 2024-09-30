@@ -8,12 +8,13 @@
 // get the chr, bp, id
 struct BIM {
   std::string data;
-  operator std::string const &() const { return data; }
-  friend std::istream& operator>>(std::istream& ifs, BIM& BIM) {
-    std::getline(ifs, BIM.data);
+  operator std::string const&() const { return data; }
+  friend std::istream& operator>>(std::istream& is, BIM& BIM) {
+    std::getline(is, BIM.data);
+    if (BIM.data.empty()) return is;
     auto token = split_string(BIM.data, " \t");
     BIM.data = token[0] + "\t" + token[3] + "\t" + token[1];
-    return ifs;
+    return is;
   }
 };
 
