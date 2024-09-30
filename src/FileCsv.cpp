@@ -80,7 +80,7 @@ void FileCsv::read_block_initial(uint64 start_idx, uint64 stop_idx,
                      libsize, tidx, median_libsize, params.scale);
 }
 
-void parse_csvzstd(ZstdBuffer &zbuf, uint &nsamples, uint &nsnps, uint scale,
+void parse_csvzstd(ZstdDS &zbuf, uint &nsamples, uint &nsnps, uint scale,
                    std::vector<double> &libsize, std::vector<size_t> &tidx,
                    double &median_libsize) {
   auto buffIn =
@@ -145,7 +145,7 @@ void parse_csvzstd(ZstdBuffer &zbuf, uint &nsamples, uint &nsnps, uint scale,
   if (scale == 2) median_libsize = get_median(libsize);
 }
 
-void read_csvzstd_block(ZstdBuffer &zbuf, int blocksize, uint64 start_idx,
+void read_csvzstd_block(ZstdDS &zbuf, int blocksize, uint64 start_idx,
                         uint64 stop_idx, MyMatrix &G, uint nsamples,
                         std::vector<double> &libsize, std::vector<size_t> &tidx,
                         double median_libsize, uint scale) {
@@ -236,7 +236,7 @@ PermMat shuffle_csvzstd_to_bin(std::string &fin, std::string fout, uint gb,
   double median_libsize;
   uint nsnps, nsamples;
   const uint ibyte = 4;
-  ZstdBuffer zbuf;
+  ZstdDS zbuf;
   {
     zbuf.fin = fopenOrDie(fin.c_str(), "rb");
     parse_csvzstd(zbuf, nsamples, nsnps, scale, libsize, tidx, median_libsize);

@@ -7,13 +7,13 @@
 #define PCAone_Common_H
 
 #include <Eigen/Dense>
+#include <algorithm>
 #include <cstdio>
+#include <iterator>
+#include <numeric>
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <algorithm>
-#include <iterator>
-#include <numeric>
 
 #define ZSTD_STATIC_LINKING_ONLY
 #include "zstd.h"
@@ -72,12 +72,13 @@ struct SNPld {
   std::vector<int> we;  // the number of SNPs (including lead SNP) in a window
 };
 
-struct ZstdBuffer {
-  ZstdBuffer() {
+// zstd deccompression buffer
+struct ZstdDS {
+  ZstdDS() {
     buffInTmp.reserve(buffInSize);
     buffOutTmp.reserve(buffOutSize);
   }
-  ~ZstdBuffer() {
+  ~ZstdDS() {
     ZSTD_freeDCtx(dctx);
     if (fclose(fin)) {
       perror("fclose error");
@@ -88,6 +89,28 @@ struct ZstdBuffer {
   size_t const buffInSize = ZSTD_DStreamInSize();
   size_t const buffOutSize = ZSTD_DStreamOutSize();
   ZSTD_DCtx* const dctx = ZSTD_createDCtx();
+  size_t lastRet = 1;
+  std::string buffCur = "";
+  std::string buffLine, buffInTmp, buffOutTmp;
+};
+
+// zstd deccompression buffer
+struct ZstdCS {
+  ZstdCS() {
+    buffInTmp.reserve(buffInSize);
+    buffOutTmp.reserve(buffOutSize);
+  }
+  ~ZstdCS() {
+    ZSTD_freeCCtx(cctx);
+    if (fclose(fout)) {
+      perror("fclose error");
+      exit(1);
+    }
+  }
+  FILE* fout = nullptr;
+  size_t const buffInSize = ZSTD_CStreamInSize();
+  size_t const buffOutSize = ZSTD_CStreamOutSize();
+  ZSTD_CCtx* const cctx = ZSTD_createCCtx();
   size_t lastRet = 1;
   std::string buffCur = "";
   std::string buffLine, buffInTmp, buffOutTmp;

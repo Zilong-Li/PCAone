@@ -211,6 +211,8 @@ void Data::write_residuals(const MyVector &S, const MyMatrix &U,
     cao.print(tick.date(),
               "ld-stats=0: calculate the ancestry adjusted LD matrix!");
   }
+  std::setlocale(LC_ALL, "C");
+  std::ios_base::sync_with_stdio(false);
   std::ofstream ofs(params.fileout + ".residuals", std::ios::binary);
   const uint64 ibyte = 4;
   const uint64 magic = ibyte * 2;

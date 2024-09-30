@@ -3,11 +3,11 @@
 
 #include "Data.hpp"
 
-void parse_csvzstd(ZstdBuffer& zbuf, uint& nsamples, uint& nsnps, uint scale,
+void parse_csvzstd(ZstdDS& zbuf, uint& nsamples, uint& nsnps, uint scale,
                    std::vector<double>& libsize, std::vector<size_t>& tidx,
                    double& median_libsize);
 
-void read_csvzstd_block(ZstdBuffer& zbuf, int blocksize, uint64 start_idx,
+void read_csvzstd_block(ZstdDS& zbuf, int blocksize, uint64 start_idx,
                         uint64 stop_idx, MyMatrix& G, uint nsamples,
                         std::vector<double>& libsize, std::vector<size_t>& tidx,
                         double median_libsize, uint scale);
@@ -50,7 +50,7 @@ class FileCsv : public Data {
   }
 
  private:
-  ZstdBuffer zbuf;
+  ZstdDS zbuf;
   std::vector<size_t> tidx;
   std::vector<double> libsize;
   double median_libsize;
