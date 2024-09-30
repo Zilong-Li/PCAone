@@ -6,6 +6,7 @@
 
 #include "Cmd.hpp"
 
+#include <cstdlib>
 #include <iostream>
 
 #include "popl/popl.hpp"
@@ -90,6 +91,11 @@ Param::Param(int argc, char **argv) {
       std::cout << groff_printer.print(Attribute::advanced);
       exit(EXIT_SUCCESS);
     }
+    if (!opts.unknown_options().empty()) {
+      for (const auto &uo : opts.unknown_options())
+        std::cerr << "unknown option: " << uo << "\n";
+      exit(EXIT_FAILURE);
+    }
     if (plinkfile->is_set())
       file_t = FileType::PLINK;
     else if (binfile->is_set())
@@ -161,7 +167,7 @@ Param::Param(int argc, char **argv) {
     if (svd_t == SvdType::FULL) out_of_core = false;
     if (print_r2 || ld_r2 > 0 || !clump.empty()) {
       pca = false;
-      memory /= 2.0; // adjust memory estimator
+      memory /= 2.0;  // adjust memory estimator
     }
   } catch (const popl::invalid_option &e) {
     std::cerr << "Invalid Option Exception: " << e.what() << "\n";
