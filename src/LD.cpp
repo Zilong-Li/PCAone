@@ -14,19 +14,36 @@
 
 using namespace std;
 
+// compute sample standard deviation
+// return 1e-9 when sd is 0
 MyArray calc_sds(const MyMatrix& X) {
-  // compute degree of freedom
   const double df = 1.0 / (X.rows() - 1);  // N-1
   return (X.array().square().colwise().sum() * df).sqrt();
 }
 
-// df = 1.0 / (N - 1)
+// compute the peason correlation coefficient
 // should check x.size()==y.size()
 double calc_cor(const MyVector& x, const MyVector& y, const double df) {
   int N = x.size();
   double numerator = x.dot(y);
-  double sd_x = 1.0 / std::sqrt(x.dot(x) / (N - 1));
-  double sd_y = 1.0 / std::sqrt(y.dot(y) / (N - 1));
+  // Calculate variances with N-1 degrees of freedom
+  double var_x = x.dot(x) / (N - 1);
+  double var_y = y.dot(y) / (N - 1);
+  const double epsilon = std::numeric_limits<double>::epsilon();
+  const double min_variance = epsilon * epsilon;
+  if (var_x < min_variance || var_y < min_variance) {
+    if (var_x < min_variance && var_y < min_variance) {
+      // Both variances are essentially zero
+      // Perfect correlation if both vectors are constant
+      return 1.0;
+    } else {
+      // No correlation if one variance is essentially zero, the other is not
+      return 0.0;
+    }
+  }
+
+  double sd_x = 1.0 / std::sqrt(var_x);
+  double sd_y = 1.0 / std::sqrt(var_y);
   return numerator * sd_x * sd_y * df;
 }
 
@@ -379,12 +396,14 @@ void ld_r2_small(Data* data, const SNPld& snp, const std::string& filebim,
 
   for (int w = 0; w < (int)snp.ws.size(); w++) {
     int i = snp.ws[w];
-    if (i < data->start[b - 1]) cao.error("BUG: ld_prune_small ");
     if (snp.we[w] + i - 1 > data->stop[b]) {  // renew G and data->G
       G = data->G;                            // copy
       b++;
       data->read_block_initial(data->start[b], data->stop[b], false);
     }
+
+    if (data->params.verbose)
+      cao.print(tick.date(), "process window", w, ", the index SNP is", i);
 
     for (int j = 1; j < snp.we[w]; j++) {
       int k = i + j;
