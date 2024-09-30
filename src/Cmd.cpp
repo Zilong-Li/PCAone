@@ -157,9 +157,12 @@ Param::Param(int argc, char **argv) {
       throw std::invalid_argument(
           "does not support --maf filters for out-of-core mode yet! "
           "please remove --maf option");
-    if (print_r2 || ld_r2 > 0 || !clump.empty()) pca = false;
     if (svd_t == SvdType::PCAoneAlg2 && !noshuffle) perm = true;
     if (svd_t == SvdType::FULL) out_of_core = false;
+    if (print_r2 || ld_r2 > 0 || !clump.empty()) {
+      pca = false;
+      memory /= 2.0; // adjust memory estimator
+    }
   } catch (const popl::invalid_option &e) {
     std::cerr << "Invalid Option Exception: " << e.what() << "\n";
     std::cerr << "error:  ";
