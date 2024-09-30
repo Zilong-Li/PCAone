@@ -1,10 +1,22 @@
+/*******************************************************************************
+ * @file        https://github.com/Zilong-Li/PCAone/src/Common.hpp
+ * @author      Zilong Li
+ * Copyright (C) 2022-2024. Use of this code is governed by the LICENSE file.
+ ******************************************************************************/
 #ifndef PCAone_Common_H
 #define PCAone_Common_H
 
 #include <Eigen/Dense>
+#include <cstdio>
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <algorithm>
+#include <iterator>
+#include <numeric>
+
+#define ZSTD_STATIC_LINKING_ONLY
+#include "zstd.h"
 
 #define MAF(a) ((a) > 0.5 ? (1 - a) : (a))
 
@@ -34,5 +46,51 @@ inline UMapIntInt vector2map(const Int1D& v) {
   return m;
 }
 
+template <typename T>
+inline std::vector<size_t> sortidx(const std::vector<T>& v) {
+  std::vector<size_t> idx(v.size());
+  std::iota(idx.begin(), idx.end(), 0);
+  std::sort(idx.begin(), idx.end(),
+            [&v](size_t i1, size_t i2) { return v[i1] < v[i2]; });
+  return idx;
+}
+
+struct Line {
+  std::string data;
+  operator std::string const &() const { return data; }
+  friend std::istream& operator>>(std::istream& ifs, Line& line) {
+    return std::getline(ifs, line.data);
+  }
+};
+
+struct SNPld {
+  std::vector<int> pos;          // pos of each SNP
+  std::vector<int> end_pos;      // 0-based index for last snp pos
+  std::vector<std::string> chr;  // chr sequences
+  Double1D af;                   // allele frequency
+  std::vector<int> ws;           //  the snp index, i.e the index for lead SNP
+  std::vector<int> we;  // the number of SNPs (including lead SNP) in a window
+};
+
+struct ZstdBuffer {
+  ZstdBuffer() {
+    buffInTmp.reserve(buffInSize);
+    buffOutTmp.reserve(buffOutSize);
+  }
+  ~ZstdBuffer() {
+    ZSTD_freeDCtx(dctx);
+    if (fclose(fin)) {
+      perror("fclose error");
+      exit(1);
+    }
+  }
+  FILE* fin = nullptr;
+  size_t const buffInSize = ZSTD_DStreamInSize();
+  size_t const buffOutSize = ZSTD_DStreamOutSize();
+  ZSTD_DCtx* const dctx = ZSTD_createDCtx();
+  size_t lastRet = 1;
+  std::string buffCur = "";
+  std::string buffLine, buffInTmp, buffOutTmp;
+};
 
 #endif  // PCAone_Common_H

@@ -223,3 +223,19 @@ void make_plink2_eigenvec_file(int K, std::string fout, const std::string& fin,
     ofs << tokens[0] + "\t" + tokens[1] + "\t" << line2 << std::endl;
   }
 }
+
+bool isZstdCompressed(const char *filename) {
+  FILE *file = fopen(filename, "rb");
+  if (!file) return false;
+
+  char magicNumber[4];
+  if (fread(magicNumber, 1, 4, file) != 4) {
+    fclose(file);
+    return false;
+  }
+
+  bool isCompressed = (ZSTD_isFrame(magicNumber, 4) != 0);
+
+  fclose(file);
+  return isCompressed;
+}

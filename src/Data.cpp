@@ -6,9 +6,6 @@
 
 #include "Data.hpp"
 
-#include <string>
-#include <vector>
-
 #include "Eigen/src/Core/util/Meta.h"
 #include "LD.hpp"
 #include "Utils.hpp"
@@ -215,8 +212,8 @@ void Data::write_residuals(const MyVector &S, const MyMatrix &U,
               "ld-stats=0: calculate the ancestry adjusted LD matrix!");
   }
   std::ofstream ofs(params.fileout + ".residuals", std::ios::binary);
-  const uint ibyte = 4;
-  const uint magic = ibyte * 2;
+  const uint64 ibyte = 4;
+  const uint64 magic = ibyte * 2;
   uint64 bytes_per_snp = nsamples * ibyte;
   ofs.write((char *)&nsnps, ibyte);
   ofs.write((char *)&nsamples, ibyte);
@@ -229,7 +226,7 @@ void Data::write_residuals(const MyVector &S, const MyMatrix &U,
     for (Eigen::Index ib = 0; ib < G.cols(); ib++) {
       fg = G.col(ib).cast<float>();
       if (params.perm) {
-        idx = magic + perm.indices()[ib] * bytes_per_snp;
+        idx = magic + (uint64)perm.indices()[ib] * bytes_per_snp;
         ofs.seekp(idx, std::ios_base::beg);
       }
       ofs.write((char *)fg.data(), bytes_per_snp);
@@ -246,7 +243,7 @@ void Data::write_residuals(const MyVector &S, const MyMatrix &U,
       for (Eigen::Index ib = 0; ib <= stop[b] - start[b]; ib++, i++) {
         fg = G.col(ib).cast<float>();
         if (params.perm) {
-          idx = magic + perm.indices()[i] * bytes_per_snp;
+          idx = magic + (uint64)perm.indices()[i] * bytes_per_snp;
           ofs.seekp(idx, std::ios_base::beg);
         }
         ofs.write((char *)fg.data(), bytes_per_snp);

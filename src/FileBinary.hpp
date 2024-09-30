@@ -2,10 +2,7 @@
 #define FILEBINARY_H_
 
 #include "Data.hpp"
-#define ZSTD_STATIC_LINKING_ONLY
-#include "zstd.h"
 
-bool isZstdCompressed(const char *filename);
 
 class FileBin : public Data {
  public:

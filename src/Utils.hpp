@@ -3,23 +3,18 @@
 
 #include <sys/utsname.h>
 
-#include <algorithm>
 #include <cassert>
-#include <chrono>
-#include <clocale>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
 #include <iostream>
-#include <iterator>
 #include <random>
 #include <stdexcept>
 
 #include "Common.hpp"
 #include "Logger.hpp"
 #include "Timer.hpp"
-#include "zstd.h"
 
 // MAKE SOME TOOLS FULLY ACCESSIBLE THROUGHOUT THE SOFTWARE
 #ifdef _DECLARE_TOOLBOX_HERE
@@ -29,32 +24,6 @@ Timer tick;  // Timer
 extern Timer tick;
 extern Logger cao;
 #endif
-
-template <typename T>
-inline std::vector<size_t> sortidx(const std::vector<T>& v) {
-  std::vector<size_t> idx(v.size());
-  std::iota(idx.begin(), idx.end(), 0);
-  std::sort(idx.begin(), idx.end(),
-            [&v](size_t i1, size_t i2) { return v[i1] < v[i2]; });
-  return idx;
-}
-
-struct Line {
-  std::string data;
-  operator std::string const &() const { return data; }
-  friend std::istream& operator>>(std::istream& ifs, Line& line) {
-    return std::getline(ifs, line.data);
-  }
-};
-
-struct SNPld {
-  std::vector<int> pos;          // pos of each SNP
-  std::vector<int> end_pos;      // 0-based index for last snp pos
-  std::vector<std::string> chr;  // chr sequences
-  Double1D af;                   // allele frequency
-  std::vector<int> ws;           //  the snp index, i.e the index for lead SNP
-  std::vector<int> we;  // the number of SNPs (including lead SNP) in a window
-};
 
 std::string get_machine();
 
@@ -91,22 +60,6 @@ std::vector<std::string> split_string(const std::string& s,
 void make_plink2_eigenvec_file(int K, std::string fout, const std::string& fin,
                                const std::string& fam);
 
-struct ZstdBuffer {
-  ZstdBuffer() {
-    buffInTmp.reserve(buffInSize);
-    buffOutTmp.reserve(buffOutSize);
-  }
-  ~ZstdBuffer() {
-    ZSTD_freeDCtx(dctx);
-    fcloseOrDie(fin);
-  }
-  FILE* fin = nullptr;
-  size_t const buffInSize = ZSTD_DStreamInSize();
-  size_t const buffOutSize = ZSTD_DStreamOutSize();
-  ZSTD_DCtx* const dctx = ZSTD_createDCtx();
-  size_t lastRet = 1;
-  std::string buffCur = "";
-  std::string buffLine, buffInTmp, buffOutTmp;
-};
+bool isZstdCompressed(const char *filename);
 
 #endif  // PCAONE_UTILES_

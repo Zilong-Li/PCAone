@@ -2,21 +2,6 @@
 
 using namespace std;
 
-bool isZstdCompressed(const char *filename) {
-  FILE *file = fopen(filename, "rb");
-  if (!file) return false;
-
-  char magicNumber[4];
-  if (fread(magicNumber, 1, 4, file) != 4) {
-    fclose(file);
-    return false;
-  }
-
-  bool isCompressed = (ZSTD_isFrame(magicNumber, 4) != 0);
-
-  fclose(file);
-  return isCompressed;
-}
 
 void FileBin::check_file_offset_first_var() {
   setlocale(LC_ALL, "C");

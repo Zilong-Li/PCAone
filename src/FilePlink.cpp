@@ -6,8 +6,6 @@
 
 #include "FilePlink.hpp"
 
-#include <string>
-
 using namespace std;
 
 void FileBed::check_file_offset_first_var() {
