@@ -1,5 +1,5 @@
 - v0.4.6
-  - throw error when sample standard deviation is zero.
+  - give warnings when sample standard deviation is zero.
   - checks unknow options in CLI
   - fix parsing bim file ending with empty line
   - adjust memory estimator for LD 
