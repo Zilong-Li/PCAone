@@ -52,6 +52,10 @@ void FileBed::read_all() {
       F(i) = 0;
     else
       F(i) /= c;
+    // should remove sites with F=0, 0.5, 1.0
+    // especially,F=0.5 means sample standard deviation is 0
+    if (F(i) == 0.0 || F(i) == 0.5 || F(i) == 1.0)
+      cao.error("please do remove SNPs with AF=0 or 0.5 or 1.0");
   }
 
   filter_snps_resize_F();  // filter and resize nsnps
@@ -119,8 +123,8 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx,
         for (k = 0; k < 4; ++k, ++j) {
           if (j < nsamples) {
             G(j, i) = centered_geno_lookup(buf & 3, snp_idx);
-            if (standardize && sqrt(F(snp_idx) * (1 - F(snp_idx))) > VAR_TOL)
-              G(j, i) /= sqrt(F(snp_idx) * (1 - F(snp_idx)));
+            double sd = sqrt(F(snp_idx) * (1 - F(snp_idx)));
+            if (standardize && sd > VAR_TOL) G(j, i) /= sd;
             buf >>= 2;
           }
         }
@@ -147,12 +151,12 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx,
       }
       // calculate F and centered_geno_lookup
       if (c == 0) {
-        if (params.verbose)
-          cao.warning("the allele frequency should not be 0.");
         F(snp_idx) = 0;
       } else {
         F(snp_idx) /= c;
       }
+      if (F(snp_idx) == 0.0 || F(snp_idx) == 0.5 || F(snp_idx) == 1.0)
+        cao.error("please do remove SNPs with AF=0 or 0.5 or 1.0");
       // do centering and initialing
       centered_geno_lookup(1, snp_idx) = 0.0;                       // missing
       centered_geno_lookup(0, snp_idx) = BED2GENO[0] - F(snp_idx);  // minor hom
@@ -164,8 +168,8 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx,
         for (k = 0; k < 4; ++k, ++j) {
           if (j < nsamples) {
             G(j, i) = centered_geno_lookup(buf & 3, snp_idx);
-            if (standardize && sqrt(F(snp_idx) * (1 - F(snp_idx))) > VAR_TOL)
-              G(j, i) /= sqrt(F(snp_idx) * (1 - F(snp_idx)));
+            double sd = sqrt(F(snp_idx) * (1 - F(snp_idx)));
+            if (standardize && sd > VAR_TOL) G(j, i) /= sd;
             buf >>= 2;
           }
         }
@@ -213,8 +217,8 @@ void FileBed::read_block_update(uint64 start_idx, uint64 stop_idx,
             // map to domain(0,1)
             G(j, i) = fmin(fmax(G(j, i), -F(snp_idx)), 1 - F(snp_idx));
           }
-          if (standardize && sqrt(F(snp_idx) * (1 - F(snp_idx))) > VAR_TOL)
-            G(j, i) /= sqrt(F(snp_idx) * (1 - F(snp_idx)));
+          double sd = sqrt(F(snp_idx) * (1 - F(snp_idx)));
+          if (standardize && sd > VAR_TOL) G(j, i) /= sd;
           // shift packed data and throw away genotype just processed.
           buf >>= 2;
         }

@@ -29,18 +29,18 @@ double calc_cor(const MyVector& x, const MyVector& y, const double df) {
   // Calculate variances with N-1 degrees of freedom
   double var_x = x.dot(x) / (N - 1);
   double var_y = y.dot(y) / (N - 1);
-  const double epsilon = std::numeric_limits<double>::epsilon();
-  const double min_variance = epsilon * epsilon;
-  if (var_x < min_variance || var_y < min_variance) {
-    if (var_x < min_variance && var_y < min_variance) {
-      // Both variances are essentially zero
-      // Perfect correlation if both vectors are constant
-      return 1.0;
-    } else {
-      // No correlation if one variance is essentially zero, the other is not
-      return 0.0;
-    }
-  }
+  // const double epsilon = std::numeric_limits<double>::epsilon();
+  // const double min_variance = epsilon * epsilon;
+  // if (var_x < min_variance || var_y < min_variance) {
+  //   if (var_x < min_variance && var_y < min_variance) {
+  //     // Both variances are essentially zero
+  //     // Perfect correlation if both vectors are constant
+  //     return 1.0;
+  //   } else {
+  //     // No correlation if one variance is essentially zero, the other is not
+  //     return 0.0;
+  //   }
+  // }
 
   double sd_x = 1.0 / std::sqrt(var_x);
   double sd_y = 1.0 / std::sqrt(var_y);

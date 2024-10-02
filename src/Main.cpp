@@ -42,6 +42,7 @@ int main(int argc, char* argv[]) {
     delete data;
     cao.print(tick.date(), "total elapsed wall time:", tick.abstime(),
               "seconds");
+    cao.print(tick.date(), "have a nice day. bye!");
     return 0;
   }
 
