@@ -29,7 +29,7 @@ different scenarios. PCAone implements 3 fast PCA algorithms for
 finding the top eigenvectors of large datasets, which are [[https://en.wikipedia.org/wiki/Arnoldi_iteration][Implicitly
 Restarted Arnoldi Method]] (IRAM, --svd 0), [[https://www.ijcai.org/proceedings/2017/468][single pass Randomized SVD]]
 but with power iteration scheme (RSVD, --svd 1, Algorithm1 in paper)
-and our own RSVD method with window based power iteration scheme
+and *our own RSVD with window based power iteration scheme*
 (PCAone, --svd 2, Algorithm2 in paper). All have both in-core and
 out-of-core implementation. Addtionally, full SVD (--svd 3) is
 supported via in-core mode only. There is also an [[https://github.com/Zilong-Li/PCAoneR][R]] package

@@ -54,7 +54,7 @@ class Param {
   int ld_stats = 0;     // 0: adj; 1: std
   double ld_r2 = 0;
   bool ld = false;       // true if tolld > 0
-  uint ld_bp = 1000000;  // base pairs not number of snps
+  uint ld_bp = 0;  // base pairs not number of snps
   // for clumping
   std::string clump;
   std::string assoc_colnames;

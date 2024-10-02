@@ -36,13 +36,13 @@ Param::Param(int argc, char **argv) {
   auto bgenfile = opts.add<Value<std::string>>("g", "bgen", "path of BGEN file compressed by gzip/zstd", "", &filein);
   auto beaglefile = opts.add<Value<std::string>>("G", "beagle", "path of BEAGLE file compressed by gzip", "", &filein);
   opts.add<Value<uint>>("k", "pc", "top k principal components (PCs) to be calculated", k, &k);
-  opts.add<Value<double>>("m", "memory", "desired RAM usage in GB unit for out-of-core mode. 0 is for in-core mode", memory, &memory);
+  opts.add<Value<double>>("m", "memory", "desired RAM usage in GB unit for out-of-core mode. default is in-core mode", memory, &memory);
   opts.add<Value<uint>>("n", "threads", "number of threads to be used", threads, &threads);
   opts.add<Value<std::string>>("o", "out", "prefix to output files. default [pcaone]", fileout, &fileout);
   opts.add<Value<uint>>("p", "maxp", "maximum number of power iterations for RSVD algorithm", maxp, &maxp);
   opts.add<Switch>("S", "no-shuffle", "do not shuffle the data for --svd 2 if it is already permuted", &noshuffle);
   opts.add<Switch>("v", "verbose", "verbose message output", &verbose);
-  opts.add<Value<uint>>("w", "batches", "number of mini-batches to be used by PCAone --svd 2", bands, &bands);
+  opts.add<Value<uint>, Attribute::advanced>("w", "batches", "number of mini-batches to be used by PCAone --svd 2", bands, &bands);
   opts.add<Value<uint>>("C", "scale", "do scaling for input file.\n"
                         "0: do just centering\n"
                         "1: do log transformation eg. log(x+0.01) for RNA-seq data\n"
@@ -50,14 +50,17 @@ Param::Param(int argc, char **argv) {
                         scale,  &scale);
   opts.add<Switch>("", "emu", "uses EMU algorithm for genotype input with missingness", &emu);
   opts.add<Switch>("", "pcangsd", "uses PCAngsd algorithm for genotype likelihood input", &pcangsd);
-  opts.add<Value<double>>("", "maf", "exclude variants with MAF lower than this value (in-core mode only)", maf, &maf);
+  opts.add<Value<double>>("", "maf", "exclude variants with MAF lower than this value", maf, &maf);
   opts.add<Switch>("V", "printv", "output the right eigenvectors with suffix .loadings", &printv);
   opts.add<Switch>("", "ld", "output a binary matrix for downstream LD related analysis", &ld);
   auto bimfile = opts.add<Value<std::string>>("", "ld-bim", "variants information in plink bim file related to LD matrix", "", &filebim);
   opts.add<Value<double>>("", "ld-r2", "r2 cutoff for LD-based pruning.", ld_r2, &ld_r2);
-  opts.add<Value<uint>>("", "ld-bp", "physical distance threshold in bases for ld pruning", ld_bp, &ld_bp);
-  opts.add<Value<int>>("", "ld-stats", "statistics to get r2 for LD. (0: the ancestry adjusted, 1: the standard)", ld_stats, &ld_stats);
-  opts.add<Switch>("", "print-r2", "print LD r2 for pairse-wise SNPs in a ld-window (saved in <prefix>.ld.gz)", &print_r2);
+  opts.add<Value<uint>>("", "ld-bp", "physical distance threshold in bases for LD (usually. 1000000)", ld_bp, &ld_bp);
+  opts.add<Value<int>>("", "ld-stats", "statistics to calculate LD r2 for pairwise SNPs.\n"
+                                       "0: the ancestry adjusted, i.e correlation between columns of residuals\n"
+                                       "1: the standard, i.e. correlation between two alleles\n",
+                       ld_stats, &ld_stats);
+  opts.add<Switch>("", "print-r2", "print LD r2 to *.ld.gz file for pairse-wise SNPs within a window", &print_r2);
   auto clumpfile = opts.add<Value<std::string>>("", "clump", "assoc-like file with target variants and pvalues for clumping", "", &clump);
   auto assocnames = opts.add<Value<std::string>>("", "clump-names", "column names in assoc-like file for locating chr, pos and pvalue", "CHR,BP,P", &assoc_colnames);
   opts.add<Value<double>>("", "clump-p1", "significance threshold for index SNPs", clump_p1, &clump_p1);
@@ -165,7 +168,7 @@ Param::Param(int argc, char **argv) {
           "please remove --maf option");
     if (svd_t == SvdType::PCAoneAlg2 && !noshuffle) perm = true;
     if (svd_t == SvdType::FULL) out_of_core = false;
-    if (print_r2 || ld_r2 > 0 || !clump.empty()) {
+    if (print_r2 || ld_bp > 0 || ld_r2 > 0 || !clump.empty()) {
       pca = false;
       memory /= 2.0;  // adjust memory estimator
     }
