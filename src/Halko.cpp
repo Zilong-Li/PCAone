@@ -173,9 +173,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi) {
       band = 1;
       blocksize = (unsigned int)ceil((double)data->nsnps / data->params.bands);
       if (blocksize < data->params.bands)
-        cao.warning(
-            "blocksize is smaller than window size. please consider IRAM "
-            "method.");
+        cao.warn("block size < window size. please consider the IRAM method");
       // permute snps of G, see
       // https://stackoverflow.com/questions/15858569/randomly-permute-rows-columns-of-a-matrix-with-eigen
       if (data->params.perm) PCAone::permute_matrix(data->G, data->perm);
@@ -228,7 +226,7 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi) {
             flip_Omg(Omg2, Omg);
             H2.setZero();
           } else if ((b + 1) == data->nblocks) {
-            cao.warning("shouldn't go here if the bands is proper, ie. 2^x");
+            cao.warn("shouldn't see this if mini-batches is 2^x");
             H = H1 + H2;
             Eigen::HouseholderQR<MyMatrix> qr(H);
             Omg.noalias() =

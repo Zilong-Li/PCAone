@@ -46,7 +46,7 @@ class Logger {
   }
 
   template <class T>
-  void warning(const T &s) {
+  void warn(const T &s) {
     if (is_screen)
       std::cout << std::endl
                 << "\x1B[33m"

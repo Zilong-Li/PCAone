@@ -25,10 +25,10 @@ Param::Param(int argc, char **argv) {
   "\033[0m\n"};
   OptionParser opts(copyr + "Main options");
   auto help_opt = opts.add<Switch>("h", "help", "print all options including hidden advanced options");
-  auto svd_opt = opts.add<Value<uint>>("d", "svd", "svd method to be applied. default 2 is recommended for big data.\n"
+  auto svd_opt = opts.add<Value<uint>>("d", "svd", "SVD method to be applied. default 2 is recommended for big data.\n"
                                        "0: the Implicitly Restarted Arnoldi Method (IRAM)\n"
                                        "1: the Yu's single-pass Randomized SVD with power iterations\n"
-                                       "2: the proposed window-based Randomized SVD method\n"
+                                       "2: the accurate window-based Randomized SVD method (PCAone)\n"
                                        "3: the full Singular Value Decomposition.", 2);
   auto plinkfile = opts.add<Value<std::string>>("b", "bfile", "prefix to PLINK .bed/.bim/.fam files", "", &filein);
   auto binfile = opts.add<Value<std::string>>("B", "binary", "path of binary file", "", &filein);
@@ -37,25 +37,25 @@ Param::Param(int argc, char **argv) {
   auto beaglefile = opts.add<Value<std::string>>("G", "beagle", "path of BEAGLE file compressed by gzip", "", &filein);
   opts.add<Value<uint>>("k", "pc", "top k principal components (PCs) to be calculated", k, &k);
   opts.add<Value<double>>("m", "memory", "desired RAM usage in GB unit for out-of-core mode. default is in-core mode", memory, &memory);
-  opts.add<Value<uint>>("n", "threads", "number of threads to be used", threads, &threads);
+  opts.add<Value<uint>>("n", "threads", "the number of threads to be used", threads, &threads);
   opts.add<Value<std::string>>("o", "out", "prefix to output files. default [pcaone]", fileout, &fileout);
   opts.add<Value<uint>>("p", "maxp", "maximum number of power iterations for RSVD algorithm", maxp, &maxp);
-  opts.add<Switch>("S", "no-shuffle", "do not shuffle the data for --svd 2 if it is already permuted", &noshuffle);
+  opts.add<Switch>("S", "no-shuffle", "do not shuffle columns of data for --svd 2 (if not locally correlated)", &noshuffle);
   opts.add<Switch>("v", "verbose", "verbose message output", &verbose);
-  opts.add<Value<uint>, Attribute::advanced>("w", "batches", "number of mini-batches to be used by PCAone --svd 2", bands, &bands);
+  opts.add<Value<uint>, Attribute::advanced>("w", "batches", "the number of mini-batches used by --svd 2", bands, &bands);
   opts.add<Value<uint>>("C", "scale", "do scaling for input file.\n"
                         "0: do just centering\n"
                         "1: do log transformation eg. log(x+0.01) for RNA-seq data\n"
                         "2: do count per median log transformation (CPMED) for scRNAs",
                         scale,  &scale);
-  opts.add<Switch>("", "emu", "uses EMU algorithm for genotype input with missingness", &emu);
-  opts.add<Switch>("", "pcangsd", "uses PCAngsd algorithm for genotype likelihood input", &pcangsd);
+  opts.add<Switch>("", "emu", "use EMU algorithm for genotype input with missingness", &emu);
+  opts.add<Switch>("", "pcangsd", "use PCAngsd algorithm for genotype likelihood input", &pcangsd);
   opts.add<Value<double>>("", "maf", "exclude variants with MAF lower than this value", maf, &maf);
   opts.add<Switch>("V", "printv", "output the right eigenvectors with suffix .loadings", &printv);
   opts.add<Switch>("", "ld", "output a binary matrix for downstream LD related analysis", &ld);
   auto bimfile = opts.add<Value<std::string>>("", "ld-bim", "variants information in plink bim file related to LD matrix", "", &filebim);
-  opts.add<Value<double>>("", "ld-r2", "r2 cutoff for LD-based pruning.", ld_r2, &ld_r2);
-  opts.add<Value<uint>>("", "ld-bp", "physical distance threshold in bases for LD (usually. 1000000)", ld_bp, &ld_bp);
+  opts.add<Value<double>>("", "ld-r2", "r2 cutoff for LD-based pruning. (usually 0.2)", ld_r2, &ld_r2);
+  opts.add<Value<uint>>("", "ld-bp", "physical distance threshold in bases for LD. (usually 1000000)", ld_bp, &ld_bp);
   opts.add<Value<int>>("", "ld-stats", "statistics to calculate LD r2 for pairwise SNPs.\n"
                                        "0: the ancestry adjusted, i.e. correlation between residuals\n"
                                        "1: the standard, i.e. correlation between two alleles\n",
@@ -67,16 +67,16 @@ Param::Param(int argc, char **argv) {
   opts.add<Value<double>>("", "clump-p2", "secondary significance threshold for clumped SNPs", clump_p2, &clump_p2);
   opts.add<Value<double>>("", "clump-r2", "r2 cutoff for LD-based clumping", clump_r2, &clump_r2);
   opts.add<Value<uint>>("", "clump-bp", "physical distance threshold in bases for clumping", clump_bp, &clump_bp);
-  opts.add<Switch, Attribute::advanced>("U", "printu", "output eigen vector of each epoch (for tests)", &printu);
-  opts.add<Value<uint>, Attribute::advanced>("", "M", "number of features (eg. SNPs) if already known", 0, &nsnps);
-  opts.add<Value<uint>, Attribute::advanced>("", "N", "number of samples if already known", 0, &nsamples);
+  opts.add<Switch, Attribute::advanced>("", "printu", "output eigen vector of each epoch (for tests)", &printu);
+  opts.add<Value<uint>, Attribute::advanced>("", "M", "the number of features (eg. SNPs) if already known", 0, &nsnps);
+  opts.add<Value<uint>, Attribute::advanced>("", "N", "the number of samples if already known", 0, &nsamples);
   // opts.add<Switch, Attribute::advanced>("", "debug", "turn on debugging mode", &debug);
   opts.add<Switch, Attribute::advanced>("", "haploid", "the plink format represents haploid data", &haploid);
   opts.add<Value<uint>, Attribute::advanced>("", "buffer", "memory buffer in GB unit for permuting the data", buffer, &buffer);
-  opts.add<Value<uint>, Attribute::advanced>("", "imaxiter", "maximum number of IRAM interations", imaxiter, &imaxiter);
-  opts.add<Value<double>, Attribute::advanced>("", "itol", "tolerance for IRAM algorithm", itol, &itol);
-  opts.add<Value<uint>, Attribute::advanced>("", "ncv", "number of Lanzcos basis vectors for IRAM", ncv, &ncv);
-  opts.add<Value<uint>, Attribute::advanced>("", "oversamples", "number of oversampling columns for RSVD", oversamples, &oversamples);
+  opts.add<Value<uint>, Attribute::advanced>("", "imaxiter", "maximum number of IRAM iterations", imaxiter, &imaxiter);
+  opts.add<Value<double>, Attribute::advanced>("", "itol", "stopping tolerance for IRAM algorithm", itol, &itol);
+  opts.add<Value<uint>, Attribute::advanced>("", "ncv", "the number of Lanzcos basis vectors for IRAM", ncv, &ncv);
+  opts.add<Value<uint>, Attribute::advanced>("", "oversamples", "the number of oversampling columns for RSVD", oversamples, &oversamples);
   opts.add<Value<uint>, Attribute::advanced>("", "rand", "the random matrix type. 0: uniform, 1: guassian", rand, &rand);
   opts.add<Value<double>, Attribute::advanced>("", "tol-rsvd", "tolerance for RSVD algorithm", tol, &tol);
   opts.add<Value<double>, Attribute::advanced>("", "tol-em", "tolerance for EMU/PCAngsd algorithm", tolem, &tolem);
@@ -114,7 +114,7 @@ Param::Param(int argc, char **argv) {
       exit(EXIT_SUCCESS);
     } else if (argc == 1) {
       std::cout << opts << "\n";
-      exit(EXIT_FAILURE);
+      exit(EXIT_SUCCESS);
     }
     if (svd_opt->value() == 0)
       svd_t = SvdType::IRAM;

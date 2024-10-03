@@ -33,8 +33,8 @@ void Data::prepare() {
       if (params.memory > 1.1 * m)
         m = 0;
       else
-        cao.warning("minimum RAM required is " + to_string(m) +
-                    " GB. trying to allocate more RAM.");
+        cao.warn("minimum RAM required is " + to_string(m) +
+                 " GB. trying to allocate more RAM.");
       params.blocksize = (unsigned int)ceil(
           (double)((m + params.memory) * 134217728 - 3 * nsamples * l -
                    2 * nsnps * l - 5 * nsnps) /
@@ -47,7 +47,7 @@ void Data::prepare() {
     if (nblocks == 1) {
       params.out_of_core = false;
       read_all();
-      cao.warning("only one block exists. will run with in-core mode");
+      cao.warn("only one block exists. will run with in-core mode");
     } else {
       if (params.svd_t == SvdType::PCAoneAlg2 && params.pca) {
         // decrease blocksize to fit the fancy halko

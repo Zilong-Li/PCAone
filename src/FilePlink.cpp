@@ -20,7 +20,7 @@ void FileBed::check_file_offset_first_var() {
   } else {
     bed_ifstream.seekg(3, std::ios_base::beg);
     if (params.verbose)
-      cao.warning("make sure you are running PCAone (algorithm2)");
+      cao.warn("confirm you are running the window-based RSVD (algorithm2)");
   }
 }
 
@@ -55,7 +55,7 @@ void FileBed::read_all() {
     // should remove sites with F=0, 0.5, 1.0
     // especially,F=0.5 means sample standard deviation is 0
     if (F(i) == 0.0 || F(i) == 0.5 || F(i) == 1.0)
-      cao.warning("please do remove SNPs with AF=0, 0.5 and 1.0");
+      cao.warn("recommend to remove SNPs with AF=0, 0.5 and 1.0 first");
   }
 
   filter_snps_resize_F();  // filter and resize nsnps
@@ -156,7 +156,7 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx,
         F(snp_idx) /= c;
       }
       if (F(snp_idx) == 0.0 || F(snp_idx) == 0.5 || F(snp_idx) == 1.0)
-        cao.warning("please do remove SNPs with AF=0, 0.5 and 1.0");
+        cao.warn("recommend to remove SNPs with AF=0, 0.5 and 1.0 first");
       // do centering and initialing
       centered_geno_lookup(1, snp_idx) = 0.0;                       // missing
       centered_geno_lookup(0, snp_idx) = BED2GENO[0] - F(snp_idx);  // minor hom

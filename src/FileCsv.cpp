@@ -68,7 +68,7 @@ void FileCsv::check_file_offset_first_var() {
   } else {
     rewind(zbuf.fin);
     if (params.verbose)
-      cao.warning("make sure you are runing PCAone algorithm2");
+      cao.warn("confirm you are running the window-based RSVD (algorithm2)");
   }
   zbuf.lastRet = 1;
   zbuf.buffCur = "";
