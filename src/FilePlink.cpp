@@ -52,10 +52,12 @@ void FileBed::read_all() {
       F(i) = 0;
     else
       F(i) /= c;
-    // should remove sites with F=0, 0.5, 1.0
-    // especially,F=0.5 means sample standard deviation is 0
-    if (F(i) == 0.0 || F(i) == 0.5 || F(i) == 1.0)
-      cao.warn("recommend to remove SNPs with AF=0, 0.5 and 1.0 first");
+    // should remove sites with F=0 and 1.0
+    if (F(i) == 0.0 || F(i) == 1.0)
+      cao.error("sites with MAF=0 found! remove them first!");
+    // in LD r2,F=0.5 means sample standard deviation is 0
+    if (params.verbose && F(i) == 0.5)
+      cao.warn("sites with MAF=0.5 found. NaN values expected in LD r2.");
   }
 
   filter_snps_resize_F();  // filter and resize nsnps
@@ -155,8 +157,12 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx,
       } else {
         F(snp_idx) /= c;
       }
-      if (F(snp_idx) == 0.0 || F(snp_idx) == 0.5 || F(snp_idx) == 1.0)
-        cao.warn("recommend to remove SNPs with AF=0, 0.5 and 1.0 first");
+      // should remove sites with F=0 and 1.0
+      if (F(snp_idx) == 0.0 || F(snp_idx) == 1.0)
+        cao.error("sites with MAF=0 found! remove them first!");
+      // in LD r2,F=0.5 means sample standard deviation is 0
+      if (params.verbose && F(snp_idx) == 0.5)
+        cao.warn("sites with MAF=0.5 found. NaN values expected in LD r2.");
       // do centering and initialing
       centered_geno_lookup(1, snp_idx) = 0.0;                       // missing
       centered_geno_lookup(0, snp_idx) = BED2GENO[0] - F(snp_idx);  // minor hom
