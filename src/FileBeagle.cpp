@@ -51,9 +51,9 @@ void FileBeagle::read_all() {
   assert(j == nsnps);
 
   cao.print(tick.date(), "begin to estimate allele frequencies");
-  F = MyVector::Constant(nsnps, 0.25);
+  F = Mat1D::Constant(nsnps, 0.25);
   {  // out of scope: eigen object will be released;
-    MyVector Ft = MyVector::Zero(nsnps);
+    Mat1D Ft = Mat1D::Zero(nsnps);
     double diff;
     // run EM to estimate allele frequencies
     for (uint it = 0; it < params.maxiter; it++) {
@@ -84,7 +84,7 @@ void FileBeagle::read_all() {
   filter_snps_resize_F();
   // resize P, only keep columns matching the indecis in idx;
   // P = P(Eigen::all, idx).eval(); // aliasing issue!!!
-  G = MyMatrix::Zero(nsamples, nsnps);  // initial E which is G
+  G = Mat2D::Zero(nsamples, nsnps);  // initial E which is G
 #pragma omp parallel for
   for (uint j = 0; j < nsnps; j++) {
     double p0, p1, p2;

@@ -8,7 +8,7 @@ void parse_csvzstd(ZstdDS& zbuf, uint& nsamples, uint& nsnps, uint scale,
                    double& median_libsize);
 
 void read_csvzstd_block(ZstdDS& zbuf, int blocksize, uint64 start_idx,
-                        uint64 stop_idx, MyMatrix& G, uint nsamples,
+                        uint64 stop_idx, Mat2D& G, uint nsamples,
                         std::vector<double>& libsize, std::vector<size_t>& tidx,
                         double median_libsize, uint scale);
 
@@ -45,8 +45,8 @@ class FileCsv : public Data {
                                   bool standardize = false);
 
   virtual void read_block_update(uint64 start_idx, uint64 stop_idx,
-                                 const MyMatrix& U, const MyVector& svals,
-                                 const MyMatrix& VT, bool standardize = false) {
+                                 const Mat2D& U, const Mat1D& svals,
+                                 const Mat2D& VT, bool standardize = false) {
   }
 
  private:

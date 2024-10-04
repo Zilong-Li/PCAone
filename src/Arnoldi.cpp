@@ -17,8 +17,8 @@ using namespace Spectra;
 void ArnoldiOpData::perform_op(const double* x_in, double* y_out) const {
   if (data->params.verbose)
     cao.print(tick.date(), "Arnoldi Matrix Operation =", data->nops);
-  Eigen::Map<const MyVector> x(x_in, n);
-  Eigen::Map<MyVector> y(y_out, n);
+  Eigen::Map<const Mat1D> x(x_in, n);
+  Eigen::Map<Mat1D> y(y_out, n);
   tick.clock();
   data->check_file_offset_first_var();
   if (update) {
@@ -52,13 +52,13 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
     cao.print(tick.date(), "running IRAM SVD with out-of-core mode.");
   else
     cao.print(tick.date(), "running IRAM SVD with in-core mode.");
-  MyMatrix U, V, V2;
-  MyVector svals, evals;
+  Mat2D U, V, V2;
+  Mat1D svals, evals;
   uint nconv, nu;
   double diff;
   if (!params.out_of_core) {
     // SpMatrix sG = data->G.sparseView();
-    PartialSVDSolver<MyMatrix> svds(data->G, params.k, params.ncv);
+    PartialSVDSolver<Mat2D> svds(data->G, params.k, params.ncv);
     if (!params.ld && !params.runem &&
         (params.file_t == FileType::PLINK || params.file_t == FileType::BGEN))
       data->standardize_E();
@@ -92,7 +92,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
 
       if (params.pcangsd) {
         data->pcangsd_standardize_E(U, svals, V.transpose());
-        MyMatrix C = data->G * data->G.transpose();
+        Mat2D C = data->G * data->G.transpose();
         C.array() /= (double)data->nsnps;
         C.diagonal() = data->Dc.array() / (double)data->nsnps;
         std::ofstream out_cov(params.fileout + ".cov");
@@ -149,7 +149,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
     U = (eigs->eigenvectors().leftCols(nu).transpose().array().colwise() /
          eigs->eigenvalues().head(nu).array().sqrt())
             .matrix();
-    op->VT = MyMatrix::Zero(U.rows(), data->nsnps);
+    op->VT = Mat2D::Zero(U.rows(), data->nsnps);
     data->calcu_vt_initial(U, op->VT, true);
     evals.noalias() = eigs->eigenvalues() / data->nsnps;
     if (params.runem) {

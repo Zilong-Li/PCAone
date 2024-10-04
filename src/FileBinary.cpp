@@ -22,7 +22,7 @@ void FileBin::check_file_offset_first_var() {
 
 void FileBin::read_all() {
   check_file_offset_first_var();
-  G = MyMatrix::Zero(nsamples, nsnps);
+  G = Mat2D::Zero(nsamples, nsnps);
   Eigen::VectorXf fg(nsamples);
   for (Eigen::Index i = 0; i < G.cols(); i++) {
     ifs_bin.read((char *)fg.data(), bytes_per_snp);
@@ -40,7 +40,7 @@ void FileBin::read_block_initial(uint64 start_idx, uint64 stop_idx,
   if (ifs_bin.tellg() != offset)
     cao.error("something wrong with read_snp_block!\n");
   uint actual_block_size = stop_idx - start_idx + 1;
-  G = MyMatrix(nsamples, actual_block_size);
+  G = Mat2D(nsamples, actual_block_size);
   Eigen::VectorXf fg(nsamples);
   for (Eigen::Index i = 0; i < G.cols(); i++) {
     ifs_bin.read((char *)fg.data(), bytes_per_snp);

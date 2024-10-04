@@ -9,8 +9,8 @@ class RsvdOpData {
   Data* data;
   using Index = Eigen::Index;
   bool update = false, standardize = false, verbose = false;
-  MyMatrix U, V;
-  MyVector S;
+  Mat2D U, V;
+  Mat1D S;
 
  public:
   RsvdOpData(Data* data_) : data(data_) {}
@@ -22,7 +22,7 @@ class RsvdOpData {
   virtual Index ranks() const = 0;
   virtual Index oversamples() const = 0;
 
-  virtual void computeGandH(MyMatrix& G, MyMatrix& H, int pi) = 0;
+  virtual void computeGandH(Mat2D& G, Mat2D& H, int pi) = 0;
 
   /// update, standardize, verbose
   inline void setFlags(bool is_update, bool is_standardize, bool is_verbose) {
@@ -38,7 +38,7 @@ class NormalRsvdOpData : public RsvdOpData {
  private:
   const Index nk, os, size;
   uint64 actual_block_size, start_idx, stop_idx;
-  MyMatrix Omg;
+  Mat2D Omg;
 
  public:
   NormalRsvdOpData(Data* data_, int k_, int os_ = 10)
@@ -51,20 +51,20 @@ class NormalRsvdOpData : public RsvdOpData {
   Index ranks() const { return nk; }
   Index oversamples() const { return os; }
 
-  void computeGandH(MyMatrix& G, MyMatrix& H, int pi = 0);
+  void computeGandH(Mat2D& G, Mat2D& H, int pi = 0);
 };
 
 class FancyRsvdOpData : public RsvdOpData {
  private:
   const Index nk, os, size;
   uint64 band, blocksize, actual_block_size, start_idx, stop_idx;
-  MyMatrix Omg, Omg2, H1, H2;
+  Mat2D Omg, Omg2, H1, H2;
 
  public:
   FancyRsvdOpData(Data* data_, int k_, int os_ = 10)
       : RsvdOpData(data_), nk(k_), os(os_), size(k_ + os_) {
-    H1 = MyMatrix::Zero(cols(), size);
-    H2 = MyMatrix::Zero(cols(), size);
+    H1 = Mat2D::Zero(cols(), size);
+    H2 = Mat2D::Zero(cols(), size);
   }
 
   ~FancyRsvdOpData() {}
@@ -74,10 +74,10 @@ class FancyRsvdOpData : public RsvdOpData {
   Index ranks() const { return nk; }
   Index oversamples() const { return os; }
 
-  void computeGandH(MyMatrix& G, MyMatrix& H, int pi = 0);
+  void computeGandH(Mat2D& G, Mat2D& H, int pi = 0);
 };
 
-// void print_summary_table(const MyMatrix& Upre, const MyMatrix& Ucur);
+// void print_summary_table(const Mat2D& Upre, const Mat2D& Ucur);
 void run_pca_with_halko(Data* data, const Param& params);
 
 #endif  // PCAONE_HALKO_

@@ -9,7 +9,7 @@
 // const double BGEN_MISSING_VALUE = -9;
 // const double BGEN2GENO[4] = {0, 0.5, 1, BGEN_MISSING_VALUE};
 
-void read_bgen_block(MyMatrix& G, MyVector& F, bgen::CppBgenReader* bg,
+void read_bgen_block(Mat2D& G, Mat1D& F, bgen::CppBgenReader* bg,
                      float* dosages, float* probs1d,
                      bool& frequency_was_estimated, uint64 nsamples,
                      uint64 nsnps, uint blocksize, uint64 start_idx,
@@ -47,8 +47,8 @@ class FileBgen : public Data {
                                   bool standardize = false);
 
   virtual void read_block_update(uint64 start_idx, uint64 stop_idx,
-                                 const MyMatrix& U, const MyVector& svals,
-                                 const MyMatrix& VT, bool standardize) {}
+                                 const Mat2D& U, const Mat1D& svals,
+                                 const Mat2D& VT, bool standardize) {}
 
  private:
   bgen::CppBgenReader* bg;

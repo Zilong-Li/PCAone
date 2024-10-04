@@ -15,9 +15,9 @@ void FileBgen::read_all() {
   uint i, j, k, gc;
   double gs, af;
   if (!params.pcangsd) {
-    F = MyVector::Zero(nsnps);
-    G = MyMatrix::Zero(nsamples, nsnps);
-    if (params.runem) C = ArrayXb::Zero(nsnps * nsamples);
+    F = Mat1D::Zero(nsnps);
+    G = Mat2D::Zero(nsamples, nsnps);
+    if (params.runem) C = ArrBool::Zero(nsnps * nsamples);
     for (j = 0, k = 0; j < nsnps; j++) {
       try {
         auto var = bg->next_var();
@@ -84,8 +84,8 @@ void FileBgen::read_all() {
     }
     assert(j == nsnps);
     cao.print(tick.date(), "begin to estimate allele frequencies using GP");
-    MyVector Ft(nsnps);
-    F = MyVector::Constant(nsnps, 0.25);
+    Mat1D Ft(nsnps);
+    F = Mat1D::Constant(nsnps, 0.25);
     // run EM to estimate allele frequencies
     double diff;
     for (uint it = 0; it < params.maxiter; it++) {
@@ -113,7 +113,7 @@ void FileBgen::read_all() {
     }
     filter_snps_resize_F();
     // initial E which is G
-    G = MyMatrix::Zero(nsamples, nsnps);
+    G = Mat2D::Zero(nsamples, nsnps);
 #pragma omp parallel for
     for (j = 0; j < nsnps; j++) {
       double p0, p1, p2;
@@ -134,7 +134,7 @@ void FileBgen::read_block_initial(uint64 start_idx, uint64 stop_idx,
                   nsnps, params.blocksize, start_idx, stop_idx, standardize);
 }
 
-void read_bgen_block(MyMatrix &G, MyVector &F, bgen::CppBgenReader *bg,
+void read_bgen_block(Mat2D &G, Mat1D &F, bgen::CppBgenReader *bg,
                      float *dosages, float *probs1d,
                      bool &frequency_was_estimated, uint64 nsamples,
                      uint64 nsnps, uint blocksize, uint64 start_idx,
@@ -142,7 +142,7 @@ void read_bgen_block(MyMatrix &G, MyVector &F, bgen::CppBgenReader *bg,
   uint actual_block_size = stop_idx - start_idx + 1;
   uint i, j, snp_idx;
   if (G.cols() < blocksize || (actual_block_size < blocksize)) {
-    G = MyMatrix::Zero(nsamples, actual_block_size);
+    G = Mat2D::Zero(nsamples, actual_block_size);
   }
   if (frequency_was_estimated) {
     for (i = 0; i < actual_block_size; ++i) {
@@ -221,8 +221,8 @@ int shuffle_bgen_to_bin(std::string &fin, std::string fout, uint gb,
   std::iota(perm.begin(), perm.end(), 0);
   auto rng = std::default_random_engine{};
   std::shuffle(perm.begin(), perm.end(), rng);
-  MyMatrix G;
-  MyVector F(nsnps);
+  Mat2D G;
+  Mat1D F(nsnps);
   uint64 idx, cur = 0;
   for (uint i = 0; i < nblocks; i++) {
     auto start_idx = i * blocksize;

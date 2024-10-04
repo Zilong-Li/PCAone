@@ -37,20 +37,20 @@ size_t count_lines(const std::string& fpath);
 
 std::string timestamp();
 
-void flip_UV(MyMatrix& U, MyMatrix& V, bool ubase = true);
+void flip_UV(Mat2D& U, Mat2D& V, bool ubase = true);
 
-void flip_Omg(MyMatrix& Omg2, MyMatrix& Omg);
+void flip_Omg(Mat2D& Omg2, Mat2D& Omg);
 
-void flip_Y(const MyMatrix& X, MyMatrix& Y);
+void flip_Y(const Mat2D& X, Mat2D& Y);
 
-double rmse(const MyMatrix& X, const MyMatrix& Y);
+double rmse(const Mat2D& X, const Mat2D& Y);
 
-Eigen::VectorXd minSSE(const MyMatrix& X, const MyMatrix& Y);
+Eigen::VectorXd minSSE(const Mat2D& X, const Mat2D& Y);
 
-double mev(const MyMatrix& X, const MyMatrix& Y);
+double mev(const Mat2D& X, const Mat2D& Y);
 
-void mev_rmse_byk(const MyMatrix& X, const MyMatrix& Y, MyVector& Vm,
-                  MyVector& Vr);
+void mev_rmse_byk(const Mat2D& X, const Mat2D& Y, Mat1D& Vm,
+                  Mat1D& Vr);
 
 double get_median(std::vector<double> v);
 
@@ -62,6 +62,6 @@ void make_plink2_eigenvec_file(int K, std::string fout, const std::string& fin,
 
 bool isZstdCompressed(const char* filename);
 
-MyMatrix read_usv(const std::string& path);
+Mat2D read_usv(const std::string& path);
 
 #endif  // PCAONE_UTILES_

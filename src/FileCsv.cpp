@@ -16,7 +16,7 @@ void FileCsv::read_all() {
   size_t read, i, j, e, lastSNP = 0;
   zbuf.fin = fopenOrDie(params.filein.c_str(), "rb");
   zbuf.buffCur = "";
-  G = MyMatrix::Zero(nsamples, nsnps);
+  G = Mat2D::Zero(nsamples, nsnps);
   while ((read = freadOrDie(buffIn, zbuf.buffInSize, zbuf.fin))) {
     ZSTD_inBuffer input = {buffIn, read, 0};
     while (input.pos < input.size) {
@@ -146,13 +146,13 @@ void parse_csvzstd(ZstdDS &zbuf, uint &nsamples, uint &nsnps, uint scale,
 }
 
 void read_csvzstd_block(ZstdDS &zbuf, int blocksize, uint64 start_idx,
-                        uint64 stop_idx, MyMatrix &G, uint nsamples,
+                        uint64 stop_idx, Mat2D &G, uint nsamples,
                         std::vector<double> &libsize, std::vector<size_t> &tidx,
                         double median_libsize, uint scale) {
   const uint actual_block_size = stop_idx - start_idx + 1;
 
   if (G.cols() < blocksize || (actual_block_size < blocksize)) {
-    G = MyMatrix::Zero(nsamples, actual_block_size);
+    G = Mat2D::Zero(nsamples, actual_block_size);
   }
   auto buffIn =
       const_cast<void *>(static_cast<const void *>(zbuf.buffInTmp.c_str()));
@@ -253,7 +253,7 @@ PermMat shuffle_csvzstd_to_bin(std::string &fin, std::string fout, uint gb,
   zbuf.fin = fopenOrDie(fin.c_str(), "rb");
   zbuf.lastRet = 1;
   zbuf.buffCur = "";
-  MyMatrix G;
+  Mat2D G;
   std::vector<int> perm(nsnps);
   std::iota(perm.begin(), perm.end(), 0);
   auto rng = std::default_random_engine{};

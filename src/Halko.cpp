@@ -13,32 +13,31 @@ void RsvdOpData::computeUSV(int p, double tol) {
   const Index k{ranks()};
   const Index nrow{rows()};
   const Index ncol{cols()};
-  MyMatrix Upre, H(ncol, size), G(nrow, size), R(size, size), Rt(size, size),
+  Mat2D Upre, H(ncol, size), G(nrow, size), R(size, size), Rt(size, size),
       B(size, ncol);
   double diff;
   for (int pi = 0; pi <= p; ++pi) {
     computeGandH(G, H, pi);
     // check if converged
     {
-      Eigen::HouseholderQR<Eigen::Ref<MyMatrix>> qr(G);
-      R.noalias() = MyMatrix::Identity(size, nrow) *
+      Eigen::HouseholderQR<Eigen::Ref<Mat2D>> qr(G);
+      R.noalias() = Mat2D::Identity(size, nrow) *
                     qr.matrixQR().triangularView<Eigen::Upper>();  // get R1
       G.noalias() =
-          qr.householderQ() * MyMatrix::Identity(nrow, size);  // hold Q1 in G
+          qr.householderQ() * Mat2D::Identity(nrow, size);  // hold Q1 in G
     }
     {
-      Eigen::HouseholderQR<Eigen::Ref<MyMatrix>> qr(G);
-      Rt.noalias() = MyMatrix::Identity(size, nrow) *
+      Eigen::HouseholderQR<Eigen::Ref<Mat2D>> qr(G);
+      Rt.noalias() = Mat2D::Identity(size, nrow) *
                      qr.matrixQR().triangularView<Eigen::Upper>();  // get R2
       G.noalias() =
-          qr.householderQ() * MyMatrix::Identity(nrow, size);  // hold Q2 in G
+          qr.householderQ() * Mat2D::Identity(nrow, size);  // hold Q2 in G
     }
     R = Rt * R;  // get R = R1R2;
     // B is size x ncol
     // R.T * B = H.T
     B.noalias() = R.transpose().fullPivHouseholderQr().solve(H.transpose());
-    Eigen::JacobiSVD<MyMatrix> svd(B,
-                                   Eigen::ComputeThinU | Eigen::ComputeThinV);
+    Eigen::JacobiSVD<Mat2D> svd(B, Eigen::ComputeThinU | Eigen::ComputeThinV);
     U = svd.matrixV().leftCols(k);
     if (data->params.printu) {
       std::ofstream ulog(std::string(data->params.fileout + ".epoch." +
@@ -73,15 +72,15 @@ void RsvdOpData::computeUSV(int p, double tol) {
   }
 }
 
-void NormalRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi) {
+void NormalRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
   // check size of G and H first;
   if (pi == 0) {
     auto rng = std::default_random_engine{};
     if (data->params.rand)
-      Omg = PCAone::StandardNormalRandom<MyMatrix, std::default_random_engine>(
+      Omg = PCAone::StandardNormalRandom<Mat2D, std::default_random_engine>(
           data->nsamples, size, rng);
     else
-      Omg = PCAone::UniformRandom<MyMatrix, std::default_random_engine>(
+      Omg = PCAone::UniformRandom<Mat2D, std::default_random_engine>(
           data->nsamples, size, rng);
   }
   if (!data->params.out_of_core) {
@@ -99,9 +98,9 @@ void NormalRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi) {
     }
     if (data->snpmajor || true) {  // only work with snpmajor input data now.
       if (pi > 0) {
-        Eigen::HouseholderQR<Eigen::Ref<MyMatrix>> qr(H);
+        Eigen::HouseholderQR<Eigen::Ref<Mat2D>> qr(H);
         Omg.noalias() = qr.householderQ() *
-                        MyMatrix::Identity(cols(), size);  // hold H in Omega
+                        Mat2D::Identity(cols(), size);  // hold H in Omega
       }
       G.noalias() = data->G.transpose() * Omg;
       H.noalias() = data->G * G;
@@ -112,10 +111,10 @@ void NormalRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi) {
     if (data->snpmajor || true) {
       // for nsnps > nsamples
       if (pi > 0) {
-        Eigen::HouseholderQR<Eigen::Ref<MyMatrix>> qr(H);
-        Omg.noalias() = qr.householderQ() * MyMatrix::Identity(cols(), size);
+        Eigen::HouseholderQR<Eigen::Ref<Mat2D>> qr(H);
+        Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
       }
-      H = MyMatrix::Zero(cols(), size);
+      H = Mat2D::Zero(cols(), size);
       data->check_file_offset_first_var();
       for (uint i = 0; i < data->nblocks; ++i) {
         start_idx = data->start[i];
@@ -137,7 +136,7 @@ void NormalRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi) {
   }
 }
 
-void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi) {
+void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
   // check size of G and H first;
   if (H.cols() != size || H.rows() != cols() || G.cols() != size ||
       G.rows() != rows()) {
@@ -146,10 +145,10 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi) {
   if (pi == 0) {
     auto rng = std::default_random_engine{};
     if (data->params.rand)
-      Omg = PCAone::StandardNormalRandom<MyMatrix, std::default_random_engine>(
+      Omg = PCAone::StandardNormalRandom<Mat2D, std::default_random_engine>(
           data->nsamples, size, rng);
     else
-      Omg = PCAone::UniformRandom<MyMatrix, std::default_random_engine>(
+      Omg = PCAone::UniformRandom<Mat2D, std::default_random_engine>(
           data->nsamples, size, rng);
     Omg2 = Omg;
   }
@@ -195,9 +194,8 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi) {
           // additional complementary power iteration for last read
           if (j == std::pow(2, pi - 1)) {
             H = H1 + H2;
-            Eigen::HouseholderQR<MyMatrix> qr(H);
-            Omg.noalias() =
-                qr.householderQ() * MyMatrix::Identity(cols(), size);
+            Eigen::HouseholderQR<Mat2D> qr(H);
+            Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
             flip_Omg(Omg2, Omg);
             H2.setZero();
           }
@@ -212,25 +210,22 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi) {
         if ((b + 1) >= band) {
           if (i == band) {
             H = H1 + H2;
-            Eigen::HouseholderQR<MyMatrix> qr(H);
-            Omg.noalias() =
-                qr.householderQ() * MyMatrix::Identity(cols(), size);
+            Eigen::HouseholderQR<Mat2D> qr(H);
+            Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
             flip_Omg(Omg2, Omg);
             H1.setZero();
             i = 0;
           } else if (i == band / 2) {
             H = H1 + H2;
-            Eigen::HouseholderQR<MyMatrix> qr(H);
-            Omg.noalias() =
-                qr.householderQ() * MyMatrix::Identity(cols(), size);
+            Eigen::HouseholderQR<Mat2D> qr(H);
+            Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
             flip_Omg(Omg2, Omg);
             H2.setZero();
           } else if ((b + 1) == data->nblocks) {
             cao.warn("shouldn't see this if mini-batches is 2^x");
             H = H1 + H2;
-            Eigen::HouseholderQR<MyMatrix> qr(H);
-            Omg.noalias() =
-                qr.householderQ() * MyMatrix::Identity(cols(), size);
+            Eigen::HouseholderQR<Mat2D> qr(H);
+            Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
             flip_Omg(Omg2, Omg);
           }
         }
@@ -264,9 +259,8 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi) {
           // additional complementary power iteration for last read
           if (j == std::pow(2, pi - 1)) {
             H = H1 + H2;
-            Eigen::HouseholderQR<MyMatrix> qr(H);
-            Omg.noalias() =
-                qr.householderQ() * MyMatrix::Identity(cols(), size);
+            Eigen::HouseholderQR<Mat2D> qr(H);
+            Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
             flip_Omg(Omg2, Omg);
             H2.setZero();
           }
@@ -278,24 +272,21 @@ void FancyRsvdOpData::computeGandH(MyMatrix& G, MyMatrix& H, int pi) {
         if ((b + 1) >= band) {
           if (i == band) {
             H = H1 + H2;
-            Eigen::HouseholderQR<MyMatrix> qr(H);
-            Omg.noalias() =
-                qr.householderQ() * MyMatrix::Identity(cols(), size);
+            Eigen::HouseholderQR<Mat2D> qr(H);
+            Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
             flip_Omg(Omg2, Omg);
-            H1 = MyMatrix::Zero(cols(), size);
+            H1 = Mat2D::Zero(cols(), size);
             i = 0;
           } else if (i == band / 2) {
             H = H1 + H2;
-            Eigen::HouseholderQR<MyMatrix> qr(H);
-            Omg.noalias() =
-                qr.householderQ() * MyMatrix::Identity(cols(), size);
+            Eigen::HouseholderQR<Mat2D> qr(H);
+            Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
             flip_Omg(Omg2, Omg);
-            H2 = MyMatrix::Zero(cols(), size);
+            H2 = Mat2D::Zero(cols(), size);
           } else if ((b + 1) == data->nblocks) {
             H = H1 + H2;
-            Eigen::HouseholderQR<MyMatrix> qr(H);
-            Omg.noalias() =
-                qr.householderQ() * MyMatrix::Identity(cols(), size);
+            Eigen::HouseholderQR<Mat2D> qr(H);
+            Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
             flip_Omg(Omg2, Omg);
           }
         }
@@ -310,8 +301,8 @@ void run_pca_with_halko(Data* data, const Param& params) {
   } else {
     cao.print(tick.date(), "begin to run PCAone RSVD with in-core mode");
   }
-  MyMatrix Vpre;
-  MyVector S;
+  Mat2D Vpre;
+  Mat1D S;
   RsvdOpData* rsvd;
   if (params.svd_t == SvdType::PCAoneAlg2) {
     rsvd = new FancyRsvdOpData(data, params.k, params.oversamples);
@@ -356,15 +347,14 @@ void run_pca_with_halko(Data* data, const Param& params) {
     // if pcangsd, estimate GRM.
     if (params.pcangsd) {
       data->pcangsd_standardize_E(rsvd->U, rsvd->S, rsvd->V.transpose());
-      MyMatrix C = data->G * data->G.transpose();
+      Mat2D C = data->G * data->G.transpose();
       C.array() /= (double)data->nsnps;
       C.diagonal() = data->Dc.array() / (double)data->nsnps;
       std::ofstream out_cov(params.fileout + ".cov");
       if (out_cov.is_open()) out_cov << C << "\n";
       // Eigen::SelfAdjointEigenSolver<MyMatrix> eig(C);
       // use Eigen::JacobiSVD to get eigenvecs
-      Eigen::JacobiSVD<MyMatrix> svd(C,
-                                     Eigen::ComputeThinU | Eigen::ComputeThinV);
+      Eigen::JacobiSVD<Mat2D> svd(C, Eigen::ComputeThinU | Eigen::ComputeThinV);
       data->write_eigs_files(svd.singularValues(), svd.matrixU(),
                              svd.matrixU());
     } else {

@@ -20,11 +20,12 @@
 
 #define MAF(a) ((a) > 0.5 ? (1 - a) : (a))
 
-typedef Eigen::MatrixXd MyMatrix;
-typedef Eigen::VectorXd MyVector;
-typedef Eigen::ArrayXXd MyArrayX;
-typedef Eigen::ArrayXd MyArray;
-typedef Eigen::Array<bool, Eigen::Dynamic, 1> ArrayXb;
+typedef Eigen::MatrixXd Mat2D;
+typedef Eigen::VectorXd Mat1D;
+typedef Eigen::ArrayXXd Arr2D;
+typedef Eigen::ArrayXd Arr1D;
+typedef Eigen::Array<bool, Eigen::Dynamic, 1> ArrBool;
+using PermMat = Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic>;
 
 typedef unsigned char uchar;
 typedef unsigned int uint;

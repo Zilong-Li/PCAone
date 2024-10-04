@@ -24,8 +24,8 @@ class ArnoldiOpData {
     pcangsd = is_pcangsd;
   }
 
-  MyMatrix U, VT;
-  MyVector S;
+  Mat2D U, VT;
+  Mat1D S;
 
  private:
   Data* data;

@@ -73,7 +73,7 @@ std::string timestamp() {
 
 // Sign correction to ensure deterministic output from SVD.
 // see https://www.kite.com/python/docs/sklearn.utils.extmath.svd_flip
-void flip_UV(MyMatrix& U, MyMatrix& V, bool ubase) {
+void flip_UV(Mat2D& U, Mat2D& V, bool ubase) {
   if (ubase) {
     Eigen::Index x, i;
     for (i = 0; i < U.cols(); ++i) {
@@ -113,7 +113,7 @@ void flip_UV(MyMatrix& U, MyMatrix& V, bool ubase) {
   }
 }
 
-void flip_Omg(MyMatrix& Omg2, MyMatrix& Omg) {
+void flip_Omg(Mat2D& Omg2, Mat2D& Omg) {
   for (Eigen::Index i = 0; i < Omg.cols(); ++i) {
     // if signs of half of values are flipped then correct signs.
     if ((Omg2.col(i) - Omg.col(i)).array().abs().sum() >
@@ -124,7 +124,7 @@ void flip_Omg(MyMatrix& Omg2, MyMatrix& Omg) {
   Omg2 = Omg;
 }
 
-void flip_Y(const MyMatrix& X, MyMatrix& Y) {
+void flip_Y(const Mat2D& X, Mat2D& Y) {
   for (Eigen::Index i = 0; i < X.cols(); ++i) {
     // if signs of half of values are flipped then correct signs.
     if ((X.col(i) - Y.col(i)).array().abs().sum() >
@@ -134,14 +134,14 @@ void flip_Y(const MyMatrix& X, MyMatrix& Y) {
   }
 }
 
-double rmse(const MyMatrix& X, const MyMatrix& Y) {
-  MyMatrix Z = Y;
+double rmse(const Mat2D& X, const Mat2D& Y) {
+  Mat2D Z = Y;
   flip_Y(X, Z);
   return sqrt((X - Z).array().square().sum() / (X.cols() * X.rows()));
 }
 
 // Y is the truth matrix, X is the test matrix
-Eigen::VectorXd minSSE(const MyMatrix& X, const MyMatrix& Y) {
+Eigen::VectorXd minSSE(const Mat2D& X, const Mat2D& Y) {
   Eigen::Index w1, w2;
   Eigen::VectorXd res(X.cols());
   for (Eigen::Index i = 0; i < X.cols(); ++i) {
@@ -161,7 +161,7 @@ Eigen::VectorXd minSSE(const MyMatrix& X, const MyMatrix& Y) {
   return res;
 }
 
-double mev(const MyMatrix& X, const MyMatrix& Y) {
+double mev(const Mat2D& X, const Mat2D& Y) {
   double res = 0;
   for (Eigen::Index i = 0; i < X.cols(); ++i) {
     res += (X.transpose() * Y.col(i)).norm();
@@ -169,8 +169,8 @@ double mev(const MyMatrix& X, const MyMatrix& Y) {
   return res / X.cols();
 }
 
-void mev_rmse_byk(const MyMatrix& X, const MyMatrix& Y, MyVector& Vm,
-                  MyVector& Vr) {
+void mev_rmse_byk(const Mat2D& X, const Mat2D& Y, Mat1D& Vm,
+                  Mat1D& Vr) {
   for (Eigen::Index i = 0; i < X.cols(); ++i) {
     Vm(i) = 1 - mev(X.leftCols(i + 1), Y.leftCols(i + 1));
     Vr(i) = rmse(X.leftCols(i + 1), Y.leftCols(i + 1));
@@ -241,7 +241,7 @@ bool isZstdCompressed(const char* filename) {
 }
 
 // parse eigvecs,eigvals and loadings
-MyMatrix read_usv(const std::string& path) {
+Mat2D read_usv(const std::string& path) {
   const char sep = '\t';
   bool is_seperator[256] = {false};
   is_seperator[(unsigned int)sep] = true;
@@ -270,5 +270,5 @@ MyMatrix read_usv(const std::string& path) {
     }
     j++;
   }
-  return Eigen::Map<MyMatrix>(V.data(), j, k1);
+  return Eigen::Map<Mat2D>(V.data(), j, k1);
 }

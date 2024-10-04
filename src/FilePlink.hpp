@@ -48,8 +48,8 @@ class FileBed : public Data {
                                   bool standardize);
 
   virtual void read_block_update(uint64 start_idx, uint64 stop_idx,
-                                 const MyMatrix &U, const MyVector &svals,
-                                 const MyMatrix &VT, bool standardize);
+                                 const Mat2D &U, const Mat1D &svals,
+                                 const Mat2D &VT, bool standardize);
 
  private:
   std::ifstream bed_ifstream;

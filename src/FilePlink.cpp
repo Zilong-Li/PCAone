@@ -32,7 +32,7 @@ void FileBed::read_all() {
                     bed_bytes_per_snp * nsnps);
   uint64 c, i, j, b, k;
   uchar buf;
-  F = MyVector::Zero(nsnps);
+  F = Mat1D::Zero(nsnps);
   // estimate allele frequency first
 #pragma omp parallel for private(i, j, b, c, k, buf)
   for (i = 0; i < nsnps; ++i) {
@@ -62,8 +62,8 @@ void FileBed::read_all() {
 
   filter_snps_resize_F();  // filter and resize nsnps
 
-  G = MyMatrix::Zero(nsamples, nsnps);  // fill in G with new size
-  if (params.runem) C = ArrayXb::Zero(nsnps * nsamples);
+  G = Mat2D::Zero(nsamples, nsnps);  // fill in G with new size
+  if (params.runem) C = ArrBool::Zero(nsnps * nsamples);
 #pragma omp parallel for private(i, j, b, c, k, buf)
   for (i = 0; i < nsnps; ++i) {
     uint s = params.keepsnp ? keepSNPs[i] : i;
@@ -106,7 +106,7 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx,
   // if G is not initial then initial it
   // if actual_block_size is smaller than blocksize, don't resize G;
   if (G.cols() < params.blocksize || (actual_block_size < params.blocksize)) {
-    G = MyMatrix::Zero(nsamples, actual_block_size);
+    G = Mat2D::Zero(nsamples, actual_block_size);
     inbed.reserve(bed_bytes_per_snp * params.blocksize);
   }
   uint64 c, b, i, j, k, snp_idx;
@@ -187,11 +187,11 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx,
 }
 
 void FileBed::read_block_update(uint64 start_idx, uint64 stop_idx,
-                                const MyMatrix &U, const MyVector &svals,
-                                const MyMatrix &VT, bool standardize) {
+                                const Mat2D &U, const Mat1D &svals,
+                                const Mat2D &VT, bool standardize) {
   uint actual_block_size = stop_idx - start_idx + 1;
   if (G.cols() < params.blocksize || (actual_block_size < params.blocksize)) {
-    G = MyMatrix::Zero(nsamples, actual_block_size);
+    G = Mat2D::Zero(nsamples, actual_block_size);
     inbed.reserve(bed_bytes_per_snp * params.blocksize);
   }
   // check where we are

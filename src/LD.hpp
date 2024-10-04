@@ -18,9 +18,9 @@ struct BIM {
   }
 };
 
-MyArray calc_sds(const MyMatrix& X);
+Arr1D calc_sds(const Mat2D& X);
 
-double calc_cor(const MyVector& x, const MyVector& y, const double df);
+double calc_cor(const Mat1D& x, const Mat1D& y, const double df);
 
 std::string get_snp_pos_bim(SNPld& snp, const std::string& filebim,
                             bool header = false, Int1D idx = Int1D{0, 3});
@@ -34,13 +34,13 @@ void ld_prune_small(Data* data, const std::string& fileout,
                     const std::string& filebim, const SNPld& snp,
                     const double r2_tol);
 
-void ld_prune_big(const MyMatrix& G, const SNPld& snp, double r2_tol,
+void ld_prune_big(const Mat2D& G, const SNPld& snp, double r2_tol,
                   const std::string& fileout, const std::string& filebim);
 
 void ld_clump_single_pheno(const std::string& fileout, const std::string& head,
                            const int clump_bp, const double clump_r2,
                            const double clump_p1, const double clump_p2,
-                           const MyMatrix& G, const Int2D& idx_per_chr,
+                           const Mat2D& G, const Int2D& idx_per_chr,
                            const Int2D& bp_per_chr,
                            const std::vector<UMapIntPds>& pvals_per_chr);
 
@@ -53,7 +53,7 @@ std::vector<UMapIntPds> map_index_snps(const std::string& fileassoc,
 std::vector<UMapIntString> map_assoc_file(const std::string& fileassoc,
                                           const Int1D& colidx);
 
-void ld_r2_big(const MyMatrix& G, const SNPld& snp, const std::string& filebim,
+void ld_r2_big(const Mat2D& G, const SNPld& snp, const std::string& filebim,
                const std::string& fileout);
 
 void ld_r2_small(Data* data, const SNPld& snp, const std::string& filebim,

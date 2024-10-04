@@ -1,3 +1,7 @@
+- v0.4.7
+  - new options: =--read-U, --read-V, --read-S=
+  - can do LD for subset plink file
+    
 - v0.4.6
   - give warnings when sample standard deviation is zero.
   - checks unknow options in CLI

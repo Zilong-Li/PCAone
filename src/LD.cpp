@@ -16,14 +16,14 @@ using namespace std;
 
 // compute sample standard deviation
 // return 1e-9 when sd is 0
-MyArray calc_sds(const MyMatrix& X) {
+Arr1D calc_sds(const Mat2D& X) {
   const double df = 1.0 / (X.rows() - 1);  // N-1
   return (X.array().square().colwise().sum() * df).sqrt();
 }
 
 // compute the peason correlation coefficient
 // should check x.size()==y.size()
-double calc_cor(const MyVector& x, const MyVector& y, const double df) {
+double calc_cor(const Mat1D& x, const Mat1D& y, const double df) {
   int N = x.size();
   double numerator = x.dot(y);
   // Calculate variances with N-1 degrees of freedom
@@ -144,13 +144,16 @@ void ld_prune_small(Data* data, const std::string& fileout,
                     const std::string& filebim, const SNPld& snp,
                     const double r2_tol) {
   const bool pick_random_one = snp.af.size() > 0 ? false : true;
-  cao.print(tick.date(), "LD pruning, pick_random_one =", pick_random_one);
-  ArrayXb keep = ArrayXb::Constant(data->nsnps, true);
+  cao.print(tick.date(),
+            "LD pruning, choose sites to be kept randomly or with high MAF? "
+            "1(random) : 0(high MAF). =>",
+            pick_random_one);
+  ArrBool keep = ArrBool::Constant(data->nsnps, true);
   const double df = 1.0 / (data->nsamples - 1);  // N-1
   int b = 0, start = 0, end = 0;
   data->check_file_offset_first_var();
   data->read_block_initial(data->start[b], data->stop[b], false);
-  MyMatrix G = data->G;  // make a copy. we need two G anyway
+  Mat2D G = data->G;  // make a copy. we need two G anyway
   b++;
   data->read_block_initial(data->start[b], data->stop[b], false);
   for (int w = 0; w < (int)snp.ws.size(); w++) {
@@ -202,17 +205,18 @@ void ld_prune_small(Data* data, const std::string& fileout,
   }
 }
 
-void ld_prune_big(const MyMatrix& G, const SNPld& snp, double r2_tol,
+void ld_prune_big(const Mat2D& G, const SNPld& snp, double r2_tol,
                   const std::string& fileout, const std::string& filebim) {
   if ((long int)snp.pos.size() != G.cols())
     cao.error("The number of variants is not matching the LD matrix");
   // TODO: maybe add an option in CLI
   const bool pick_random_one = snp.af.size() > 0 ? false : true;
   cao.print(tick.date(),
-            "LD pruning, keep sites with high MAF? 1(Yes) : 0(No). =>",
-            !pick_random_one);
-  MyArray sds = 1.0 / calc_sds(G);
-  ArrayXb keep = ArrayXb::Constant(G.cols(), true);
+            "LD pruning, choose sites to be kept randomly or with high MAF? "
+            "1(random) : 0(high MAF). =>",
+            pick_random_one);
+  Arr1D sds = 1.0 / calc_sds(G);
+  ArrBool keep = ArrBool::Constant(G.cols(), true);
   const double df = 1.0 / (G.rows() - 1);  // N-1
   for (int w = 0; w < (int)snp.ws.size(); w++) {
     int i = snp.ws[w];
@@ -304,11 +308,11 @@ std::vector<UMapIntPds> map_index_snps(const std::string& fileassoc,
 void ld_clump_single_pheno(const std::string& fileout, const std::string& head,
                            const int clump_bp, const double clump_r2,
                            const double clump_p1, const double clump_p2,
-                           const MyMatrix& G, const Int2D& idx_per_chr,
+                           const Mat2D& G, const Int2D& idx_per_chr,
                            const Int2D& bp_per_chr,
                            const std::vector<UMapIntPds>& pvals_per_chr) {
   // sort by pvalues and get new idx
-  const MyArray sds = 1.0 / calc_sds(G);
+  const Arr1D sds = 1.0 / calc_sds(G);
   const double df = 1.0 / (G.rows() - 1);  // N-1
   std::ofstream ofs(fileout);
   ofs << head + "\tSP2" << std::endl;
@@ -388,7 +392,7 @@ void ld_r2_small(Data* data, const SNPld& snp, const std::string& filebim,
   int b = 0;
   data->check_file_offset_first_var();
   data->read_block_initial(data->start[b], data->stop[b], false);
-  MyMatrix G = data->G;  // make a copy. we need two G anyway
+  Mat2D G = data->G;  // make a copy. we need two G anyway
   b++;
   data->read_block_initial(data->start[b], data->stop[b], false);
 
@@ -432,12 +436,12 @@ void ld_r2_small(Data* data, const SNPld& snp, const std::string& filebim,
   gzclose(gzfp);
 }
 
-void ld_r2_big(const MyMatrix& G, const SNPld& snp, const std::string& filebim,
+void ld_r2_big(const Mat2D& G, const SNPld& snp, const std::string& filebim,
                const std::string& fileout) {
   std::ifstream fin(filebim);
   if (!fin.is_open()) cao.error("can not open " + filebim);
   String1D bims(std::istream_iterator<BIM>{fin}, std::istream_iterator<BIM>{});
-  MyArray sds = 1.0 / calc_sds(G);
+  Arr1D sds = 1.0 / calc_sds(G);
   const double df = 1.0 / (G.rows() - 1);  // N-1
   gzFile gzfp = gzopen(fileout.c_str(), "wb");
   std::string line{"CHR_A\tBP_A\tSNP_A\tCHR_B\tBP_B\tSNP_B\tR2\n"};
@@ -477,8 +481,10 @@ void run_ld_stuff(const Param& params, Data* data) {
       if (!params.fileU.empty()) {
         // get the residuals of small subset G
         auto U = read_usv(params.fileU);
-        data->G = (MyMatrix::Identity(U.rows(), U.rows()) - U * U.transpose()) *
-                  data->G;
+        // G is already centered. no need to do centering afterwards
+        data->G =
+            (Mat2D::Identity(U.rows(), U.rows()) - U * U.transpose()) * data->G;
+        // data->G.rowwise() -= data->G.colwise().mean();  // Centering
       }
       if (params.print_r2) {
         ld_r2_big(data->G, snp, params.filebim, params.fileout + ".ld.gz");
@@ -501,7 +507,7 @@ void run_ld_stuff(const Param& params, Data* data) {
       Int2D idx_per_chr, bp_per_chr;
       std::tie(idx_per_chr, bp_per_chr) = get_target_snp_idx(snp_t, snp);
       if (params.out_of_core) {
-        MyMatrix G(data->nsamples, snp_t.pos.size());
+        Mat2D G(data->nsamples, snp_t.pos.size());
         int b = 0;
         data->check_file_offset_first_var();
         data->read_block_initial(data->start[b], data->stop[b], false);

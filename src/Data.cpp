@@ -73,17 +73,17 @@ void Data::prepare() {
       // initial some variables for blockwise for specific files here.
       if ((params.file_t != FileType::CSV) &&
           (params.file_t != FileType::BINARY))
-        F = MyVector::Zero(nsnps);
+        F = Mat1D::Zero(nsnps);
       if (params.file_t == FileType::PLINK)
-        centered_geno_lookup = MyArrayX::Zero(4, nsnps);  // for plink input
+        centered_geno_lookup = Arr2D::Zero(4, nsnps);  // for plink input
     }
   }
 }
 
 void Data::filter_snps_resize_F() {
   if (params.keepsnp && params.maf > 0 &&
-      params.maf <= 0.5) {    // filter snps, update keepSNPs, reassign nsnps;
-    MyVector Fnew(F.size());  // make a temp F
+      params.maf <= 0.5) {  // filter snps, update keepSNPs, reassign nsnps;
+    Mat1D Fnew(F.size());   // make a temp F
     int i, j;
     for (i = 0, j = 0; j < (int)F.size(); j++) {
       if (MAF(F(j)) > params.maf) {
@@ -112,7 +112,7 @@ void Data::save_snps_in_bim() {
   if (params.perm && params.out_of_core) {
     vector<std::string> bims2;
     bims2.resize(nsnps);
-    MyVector Ftmp(F.size());
+    Mat1D Ftmp(F.size());
     j = 0;
     while (getline(ifs_bim, line)) {
       i = perm.indices()[j];
@@ -146,7 +146,7 @@ void Data::save_snps_in_bim() {
   V = G' * (U/s) // calculate V is not a good idea
  **/
 
-void Data::calcu_vt_initial(const MyMatrix &T, MyMatrix &VT, bool standardize) {
+void Data::calcu_vt_initial(const Mat2D &T, Mat2D &VT, bool standardize) {
   if (nblocks == 1) {
     cao.error("only one block exists. please use in-memory mode instead");
   }
@@ -163,9 +163,8 @@ void Data::calcu_vt_initial(const MyMatrix &T, MyMatrix &VT, bool standardize) {
   return;
 }
 
-void Data::calcu_vt_update(const MyMatrix &T, const MyMatrix &U,
-                           const MyVector &svals, MyMatrix &VT,
-                           bool standardize) {
+void Data::calcu_vt_update(const Mat2D &T, const Mat2D &U, const Mat1D &svals,
+                           Mat2D &VT, bool standardize) {
   if (nblocks == 1) {
     cao.error("only one block exists. please use in-memory mode instead");
   }
@@ -182,8 +181,7 @@ void Data::calcu_vt_update(const MyMatrix &T, const MyMatrix &U,
   return;
 }
 
-void Data::write_eigs_files(const MyVector &S, const MyMatrix &U,
-                            const MyMatrix &V) {
+void Data::write_eigs_files(const Mat1D &S, const Mat2D &U, const Mat2D &V) {
   std::ofstream outs(params.fileout + ".eigvals");
   std::ofstream outu(params.fileout + ".eigvecs");
   Eigen::IOFormat fmt(6, Eigen::DontAlignCols, "\t", "\n");
@@ -201,8 +199,7 @@ void Data::write_eigs_files(const MyVector &S, const MyMatrix &U,
   cao.print(tick.date(), "saved eigen vectors and values");
 }
 
-void Data::write_residuals(const MyVector &S, const MyMatrix &U,
-                           const MyMatrix &VT) {
+void Data::write_residuals(const Mat1D &S, const Mat2D &U, const Mat2D &VT) {
   // we always filter snps for in-core mode
   if (params.ld_stats == 1) {
     cao.print(tick.date(),
@@ -257,8 +254,7 @@ void Data::write_residuals(const MyVector &S, const MyMatrix &U,
   cao.print(tick.date(), "the LD matrix and SNPs info are saved");
 }
 
-void Data::update_batch_E(const MyMatrix &U, const MyVector &svals,
-                          const MyMatrix &VT) {
+void Data::update_batch_E(const Mat2D &U, const Mat1D &svals, const Mat2D &VT) {
   uint ks = svals.size();
   if (params.pcangsd) {
 // for gp
@@ -309,14 +305,14 @@ void Data::standardize_E() {
   }
 }
 
-void Data::pcangsd_standardize_E(const MyMatrix &U, const MyVector &svals,
-                                 const MyMatrix &VT) {
+void Data::pcangsd_standardize_E(const Mat2D &U, const Mat1D &svals,
+                                 const Mat2D &VT) {
   cao.print(tick.date(), "begin to standardize the matrix for pcangsd");
   uint ks = svals.size();
-  Dc = MyVector::Zero(nsamples);
+  Dc = Mat1D::Zero(nsamples);
 #pragma omp parallel
   {
-    MyVector diag_private = MyVector::Zero(nsamples);  // Thread private vector;
+    Mat1D diag_private = Mat1D::Zero(nsamples);  // Thread private vector;
 #pragma omp for
     for (uint j = 0; j < nsnps; j++) {
       double p0, p1, p2, pt, pSum, tmp;
