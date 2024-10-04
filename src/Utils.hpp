@@ -60,6 +60,8 @@ std::vector<std::string> split_string(const std::string& s,
 void make_plink2_eigenvec_file(int K, std::string fout, const std::string& fin,
                                const std::string& fam);
 
-bool isZstdCompressed(const char *filename);
+bool isZstdCompressed(const char* filename);
+
+MyMatrix read_usv(const std::string& path);
 
 #endif  // PCAONE_UTILES_

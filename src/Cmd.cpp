@@ -35,6 +35,9 @@ Param::Param(int argc, char **argv) {
   auto csvfile = opts.add<Value<std::string>>("c", "csv", "path of comma seperated CSV file compressed by zstd", "", &filein);
   auto bgenfile = opts.add<Value<std::string>>("g", "bgen", "path of BGEN file compressed by gzip/zstd", "", &filein);
   auto beaglefile = opts.add<Value<std::string>>("G", "beagle", "path of BEAGLE file compressed by gzip", "", &filein);
+  opts.add<Value<std::string>>("", "read-U", "path of file with left singular vectors (.eigvecs)", "", &fileU);
+  opts.add<Value<std::string>>("", "read-V", "path of file with right singular vectors (.loadings)", "", &fileV);
+  opts.add<Value<std::string>>("", "read-S", "path of file with eigen values (.eigvals)", "", &fileS);
   opts.add<Value<uint>>("k", "pc", "top k principal components (PCs) to be calculated", k, &k);
   opts.add<Value<double>>("m", "memory", "desired RAM usage in GB unit for out-of-core mode. default is in-core mode", memory, &memory);
   opts.add<Value<uint>>("n", "threads", "the number of threads to be used", threads, &threads);
@@ -53,7 +56,7 @@ Param::Param(int argc, char **argv) {
   opts.add<Value<double>>("", "maf", "exclude variants with MAF lower than this value", maf, &maf);
   opts.add<Switch>("V", "printv", "output the right eigenvectors with suffix .loadings", &printv);
   opts.add<Switch>("", "ld", "output a binary matrix for downstream LD related analysis", &ld);
-  auto bimfile = opts.add<Value<std::string>>("", "ld-bim", "variants information in plink bim file related to LD matrix", "", &filebim);
+  opts.add<Value<std::string>>("", "ld-bim", "variants information in plink bim file related to LD matrix", "", &filebim);
   opts.add<Value<double>>("", "ld-r2", "r2 cutoff for LD-based pruning. (usually 0.2)", ld_r2, &ld_r2);
   opts.add<Value<uint>>("", "ld-bp", "physical distance threshold in bases for LD. (usually 1000000)", ld_bp, &ld_bp);
   opts.add<Value<int>>("", "ld-stats", "statistics to calculate LD r2 for pairwise SNPs.\n"

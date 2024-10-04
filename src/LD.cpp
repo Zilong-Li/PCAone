@@ -202,13 +202,15 @@ void ld_prune_small(Data* data, const std::string& fileout,
   }
 }
 
-void ld_prune_big(const std::string& fileout, const std::string& filebim,
-                  const MyMatrix& G, const SNPld& snp, double r2_tol) {
+void ld_prune_big(const MyMatrix& G, const SNPld& snp, double r2_tol,
+                  const std::string& fileout, const std::string& filebim) {
   if ((long int)snp.pos.size() != G.cols())
     cao.error("The number of variants is not matching the LD matrix");
   // TODO: maybe add an option in CLI
   const bool pick_random_one = snp.af.size() > 0 ? false : true;
-  cao.print(tick.date(), "LD pruning, pick_random_one =", pick_random_one);
+  cao.print(tick.date(),
+            "LD pruning, keep sites with high MAF? 1(Yes) : 0(No). =>",
+            !pick_random_one);
   MyArray sds = 1.0 / calc_sds(G);
   ArrayXb keep = ArrayXb::Constant(G.cols(), true);
   const double df = 1.0 / (G.rows() - 1);  // N-1
@@ -472,11 +474,17 @@ void run_ld_stuff(const Param& params, Data* data) {
         ld_prune_small(data, params.fileout, params.filebim, snp, params.ld_r2);
       }
     } else {
+      if (!params.fileU.empty()) {
+        // get the residuals of small subset G
+        auto U = read_usv(params.fileU);
+        data->G = (MyMatrix::Identity(U.rows(), U.rows()) - U * U.transpose()) *
+                  data->G;
+      }
       if (params.print_r2) {
         ld_r2_big(data->G, snp, params.filebim, params.fileout + ".ld.gz");
       } else {
-        ld_prune_big(params.fileout, params.filebim, data->G, snp,
-                     params.ld_r2);
+        ld_prune_big(data->G, snp, params.ld_r2, params.fileout,
+                     params.filebim);
       }
     }
 

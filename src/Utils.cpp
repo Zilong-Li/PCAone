@@ -224,8 +224,8 @@ void make_plink2_eigenvec_file(int K, std::string fout, const std::string& fin,
   }
 }
 
-bool isZstdCompressed(const char *filename) {
-  FILE *file = fopen(filename, "rb");
+bool isZstdCompressed(const char* filename) {
+  FILE* file = fopen(filename, "rb");
   if (!file) return false;
 
   char magicNumber[4];
@@ -238,4 +238,37 @@ bool isZstdCompressed(const char *filename) {
 
   fclose(file);
   return isCompressed;
+}
+
+// parse eigvecs,eigvals and loadings
+MyMatrix read_usv(const std::string& path) {
+  const char sep = '\t';
+  bool is_seperator[256] = {false};
+  is_seperator[(unsigned int)sep] = true;
+  double val;
+  Double1D V;
+  int j{0}, i{0}, k1{0}, k2{0}, begin{0};
+
+  std::ifstream fin(path);
+  std::string line;
+  while (std::getline(fin, line)) {
+    k1 = 0, k2 = 0;
+    for (begin = 0, i = 0; i <= (int)line.size(); i++) {
+      if (is_seperator[(uint8_t)line[i]] || i == (int)line.size()) {
+        val = std::stod(std::string(line.begin() + begin, line.begin() + i));
+        V.push_back(val);
+        begin = i + 1;
+        if (j % 2 == 1) {
+          k1++;
+        } else {
+          k2++;
+        }
+      }
+    }
+    if (k1 > 0 && k2 > 0) {
+      if (k1 != k2) cao.error("the columns are not aligned! =>" + path);
+    }
+    j++;
+  }
+  return Eigen::Map<MyMatrix>(V.data(), j, k1);
 }

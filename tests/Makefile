@@ -6,7 +6,7 @@ Platform     := $(shell uname -s)
 CXX      = g++
 CXXFLAGS = -std=c++11 -Wall -O3 -mavx2 -mfma
 MYFLAGS  = -DVERSION=\"$(VERSION)\"
-INC      = -I. -I../src -I../external
+INC      = -I. -I../src -I../external -I../external/zstd/lib
 DLIBS   += -lz
 
 ifeq ($(Platform),Linux)

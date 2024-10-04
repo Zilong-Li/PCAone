@@ -8,7 +8,7 @@
 // get the chr, bp, id
 struct BIM {
   std::string data;
-  operator std::string const&() const { return data; }
+  operator std::string const &() const { return data; }
   friend std::istream& operator>>(std::istream& is, BIM& BIM) {
     std::getline(is, BIM.data);
     if (BIM.data.empty()) return is;
@@ -34,8 +34,8 @@ void ld_prune_small(Data* data, const std::string& fileout,
                     const std::string& filebim, const SNPld& snp,
                     const double r2_tol);
 
-void ld_prune_big(const std::string& fileout, const std::string& filebim,
-                  const MyMatrix& G, const SNPld& snp, double r2_tol);
+void ld_prune_big(const MyMatrix& G, const SNPld& snp, double r2_tol,
+                  const std::string& fileout, const std::string& filebim);
 
 void ld_clump_single_pheno(const std::string& fileout, const std::string& head,
                            const int clump_bp, const double clump_r2,
