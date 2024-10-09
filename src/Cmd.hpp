@@ -27,7 +27,7 @@ class Param {
   uint nsnps = 0;
   uint k = 10;
   uint maxp = 40;  // maximum number of power iterations
-  uint threads = 8;
+  uint threads = 12;
   uint blocksize = 0;
   uint bands = 64;
   bool pca = true;

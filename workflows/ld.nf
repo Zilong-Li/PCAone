@@ -74,7 +74,7 @@ process adj_ld_matrix {
 
     output:
     tuple val(pop), val(K), path("adj.${K}.residuals"), emit: residuals
-    tuple val(pop), val(K), path("adj.${K}.kept.bim"), emit: kept
+    tuple val(pop), val(K), path("adj.${K}.mbim"), emit: kept
 
     script:
     base = bed.baseName
@@ -95,7 +95,7 @@ process adj_ld_r2 {
 
     script:
     """
-    PCAone -B ${residuals} --ld-bim ${kept} --ld-bp ${params.ld_bp} --print-r2 --out adj.${K}
+    PCAone -B ${residuals} --match-bim ${kept} --ld-bp ${params.ld_bp} --print-r2 --out adj.${K}
     """
 }
 
@@ -106,7 +106,7 @@ process std_ld_matrix {
     tuple val(pop), path(bed), path(bim), path(fam)
 
     output:
-    tuple val(pop), path("std.residuals"), path("std.kept.bim")
+    tuple val(pop), path("std.residuals"), path("std.mbim")
 
     script:
     base = bed.baseName
@@ -119,14 +119,14 @@ process std_ld_r2 {
     publishDir "${params.results}/${pop}/thin_${params.thin}/${params.run_step}"
     
     input:
-    tuple val(pop), path("std.residuals"), path("std.kept.bim")
+    tuple val(pop), path("std.residuals"), path("std.mbim")
 
     output:
     tuple val(pop), path("std.ld.gz"), emit: stdr2
 
     script:
     """
-    PCAone -B std.residuals --ld-bim std.kept.bim --ld-bp ${params.ld_bp} --print-r2 --out std
+    PCAone -B std.residuals --match-bim std.mbim --ld-bp ${params.ld_bp} --print-r2 --out std
     """
 }
 

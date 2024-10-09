@@ -1,7 +1,8 @@
 #+TITLE: Principal Component Analysis All in One
-#+options: toc:2 num:nil email:t
-#+author: Zilong Li
+#+subtitle: v0.4.7 
+#+author: Zilong Li 
 #+email: zilong.dk@gmail.com
+#+options: toc:2 num:t email:t
 #+latex_compiler: xelatex
 #+latex_class: article
 #+latex_class_options: [a4paper, 11pt]
@@ -14,6 +15,7 @@
 #+latex_header: \hypersetup{colorlinks=true, linkcolor=blue}
 #+latex: \clearpage
 
+* Bad :noexport:
 
 [[https://github.com/Zilong-Li/PCAone/actions/workflows/linux.yml/badge.svg]]
 [[https://github.com/Zilong-Li/PCAone/actions/workflows/mac.yml/badge.svg]]
@@ -64,7 +66,10 @@ missingness and uncertainty. The PDF manual can be downloaded [[https://github.c
   - [[#report-ld-statistics][Report LD statistics]]
   - [[#prunning-based-on-ancestry-adjusted-ld][Prunning based on Ancestry-Adjusted LD]]
   - [[#clumping-based-on-ancestry-adjusted-ld][Clumping based on Ancestry-Adjusted LD]]
-  - [[#more-examples][More Examples]]
+- [[#more-tutorials][More tutorials]]
+  - [[#genotype-data-plink][Genotype data (PLINK)]]
+  - [[#genotype-dosage-bgen][Genotype dosage (BGEN)]]
+  - [[#single-cell-rna-seq-data-csv][Single cell RNA-seq data (CSV)]]
 - [[#acknowledgements][Acknowledgements]]
 #+END_QUOTE
 
@@ -236,38 +241,47 @@ Run =./PCAone --help= to see all options including hidden advanced options. The 
 #+begin_src example
 Main options:
   -h, --help                     print all options including hidden advanced options
-  -d, --svd arg (=2)             svd method to be applied. default 2 is recommended for big data.
+  -d, --svd arg (=2)             SVD method to be applied. default 2 is recommended for big data.
                                  0: the Implicitly Restarted Arnoldi Method (IRAM)
                                  1: the Yu's single-pass Randomized SVD with power iterations
-                                 2: the proposed window-based Randomized SVD method
+                                 2: the accurate window-based Randomized SVD method (PCAone)
                                  3: the full Singular Value Decomposition.
   -b, --bfile arg                prefix to PLINK .bed/.bim/.fam files
   -B, --binary arg               path of binary file
   -c, --csv arg                  path of comma seperated CSV file compressed by zstd
   -g, --bgen arg                 path of BGEN file compressed by gzip/zstd
   -G, --beagle arg               path of BEAGLE file compressed by gzip
+  --read-U arg                   path of file with left singular vectors (.eigvecs)
+  --read-V arg                   path of file with right singular vectors (.loadings)
+  --read-S arg                   path of file with eigen values (.eigvals)
   -k, --pc arg (=10)             top k principal components (PCs) to be calculated
-  -m, --memory arg (=0)          desired RAM usage in GB unit for out-of-core mode. 0 is for in-core mode
-  -n, --threads arg (=10)        number of threads to be used
+  -m, --memory arg (=0)          RAM usage in GB unit for out-of-core mode. default is in-core mode
+  -n, --threads arg (=12)        the number of threads to be used
   -o, --out arg (=pcaone)        prefix to output files. default [pcaone]
   -p, --maxp arg (=40)           maximum number of power iterations for RSVD algorithm
-  -S, --no-shuffle               do not shuffle the data for --svd 2 if it is already permuted
+  -S, --no-shuffle               do not shuffle columns of data for --svd 2 (if not locally correlated)
   -v, --verbose                  verbose message output
-  -w, --batches arg (=64)        number of mini-batches to be used by PCAone --svd 2
   -C, --scale arg (=0)           do scaling for input file.
                                  0: do just centering
                                  1: do log transformation eg. log(x+0.01) for RNA-seq data
                                  2: do count per median log transformation (CPMED) for scRNAs
-  --emu                          uses EMU algorithm for genotype input with missingness
-  --pcangsd                      uses PCAngsd algorithm for genotype likelihood input
-  --maf arg (=0)                 exclude variants with MAF lower than this value (in-core mode only)
+  --emu                          use EMU algorithm for genotype input with missingness
+  --pcangsd                      use PCAngsd algorithm for genotype likelihood input
+  --maf arg (=0)                 exclude variants with MAF lower than this value
   -V, --printv                   output the right eigenvectors with suffix .loadings
+  --project arg (=0)             project the new samples onto the existing PCs.
+                                 0: disabled
+                                 1: by multiplying the loadings, assuming no missing genotypes
+                                 2: by solving the least squares system Vx=g, skipping missing genotypes
+                                 3: by Augmentation, Decomposition and Procrusters transformation
+  --match-bim arg                the plink-like bim file with the 7th column being the frequency (.mbim)
   --ld                           output a binary matrix for downstream LD related analysis
-  --ld-bim arg                   variants information in plink bim file related to LD matrix
-  --ld-r2 arg (=0)               r2 cutoff for LD-based pruning.
-  --ld-bp arg (=1000000)         physical distance threshold in bases for ld pruning
-  --ld-stats arg (=0)            statistics to get r2 for LD. (0: the ancestry adjusted, 1: the standard)
-  --print-r2                     print LD r2 for pairse-wise SNPs in a ld-window (saved in <prefix>.ld.gz)
+  --ld-r2 arg (=0)               r2 cutoff for LD-based pruning. (usually 0.2)
+  --ld-bp arg (=0)               physical distance threshold in bases for LD. (usually 1000000)
+  --ld-stats arg (=0)            statistics to calculate LD r2 for pairwise SNPs.
+                                 0: the ancestry adjusted, i.e. correlation between residuals
+                                 1: the standard, i.e. correlation between two alleles
+  --print-r2                     print LD r2 to *.ld.gz file for pairwise SNPs within a window
   --clump arg                    assoc-like file with target variants and pvalues for clumping
   --clump-names arg (=CHR,BP,P)  column names in assoc-like file for locating chr, pos and pvalue
   --clump-p1 arg (=0.0001)       significance threshold for index SNPs
@@ -318,16 +332,23 @@ Features Loadings are saved in file with suffix =.loadings=. Each row
 represents a feature and each column represents a corresponding PC. Use
 =--printv= option to print it.
 
+*** Variants infomation
+
+A plink-like bim file named with =.mbim= is used to store the variants list
+with extra infomation. Currently, the =mbim= file has 7 columns with the 7th
+being the allele frequency. And PCAone only outputs this file whenever it's
+necessary to downstrean analyses.
+
 *** LD matrix
 
 The matrix for calculating the ancestry-adjusted LD is saved in a file
 with suffix =.residuals=, and its associated variants information is
-stored in a file named with =.kept.bim=. For the binary file, the first
+stored in =mbim= file. For the binary file, the first
 4-bytes stores the number of variants/SNPs, and the second 4-bytes stores
 the number of samples in the matrix. Then, the rest of the file is a
 sequence of *M* blocks of *N x 4* bytes each, where *M* is the number of
 variants and *N* is the number of samples. The first block corresponds to
-the first marker in the =.kept.bim= file, etc.
+the first marker in the =.mbim= file, etc.
 
 *** LD r2
 
@@ -402,7 +423,7 @@ example, assuming that 3 PCs can accout for population structure, we enable
 file with suffix =.residuals=.
 
 #+begin_src shell
-./PCAone -b example/plink -k 3 --ld -o adj -m 4
+./PCAone -b example/plink -k 3 --ld -o adj
 #+end_src
 
 ** Report LD statistics
@@ -411,7 +432,7 @@ Currently, the LD r2 for pairwise SNPs within a window can be outputted via =--p
 
 #+begin_src shell
 ./PCAone -B adj.residuals \
-         --ld-bim adj.kept.bim \
+         --match-bim adj.mbim \
          --ld-bp 1000000 \
          --print-r2 \
          -o adj
@@ -421,11 +442,11 @@ Currently, the LD r2 for pairwise SNPs within a window can be outputted via =--p
 ** Prunning based on Ancestry-Adjusted LD
 
 Given the LD binary file =.residuals= and its associated variant file
-=.kept.bim=, we can do pruning based on user-defined thresholds and windows
+=.mbim=, we can do pruning based on user-defined thresholds and windows
 
 #+begin_src shell
 ./PCAone -B adj.residuals \
-         --ld-bim adj.kept.bim \
+         --match-bim adj.mbim \
          --ld-r2 0.8 \
          --ld-bp 1000000 \
          -o adj
@@ -438,7 +459,7 @@ user-defined association results
 
 #+begin_src shell
 ./PCAone -B adj_ld.residuals \
-         --ld-bim adj.kept.bim \
+         --match-bim adj.mbim \
          --clump example/plink.pheno0.assoc,example/plink.pheno1.assoc  \
          --clump-p1 0.05 \
          --clump-p2 0.01 \
@@ -447,7 +468,7 @@ user-defined association results
          -o adj
 #+end_src
 
-** More Examples
+* More tutorials
 
 Let's download the example data first if you haven't done so.
 
@@ -456,7 +477,7 @@ wget http://popgen.dk/zilong/datahub/pca/example.tar.gz
 tar -xzf example.tar.gz && rm -f example.tar.gz
 #+end_src
 
-*** Genotype data (PLINK)
+** Genotype data (PLINK)
 
 We want to compute the top 40 PCs for this genotype dataset using 20
 threads and only 2 GBs memory. We will use the proposed window-based RSVD
@@ -473,7 +494,7 @@ plot(pcs[,1:2+2], col=factor(pcs[,1]), xlab = "PC1", ylab = "PC2")
 legend("topright", legend=unique(pcs[,1]), col=1:4, pch = 21, cex=1.2)
 #+end_src
 
-*** Genotype dosage (BGEN)
+** Genotype dosage (BGEN)
 
 Imputation tools usually generate the genotype probabilities or dosages in
 BGEN format. To do PCA with the imputed genotype probabilities, we can
@@ -492,7 +513,7 @@ plot(pcs[,1:2], col=factor(pop), xlab = "PC1", ylab = "PC2")
 legend("topright", legend=unique(pop), col=factor(unique(pop)), pch = 21, cex=1.2)
 #+end_src
 
-*** Single cell RNA-seq data (CSV)
+** Single cell RNA-seq data (CSV)
 
 In this example, we run PCA for the single cell RNAs-seq data using a
 different input format with a normalization method called count per median
@@ -506,4 +527,6 @@ It should take around 5 minutes.
 
 * Acknowledgements
 
-PCAone use [[https://eigen.tuxfamily.org/index.php?title=Main_Page][Eigen]] for linear algebra operation. The IRAM method is based on [[https://github.com/yixuan/spectra][yixuan/spectra]]. The bgen lib is ported from [[https://github.com/jeremymcrae/bgen][jeremymcrae/bgen]]. The EMU and PCAngsd algorithms are modified from [[https://github.com/Rosemeis][@Jonas]] packages.
+PCAone use [[https://eigen.tuxfamily.org/index.php?title=Main_Page][Eigen]] for linear algebra operation. The IRAM method is based on
+[[https://github.com/yixuan/spectra][yixuan/spectra]]. The bgen lib is ported from [[https://github.com/jeremymcrae/bgen][jeremymcrae/bgen]]. The EMU and
+PCAngsd algorithms are modified from [[https://github.com/Rosemeis][@Jonas]] packages.

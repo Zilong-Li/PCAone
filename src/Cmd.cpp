@@ -40,7 +40,7 @@ Param::Param(int argc, char **argv) {
   opts.add<Value<std::string>>("", "read-V", "path of file with right singular vectors (.loadings)", "", &fileV);
   opts.add<Value<std::string>>("", "read-S", "path of file with eigen values (.eigvals)", "", &fileS);
   opts.add<Value<uint>>("k", "pc", "top k principal components (PCs) to be calculated", k, &k);
-  opts.add<Value<double>>("m", "memory", "desired RAM usage in GB unit for out-of-core mode. default is in-core mode", memory, &memory);
+  opts.add<Value<double>>("m", "memory", "RAM usage in GB unit for out-of-core mode. default is in-core mode", memory, &memory);
   opts.add<Value<uint>>("n", "threads", "the number of threads to be used", threads, &threads);
   opts.add<Value<std::string>>("o", "out", "prefix to output files. default [pcaone]", fileout, &fileout);
   opts.add<Value<uint>>("p", "maxp", "maximum number of power iterations for RSVD algorithm", maxp, &maxp);
@@ -58,9 +58,9 @@ Param::Param(int argc, char **argv) {
   opts.add<Switch>("V", "printv", "output the right eigenvectors with suffix .loadings", &printv);
   opts.add<Value<int>>("", "project", "project the new samples onto the existing PCs.\n"
                                       "0: disabled\n"
-                                      "1: projection by multiplying the loadings, assuming no missing genotypes\n"
-                                      "2: projection by solving the least squares system Vx=g, skipping missing genotypes\n"
-                                      "3: projection by Augmentation, Decomposition and Procrusters transformation\n",
+                                      "1: by multiplying the loadings, assuming no missing genotypes\n"
+                                      "2: by solving the least squares system Vx=g, skipping missing genotypes\n"
+                                      "3: by Augmentation, Decomposition and Procrusters transformation\n",
                        project, &project);
   opts.add<Value<std::string>>("", "match-bim", "the plink-like bim file with the 7th column being the frequency (.mbim)", "", &filebim);
   opts.add<Switch>("", "ld", "output a binary matrix for downstream LD related analysis", &ld);
