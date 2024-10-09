@@ -63,6 +63,8 @@ class Param {
   double clump_p2 = 0.01;
   double clump_r2 = 0.5;
   uint clump_bp = 250000;
+  // for projection
+  int project = 0;
 
   // general
   uint scale = 0;  // do scaling. 0: just centering. 1: log scaling. 2: cpmed
@@ -70,16 +72,18 @@ class Param {
   bool cpmed = false;
   bool printv = false;
   bool printu = false;
-  bool runem = false;
+  bool impute = false;
   bool noshuffle = false;
   bool emu = false;
   bool pcangsd = false;  // read GP field for PCAngsd instead of GT.
   bool verbose = false;
   bool mev = true;
   bool out_of_core = false;  // otherwise load all matrix into RAM.
+  int  ploidy = 2;
   bool haploid = false;
   bool diploid = false;
   bool keepsnp = false;
+  bool savebim = false;
 
   std::ostringstream ss;
 };

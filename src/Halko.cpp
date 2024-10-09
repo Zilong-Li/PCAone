@@ -309,7 +309,7 @@ void run_pca_with_halko(Data* data, const Param& params) {
   } else {
     rsvd = new NormalRsvdOpData(data, params.k, params.oversamples);
   }
-  if (!params.runem) {
+  if (!params.impute) {
     if (params.file_t == FileType::PLINK || params.file_t == FileType::BGEN) {
       if (params.ld)
         rsvd->setFlags(false, false, true);

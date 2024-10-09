@@ -64,4 +64,10 @@ bool isZstdCompressed(const char* filename);
 
 Mat2D read_usv(const std::string& path);
 
+Mat1D read_eigvals(const std::string& path);
+
+Mat2D read_eigvecs(const std::string& path, int n, int k);
+
+Mat1D read_frq(const std::string& path);
+
 #endif  // PCAONE_UTILES_

@@ -5,6 +5,16 @@
 #include "Data.hpp"
 #include "Utils.hpp"
 
+struct SNPld {
+  std::vector<int> pos;          // pos of each SNP
+  std::vector<int> end_pos;      // 0-based index for last snp pos
+  std::vector<std::string> chr;  // chr sequences
+  Double1D af;                   // allele frequency
+  std::vector<int> ws;           //  the snp index, i.e the index for lead SNP
+  std::vector<int> we;  // the number of SNPs (including lead SNP) in a window
+};
+
+
 // get the chr, bp, id
 struct BIM {
   std::string data;

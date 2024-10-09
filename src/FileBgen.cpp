@@ -17,7 +17,7 @@ void FileBgen::read_all() {
   if (!params.pcangsd) {
     F = Mat1D::Zero(nsnps);
     G = Mat2D::Zero(nsamples, nsnps);
-    if (params.runem) C = ArrBool::Zero(nsnps * nsamples);
+    if (params.impute) C = ArrBool::Zero(nsnps * nsamples);
     for (j = 0, k = 0; j < nsnps; j++) {
       try {
         auto var = bg->next_var();
@@ -44,10 +44,10 @@ void FileBgen::read_all() {
 #pragma omp parallel for
         for (i = 0; i < nsamples; i++) {
           if (std::isnan(dosages[i])) {
-            if (params.runem) C[k * nsamples + i] = 1;
+            if (params.impute) C[k * nsamples + i] = 1;
             G(i, k) = 0;
           } else {
-            if (params.runem) C[k * nsamples + i] = 0;
+            if (params.impute) C[k * nsamples + i] = 0;
             G(i, j) = dosages[i] / 2.0 - F(k);  // map to [0, 1];
           }
         }

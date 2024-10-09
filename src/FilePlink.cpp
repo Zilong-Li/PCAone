@@ -6,6 +6,8 @@
 
 #include "FilePlink.hpp"
 
+#include "Utils.hpp"
+
 using namespace std;
 
 void FileBed::check_file_offset_first_var() {
@@ -32,38 +34,45 @@ void FileBed::read_all() {
                     bed_bytes_per_snp * nsnps);
   uint64 c, i, j, b, k;
   uchar buf;
-  F = Mat1D::Zero(nsnps);
-  // estimate allele frequency first
+  if (params.project == 0) {
+    F = Mat1D::Zero(nsnps);
+    // estimate allele frequency first
 #pragma omp parallel for private(i, j, b, c, k, buf)
-  for (i = 0; i < nsnps; ++i) {
-    for (b = 0, c = 0, j = 0; b < bed_bytes_per_snp; ++b) {
-      buf = inbed[i * bed_bytes_per_snp + b];
-      for (k = 0; k < 4; ++k, ++j) {
-        if (j < nsamples) {
-          if (BED2GENO[buf & 3] != BED_MISSING_VALUE) {
-            F(i) += BED2GENO[buf & 3];
-            c++;
+    for (i = 0; i < nsnps; ++i) {
+      for (b = 0, c = 0, j = 0; b < bed_bytes_per_snp; ++b) {
+        buf = inbed[i * bed_bytes_per_snp + b];
+        for (k = 0; k < 4; ++k, ++j) {
+          if (j < nsamples) {
+            if (BED2GENO[buf & 3] != BED_MISSING_VALUE) {
+              F(i) += BED2GENO[buf & 3];
+              c++;
+            }
+            buf >>= 2;
           }
-          buf >>= 2;
         }
       }
+      if (c == 0)
+        F(i) = 0;
+      else
+        F(i) /= c;
+      // should remove sites with F=0 and 1.0
+      if (F(i) == 0.0 || F(i) == 1.0)
+        cao.error("sites with MAF=0 found! remove them first!");
+      // in LD r2,F=0.5 means sample standard deviation is 0
+      if (params.verbose && F(i) == 0.5)
+        cao.warn("sites with MAF=0.5 found. NaN values expected in LD r2.");
     }
-    if (c == 0)
-      F(i) = 0;
-    else
-      F(i) /= c;
-    // should remove sites with F=0 and 1.0
-    if (F(i) == 0.0 || F(i) == 1.0)
-      cao.error("sites with MAF=0 found! remove them first!");
-    // in LD r2,F=0.5 means sample standard deviation is 0
-    if (params.verbose && F(i) == 0.5)
-      cao.warn("sites with MAF=0.5 found. NaN values expected in LD r2.");
+    filter_snps_resize_F();  // filter and resize nsnps
+  } else {
+    // read frq from original set
+    cao.print(tick.date(), "read frequency of SNPs from modified bim (.mbim)");
+    F = read_frq(params.filebim);
+    if (F.size() != nsnps)
+      cao.error("the number of sites doesn't match each other");
   }
 
-  filter_snps_resize_F();  // filter and resize nsnps
-
   G = Mat2D::Zero(nsamples, nsnps);  // fill in G with new size
-  if (params.runem) C = ArrBool::Zero(nsnps * nsamples);
+  if (params.impute) C = ArrBool::Zero(nsnps * nsamples);
 #pragma omp parallel for private(i, j, b, c, k, buf)
   for (i = 0; i < nsnps; ++i) {
     uint s = params.keepsnp ? keepSNPs[i] : i;
@@ -74,10 +83,10 @@ void FileBed::read_all() {
           G(j, i) = BED2GENO[buf & 3];
           if (G(j, i) != BED_MISSING_VALUE) {
             // 0 indicate G(i,j) don't need to be predicted.
-            if (params.runem) C[i * nsamples + j] = 0;
+            if (params.impute) C[i * nsamples + j] = 0;
           } else {
             // 1 indicate G(i,j) need to be predicted and updated.
-            if (params.runem) C[i * nsamples + j] = 1;
+            if (params.impute) C[i * nsamples + j] = 1;
           }
           buf >>= 2;
         }
@@ -86,10 +95,15 @@ void FileBed::read_all() {
     // do centering and initialing
     for (j = 0; j < nsamples; ++j) {
       if (G(j, i) == BED_MISSING_VALUE)
-        G(j, i) = 0.0;
+        G(j, i) = 0.0;  // impute to mean
       else
         G(j, i) -= F(i);
     }
+  }
+
+  if (C.size()) {
+    double p_miss = (double)C.count() / (double)C.size();
+    cao.print(tick.date(), "the proportion of missingness  is", p_miss);
   }
   // read bed to matrix G done and close bed_ifstream
   inbed.clear();

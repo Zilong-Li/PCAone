@@ -59,7 +59,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
   if (!params.out_of_core) {
     // SpMatrix sG = data->G.sparseView();
     PartialSVDSolver<Mat2D> svds(data->G, params.k, params.ncv);
-    if (!params.ld && !params.runem &&
+    if (!params.ld && !params.impute &&
         (params.file_t == FileType::PLINK || params.file_t == FileType::BGEN))
       data->standardize_E();
     nconv = svds.compute(params.imaxiter, params.itol);
@@ -68,7 +68,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
     V = svds.matrix_V(params.k);
     svals = svds.singular_values();
     evals.noalias() = svals.array().square().matrix() / data->nsnps;
-    if (params.runem) {
+    if (params.impute) {
       flip_UV(U, V);
       cao.print(tick.date(), "do EM-PCA algorithms for data with uncertainty.");
       for (uint i = 1; i <= params.maxiter; ++i) {
@@ -132,7 +132,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
     // params.ncv);
     SymEigsSolver<ArnoldiOpData>* eigs =
         new SymEigsSolver<ArnoldiOpData>(*op, params.k, params.ncv);
-    if (!params.runem) op->setFlags(false, true, false);
+    if (!params.impute) op->setFlags(false, true, false);
     eigs->init();
     nconv = eigs->compute(SortRule::LargestAlge, params.imaxiter, params.itol);
     if (nconv < params.k) cao.error("the nconv is not equal to k");
@@ -152,7 +152,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
     op->VT = Mat2D::Zero(U.rows(), data->nsnps);
     data->calcu_vt_initial(U, op->VT, true);
     evals.noalias() = eigs->eigenvalues() / data->nsnps;
-    if (params.runem) {
+    if (params.impute) {
       cao.print(tick.date(), "starts EM iteration");
       data->calcu_vt_initial(U, op->VT, false);
       flip_UV(op->U, op->VT);

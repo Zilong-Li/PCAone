@@ -193,6 +193,7 @@ void Data::write_eigs_files(const Mat1D &S, const Mat2D &U, const Mat2D &V) {
   }
   if (outu.is_open()) outu << U.format(fmt) << '\n';
   if (params.printv) {
+    save_snps_in_bim();
     std::ofstream outv(params.fileout + ".loadings");
     if (outv.is_open()) outv << V.format(fmt) << '\n';
   }

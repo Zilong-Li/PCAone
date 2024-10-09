@@ -55,6 +55,12 @@ Param::Param(int argc, char **argv) {
   opts.add<Switch>("", "pcangsd", "use PCAngsd algorithm for genotype likelihood input", &pcangsd);
   opts.add<Value<double>>("", "maf", "exclude variants with MAF lower than this value", maf, &maf);
   opts.add<Switch>("V", "printv", "output the right eigenvectors with suffix .loadings", &printv);
+  opts.add<Value<int>>("", "project", "project the new samples onto the existing PCs.\n"
+                                      "0: disabled\n"
+                                      "1: projection by multiplying the loadings, assuming no missing genotypes\n"
+                                      "2: projection by solving the least squares system Vx=g, skipping missing genotypes\n"
+                                      "3: projection by Augmentation, Decomposition and Procrusters transformation\n",
+                       project, &project);
   opts.add<Switch>("", "ld", "output a binary matrix for downstream LD related analysis", &ld);
   opts.add<Value<std::string>>("", "ld-bim", "variants information in plink bim file related to LD matrix", "", &filebim);
   opts.add<Value<double>>("", "ld-r2", "r2 cutoff for LD-based pruning. (usually 0.2)", ld_r2, &ld_r2);
@@ -141,7 +147,7 @@ Param::Param(int argc, char **argv) {
     if ((file_t == FileType::PLINK || file_t == FileType::BGEN) && !haploid)
       diploid = true;
     if (emu || pcangsd) {
-      runem = true;
+      impute = true;
       if (svd_t == SvdType::PCAoneAlg2)
         throw std::invalid_argument(
             "not supporting PCAone --svd 2 for PCAngsd/EMU algorithm yet! "
@@ -174,6 +180,13 @@ Param::Param(int argc, char **argv) {
     if (print_r2 || ld_bp > 0 || ld_r2 > 0 || !clump.empty()) {
       pca = false;
       memory /= 2.0;  // adjust memory estimator
+    }
+    // handle projection
+    if (project > 0) {
+      if (fileV.empty() || fileS.empty())
+        throw std::invalid_argument(
+            "please use --read-S and --read-V together with --project");
+      impute = true;
     }
   } catch (const popl::invalid_option &e) {
     std::cerr << "Invalid Option Exception: " << e.what() << "\n";

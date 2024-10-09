@@ -13,6 +13,7 @@
 #include "FilePlink.hpp"
 #include "Halko.hpp"
 #include "LD.hpp"
+#include "Projection.hpp"
 
 #ifdef WITH_OPENBLAS
 #include "lapacke.h"
@@ -41,13 +42,25 @@ int main(int argc, char* argv[]) {
     if (params.file_t == FileType::BINARY)
       data = new FileBin(params);
     else {
-      params.memory = 0;
-      params.out_of_core = false;
+      params.memory = 0, params.out_of_core = false;
       data = new FileBed(params);
     }
 
     data->prepare();
     run_ld_stuff(params, data);
+    delete data;
+    cao.print(tick.date(), "total elapsed wall time:", tick.abstime(),
+              "seconds");
+    cao.print(tick.date(), "have a nice day. bye!");
+    return 0;
+  }
+
+  // particular case for projection
+  if ((params.project > 0) && (params.file_t == FileType::PLINK)) {
+    params.memory = 0, params.out_of_core = false;
+    data = new FileBed(params);
+    data->prepare();
+    run_projection(data, params);
     delete data;
     cao.print(tick.date(), "total elapsed wall time:", tick.abstime(),
               "seconds");
@@ -107,7 +120,7 @@ int main(int argc, char* argv[]) {
     if (params.file_t == FileType::PLINK || params.file_t == FileType::BGEN)
       data->standardize_E();
     Eigen::JacobiSVD<Mat2D> svd(data->G,
-                                   Eigen::ComputeThinU | Eigen::ComputeThinV);
+                                Eigen::ComputeThinU | Eigen::ComputeThinV);
     data->write_eigs_files(svd.singularValues().array().square() / data->nsnps,
                            svd.matrixU(), svd.matrixV());
   } else {

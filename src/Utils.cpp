@@ -169,8 +169,7 @@ double mev(const Mat2D& X, const Mat2D& Y) {
   return res / X.cols();
 }
 
-void mev_rmse_byk(const Mat2D& X, const Mat2D& Y, Mat1D& Vm,
-                  Mat1D& Vr) {
+void mev_rmse_byk(const Mat2D& X, const Mat2D& Y, Mat1D& Vm, Mat1D& Vr) {
   for (Eigen::Index i = 0; i < X.cols(); ++i) {
     Vm(i) = 1 - mev(X.leftCols(i + 1), Y.leftCols(i + 1));
     Vr(i) = rmse(X.leftCols(i + 1), Y.leftCols(i + 1));
@@ -240,19 +239,18 @@ bool isZstdCompressed(const char* filename) {
   return isCompressed;
 }
 
-// parse eigvecs,eigvals and loadings
+// parse table file generally
 Mat2D read_usv(const std::string& path) {
   const char sep = '\t';
   bool is_seperator[256] = {false};
   is_seperator[(unsigned int)sep] = true;
   double val;
   Double1D V;
-  int j{0}, i{0}, k1{0}, k2{0}, begin{0};
+  int j{0}, i{0}, k1{0}, k2{0}, begin{0}, k{0};
 
   std::ifstream fin(path);
   std::string line;
   while (std::getline(fin, line)) {
-    k1 = 0, k2 = 0;
     for (begin = 0, i = 0; i <= (int)line.size(); i++) {
       if (is_seperator[(uint8_t)line[i]] || i == (int)line.size()) {
         val = std::stod(std::string(line.begin() + begin, line.begin() + i));
@@ -265,10 +263,70 @@ Mat2D read_usv(const std::string& path) {
         }
       }
     }
-    if (k1 > 0 && k2 > 0) {
-      if (k1 != k2) cao.error("the columns are not aligned! =>" + path);
+    if (j > 0 && k1 > 0 && k2 > 0) {
+      if (k1 != k2) cao.error("the columns are not aligned!\n =>" + path);
+      k = k1;
+      k1 = 0, k2 = 0;
     }
     j++;
   }
-  return Eigen::Map<Mat2D>(V.data(), j, k1);
+  return Eigen::Map<Mat2D>(V.data(), j, k);
+}
+
+// parse .eigvals file
+Mat1D read_eigvals(const std::string& path) {
+  double val;
+  Double1D V;
+  std::ifstream fin(path);
+  std::string line;
+  while (getline(fin, line)) {
+    val = std::stod(line);
+    V.push_back(val);
+  }
+  return Eigen::Map<Mat1D>(V.data(), V.size());
+}
+
+// parse .eigvecs or .loadings file assume rows and cols are known
+Mat2D read_eigvecs(const std::string& path, int n, int k) {
+  Mat2D M(n, k);
+  const char sep = '\t';
+  bool is_seperator[256] = {false};
+  is_seperator[(unsigned int)sep] = true;
+  int begin{0}, j{0}, i{0}, k1{0};
+  std::ifstream fin(path);
+  std::string line;
+  while (std::getline(fin, line)) {
+    for (begin = 0, k1 = 0, i = 0; i <= (int)line.size(); i++) {
+      if (is_seperator[(uint8_t)line[i]] || i == (int)line.size()) {
+        M(j, k1) =
+            std::stod(std::string(line.begin() + begin, line.begin() + i));
+        begin = i + 1;
+        k1++;
+      }
+    }
+    if (k1 != k) cao.error("the columns are not aligned!\n =>" + path);
+    j++;
+  }
+
+  if (j != n)
+    cao.error("the number of rows differs from the input!\n =>" + path);
+
+  return M;
+}
+
+// parse AF
+Mat1D read_frq(const std::string& path) {
+  const std::string sep{"\t"};
+  double val;
+  Double1D V;
+  std::ifstream fin(path);
+  std::string line;
+  while (getline(fin, line)) {
+    auto tokens = split_string(line, sep);
+    if ((int)tokens.size() != 7)
+      cao.error("the input file is not valid!\n => " + path);
+    val = std::stod(tokens[6]);
+    V.push_back(val);
+  }
+  return Eigen::Map<Mat1D>(V.data(), V.size());
 }
