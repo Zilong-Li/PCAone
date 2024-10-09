@@ -94,8 +94,8 @@ std::tuple<Int2D, Int2D> get_target_snp_idx(const SNPld& snp_t,
   }
   if (!std::is_sorted(ord.begin(), ord.end()))
     cao.error(
-        "the association file may be not sorted or not matching the order of "
-        ".kept.bim file!");
+        "the association file may be not sorted, hence not matching the bim"
+        "file ");
 
   Int2D idx_per_chr(snp_t.chr.size());
   Int2D bp_per_chr(snp_t.chr.size());

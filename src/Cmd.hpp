@@ -80,8 +80,6 @@ class Param {
   bool mev = true;
   bool out_of_core = false;  // otherwise load all matrix into RAM.
   int  ploidy = 2;
-  bool haploid = false;
-  bool diploid = false;
   bool keepsnp = false;
   bool savebim = false;
 

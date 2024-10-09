@@ -15,6 +15,7 @@ using namespace popl;
 
 Param::Param(int argc, char **argv) {
   // clang-format off
+  bool haploid = false;
   std::string copyr{"PCA All In One (v" + (std::string)VERSION + ")        https://github.com/Zilong-Li/PCAone\n" +
                     "(C) 2021-2024 Zilong Li        GNU General Public License v3\n" +
   "\x1B[32m\n" +
@@ -61,8 +62,8 @@ Param::Param(int argc, char **argv) {
                                       "2: projection by solving the least squares system Vx=g, skipping missing genotypes\n"
                                       "3: projection by Augmentation, Decomposition and Procrusters transformation\n",
                        project, &project);
+  opts.add<Value<std::string>>("", "match-bim", "the plink-like bim file with the 7th column being the frequency (.mbim)", "", &filebim);
   opts.add<Switch>("", "ld", "output a binary matrix for downstream LD related analysis", &ld);
-  opts.add<Value<std::string>>("", "ld-bim", "variants information in plink bim file related to LD matrix", "", &filebim);
   opts.add<Value<double>>("", "ld-r2", "r2 cutoff for LD-based pruning. (usually 0.2)", ld_r2, &ld_r2);
   opts.add<Value<uint>>("", "ld-bp", "physical distance threshold in bases for LD. (usually 1000000)", ld_bp, &ld_bp);
   opts.add<Value<int>>("", "ld-stats", "statistics to calculate LD r2 for pairwise SNPs.\n"
@@ -144,8 +145,8 @@ Param::Param(int argc, char **argv) {
           "not supporting PCAone --svd 2 for PCAngsd algorithm yet! "
           "please use --svd 1 or 0 option");
     if (file_t == FileType::BEAGLE) pcangsd = true;
-    if ((file_t == FileType::PLINK || file_t == FileType::BGEN) && !haploid)
-      diploid = true;
+    if (haploid && (file_t == FileType::PLINK || file_t == FileType::BGEN))
+      ploidy = 1;
     if (emu || pcangsd) {
       impute = true;
       if (svd_t == SvdType::PCAoneAlg2)

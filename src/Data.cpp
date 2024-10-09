@@ -102,11 +102,11 @@ void Data::filter_snps_resize_F() {
 
 // only works for plink inputs
 void Data::save_snps_in_bim() {
-  cao.print(tick.date(), "save kept sites in bim file and params.perm is",
+  cao.print(tick.date(), "save matched sites in .mbim file and params.perm is",
             params.perm);
   // could be permuted
   std::ifstream ifs_bim(params.filein + ".bim");
-  std::ofstream ofs_bim(params.fileout + ".kept.bim");
+  std::ofstream ofs_bim(params.fileout + ".mbim");
   std::string line;
   int i, j;
   if (params.perm && params.out_of_core) {
@@ -186,10 +186,7 @@ void Data::write_eigs_files(const Mat1D &S, const Mat2D &U, const Mat2D &V) {
   std::ofstream outu(params.fileout + ".eigvecs");
   Eigen::IOFormat fmt(6, Eigen::DontAlignCols, "\t", "\n");
   if (outs.is_open()) {
-    if (params.diploid)
-      outs << (2 * S).format(fmt) << '\n';
-    else
-      outs << S.format(fmt) << '\n';
+    outs << (S * params.ploidy).format(fmt) << '\n';
   }
   if (outu.is_open()) outu << U.format(fmt) << '\n';
   if (params.printv) {
