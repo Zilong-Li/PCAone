@@ -46,5 +46,5 @@ res <- do.call(rbind.data.frame, res)
 res$bin <- res$bin * (window / nbins)
 colnames(res) <- c("chr", "distance", "num", "avg_R2", "std")
 
-write.table(res, fout, sep = "\t", col.names = F, row.names = F, quote = F)
+write.table(res, fout, sep = "\t", row.names = F, quote = F)
 

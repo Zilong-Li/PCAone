@@ -2,7 +2,7 @@
 #+subtitle: Version 0.4.7 
 #+author: Zilong Li 
 #+email: zilong.dk@gmail.com
-#+options: toc:2 num:t email:t
+#+options: toc:2 num:nil email:t
 #+latex_compiler: xelatex
 #+latex_class: article
 #+latex_class_options: [a4paper, 11pt]
@@ -14,8 +14,6 @@
 #+latex_header: \usepackage{upquote}
 #+latex_header: \hypersetup{colorlinks=true, linkcolor=blue}
 #+latex: \clearpage
-
-* Bad :noexport:
 
 [[https://github.com/Zilong-Li/PCAone/actions/workflows/linux.yml/badge.svg]]
 [[https://github.com/Zilong-Li/PCAone/actions/workflows/mac.yml/badge.svg]]
@@ -462,6 +460,12 @@ Currently, the LD R2 for pairwise SNPs within a window can be outputted via =--p
          -o adj
 #+end_src
 
+We provide the
+[[https://github.com/Zilong-Li/PCAone/blob/main/scripts/calc_decay_bin.R][calc_decay_bin.R]]
+script to parse the output file =.ld.gz= and calculate the average R2 for each
+bin as well as plotting. We also provide the nextflow
+[[https://github.com/Zilong-Li/PCAone/blob/main/workflows/ld.nf][ld.nf]] for
+benchmarking the LD statistics.
 
 ** Prunning based on Ancestry-Adjusted LD
 
