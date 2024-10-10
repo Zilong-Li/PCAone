@@ -65,7 +65,8 @@ void FileBed::read_all() {
     filter_snps_resize_F();  // filter and resize nsnps
   } else {
     // read frq from original set
-    cao.print(tick.date(), "read frequency of SNPs from modified bim (.mbim)");
+    cao.print(tick.date(),
+              "read frequency of SNPs from the extended bim (.mbim)");
     F = read_frq(params.filebim);
     if (F.size() != nsnps)
       cao.error("the number of sites doesn't match each other");
@@ -94,10 +95,9 @@ void FileBed::read_all() {
     }
     // do centering and initialing
     for (j = 0; j < nsamples; ++j) {
-      if (G(j, i) == BED_MISSING_VALUE)
+      if (G(j, i) != BED_MISSING_VALUE) G(j, i) -= F(i);
+      if ((G(j, i) == BED_MISSING_VALUE) && params.project <= 1)
         G(j, i) = 0.0;  // impute to mean
-      else
-        G(j, i) -= F(i);
     }
   }
 

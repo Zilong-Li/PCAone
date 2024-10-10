@@ -40,6 +40,18 @@ using UMapIntString = std::unordered_map<int, std::string>;
 using Pds = std::pair<double, std::string>;
 using UMapIntPds = std::unordered_map<int, Pds>;
 
+/**
+ * Recode genotype codes to allelic dosages of first allele in .bim file (A1),
+ * similarly to .raw files generated with '--recode A' in PLINK. A coding for
+ * the missing value needs to be provided in 'na_value'.
+ * 00 ->  2 (copies of A1)
+ * 10 ->  1 (copy of A1)
+ * 11 ->  0 (copy of A1)
+ * 01 ->  3 (missing)
+ */
+const double BED_MISSING_VALUE = -9;
+const double BED2GENO[4] = {1, BED_MISSING_VALUE, 0.5, 0};
+
 inline UMapIntInt vector2map(const Int1D& v) {
   UMapIntInt m;
   int i = 0;

@@ -46,8 +46,7 @@ int main(int argc, char* argv[]) {
       data = new FileBed(params);
     }
 
-    data->prepare();
-    run_ld_stuff(params, data);
+    run_ld_stuff(data, params);
     delete data;
     cao.print(tick.date(), "total elapsed wall time:", tick.abstime(),
               "seconds");
@@ -57,9 +56,7 @@ int main(int argc, char* argv[]) {
 
   // particular case for projection
   if ((params.project > 0) && (params.file_t == FileType::PLINK)) {
-    params.memory = 0, params.out_of_core = false;
     data = new FileBed(params);
-    data->prepare();
     run_projection(data, params);
     delete data;
     cao.print(tick.date(), "total elapsed wall time:", tick.abstime(),

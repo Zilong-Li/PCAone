@@ -463,8 +463,9 @@ void ld_r2_big(const Mat2D& G, const SNPld& snp, const std::string& filebim,
   gzclose(gzfp);
 }
 
-void run_ld_stuff(const Param& params, Data* data) {
+void run_ld_stuff(Data* data, const Param& params) {
   cao.print(tick.date(), "run LD stuff");
+  data->prepare();
   SNPld snp;  // SNPs information for LD prunning
   get_snp_pos_bim(snp, params.filebim);
 
@@ -480,7 +481,7 @@ void run_ld_stuff(const Param& params, Data* data) {
     } else {
       if (!params.fileU.empty()) {
         // get the residuals of small subset G
-        auto U = read_usv(params.fileU);
+        Mat2D U = read_usv(params.fileU);
         // G is already centered. no need to do centering afterwards
         data->G =
             (Mat2D::Identity(U.rows(), U.rows()) - U * U.transpose()) * data->G;

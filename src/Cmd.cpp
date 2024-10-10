@@ -20,9 +20,9 @@ Param::Param(int argc, char **argv) {
                     "(C) 2021-2024 Zilong Li        GNU General Public License v3\n" +
   "\x1B[32m\n" +
                     "Usage: use plink files as input and apply default window-based RSVD method\n" +
-                    "       PCAone --bfile plink -m 2 \n\n" +
+                    "       PCAone --bfile plink -n 20 \n\n" +
                     "       use csv file as input and apply the Implicitly Restarted Arnoldi Method\n" +
-                    "       PCAone --csv csv.zst --svd 0 -m 2 \n" +
+                    "       PCAone --csv csv.zst --svd 0 \n" +
   "\033[0m\n"};
   OptionParser opts(copyr + "Main options");
   auto help_opt = opts.add<Switch>("h", "help", "print all options including hidden advanced options");
@@ -46,6 +46,7 @@ Param::Param(int argc, char **argv) {
   opts.add<Value<uint>>("p", "maxp", "maximum number of power iterations for RSVD algorithm", maxp, &maxp);
   opts.add<Switch>("S", "no-shuffle", "do not shuffle columns of data for --svd 2 (if not locally correlated)", &noshuffle);
   opts.add<Switch>("v", "verbose", "verbose message output", &verbose);
+  opts.add<Switch>("V", "printv", "output the right eigenvectors with suffix .loadings", &printv);
   opts.add<Value<uint>, Attribute::advanced>("w", "batches", "the number of mini-batches used by --svd 2", bands, &bands);
   opts.add<Value<uint>>("C", "scale", "do scaling for input file.\n"
                         "0: do just centering\n"
@@ -55,14 +56,13 @@ Param::Param(int argc, char **argv) {
   opts.add<Switch>("", "emu", "use EMU algorithm for genotype input with missingness", &emu);
   opts.add<Switch>("", "pcangsd", "use PCAngsd algorithm for genotype likelihood input", &pcangsd);
   opts.add<Value<double>>("", "maf", "exclude variants with MAF lower than this value", maf, &maf);
-  opts.add<Switch>("V", "printv", "output the right eigenvectors with suffix .loadings", &printv);
   opts.add<Value<int>>("", "project", "project the new samples onto the existing PCs.\n"
                                       "0: disabled\n"
-                                      "1: by multiplying the loadings, assuming no missing genotypes\n"
-                                      "2: by solving the least squares system Vx=g, skipping missing genotypes\n"
+                                      "1: by multiplying the loadings with mean imputation for missing genotypes\n"
+                                      "2: by solving the least squares system Vx=g. skip sites with missingness\n"
                                       "3: by Augmentation, Decomposition and Procrusters transformation\n",
                        project, &project);
-  opts.add<Value<std::string>>("", "match-bim", "the plink-like bim file with the 7th column being the frequency (.mbim)", "", &filebim);
+  opts.add<Value<std::string>>("", "match-bim", "the .mbim file to be matched, where the 7th column is allele frequency", "", &filebim);
   opts.add<Switch>("", "ld", "output a binary matrix for downstream LD related analysis", &ld);
   opts.add<Value<double>>("", "ld-r2", "r2 cutoff for LD-based pruning. (usually 0.2)", ld_r2, &ld_r2);
   opts.add<Value<uint>>("", "ld-bp", "physical distance threshold in bases for LD. (usually 1000000)", ld_bp, &ld_bp);
@@ -187,7 +187,12 @@ Param::Param(int argc, char **argv) {
       if (fileV.empty() || fileS.empty())
         throw std::invalid_argument(
             "please use --read-S and --read-V together with --project");
+      if (project > 2)
+        throw std::invalid_argument(
+            "more projection methods are coming. stay tuned!");
       impute = true;
+      memory = 0;
+      out_of_core = false;
     }
   } catch (const popl::invalid_option &e) {
     std::cerr << "Invalid Option Exception: " << e.what() << "\n";

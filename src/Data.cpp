@@ -189,12 +189,12 @@ void Data::write_eigs_files(const Mat1D &S, const Mat2D &U, const Mat2D &V) {
     outs << (S * params.ploidy).format(fmt) << '\n';
   }
   if (outu.is_open()) outu << U.format(fmt) << '\n';
-  if (params.printv) {
+  if (params.project == 0 && params.printv) {
     save_snps_in_bim();
     std::ofstream outv(params.fileout + ".loadings");
     if (outv.is_open()) outv << V.format(fmt) << '\n';
   }
-  cao.print(tick.date(), "saved eigen vectors and values");
+  cao.print(tick.date(), "eigen vectors and values saved");
 }
 
 void Data::write_residuals(const Mat1D &S, const Mat2D &U, const Mat2D &VT) {
@@ -298,7 +298,8 @@ void Data::standardize_E() {
   for (uint i = 0; i < nsnps; ++i) {
     for (uint j = 0; j < nsamples; ++j) {
       // in case denominator is too small.
-      if (sqrt(F(i) * (1 - F(i))) > VAR_TOL) G(j, i) /= sqrt(F(i) * (1 - F(i)));
+      if (G(j, i) != BED_MISSING_VALUE && sqrt(F(i) * (1 - F(i))) > VAR_TOL)
+        G(j, i) /= sqrt(F(i) * (1 - F(i)));
     }
   }
 }

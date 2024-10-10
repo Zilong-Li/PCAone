@@ -14,7 +14,6 @@ struct SNPld {
   std::vector<int> we;  // the number of SNPs (including lead SNP) in a window
 };
 
-
 // get the chr, bp, id
 struct BIM {
   std::string data;
@@ -69,6 +68,6 @@ void ld_r2_big(const Mat2D& G, const SNPld& snp, const std::string& filebim,
 void ld_r2_small(Data* data, const SNPld& snp, const std::string& filebim,
                  const std::string& fileout);
 
-void run_ld_stuff(const Param& params, Data* data);
+void run_ld_stuff(Data* data, const Param& params);
 
 #endif  // PCAONE_LD_
