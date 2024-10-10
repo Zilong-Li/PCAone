@@ -1,3 +1,9 @@
+/*******************************************************************************
+ * @file        https://github.com/Zilong-Li/PCAone/src/LD.cpp
+ * @author      Zilong Li
+ * Copyright (C) 2024. Use of this code is governed by the LICENSE file.
+ ******************************************************************************/
+
 #include "Projection.hpp"
 
 #include "Utils.hpp"
@@ -5,13 +11,14 @@
 /**
  * options:
  * 1: simple, assume no missingness
- * 2: smartPCA, solving g=Vx, can take missing genotypes
+ * 2: like smartPCA, solving g=Vx, can take missing genotypes
  * 3: OADP, laser2, can take missing genotypes
  */
 void run_projection(Data* data, const Param& params) {
+  check_bim_vs_mbim(params.filein + ".bim", params.filebim);
   cao.print(tick.date(), "run projection");
-  data->prepare();
 
+  data->prepare();
   data->standardize_E();
   double p_miss = (double)data->C.count() / (double)data->C.size();
 
@@ -52,10 +59,10 @@ void run_projection(Data* data, const Param& params) {
     } else {
       Int1D idx;
       for (uint i = 0; i < data->nsamples; i++) {
-        // find missing snps for sample i
+        // find non-missing snps for sample i
         idx.clear();
         for (int j = 0; j < V.rows(); j++) {
-          if (data->C(j * data->nsamples + i)) idx.push_back(j);
+          if (!data->C(j * data->nsamples + i)) idx.push_back(j);
         }
         Eigen::BDCSVD<Mat2D> svd(V(idx, Eigen::all),
                                  Eigen::ComputeThinU | Eigen::ComputeThinV);

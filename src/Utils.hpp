@@ -49,8 +49,7 @@ Eigen::VectorXd minSSE(const Mat2D& X, const Mat2D& Y);
 
 double mev(const Mat2D& X, const Mat2D& Y);
 
-void mev_rmse_byk(const Mat2D& X, const Mat2D& Y, Mat1D& Vm,
-                  Mat1D& Vr);
+void mev_rmse_byk(const Mat2D& X, const Mat2D& Y, Mat1D& Vm, Mat1D& Vr);
 
 double get_median(std::vector<double> v);
 
@@ -70,4 +69,6 @@ Mat2D read_eigvecs(const std::string& path, int n, int k);
 
 Mat1D read_frq(const std::string& path);
 
+void check_bim_vs_mbim(const std::string& bim_file,
+                       const std::string& mbim_file);
 #endif  // PCAONE_UTILES_

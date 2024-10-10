@@ -1,4 +1,8 @@
 - v0.4.7
+  - *breaking*: rename option =--ld-bim= as =--match-bim=
+  - projection support via =--project=
+    - 1: projection by multiplying the loadings with mean imputation for missing genotypes
+    - 2: projection by solving the least squares system $Vx=g$. sites with missingness are skipped like smartPCA. 
   - new options: =--read-U, --read-V, --read-S=
   - can do LD for subset plink file
     

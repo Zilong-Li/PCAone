@@ -6,8 +6,8 @@
 #+latex_compiler: xelatex
 #+latex_class: article
 #+latex_class_options: [a4paper, 11pt]
-#+latex_header: \usepackage{fontspec}
-#+latex_header: \setmainfont{RobotoMono-VariableFont_wght}[Path=/usr/local/share/fonts/TTF/]
+# #+latex_header: \usepackage{fontspec}
+# #+latex_header: \setmainfont{RobotoMono-VariableFont_wght}[Path=/usr/local/share/fonts/TTF/]
 #+latex_header: \usepackage[margin=0.9in,bmargin=1.0in,tmargin=1.0in]{geometry}
 #+latex_header: \usepackage{amssymb}
 #+latex_header: \usepackage{adjustbox}
@@ -62,6 +62,7 @@ missingness and uncertainty. The PDF manual can be downloaded [[https://github.c
   - [[#output-formats][Output formats]]
   - [[#memory-efficient-modes][Memory-efficient modes]]
   - [[#data-normalization][Data Normalization]]
+  - [[#projection][Projection]]
   - [[#ancestry-adjusted-ld-matrix][Ancestry-Adjusted LD matrix]]
   - [[#report-ld-statistics][Report LD statistics]]
   - [[#prunning-based-on-ancestry-adjusted-ld][Prunning based on Ancestry-Adjusted LD]]
@@ -261,6 +262,7 @@ Main options:
   -p, --maxp arg (=40)           maximum number of power iterations for RSVD algorithm
   -S, --no-shuffle               do not shuffle columns of data for --svd 2 (if not locally correlated)
   -v, --verbose                  verbose message output
+  -V, --printv                   output the right eigenvectors with suffix .loadings
   -C, --scale arg (=0)           do scaling for input file.
                                  0: do just centering
                                  1: do log transformation eg. log(x+0.01) for RNA-seq data
@@ -268,13 +270,12 @@ Main options:
   --emu                          use EMU algorithm for genotype input with missingness
   --pcangsd                      use PCAngsd algorithm for genotype likelihood input
   --maf arg (=0)                 exclude variants with MAF lower than this value
-  -V, --printv                   output the right eigenvectors with suffix .loadings
   --project arg (=0)             project the new samples onto the existing PCs.
                                  0: disabled
-                                 1: by multiplying the loadings, assuming no missing genotypes
-                                 2: by solving the least squares system Vx=g, skipping missing genotypes
+                                 1: by multiplying the loadings with mean imputation for missing genotypes
+                                 2: by solving the least squares system Vx=g. skip sites with missingness
                                  3: by Augmentation, Decomposition and Procrusters transformation
-  --match-bim arg                the plink-like bim file with the 7th column being the frequency (.mbim)
+  --match-bim arg                the .mbim file to be matched, where the 7th column is allele frequency
   --ld                           output a binary matrix for downstream LD related analysis
   --ld-r2 arg (=0)               r2 cutoff for LD-based pruning. (usually 0.2)
   --ld-bp arg (=0)               physical distance threshold in bases for LD. (usually 1000000)
@@ -330,7 +331,7 @@ the eigenvalue of corresponding PC.
 
 Features Loadings are saved in file with suffix =.loadings=. Each row
 represents a feature and each column represents a corresponding PC. Use
-=--printv= option to print it.
+=--printv= option to output it.
 
 *** Variants infomation
 
@@ -350,11 +351,11 @@ sequence of *M* blocks of *N x 4* bytes each, where *M* is the number of
 variants and *N* is the number of samples. The first block corresponds to
 the first marker in the =.mbim= file, etc.
 
-*** LD r2
+*** LD R2
 
-The LD r2 for pairwise SNPs within a window can be outputted to a file
-with suffix =ld.gz= via =--print-r2= option. This file uses the same format
-as the one [[https://www.cog-genomics.org/plink/1.9/ld#r][plink]] used.
+The LD R2 for pairwise SNPs within a window can be outputted to a file
+with suffix =ld.gz= via =--print-r2= option. This file uses the same long
+format as the one [[https://www.cog-genomics.org/plink/1.9/ld#r][plink]] used.
 
 ** Memory-efficient modes
 
@@ -408,6 +409,29 @@ Additionally, there are 3 different normalization method implemented with
   
 One should choose proper normalization method for specific type of data.
 
+** Projection
+
+Project new samples onto existing PCs is supported with =--project= option.
+First, we run PCAone on a set of reference samples and output the loadings:
+
+#+begin_src shell
+PCAone -b ref_set -k 10 --printv -o ref
+#+end_src
+
+Then, we need to read in the SNPs loadings from the ref set (=--read-V=) and
+its scaling factors (=--read-S=) as well as the allele frequencies form the
+=.mbim= file via =--match-bim=. Here is the example command to project new
+target samples and get the PCs coordinates.
+
+#+begin_src shell
+PCAone -b new_sample \
+       --match-bim ref.mbim \
+       --read-S ref.eigvals \
+       --read-V ref.loadings \
+       --project 1 \  ## check the manual on projection methods
+       -o sample
+#+end_src
+
 ** Ancestry-Adjusted LD matrix
 
 LD patterns vary across diverse ancestry and structured groups, and
@@ -428,7 +452,7 @@ file with suffix =.residuals=.
 
 ** Report LD statistics
 
-Currently, the LD r2 for pairwise SNPs within a window can be outputted via =--print-r2= option.
+Currently, the LD R2 for pairwise SNPs within a window can be outputted via =--print-r2= option.
 
 #+begin_src shell
 ./PCAone -B adj.residuals \
