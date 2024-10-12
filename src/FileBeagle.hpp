@@ -14,8 +14,7 @@ class FileBeagle : public Data {
     original = buffer = (char *)calloc(bufsize, sizeof(char));
 
     if (params.nsnps > 0 && params.nsamples > 0) {
-      cao << tick.date() << "use nsamples and nsnps given by user."
-          << std::endl;
+      cao << tick.date() << "use nsamples and nsnps given by user." << std::endl;
       nsamples = params.nsamples;
       nsnps = params.nsnps;
     } else {
@@ -41,8 +40,7 @@ class FileBeagle : public Data {
     }
 
     P = Mat2D::Zero(nsamples * 2, nsnps);  // Mat2D is column major
-    cao << tick.date() << "N samples is " << nsamples << ". M snps is " << nsnps
-        << std::endl;
+    cao << tick.date() << "N samples is " << nsamples << ". M snps is " << nsnps << std::endl;
   }
 
   ~FileBeagle() {}
@@ -51,11 +49,9 @@ class FileBeagle : public Data {
   // below are for blockwise, remain for future.
   virtual void check_file_offset_first_var() {}
 
-  virtual void read_block_initial(uint64 start_idx, uint64 stop_idx,
-                                  bool standardize = false) {}
+  virtual void read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize = false) {}
 
-  virtual void read_block_update(uint64 start_idx, uint64 stop_idx,
-                                 const Mat2D &U, const Mat1D &svals,
+  virtual void read_block_update(uint64 start_idx, uint64 stop_idx, const Mat2D &U, const Mat1D &svals,
                                  const Mat2D &VT, bool standardize) {}
 
  private:

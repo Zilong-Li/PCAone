@@ -23,26 +23,21 @@ void Data::prepare() {
     // some common settings
     if (params.svd_t == SvdType::IRAM) {
       // ram of arnoldi = n * b * 8 / 1024 kb
-      params.blocksize =
-          (uint)ceil((double)params.memory * 134217728 / nsamples);
+      params.blocksize = (uint)ceil((double)params.memory * 134217728 / nsamples);
     } else {
       // ram of halko = (3*n*l + 2*m*l + 5*m + n*b)*8/1024 Kb
       uint l = params.k + params.oversamples;
-      double m =
-          (double)(3 * nsamples * l + 2 * nsnps * l + 5 * nsnps) / 134217728;
+      double m = (double)(3 * nsamples * l + 2 * nsnps * l + 5 * nsnps) / 134217728;
       if (params.memory > 1.1 * m)
         m = 0;
       else
-        cao.warn("minimum RAM required is " + to_string(m) +
-                 " GB. trying to allocate more RAM.");
+        cao.warn("minimum RAM required is " + to_string(m) + " GB. trying to allocate more RAM.");
       params.blocksize = (unsigned int)ceil(
-          (double)((m + params.memory) * 134217728 - 3 * nsamples * l -
-                   2 * nsnps * l - 5 * nsnps) /
+          (double)((m + params.memory) * 134217728 - 3 * nsamples * l - 2 * nsnps * l - 5 * nsnps) /
           nsamples);
     }
     nblocks = (unsigned int)ceil((double)nsnps / params.blocksize);
-    cao.print(tick.date(),
-              "initial setting by -m/--memory: blocksize =", params.blocksize,
+    cao.print(tick.date(), "initial setting by -m/--memory: blocksize =", params.blocksize,
               ", nblocks =", nblocks, ", factor =", bandFactor);
     if (nblocks == 1) {
       params.out_of_core = false;
@@ -55,13 +50,11 @@ void Data::prepare() {
           params.blocksize = (unsigned int)ceil((double)nsnps / params.bands);
         } else {
           bandFactor = (unsigned int)ceil((double)nblocks / params.bands);
-          params.blocksize =
-              (unsigned int)ceil((double)nsnps / (params.bands * bandFactor));
+          params.blocksize = (unsigned int)ceil((double)nsnps / (params.bands * bandFactor));
         }
         nblocks = (unsigned int)ceil((double)nsnps / params.blocksize);
         cao.print(tick.date(), "after adjustment by PCAone: -w =", params.bands,
-                  ", blocksize =", params.blocksize, ", nblocks =", nblocks,
-                  ", factor =", bandFactor);
+                  ", blocksize =", params.blocksize, ", nblocks =", nblocks, ", factor =", bandFactor);
       }
       start.resize(nblocks);
       stop.resize(nblocks);
@@ -71,11 +64,8 @@ void Data::prepare() {
         stop[i] = stop[i] >= nsnps ? nsnps - 1 : stop[i];
       }
       // initial some variables for blockwise for specific files here.
-      if ((params.file_t != FileType::CSV) &&
-          (params.file_t != FileType::BINARY))
-        F = Mat1D::Zero(nsnps);
-      if (params.file_t == FileType::PLINK)
-        centered_geno_lookup = Arr2D::Zero(4, nsnps);  // for plink input
+      if ((params.file_t != FileType::CSV) && (params.file_t != FileType::BINARY)) F = Mat1D::Zero(nsnps);
+      if (params.file_t == FileType::PLINK) centered_geno_lookup = Arr2D::Zero(4, nsnps);  // for plink input
     }
   }
 }
@@ -92,8 +82,7 @@ void Data::filter_snps_resize_F() {
       }
     }
     nsnps = keepSNPs.size();  // new number of SNPs
-    cao.print(tick.date(), "number of SNPs after filtering by MAF >",
-              params.maf, ":", nsnps);
+    cao.print(tick.date(), "number of SNPs after filtering by MAF >", params.maf, ":", nsnps);
     if (nsnps < 1) cao.error("no SNPs left after filtering!");
     // resize F
     F.noalias() = Fnew.head(nsnps);
@@ -102,8 +91,7 @@ void Data::filter_snps_resize_F() {
 
 // only works for plink inputs
 void Data::save_snps_in_bim() {
-  cao.print(tick.date(), "save matched sites in .mbim file and params.perm is",
-            params.perm);
+  cao.print(tick.date(), "save matched sites in .mbim file and params.perm is", params.perm);
   // could be permuted
   std::ifstream ifs_bim(params.filein + ".bim");
   std::ofstream ofs_bim(params.fileout + ".mbim");
@@ -156,15 +144,13 @@ void Data::calcu_vt_initial(const Mat2D &T, Mat2D &VT, bool standardize) {
     actual_block_size = stop[i] - start[i] + 1;
     // G (nsamples, actual_block_size)
     read_block_initial(start[i], stop[i], standardize);
-    VT.block(0, start[i], T.rows(), actual_block_size) =
-        T * G.leftCols(actual_block_size);
+    VT.block(0, start[i], T.rows(), actual_block_size) = T * G.leftCols(actual_block_size);
   }
 
   return;
 }
 
-void Data::calcu_vt_update(const Mat2D &T, const Mat2D &U, const Mat1D &svals,
-                           Mat2D &VT, bool standardize) {
+void Data::calcu_vt_update(const Mat2D &T, const Mat2D &U, const Mat1D &svals, Mat2D &VT, bool standardize) {
   if (nblocks == 1) {
     cao.error("only one block exists. please use in-memory mode instead");
   }
@@ -174,8 +160,7 @@ void Data::calcu_vt_update(const Mat2D &T, const Mat2D &U, const Mat1D &svals,
     actual_block_size = stop[i] - start[i] + 1;
     // G (nsamples, actual_block_size)
     read_block_update(start[i], stop[i], U, svals, VT, standardize);
-    VT.block(0, start[i], T.rows(), actual_block_size) =
-        T * G.leftCols(actual_block_size);
+    VT.block(0, start[i], T.rows(), actual_block_size) = T * G.leftCols(actual_block_size);
   }
 
   return;
@@ -200,11 +185,9 @@ void Data::write_eigs_files(const Mat1D &S, const Mat2D &U, const Mat2D &V) {
 void Data::write_residuals(const Mat1D &S, const Mat2D &U, const Mat2D &VT) {
   // we always filter snps for in-core mode
   if (params.ld_stats == 1) {
-    cao.print(tick.date(),
-              "ld-stats=1: calculate standardized genotype matrix!");
+    cao.print(tick.date(), "ld-stats=1: calculate standardized genotype matrix!");
   } else {
-    cao.print(tick.date(),
-              "ld-stats=0: calculate the ancestry adjusted LD matrix!");
+    cao.print(tick.date(), "ld-stats=0: calculate the ancestry adjusted LD matrix!");
   }
   std::setlocale(LC_ALL, "C");
   std::ios_base::sync_with_stdio(false);
@@ -217,9 +200,8 @@ void Data::write_residuals(const Mat1D &S, const Mat2D &U, const Mat2D &VT) {
   Eigen::VectorXf fg;
   uint64 idx;
   if (!params.out_of_core) {
-    if (params.ld_stats == 0)
-      G -= U * S.asDiagonal() * VT;     // get residuals matrix
-    G.rowwise() -= G.colwise().mean();  // Centering
+    if (params.ld_stats == 0) G -= U * S.asDiagonal() * VT;  // get residuals matrix
+    G.rowwise() -= G.colwise().mean();                       // Centering
     for (Eigen::Index ib = 0; ib < G.cols(); ib++) {
       fg = G.col(ib).cast<float>();
       if (params.perm) {
@@ -234,8 +216,7 @@ void Data::write_residuals(const Mat1D &S, const Mat2D &U, const Mat2D &VT) {
     for (uint b = 0; b < nblocks; ++b) {
       read_block_initial(start[b], stop[b], false);
       // G (nsamples, actual_block_size)
-      if (params.ld_stats == 0)
-        G -= U * S.asDiagonal() * VT.middleCols(start[b], G.cols());
+      if (params.ld_stats == 0) G -= U * S.asDiagonal() * VT.middleCols(start[b], G.cols());
       G.rowwise() -= G.colwise().mean();  // Centering
       for (Eigen::Index ib = 0; ib <= stop[b] - start[b]; ib++, i++) {
         fg = G.col(ib).cast<float>();
@@ -304,8 +285,7 @@ void Data::standardize_E() {
   }
 }
 
-void Data::pcangsd_standardize_E(const Mat2D &U, const Mat1D &svals,
-                                 const Mat2D &VT) {
+void Data::pcangsd_standardize_E(const Mat2D &U, const Mat1D &svals, const Mat2D &VT) {
   cao.print(tick.date(), "begin to standardize the matrix for pcangsd");
   uint ks = svals.size();
   Dc = Mat1D::Zero(nsamples);

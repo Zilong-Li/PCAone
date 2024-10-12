@@ -53,11 +53,9 @@ void mev_rmse_byk(const Mat2D& X, const Mat2D& Y, Mat1D& Vm, Mat1D& Vr);
 
 double get_median(std::vector<double> v);
 
-std::vector<std::string> split_string(const std::string& s,
-                                      const std::string& separators);
+std::vector<std::string> split_string(const std::string& s, const std::string& separators);
 
-void make_plink2_eigenvec_file(int K, std::string fout, const std::string& fin,
-                               const std::string& fam);
+void make_plink2_eigenvec_file(int K, std::string fout, const std::string& fin, const std::string& fam);
 
 bool isZstdCompressed(const char* filename);
 
@@ -69,6 +67,5 @@ Mat2D read_eigvecs(const std::string& path, int n, int k);
 
 Mat1D read_frq(const std::string& path);
 
-void check_bim_vs_mbim(const std::string& bim_file,
-                       const std::string& mbim_file);
+void check_bim_vs_mbim(const std::string& bim_file, const std::string& mbim_file);
 #endif  // PCAONE_UTILES_

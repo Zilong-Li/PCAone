@@ -28,24 +28,18 @@ void run_projection(Data* data, const Param& params) {
           "there are missing genotypes. recommend the alternative method "
           "--project 2 or 3.");
     // get 1 / Singular = sqrt(Eigen * M)
-    Mat1D S = 1.0 / (read_eigvals(params.fileS) * data->nsnps / params.ploidy)
-                        .array()
-                        .sqrt();
+    Mat1D S = 1.0 / (read_eigvals(params.fileS) * data->nsnps / params.ploidy).array().sqrt();
     int pcs = S.size();
     // G V = U D
-    Mat2D V =
-        read_eigvecs(params.fileV, data->nsnps, pcs) * S.asDiagonal();  // M x K
+    Mat2D V = read_eigvecs(params.fileV, data->nsnps, pcs) * S.asDiagonal();  // M x K
     Mat2D U = data->G * V;
 
     data->write_eigs_files(1.0 / S.array(), U, V);
   } else if (params.project == 2) {
     // get  Singular = sqrt(Eigen * M)
-    Mat1D S = (read_eigvals(params.fileS) * data->nsnps / params.ploidy)
-                  .array()
-                  .sqrt();
+    Mat1D S = (read_eigvals(params.fileS) * data->nsnps / params.ploidy).array().sqrt();
     int pcs = S.size();
-    Mat2D V =
-        read_eigvecs(params.fileV, data->nsnps, pcs) * S.asDiagonal();  // M x K
+    Mat2D V = read_eigvecs(params.fileV, data->nsnps, pcs) * S.asDiagonal();  // M x K
     Mat2D U(data->nsamples, pcs);
 
     if (p_miss == 0.0) {
@@ -64,8 +58,7 @@ void run_projection(Data* data, const Param& params) {
         for (int j = 0; j < V.rows(); j++) {
           if (!data->C(j * data->nsamples + i)) idx.push_back(j);
         }
-        Eigen::BDCSVD<Mat2D> svd(V(idx, Eigen::all),
-                                 Eigen::ComputeThinU | Eigen::ComputeThinV);
+        Eigen::BDCSVD<Mat2D> svd(V(idx, Eigen::all), Eigen::ComputeThinU | Eigen::ComputeThinV);
         Mat1D g = data->G(i, idx);
         // Vx = g
         U.row(i) = svd.solve(g);

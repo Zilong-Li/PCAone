@@ -2,7 +2,6 @@
 
 using namespace std;
 
-
 void FileBin::check_file_offset_first_var() {
   setlocale(LC_ALL, "C");
   ios_base::sync_with_stdio(false);
@@ -15,8 +14,7 @@ void FileBin::check_file_offset_first_var() {
     ;
   } else {
     ifs_bin.seekg(magic, std::ios_base::beg);
-    if (params.verbose)
-      cao.warn("confirm you are running the window-based RSVD (algorithm2)");
+    if (params.verbose) cao.warn("confirm you are running the window-based RSVD (algorithm2)");
   }
 }
 
@@ -32,13 +30,11 @@ void FileBin::read_all() {
 }
 
 // TODO : can standardize
-void FileBin::read_block_initial(uint64 start_idx, uint64 stop_idx,
-                                 bool standardize) {
+void FileBin::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize) {
   // magic += missing_points.size() * sizeof(uint64);
   // check where we are
   long long offset = magic + start_idx * bytes_per_snp;
-  if (ifs_bin.tellg() != offset)
-    cao.error("something wrong with read_snp_block!\n");
+  if (ifs_bin.tellg() != offset) cao.error("something wrong with read_snp_block!\n");
   uint actual_block_size = stop_idx - start_idx + 1;
   G = Mat2D(nsamples, actual_block_size);
   Eigen::VectorXf fg(nsamples);

@@ -41,8 +41,7 @@ class NormalRsvdOpData : public RsvdOpData {
   Mat2D Omg;
 
  public:
-  NormalRsvdOpData(Data* data_, int k_, int os_ = 10)
-      : RsvdOpData(data_), nk(k_), os(os_), size(k_ + os_) {}
+  NormalRsvdOpData(Data* data_, int k_, int os_ = 10) : RsvdOpData(data_), nk(k_), os(os_), size(k_ + os_) {}
 
   ~NormalRsvdOpData() {}
 
@@ -61,8 +60,7 @@ class FancyRsvdOpData : public RsvdOpData {
   Mat2D Omg, Omg2, H1, H2;
 
  public:
-  FancyRsvdOpData(Data* data_, int k_, int os_ = 10)
-      : RsvdOpData(data_), nk(k_), os(os_), size(k_ + os_) {
+  FancyRsvdOpData(Data* data_, int k_, int os_ = 10) : RsvdOpData(data_), nk(k_), os(os_), size(k_ + os_) {
     H1 = Mat2D::Zero(cols(), size);
     H2 = Mat2D::Zero(cols(), size);
   }

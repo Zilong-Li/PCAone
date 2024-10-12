@@ -5,9 +5,7 @@
 
 class ArnoldiOpData {
  public:
-  ArnoldiOpData(Data* data_) : data(data_), n(data_->nsamples) {
-    data->nops = 1;
-  }
+  ArnoldiOpData(Data* data_) : data(data_), n(data_->nsamples) { data->nops = 1; }
 
   ~ArnoldiOpData() {}
 

@@ -19,10 +19,8 @@ std::string get_machine() {
   std::string release{unameData.release};
   std::string version{unameData.version};
   std::string sysname{unameData.sysname};
-  return "Machine name: " + machine + "\nNode name: " + node +
-         "\nOperating system release: " + release +
-         "\nOperating system version: " + version +
-         "\nOperating system name: " + sysname + "\n";
+  return "Machine name: " + machine + "\nNode name: " + node + "\nOperating system release: " + release +
+         "\nOperating system version: " + version + "\nOperating system name: " + sysname + "\n";
 }
 
 void fcloseOrDie(FILE* file) {
@@ -85,8 +83,7 @@ void flip_UV(Mat2D& U, Mat2D& V, bool ubase) {
         } else if (V.rows() == U.cols()) {
           V.row(i) *= -1;
         } else {
-          throw std::runtime_error(
-              "the dimention of U and V have different k ranks.\n");
+          throw std::runtime_error("the dimention of U and V have different k ranks.\n");
         }
       }
     }
@@ -106,8 +103,7 @@ void flip_UV(Mat2D& U, Mat2D& V, bool ubase) {
           V.row(i) *= -1;
         }
       } else {
-        throw std::runtime_error(
-            "the dimention of U and V have different k ranks.\n");
+        throw std::runtime_error("the dimention of U and V have different k ranks.\n");
       }
     }
   }
@@ -116,8 +112,7 @@ void flip_UV(Mat2D& U, Mat2D& V, bool ubase) {
 void flip_Omg(Mat2D& Omg2, Mat2D& Omg) {
   for (Eigen::Index i = 0; i < Omg.cols(); ++i) {
     // if signs of half of values are flipped then correct signs.
-    if ((Omg2.col(i) - Omg.col(i)).array().abs().sum() >
-        2 * (Omg2.col(i) + Omg.col(i)).array().abs().sum()) {
+    if ((Omg2.col(i) - Omg.col(i)).array().abs().sum() > 2 * (Omg2.col(i) + Omg.col(i)).array().abs().sum()) {
       Omg.col(i) *= -1;
     }
   }
@@ -127,8 +122,7 @@ void flip_Omg(Mat2D& Omg2, Mat2D& Omg) {
 void flip_Y(const Mat2D& X, Mat2D& Y) {
   for (Eigen::Index i = 0; i < X.cols(); ++i) {
     // if signs of half of values are flipped then correct signs.
-    if ((X.col(i) - Y.col(i)).array().abs().sum() >
-        2 * (X.col(i) + Y.col(i)).array().abs().sum()) {
+    if ((X.col(i) - Y.col(i)).array().abs().sum() > 2 * (X.col(i) + Y.col(i)).array().abs().sum()) {
       Y.col(i) *= -1;
     }
   }
@@ -190,8 +184,7 @@ double get_median(std::vector<double> v) {
   }
 }
 
-std::vector<std::string> split_string(const std::string& s,
-                                      const std::string& separators) {
+std::vector<std::string> split_string(const std::string& s, const std::string& separators) {
   std::vector<std::string> ret;
   bool is_seperator[256] = {false};
   for (auto& ch : separators) {
@@ -207,8 +200,7 @@ std::vector<std::string> split_string(const std::string& s,
   return ret;
 }
 
-void make_plink2_eigenvec_file(int K, std::string fout, const std::string& fin,
-                               const std::string& fam) {
+void make_plink2_eigenvec_file(int K, std::string fout, const std::string& fin, const std::string& fam) {
   std::ifstream ifam(fam);
   std::ifstream ifin(fin);
   std::ofstream ofs(fout);
@@ -298,8 +290,7 @@ Mat2D read_eigvecs(const std::string& path, int n, int k) {
   while (std::getline(fin, line)) {
     for (begin = 0, k1 = 0, i = 0; i <= (int)line.size(); i++) {
       if (is_seperator[(uint8_t)line[i]] || i == (int)line.size()) {
-        M(j, k1) =
-            std::stod(std::string(line.begin() + begin, line.begin() + i));
+        M(j, k1) = std::stod(std::string(line.begin() + begin, line.begin() + i));
         begin = i + 1;
         k1++;
       }
@@ -308,8 +299,7 @@ Mat2D read_eigvecs(const std::string& path, int n, int k) {
     j++;
   }
 
-  if (j != n)
-    cao.error("the number of rows differs from the input!\n =>" + path);
+  if (j != n) cao.error("the number of rows differs from the input!\n =>" + path);
 
   return M;
 }
@@ -323,16 +313,14 @@ Mat1D read_frq(const std::string& path) {
   std::string line;
   while (getline(fin, line)) {
     auto tokens = split_string(line, sep);
-    if ((int)tokens.size() != 7)
-      cao.error("the input file is not valid!\n => " + path);
+    if ((int)tokens.size() != 7) cao.error("the input file is not valid!\n => " + path);
     val = std::stod(tokens[6]);
     V.push_back(val);
   }
   return Eigen::Map<Mat1D>(V.data(), V.size());
 }
 
-void check_bim_vs_mbim(const std::string& bim_file,
-                       const std::string& mbim_file) {
+void check_bim_vs_mbim(const std::string& bim_file, const std::string& mbim_file) {
   const std::string sep{"\t"};
   std::ifstream fb(bim_file), fm(mbim_file);
   std::string lb, lm;

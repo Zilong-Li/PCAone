@@ -105,8 +105,7 @@ Param::Param(int argc, char **argv) {
       exit(EXIT_SUCCESS);
     }
     if (!opts.unknown_options().empty()) {
-      for (const auto &uo : opts.unknown_options())
-        std::cerr << "unknown option: " << uo << "\n";
+      for (const auto &uo : opts.unknown_options()) std::cerr << "unknown option: " << uo << "\n";
       exit(EXIT_FAILURE);
     }
     if (plinkfile->is_set())
@@ -145,8 +144,7 @@ Param::Param(int argc, char **argv) {
           "not supporting PCAone --svd 2 for PCAngsd algorithm yet! "
           "please use --svd 1 or 0 option");
     if (file_t == FileType::BEAGLE) pcangsd = true;
-    if (haploid && (file_t == FileType::PLINK || file_t == FileType::BGEN))
-      ploidy = 1;
+    if (haploid && (file_t == FileType::PLINK || file_t == FileType::BGEN)) ploidy = 1;
     if (emu || pcangsd) {
       impute = true;
       if (svd_t == SvdType::PCAoneAlg2)
@@ -158,9 +156,7 @@ Param::Param(int argc, char **argv) {
     }
     if (memory > 0) {
       out_of_core = true;
-      if (pcangsd)
-        throw std::invalid_argument(
-            "not supporting -m option for PCAngsd algorithm yet!");
+      if (pcangsd) throw std::invalid_argument("not supporting -m option for PCAngsd algorithm yet!");
     }
     if (bands < 4 || bands % 2 != 0)
       throw std::invalid_argument(
@@ -185,11 +181,8 @@ Param::Param(int argc, char **argv) {
     // handle projection
     if (project > 0) {
       if (fileV.empty() || fileS.empty())
-        throw std::invalid_argument(
-            "please use --read-S and --read-V together with --project");
-      if (project > 2)
-        throw std::invalid_argument(
-            "more projection methods are coming. stay tuned!");
+        throw std::invalid_argument("please use --read-S and --read-V together with --project");
+      if (project > 2) throw std::invalid_argument("more projection methods are coming. stay tuned!");
       impute = true;
       memory = 0;
       out_of_core = false;
@@ -208,8 +201,7 @@ Param::Param(int argc, char **argv) {
 
     if (e.error() == invalid_option::Error::missing_option) {
       std::string option_name(e.option()->name(OptionName::short_name, true));
-      if (option_name.empty())
-        option_name = e.option()->name(OptionName::long_name, true);
+      if (option_name.empty()) option_name = e.option()->name(OptionName::long_name, true);
       std::cerr << "option: " << option_name << "\n";
     } else {
       std::cerr << "option: " << e.option()->name(e.what_name()) << "\n";

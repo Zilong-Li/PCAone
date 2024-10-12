@@ -3,7 +3,6 @@
 
 #include "Data.hpp"
 
-
 class FileBin : public Data {
  public:
   FileBin(Param &params_) : Data(params_) {
@@ -15,8 +14,7 @@ class FileBin : public Data {
     } else {
       ifs_bin.read((char *)&nsnps, ibyte);
       ifs_bin.read((char *)&nsamples, ibyte);
-      cao.print(tick.date(), "shape of input matrix (features x samples) is",
-                nsnps, "x", nsamples);
+      cao.print(tick.date(), "shape of input matrix (features x samples) is", nsnps, "x", nsamples);
       bytes_per_snp = nsamples * ibyte;
     }
   }
@@ -27,11 +25,9 @@ class FileBin : public Data {
   // for blockwise
   virtual void check_file_offset_first_var();
 
-  virtual void read_block_initial(uint64 start_idx, uint64 stop_idx,
-                                  bool standardize);
+  virtual void read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize);
 
-  virtual void read_block_update(uint64 start_idx, uint64 stop_idx,
-                                 const Mat2D &U, const Mat1D &svals,
+  virtual void read_block_update(uint64 start_idx, uint64 stop_idx, const Mat2D &U, const Mat1D &svals,
                                  const Mat2D &VT, bool standardize) {}
 
  private:

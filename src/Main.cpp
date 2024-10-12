@@ -48,8 +48,7 @@ int main(int argc, char* argv[]) {
 
     run_ld_stuff(data, params);
     delete data;
-    cao.print(tick.date(), "total elapsed wall time:", tick.abstime(),
-              "seconds");
+    cao.print(tick.date(), "total elapsed wall time:", tick.abstime(), "seconds");
     cao.print(tick.date(), "have a nice day. bye!");
     return 0;
   }
@@ -59,8 +58,7 @@ int main(int argc, char* argv[]) {
     data = new FileBed(params);
     run_projection(data, params);
     delete data;
-    cao.print(tick.date(), "total elapsed wall time:", tick.abstime(),
-              "seconds");
+    cao.print(tick.date(), "total elapsed wall time:", tick.abstime(), "seconds");
     cao.print(tick.date(), "have a nice day. bye!");
     return 0;
   }
@@ -68,8 +66,7 @@ int main(int argc, char* argv[]) {
   if (params.perm && params.out_of_core) {
     tick.clock();
     if (params.file_t == FileType::PLINK) {
-      auto perm = permute_plink(params.filein, params.fileout, params.buffer,
-                                params.bands);
+      auto perm = permute_plink(params.filein, params.fileout, params.buffer, params.bands);
       data = new FileBed(params);
       data->perm = perm;
     } else if (params.file_t == FileType::BGEN) {
@@ -77,16 +74,14 @@ int main(int argc, char* argv[]) {
       data = new FileBgen(params);
       data->perm = perm;
     } else if (params.file_t == FileType::CSV) {
-      auto perm = shuffle_csvzstd_to_bin(params.filein, params.fileout,
-                                         params.buffer, params.scale);
+      auto perm = shuffle_csvzstd_to_bin(params.filein, params.fileout, params.buffer, params.scale);
       params.file_t = FileType::BINARY;
       data = new FileBin(params);
       data->perm = perm;
     } else {
       cao.error("wrong file type used!");
     }
-    cao.print(tick.date(), "elapsed time of permuting data:", tick.reltime(),
-              "seconds");
+    cao.print(tick.date(), "elapsed time of permuting data:", tick.reltime(), "seconds");
   } else {
     if (params.file_t == FileType::PLINK) {
       data = new FileBed(params);
@@ -109,17 +104,13 @@ int main(int argc, char* argv[]) {
   // begin to run PCA
   if (params.svd_t == SvdType::IRAM) {
     run_pca_with_arnoldi(data, params);
-  } else if (params.svd_t == SvdType::PCAoneAlg1 ||
-             params.svd_t == SvdType::PCAoneAlg2) {
+  } else if (params.svd_t == SvdType::PCAoneAlg1 || params.svd_t == SvdType::PCAoneAlg2) {
     run_pca_with_halko(data, params);
   } else if (params.svd_t == SvdType::FULL) {
     cao.print(tick.date(), "running the Full SVD with in-core mode.");
-    if (params.file_t == FileType::PLINK || params.file_t == FileType::BGEN)
-      data->standardize_E();
-    Eigen::JacobiSVD<Mat2D> svd(data->G,
-                                Eigen::ComputeThinU | Eigen::ComputeThinV);
-    data->write_eigs_files(svd.singularValues().array().square() / data->nsnps,
-                           svd.matrixU(), svd.matrixV());
+    if (params.file_t == FileType::PLINK || params.file_t == FileType::BGEN) data->standardize_E();
+    Eigen::JacobiSVD<Mat2D> svd(data->G, Eigen::ComputeThinU | Eigen::ComputeThinV);
+    data->write_eigs_files(svd.singularValues().array().square() / data->nsnps, svd.matrixU(), svd.matrixV());
   } else {
     cao.error("unsupported PCA method!");
   }
@@ -127,15 +118,12 @@ int main(int argc, char* argv[]) {
   delete data;
 
   if (params.file_t == FileType::PLINK)
-    make_plink2_eigenvec_file(params.k, params.fileout + ".eigvecs2",
-                              params.fileout + ".eigvecs",
+    make_plink2_eigenvec_file(params.k, params.fileout + ".eigvecs2", params.fileout + ".eigvecs",
                               params.filein + ".fam");
 
-  cao.print(tick.date(), "total elapsed reading time: ", data->readtime,
-            "seconds");
+  cao.print(tick.date(), "total elapsed reading time: ", data->readtime, "seconds");
   cao.print(tick.date(), "total elapsed wall time:", tick.abstime(), "seconds");
-  cao.print(tick.date(),
-            "eigenvecs and eigenvals are saved. have a nice day. bye!");
+  cao.print(tick.date(), "eigenvecs and eigenvals are saved. have a nice day. bye!");
 
   return 0;
 }

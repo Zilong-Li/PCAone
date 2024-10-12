@@ -15,15 +15,13 @@ using namespace std;
 using namespace Spectra;
 
 void ArnoldiOpData::perform_op(const double* x_in, double* y_out) const {
-  if (data->params.verbose)
-    cao.print(tick.date(), "Arnoldi Matrix Operation =", data->nops);
+  if (data->params.verbose) cao.print(tick.date(), "Arnoldi Matrix Operation =", data->nops);
   Eigen::Map<const Mat1D> x(x_in, n);
   Eigen::Map<Mat1D> y(y_out, n);
   tick.clock();
   data->check_file_offset_first_var();
   if (update) {
-    data->read_block_update(data->start[0], data->stop[0], U, S, VT,
-                            standardize);
+    data->read_block_update(data->start[0], data->stop[0], U, S, VT, standardize);
   } else {
     data->read_block_initial(data->start[0], data->stop[0], standardize);
   }
@@ -33,8 +31,7 @@ void ArnoldiOpData::perform_op(const double* x_in, double* y_out) const {
   for (uint k = 1; k < data->nblocks; ++k) {
     tick.clock();
     if (update) {
-      data->read_block_update(data->start[k], data->stop[k], U, S, VT,
-                              standardize);
+      data->read_block_update(data->start[k], data->stop[k], U, S, VT, standardize);
     } else {
       data->read_block_initial(data->start[k], data->stop[k], standardize);
     }
@@ -59,8 +56,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
   if (!params.out_of_core) {
     // SpMatrix sG = data->G.sparseView();
     PartialSVDSolver<Mat2D> svds(data->G, params.k, params.ncv);
-    if (!params.ld && !params.impute &&
-        (params.file_t == FileType::PLINK || params.file_t == FileType::BGEN))
+    if (!params.ld && !params.impute && (params.file_t == FileType::PLINK || params.file_t == FileType::BGEN))
       data->standardize_E();
     nconv = svds.compute(params.imaxiter, params.itol);
     if (nconv != params.k) cao.error("the nconv is not equal to k.");
@@ -80,9 +76,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
         flip_UV(U, V2);
         diff = rmse(V2, V);
         if (params.verbose)
-          cao.print(tick.date(),
-                    "individual allele frequencies estimated (iter =", i,
-                    "), RMSE =", diff);
+          cao.print(tick.date(), "individual allele frequencies estimated (iter =", i, "), RMSE =", diff);
         V = V2;
         if (diff < params.tolem) {
           cao.print(tick.date(), "come to convergence!");
@@ -101,8 +95,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
         DenseSymMatProd<double> op2(C);
         SymEigsSolver<DenseSymMatProd<double>> eigs2(op2, params.k, params.ncv);
         eigs2.init();
-        nconv =
-            eigs2.compute(SortRule::LargestAlge, params.imaxiter, params.itol);
+        nconv = eigs2.compute(SortRule::LargestAlge, params.imaxiter, params.itol);
         assert(eigs2.info() == CompInfo::Successful);
         nu = min(params.k, nconv);
         U = eigs2.eigenvectors().leftCols(nu);
@@ -121,8 +114,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
     // write to files;
     data->write_eigs_files(evals, U, V);
     // NOTE: pcangsd only gives us evals of covariance matrix
-    if (params.ld && !params.pcangsd)
-      data->write_residuals(svals, U, V.transpose());
+    if (params.ld && !params.pcangsd) data->write_residuals(svals, U, V.transpose());
 
   } else {
     // for blockwise
@@ -130,8 +122,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
     // SymEigsSolver< double, LARGEST_ALGE, ArnoldiOpData > *eigs = new
     // SymEigsSolver< double, LARGEST_ALGE, ArnoldiOpData >(op, params.k,
     // params.ncv);
-    SymEigsSolver<ArnoldiOpData>* eigs =
-        new SymEigsSolver<ArnoldiOpData>(*op, params.k, params.ncv);
+    SymEigsSolver<ArnoldiOpData>* eigs = new SymEigsSolver<ArnoldiOpData>(*op, params.k, params.ncv);
     if (!params.impute) op->setFlags(false, true, false);
     eigs->init();
     nconv = eigs->compute(SortRule::LargestAlge, params.imaxiter, params.itol);
@@ -160,8 +151,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
       for (uint i = 1; i <= params.maxiter; ++i) {
         V = op->VT;
         eigs->init();
-        nconv =
-            eigs->compute(SortRule::LargestAlge, params.imaxiter, params.itol);
+        nconv = eigs->compute(SortRule::LargestAlge, params.imaxiter, params.itol);
         if (nconv < params.k) cao.error("the nconv is not equal to k.");
         assert(eigs->info() == CompInfo::Successful);
         nu = min(params.k, nconv);
@@ -175,9 +165,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
         flip_UV(op->U, op->VT);
         diff = rmse(op->VT, V);
         if (params.verbose)
-          cao.print(tick.date(),
-                    "individual allele frequencies estimated (iter =", i,
-                    "), RMSE =", diff);
+          cao.print(tick.date(), "individual allele frequencies estimated (iter =", i, "), RMSE =", diff);
         if (diff < params.tol) {
           cao.print(tick.date(), "come to convergence!");
           break;
@@ -186,8 +174,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
 
       op->setFlags(true, true, params.pcangsd);
       eigs->init();
-      nconv =
-          eigs->compute(SortRule::LargestAlge, params.imaxiter, params.itol);
+      nconv = eigs->compute(SortRule::LargestAlge, params.imaxiter, params.itol);
       if (nconv < params.k) cao.error("the nconv is not equal to k.");
       assert(eigs->info() == CompInfo::Successful);
       nu = min(params.k, nconv);
@@ -202,8 +189,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
     }
 
     data->write_eigs_files(evals, op->U, op->VT.transpose());
-    if (params.ld && !params.pcangsd)
-      data->write_residuals(op->S, op->U, op->VT);
+    if (params.ld && !params.pcangsd) data->write_residuals(op->S, op->U, op->VT);
 
     delete op;
     delete eigs;

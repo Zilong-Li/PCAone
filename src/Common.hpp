@@ -63,17 +63,14 @@ template <typename T>
 inline std::vector<size_t> sortidx(const std::vector<T>& v) {
   std::vector<size_t> idx(v.size());
   std::iota(idx.begin(), idx.end(), 0);
-  std::sort(idx.begin(), idx.end(),
-            [&v](size_t i1, size_t i2) { return v[i1] < v[i2]; });
+  std::sort(idx.begin(), idx.end(), [&v](size_t i1, size_t i2) { return v[i1] < v[i2]; });
   return idx;
 }
 
 struct Line {
   std::string data;
   operator std::string const &() const { return data; }
-  friend std::istream& operator>>(std::istream& ifs, Line& line) {
-    return std::getline(ifs, line.data);
-  }
+  friend std::istream& operator>>(std::istream& ifs, Line& line) { return std::getline(ifs, line.data); }
 };
 
 // zstd deccompression buffer
@@ -98,7 +95,7 @@ struct ZstdDS {
   std::string buffLine, buffInTmp, buffOutTmp;
 };
 
-// zstd deccompression buffer
+// zstd compression buffer
 struct ZstdCS {
   ZstdCS() {
     buffInTmp.reserve(buffInSize);

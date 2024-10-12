@@ -1,15 +1,14 @@
 #ifndef TIMER_H_
 #define TIMER_H_
 
-#include <clocale>
 #include <chrono>
+#include <clocale>
 #include <iomanip>  // put_time
 #include <sstream>
 
 class Timer {
  protected:
-  std::chrono::time_point<std::chrono::high_resolution_clock> start_clock,
-      prev_clock;
+  std::chrono::time_point<std::chrono::high_resolution_clock> start_clock, prev_clock;
 
  public:
   Timer();
@@ -20,26 +19,22 @@ class Timer {
   double abstime();
 };
 
-inline Timer::Timer() {
-  start_clock = std::chrono::high_resolution_clock::now();
-}
+inline Timer::Timer() { start_clock = std::chrono::high_resolution_clock::now(); }
 
 inline Timer::~Timer() {}
 
-inline void Timer::clock() {
-  prev_clock = std::chrono::high_resolution_clock::now();
-}
+inline void Timer::clock() { prev_clock = std::chrono::high_resolution_clock::now(); }
 
 inline double Timer::reltime() {
-  return std::chrono::duration_cast<std::chrono::milliseconds>(
-             std::chrono::high_resolution_clock::now() - prev_clock)
+  return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() -
+                                                               prev_clock)
              .count() /
          1e3;
 }
 
 inline double Timer::abstime() {
-  return std::chrono::duration_cast<std::chrono::milliseconds>(
-             std::chrono::high_resolution_clock::now() - start_clock)
+  return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() -
+                                                               start_clock)
              .count() /
          1e3;
 }

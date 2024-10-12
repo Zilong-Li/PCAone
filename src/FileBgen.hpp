@@ -9,17 +9,13 @@
 // const double BGEN_MISSING_VALUE = -9;
 // const double BGEN2GENO[4] = {0, 0.5, 1, BGEN_MISSING_VALUE};
 
-void read_bgen_block(Mat2D& G, Mat1D& F, bgen::CppBgenReader* bg,
-                     float* dosages, float* probs1d,
-                     bool& frequency_was_estimated, uint64 nsamples,
-                     uint64 nsnps, uint blocksize, uint64 start_idx,
-                     uint64 stop_idx, bool standardize);
+void read_bgen_block(Mat2D& G, Mat1D& F, bgen::CppBgenReader* bg, float* dosages, float* probs1d,
+                     bool& frequency_was_estimated, uint64 nsamples, uint64 nsnps, uint blocksize,
+                     uint64 start_idx, uint64 stop_idx, bool standardize);
 
-int shuffle_bgen_to_bin(std::string& fin, std::string fout, uint gb,
-                        bool standardize);
+int shuffle_bgen_to_bin(std::string& fin, std::string fout, uint gb, bool standardize);
 
-void permute_bgen_thread(uint nsamples, std::vector<int> idx, std::string fin,
-                         std::string fout, int ithread);
+void permute_bgen_thread(uint nsamples, std::vector<int> idx, std::string fin, std::string fout, int ithread);
 
 PermMat permute_bgen(std::string& fin, std::string fout, int nthreads);
 
@@ -31,23 +27,19 @@ class FileBgen : public Data {
     bg = new bgen::CppBgenReader(params.filein, "", true);
     nsamples = bg->header.nsamples;
     nsnps = bg->header.nvariants;
-    cao.print(tick.date(), "the layout of bgen file is", bg->header.layout,
-              ". N (#samples):", nsamples, ". M (#SNPs):", nsnps);
+    cao.print(tick.date(), "the layout of bgen file is", bg->header.layout, ". N (#samples):", nsamples,
+              ". M (#SNPs):", nsnps);
   }
 
   ~FileBgen() { delete bg; }
 
   virtual void read_all();
   // for blockwise
-  virtual void check_file_offset_first_var() {
-    bg->offset = bg->header.offset + 4;
-  }
+  virtual void check_file_offset_first_var() { bg->offset = bg->header.offset + 4; }
 
-  virtual void read_block_initial(uint64 start_idx, uint64 stop_idx,
-                                  bool standardize = false);
+  virtual void read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize = false);
 
-  virtual void read_block_update(uint64 start_idx, uint64 stop_idx,
-                                 const Mat2D& U, const Mat1D& svals,
+  virtual void read_block_update(uint64 start_idx, uint64 stop_idx, const Mat2D& U, const Mat1D& svals,
                                  const Mat2D& VT, bool standardize) {}
 
  private:

@@ -47,8 +47,7 @@ double calc_cor(const Mat1D& x, const Mat1D& y, const double df) {
   return numerator * sd_x * sd_y * df;
 }
 
-std::string get_snp_pos_bim(SNPld& snp, const std::string& filebim, bool header,
-                            Int1D idx) {
+std::string get_snp_pos_bim(SNPld& snp, const std::string& filebim, bool header, Int1D idx) {
   std::ifstream fin(filebim);
   if (!fin.is_open()) cao.error("can not open " + filebim);
   std::string ret, line{""}, chr_cur, chr_prev, sep{" \t"};
@@ -57,8 +56,7 @@ std::string get_snp_pos_bim(SNPld& snp, const std::string& filebim, bool header,
   ret = line;
   while (getline(fin, line)) {
     auto tokens = split_string(line, sep);
-    if ((int)tokens.size() == 7 && !header)
-      snp.af.push_back(std::stod(tokens[6]));
+    if ((int)tokens.size() == 7 && !header) snp.af.push_back(std::stod(tokens[6]));
     chr_cur = tokens[idx[0]];
     if (chr_prev.empty()) snp.chr.push_back(chr_cur);
     // when starting a new chromosome
@@ -77,8 +75,7 @@ std::string get_snp_pos_bim(SNPld& snp, const std::string& filebim, bool header,
 // given a list of snps, find its index per chr in the original pos
 // assume chromosomes are continuous
 // TODO: check duplicated POS
-std::tuple<Int2D, Int2D> get_target_snp_idx(const SNPld& snp_t,
-                                            const SNPld& snp) {
+std::tuple<Int2D, Int2D> get_target_snp_idx(const SNPld& snp_t, const SNPld& snp) {
   cao.print(tick.date(), "try to match target SNPs to the SNPs in LD matrix");
   Int1D idx, bp;
   UMapIntInt mpos;
@@ -140,8 +137,7 @@ void divide_pos_by_window(SNPld& snp, const int ld_window_bp) {
   }
 }
 
-void ld_prune_small(Data* data, const std::string& fileout,
-                    const std::string& filebim, const SNPld& snp,
+void ld_prune_small(Data* data, const std::string& fileout, const std::string& filebim, const SNPld& snp,
                     const double r2_tol) {
   const bool pick_random_one = snp.af.size() > 0 ? false : true;
   cao.print(tick.date(),
@@ -173,15 +169,12 @@ void ld_prune_small(Data* data, const std::string& fileout,
       if (!keep(k)) continue;
       double r = 0;
       if (i >= data->start[b - 1] && k <= data->stop[b - 1]) {
-        r = calc_cor(G.col(i - data->start[b - 1]),
-                     G.col(k - data->start[b - 1]), df);
+        r = calc_cor(G.col(i - data->start[b - 1]), G.col(k - data->start[b - 1]), df);
       } else if (i >= data->start[b] && k <= data->stop[b]) {
-        r = calc_cor(data->G.col(i - data->start[b]),
-                     data->G.col(k - data->start[b]), df);
+        r = calc_cor(data->G.col(i - data->start[b]), data->G.col(k - data->start[b]), df);
 
       } else {
-        r = calc_cor(G.col(i - data->start[b - 1]),
-                     data->G.col(k - data->start[b]), df);
+        r = calc_cor(G.col(i - data->start[b - 1]), data->G.col(k - data->start[b]), df);
       }
       if (r * r > r2_tol) {
         int o = k;  // or i
@@ -205,10 +198,9 @@ void ld_prune_small(Data* data, const std::string& fileout,
   }
 }
 
-void ld_prune_big(const Mat2D& G, const SNPld& snp, double r2_tol,
-                  const std::string& fileout, const std::string& filebim) {
-  if ((long int)snp.pos.size() != G.cols())
-    cao.error("The number of variants is not matching the LD matrix");
+void ld_prune_big(const Mat2D& G, const SNPld& snp, double r2_tol, const std::string& fileout,
+                  const std::string& filebim) {
+  if ((long int)snp.pos.size() != G.cols()) cao.error("The number of variants is not matching the LD matrix");
   // TODO: maybe add an option in CLI
   const bool pick_random_one = snp.af.size() > 0 ? false : true;
   cao.print(tick.date(),
@@ -248,8 +240,7 @@ void ld_prune_big(const Mat2D& G, const SNPld& snp, double r2_tol,
   }
 }
 
-Int1D valid_assoc_file(const std::string& fileassoc,
-                       const std::string& colnames) {
+Int1D valid_assoc_file(const std::string& fileassoc, const std::string& colnames) {
   std::ifstream fin(fileassoc);
   if (!fin.is_open()) cao.error("can not open " + fileassoc);
   std::string line, sep{"\t"}, sep2{","};
@@ -271,15 +262,13 @@ Int1D valid_assoc_file(const std::string& fileassoc,
   }
   j = 0;
   for (auto i : idx) {
-    if (i < 0)
-      cao.error("the assoc-like file has no " + fields_users[j] + " column");
+    if (i < 0) cao.error("the assoc-like file has no " + fields_users[j] + " column");
     j++;
   }
   return idx;
 }
 
-std::vector<UMapIntPds> map_index_snps(const std::string& fileassoc,
-                                       const Int1D& colidx, double clump_p2) {
+std::vector<UMapIntPds> map_index_snps(const std::string& fileassoc, const Int1D& colidx, double clump_p2) {
   std::ifstream fin(fileassoc);
   if (!fin.is_open()) cao.error("can not open " + fileassoc);
   std::string line, chr_cur, chr_prev, sep{"\t"};
@@ -305,11 +294,9 @@ std::vector<UMapIntPds> map_index_snps(const std::string& fileassoc,
   return vm;
 }
 
-void ld_clump_single_pheno(const std::string& fileout, const std::string& head,
-                           const int clump_bp, const double clump_r2,
-                           const double clump_p1, const double clump_p2,
-                           const Mat2D& G, const Int2D& idx_per_chr,
-                           const Int2D& bp_per_chr,
+void ld_clump_single_pheno(const std::string& fileout, const std::string& head, const int clump_bp,
+                           const double clump_r2, const double clump_p1, const double clump_p2,
+                           const Mat2D& G, const Int2D& idx_per_chr, const Int2D& bp_per_chr,
                            const std::vector<UMapIntPds>& pvals_per_chr) {
   // sort by pvalues and get new idx
   const Arr1D sds = 1.0 / calc_sds(G);
@@ -333,8 +320,7 @@ void ld_clump_single_pheno(const std::string& fileout, const std::string& head,
     int p, p2, j, k;
     for (auto i : sortidx(pp)) {  // snps sorted by p value
       p = ps[i];
-      if (mpp.count(p) == 0)
-        continue;  // if snps with pval < clump_p1 are already clumped
+      if (mpp.count(p) == 0) continue;  // if snps with pval < clump_p1 are already clumped
       Int1D clumped;
       bool backward = true;
       if (mbp.count(p) == 0) continue;
@@ -354,8 +340,7 @@ void ld_clump_single_pheno(const std::string& fileout, const std::string& head,
         }
         p2 = bp[k];
         if (mpp.count(p2) == 0) continue;
-        double r =
-            G.col(idx[j]).dot(G.col(idx[k])) * (sds(idx[j]) * sds(idx[k]) * df);
+        double r = G.col(idx[j]).dot(G.col(idx[k])) * (sds(idx[j]) * sds(idx[k]) * df);
         if (r * r >= clump_r2) {
           clumped.push_back(p2);
           mpp.erase(p2);
@@ -383,8 +368,7 @@ void ld_clump_single_pheno(const std::string& fileout, const std::string& head,
   }
 }
 
-void ld_r2_small(Data* data, const SNPld& snp, const std::string& filebim,
-                 const std::string& fileout) {
+void ld_r2_small(Data* data, const SNPld& snp, const std::string& filebim, const std::string& fileout) {
   std::ifstream fin(filebim);
   if (!fin.is_open()) cao.error("can not open " + filebim);
   String1D bims(std::istream_iterator<BIM>{fin}, std::istream_iterator<BIM>{});
@@ -408,36 +392,30 @@ void ld_r2_small(Data* data, const SNPld& snp, const std::string& filebim,
       data->read_block_initial(data->start[b], data->stop[b], false);
     }
 
-    if (data->params.verbose)
-      cao.print(tick.date(), "process window", w, ", the index SNP is", i);
+    if (data->params.verbose) cao.print(tick.date(), "process window", w, ", the index SNP is", i);
 
     for (int j = 1; j < snp.we[w]; j++) {
       int k = i + j;
       double r = 0;
       if (i >= data->start[b - 1] && k <= data->stop[b - 1]) {
-        r = calc_cor(G.col(i - data->start[b - 1]),
-                     G.col(k - data->start[b - 1]), df);
+        r = calc_cor(G.col(i - data->start[b - 1]), G.col(k - data->start[b - 1]), df);
       } else if (i >= data->start[b] && k <= data->stop[b]) {
-        r = calc_cor(data->G.col(i - data->start[b]),
-                     data->G.col(k - data->start[b]), df);
+        r = calc_cor(data->G.col(i - data->start[b]), data->G.col(k - data->start[b]), df);
 
       } else {
-        r = calc_cor(G.col(i - data->start[b - 1]),
-                     data->G.col(k - data->start[b]), df);
+        r = calc_cor(G.col(i - data->start[b - 1]), data->G.col(k - data->start[b]), df);
       }
       //// FIXME: this would be slow
       line = bims[i] + "\t" + bims[k] + "\t" + std::to_string(r * r) + "\n";
 
-      if (gzwrite(gzfp, line.c_str(), line.size()) !=
-          static_cast<int>(line.size()))
+      if (gzwrite(gzfp, line.c_str(), line.size()) != static_cast<int>(line.size()))
         cao.error("failed to write data to ld.gz file");
     }
   }
   gzclose(gzfp);
 }
 
-void ld_r2_big(const Mat2D& G, const SNPld& snp, const std::string& filebim,
-               const std::string& fileout) {
+void ld_r2_big(const Mat2D& G, const SNPld& snp, const std::string& filebim, const std::string& fileout) {
   std::ifstream fin(filebim);
   if (!fin.is_open()) cao.error("can not open " + filebim);
   String1D bims(std::istream_iterator<BIM>{fin}, std::istream_iterator<BIM>{});
@@ -455,8 +433,7 @@ void ld_r2_big(const Mat2D& G, const SNPld& snp, const std::string& filebim,
       double r = G.col(i).dot(G.col(k)) * (sds(i) * sds(k) * df);
       //// FIXME: this would be slow
       line = bims[i] + "\t" + bims[k] + "\t" + std::to_string(r * r) + "\n";
-      if (gzwrite(gzfp, line.c_str(), line.size()) !=
-          static_cast<int>(line.size()))
+      if (gzwrite(gzfp, line.c_str(), line.size()) != static_cast<int>(line.size()))
         cao.error("failed to write data to ld.gz file");
     }
   }
@@ -483,28 +460,24 @@ void run_ld_stuff(Data* data, const Param& params) {
         // get the residuals of small subset G
         Mat2D U = read_usv(params.fileU);
         // G is already centered. no need to do centering afterwards
-        data->G =
-            (Mat2D::Identity(U.rows(), U.rows()) - U * U.transpose()) * data->G;
+        data->G = (Mat2D::Identity(U.rows(), U.rows()) - U * U.transpose()) * data->G;
         // data->G.rowwise() -= data->G.colwise().mean();  // Centering
       }
       if (params.print_r2) {
         ld_r2_big(data->G, snp, params.filebim, params.fileout + ".ld.gz");
       } else {
-        ld_prune_big(data->G, snp, params.ld_r2, params.fileout,
-                     params.filebim);
+        ld_prune_big(data->G, snp, params.ld_r2, params.fileout, params.filebim);
       }
     }
 
   } else {
     const auto assocfiles = split_string(params.clump, ",");
     for (size_t i = 0; i < assocfiles.size(); i++) {
-      cao.print(tick.date(),
-                "LD-based clumping for associated file:", assocfiles[i]);
+      cao.print(tick.date(), "LD-based clumping for associated file:", assocfiles[i]);
       auto colidx = valid_assoc_file(assocfiles[i], params.assoc_colnames);
       SNPld snp_t;
       std::string head = get_snp_pos_bim(snp_t, assocfiles[i], true, colidx);
-      const auto pvals_per_chr =
-          map_index_snps(assocfiles[i], colidx, params.clump_p2);
+      const auto pvals_per_chr = map_index_snps(assocfiles[i], colidx, params.clump_p2);
       Int2D idx_per_chr, bp_per_chr;
       std::tie(idx_per_chr, bp_per_chr) = get_target_snp_idx(snp_t, snp);
       if (params.out_of_core) {
@@ -526,16 +499,14 @@ void run_ld_stuff(Data* data, const Param& params) {
           }
         }
 
-        ld_clump_single_pheno(
-            params.fileout + ".p" + std::to_string(i) + ".clump", head,
-            params.clump_bp, params.clump_r2, params.clump_p1, params.clump_p2,
-            G, idx_per_chr, bp_per_chr, pvals_per_chr);
+        ld_clump_single_pheno(params.fileout + ".p" + std::to_string(i) + ".clump", head, params.clump_bp,
+                              params.clump_r2, params.clump_p1, params.clump_p2, G, idx_per_chr, bp_per_chr,
+                              pvals_per_chr);
 
       } else {
-        ld_clump_single_pheno(
-            params.fileout + ".p" + std::to_string(i) + ".clump", head,
-            params.clump_bp, params.clump_r2, params.clump_p1, params.clump_p2,
-            data->G, idx_per_chr, bp_per_chr, pvals_per_chr);
+        ld_clump_single_pheno(params.fileout + ".p" + std::to_string(i) + ".clump", head, params.clump_bp,
+                              params.clump_r2, params.clump_p1, params.clump_p2, data->G, idx_per_chr,
+                              bp_per_chr, pvals_per_chr);
       }
     }
   }

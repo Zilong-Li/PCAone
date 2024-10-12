@@ -59,8 +59,7 @@ void FileBgen::read_all() {
     if (k == 0)
       cao.error("the number of SNPs after filtering should be 0!");
     else
-      cao.print(tick.date(), "number of SNPs after filtering by MAF >",
-                params.maf, ":", k);
+      cao.print(tick.date(), "number of SNPs after filtering by MAF >", params.maf, ":", k);
     // resize G, F, C;
     nsnps = k;  // resize nsnps;
     G.conservativeResize(Eigen::NoChange, nsnps);
@@ -128,17 +127,14 @@ void FileBgen::read_all() {
   }
 }
 
-void FileBgen::read_block_initial(uint64 start_idx, uint64 stop_idx,
-                                  bool standardize) {
-  read_bgen_block(G, F, bg, dosages, probs1d, frequency_was_estimated, nsamples,
-                  nsnps, params.blocksize, start_idx, stop_idx, standardize);
+void FileBgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize) {
+  read_bgen_block(G, F, bg, dosages, probs1d, frequency_was_estimated, nsamples, nsnps, params.blocksize,
+                  start_idx, stop_idx, standardize);
 }
 
-void read_bgen_block(Mat2D &G, Mat1D &F, bgen::CppBgenReader *bg,
-                     float *dosages, float *probs1d,
-                     bool &frequency_was_estimated, uint64 nsamples,
-                     uint64 nsnps, uint blocksize, uint64 start_idx,
-                     uint64 stop_idx, bool standardize) {
+void read_bgen_block(Mat2D &G, Mat1D &F, bgen::CppBgenReader *bg, float *dosages, float *probs1d,
+                     bool &frequency_was_estimated, uint64 nsamples, uint64 nsnps, uint blocksize,
+                     uint64 start_idx, uint64 stop_idx, bool standardize) {
   uint actual_block_size = stop_idx - start_idx + 1;
   uint i, j, snp_idx;
   if (G.cols() < blocksize || (actual_block_size < blocksize)) {
@@ -179,8 +175,7 @@ void read_bgen_block(Mat2D &G, Mat1D &F, bgen::CppBgenReader *bg,
           gc += 1;
         }
       }
-      if (gc == 0)
-        cao.error("the allele frequency should not be 0. do filtering first");
+      if (gc == 0) cao.error("the allele frequency should not be 0. do filtering first");
       F(snp_idx) = (double)gs / gc;
 // do centering
 #pragma omp parallel for
@@ -199,8 +194,7 @@ void read_bgen_block(Mat2D &G, Mat1D &F, bgen::CppBgenReader *bg,
 }
 
 // this would be fast
-int shuffle_bgen_to_bin(std::string &fin, std::string fout, uint gb,
-                        bool standardize) {
+int shuffle_bgen_to_bin(std::string &fin, std::string fout, uint gb, bool standardize) {
   cao.print(tick.date(), "begin to permute BGEN into BINARY file");
   bgen::CppBgenReader *bg = new bgen::CppBgenReader(fin, "", true);
   uint nsamples = bg->header.nsamples;
@@ -228,9 +222,8 @@ int shuffle_bgen_to_bin(std::string &fin, std::string fout, uint gb,
     auto start_idx = i * blocksize;
     auto stop_idx = start_idx + blocksize - 1;
     stop_idx = stop_idx >= nsnps ? nsnps - 1 : stop_idx;
-    read_bgen_block(G, F, bg, dosages, probs1d, frequency_was_estimated,
-                    nsamples, nsnps, blocksize, start_idx, stop_idx,
-                    standardize);
+    read_bgen_block(G, F, bg, dosages, probs1d, frequency_was_estimated, nsamples, nsnps, blocksize,
+                    start_idx, stop_idx, standardize);
     for (Eigen::Index p = 0; p < G.cols(); p++, cur++) {
       ofs2 << perm[cur] << "\n";
       idx = magic + perm[cur] * bytes_per_snp;
@@ -243,8 +236,8 @@ int shuffle_bgen_to_bin(std::string &fin, std::string fout, uint gb,
   return (nsnps == cur);
 }
 
-void permute_bgen_thread(uint nsamples, std::vector<int> idx, std::string fin,
-                         std::string fout, int ithread) {
+void permute_bgen_thread(uint nsamples, std::vector<int> idx, std::string fin, std::string fout,
+                         int ithread) {
   fout = fout + ".perm." + to_string(ithread) + ".bgen";
   uint geno_len, compress_flag = 2, layout = 2, ploidy_n = 2;  // 1:zlib, 2:zstd
   float *probs = nullptr;
@@ -252,18 +245,15 @@ void permute_bgen_thread(uint nsamples, std::vector<int> idx, std::string fin,
   uint8_t bit_depth = 8;
   string metadata;
   vector<string> sampleids;
-  bgen::CppBgenWriter bw(fout, nsamples, metadata, compress_flag, layout,
-                         sampleids);
+  bgen::CppBgenWriter bw(fout, nsamples, metadata, compress_flag, layout, sampleids);
   bgen::CppBgenReader br(fin, "", true);
   br.parse_all_variants();
   for (auto i : idx) {
     auto var = br.variants[i];
     probs = var.probs_1d();
     geno_len = nsamples * var.probs_per_sample();
-    bw.write_variant_header(var.varid, var.rsid, var.chrom, var.pos,
-                            var.alleles, var.n_samples);
-    bw.add_genotype_data(var.alleles.size(), probs, geno_len, ploidy_n, phased,
-                         bit_depth);
+    bw.write_variant_header(var.varid, var.rsid, var.chrom, var.pos, var.alleles, var.n_samples);
+    bw.add_genotype_data(var.alleles.size(), probs, geno_len, ploidy_n, phased, bit_depth);
   }
 }
 
@@ -282,9 +272,7 @@ PermMat permute_bgen(std::string &fin, std::string fout, int nthreads) {
   vector<std::thread> threads;
   uint tn = (nsnps + nthreads - 1) / nthreads;  // evenly spread index
   for (int i = 0; i < nthreads; i++) {
-    vector<int> idx(perm.begin() + tn * i, i == nthreads - 1
-                                               ? perm.end()
-                                               : perm.begin() + tn * (i + 1));
+    vector<int> idx(perm.begin() + tn * i, i == nthreads - 1 ? perm.end() : perm.begin() + tn * (i + 1));
     threads.emplace_back(permute_bgen_thread, nsamples, idx, fin, fout, i);
   }
   // Wait for all threads to finish execution
@@ -294,8 +282,7 @@ PermMat permute_bgen(std::string &fin, std::string fout, int nthreads) {
   string metadata;
   vector<string> sampleids;
   string out = fout + ".perm.bgen";
-  bgen::CppBgenWriter bw(out, nsamples, metadata, compress_flag, layout,
-                         sampleids);
+  bgen::CppBgenWriter bw(out, nsamples, metadata, compress_flag, layout, sampleids);
   std::ostreambuf_iterator<char> outIt(bw.handle);
   for (int i = 0; i < nthreads; i++) {
     fin = fout + ".perm." + to_string(i) + ".bgen";

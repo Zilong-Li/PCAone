@@ -21,8 +21,7 @@ void FileBed::check_file_offset_first_var() {
     ;
   } else {
     bed_ifstream.seekg(3, std::ios_base::beg);
-    if (params.verbose)
-      cao.warn("confirm you are running the window-based RSVD (algorithm2)");
+    if (params.verbose) cao.warn("confirm you are running the window-based RSVD (algorithm2)");
   }
 }
 
@@ -30,8 +29,7 @@ void FileBed::read_all() {
   check_file_offset_first_var();
   // Begin to decode the plink bed
   inbed.reserve(bed_bytes_per_snp * nsnps);
-  bed_ifstream.read(reinterpret_cast<char *>(&inbed[0]),
-                    bed_bytes_per_snp * nsnps);
+  bed_ifstream.read(reinterpret_cast<char *>(&inbed[0]), bed_bytes_per_snp * nsnps);
   uint64 c, i, j, b, k;
   uchar buf;
   if (params.project == 0) {
@@ -56,20 +54,16 @@ void FileBed::read_all() {
       else
         F(i) /= c;
       // should remove sites with F=0 and 1.0
-      if (F(i) == 0.0 || F(i) == 1.0)
-        cao.error("sites with MAF=0 found! remove them first!");
+      if (F(i) == 0.0 || F(i) == 1.0) cao.error("sites with MAF=0 found! remove them first!");
       // in LD r2,F=0.5 means sample standard deviation is 0
-      if (params.verbose && F(i) == 0.5)
-        cao.warn("sites with MAF=0.5 found. NaN values expected in LD r2.");
+      if (params.verbose && F(i) == 0.5) cao.warn("sites with MAF=0.5 found. NaN values expected in LD r2.");
     }
     filter_snps_resize_F();  // filter and resize nsnps
   } else {
     // read frq from original set
-    cao.print(tick.date(),
-              "read frequency of SNPs from the extended bim (.mbim)");
+    cao.print(tick.date(), "read frequency of SNPs from the extended bim (.mbim)");
     F = read_frq(params.filebim);
-    if (F.size() != nsnps)
-      cao.error("the number of sites doesn't match each other");
+    if (F.size() != nsnps) cao.error("the number of sites doesn't match each other");
   }
 
   G = Mat2D::Zero(nsamples, nsnps);  // fill in G with new size
@@ -96,8 +90,7 @@ void FileBed::read_all() {
     // do centering and initialing
     for (j = 0; j < nsamples; ++j) {
       if (G(j, i) != BED_MISSING_VALUE) G(j, i) -= F(i);
-      if ((G(j, i) == BED_MISSING_VALUE) && params.project <= 1)
-        G(j, i) = 0.0;  // impute to mean
+      if ((G(j, i) == BED_MISSING_VALUE) && params.project <= 1) G(j, i) = 0.0;  // impute to mean
     }
   }
 
@@ -110,13 +103,11 @@ void FileBed::read_all() {
   inbed.shrink_to_fit();
 }
 
-void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx,
-                                 bool standardize) {
+void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize) {
   uint actual_block_size = stop_idx - start_idx + 1;
   // check where we are
   long long offset = 3 + start_idx * bed_bytes_per_snp;
-  if (bed_ifstream.tellg() != offset)
-    cao.error("something wrong with read_snp_block!");
+  if (bed_ifstream.tellg() != offset) cao.error("something wrong with read_snp_block!");
   // if G is not initial then initial it
   // if actual_block_size is smaller than blocksize, don't resize G;
   if (G.cols() < params.blocksize || (actual_block_size < params.blocksize)) {
@@ -126,8 +117,7 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx,
   uint64 c, b, i, j, k, snp_idx;
   uchar buf;
   // inbed.resize(bed_bytes_per_snp * actual_block_size);
-  bed_ifstream.read(reinterpret_cast<char *>(&inbed[0]),
-                    bed_bytes_per_snp * actual_block_size);
+  bed_ifstream.read(reinterpret_cast<char *>(&inbed[0]), bed_bytes_per_snp * actual_block_size);
   // bed_ifstream.rdbuf()->sgetn(reinterpret_cast<char *> (&inbed[0]),
   // bed_bytes_per_snp * actual_block_size);
   if (frequency_was_estimated) {
@@ -172,8 +162,7 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx,
         F(snp_idx) /= c;
       }
       // should remove sites with F=0 and 1.0
-      if (F(snp_idx) == 0.0 || F(snp_idx) == 1.0)
-        cao.error("sites with MAF=0 found! remove them first!");
+      if (F(snp_idx) == 0.0 || F(snp_idx) == 1.0) cao.error("sites with MAF=0 found! remove them first!");
       // in LD r2,F=0.5 means sample standard deviation is 0
       if (params.verbose && F(snp_idx) == 0.5)
         cao.warn("sites with MAF=0.5 found. NaN values expected in LD r2.");
@@ -200,8 +189,7 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx,
   if (stop_idx + 1 == nsnps) frequency_was_estimated = true;
 }
 
-void FileBed::read_block_update(uint64 start_idx, uint64 stop_idx,
-                                const Mat2D &U, const Mat1D &svals,
+void FileBed::read_block_update(uint64 start_idx, uint64 stop_idx, const Mat2D &U, const Mat1D &svals,
                                 const Mat2D &VT, bool standardize) {
   uint actual_block_size = stop_idx - start_idx + 1;
   if (G.cols() < params.blocksize || (actual_block_size < params.blocksize)) {
@@ -219,8 +207,7 @@ void FileBed::read_block_update(uint64 start_idx, uint64 stop_idx,
   uint ks = svals.rows();
   uint ki, k;
   uchar buf;
-  bed_ifstream.read(reinterpret_cast<char *>(&inbed[0]),
-                    bed_bytes_per_snp * actual_block_size);
+  bed_ifstream.read(reinterpret_cast<char *>(&inbed[0]), bed_bytes_per_snp * actual_block_size);
 #pragma omp parallel for private(i, j, b, ki, k, snp_idx, buf)
   for (i = 0; i < actual_block_size; ++i) {
     snp_idx = start_idx + i;
@@ -249,21 +236,18 @@ void FileBed::read_block_update(uint64 start_idx, uint64 stop_idx,
 
 // structured permutation with cached buffer
 // TODO: support MAF filters
-PermMat permute_plink(std::string &fin, const std::string &fout, uint gb,
-                      uint nbands) {
+PermMat permute_plink(std::string &fin, const std::string &fout, uint gb, uint nbands) {
   uint nsnps = count_lines(fin + ".bim");
   uint nsamples = count_lines(fin + ".fam");
   uint bed_bytes_per_snp = (nsamples + 3) >> 2;
-  cao.print(tick.date(), "permute plink files. nsnps:", nsnps,
-            ", nsamples:", nsamples);
+  cao.print(tick.date(), "permute plink files. nsnps:", nsnps, ", nsamples:", nsamples);
 
   // calculate the readin number of snps of certain big buffer like 2GB.
   // must be a multiple of nbands.
   uint twoGB_snps = (uint)floor((double)1073741824 * gb / bed_bytes_per_snp);
   if (twoGB_snps > nsnps) twoGB_snps = nsnps;
   uint bufsize = (uint)floor((double)twoGB_snps / nbands);
-  twoGB_snps =
-      bufsize * nbands;  // initially twoGB_snps is a multiple of nbands
+  twoGB_snps = bufsize * nbands;  // initially twoGB_snps is a multiple of nbands
   assert(nsnps >= twoGB_snps);
   uint nblocks = (nsnps + twoGB_snps - 1) / twoGB_snps;
   uint modr2 = nsnps % twoGB_snps;
@@ -304,8 +288,7 @@ PermMat permute_plink(std::string &fin, const std::string &fout, uint gb,
   out.write(reinterpret_cast<char *>(&header[0]), 3);
   std::ifstream in_bim(fin + ".bim", std::ios::in);
   std::ofstream out_bim(fout + ".perm.bim", std::ios::out);
-  vector<std::string> bims(std::istream_iterator<Line>{in_bim},
-                           std::istream_iterator<Line>{});
+  vector<std::string> bims(std::istream_iterator<Line>{in_bim}, std::istream_iterator<Line>{});
   vector<std::string> bims2;
   bims2.resize(nsnps);
   uint64 ia, ib, b, i, j, twoGB_snps2, idx, bufidx = bufsize;

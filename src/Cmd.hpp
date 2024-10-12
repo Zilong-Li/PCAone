@@ -54,8 +54,8 @@ class Param {
   std::string filebim;  // the 7-th column can be MAF
   int ld_stats = 0;     // 0: adj; 1: std
   double ld_r2 = 0;
-  bool ld = false;       // true if tolld > 0
-  uint ld_bp = 0;  // base pairs not number of snps
+  bool ld = false;  // true if tolld > 0
+  uint ld_bp = 0;   // base pairs not number of snps
   // for clumping
   std::string clump;
   std::string assoc_colnames;
@@ -79,7 +79,7 @@ class Param {
   bool verbose = false;
   bool mev = true;
   bool out_of_core = false;  // otherwise load all matrix into RAM.
-  int  ploidy = 2;
+  int ploidy = 2;
   bool keepsnp = false;
   bool savebim = false;
 
