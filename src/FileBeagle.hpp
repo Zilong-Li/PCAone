@@ -10,11 +10,10 @@ int tgets(gzFile gz, char **buf, uint64 *l);
 class FileBeagle : public Data {
  public:
   FileBeagle(Param &params_) : Data(params_) {
-    cao << tick.date() << "start parsing BEAGLE format" << std::endl;
+    cao.print(tick.date(), "start parsing BEAGLE format");
     original = buffer = (char *)calloc(bufsize, sizeof(char));
-
     if (params.nsnps > 0 && params.nsamples > 0) {
-      cao << tick.date() << "use nsamples and nsnps given by user." << std::endl;
+      cao.print(tick.date(), "use nsamples and nsnps given by user");
       nsamples = params.nsamples;
       nsnps = params.nsnps;
     } else {
@@ -24,23 +23,18 @@ class FileBeagle : public Data {
       if (buffer != original) original = buffer;
       strtok_r(buffer, delims, &buffer);
       while (strtok_r(NULL, delims, &buffer)) nCol++;
-      if (nCol % 3) {
-        cao.error("Number of columns should be a multiple of 3.");
-      }
+      if (nCol % 3) cao.error("Number of columns should be a multiple of 3.");
       nsamples = nCol / 3 - 1;
       // continue getting the number of sites
-      // assume the number of columns of each line is the same. should check it
-      // first.
+      // FIXME:  assume the columns are aligne. maybe check it first.
       buffer = original;
       nsnps = 0;
-      while (tgets(fp, &buffer, &bufsize)) {
-        nsnps++;
-      }
+      while (tgets(fp, &buffer, &bufsize)) nsnps++;
       gzclose(fp);
     }
 
     P = Mat2D::Zero(nsamples * 2, nsnps);  // Mat2D is column major
-    cao << tick.date() << "N samples is " << nsamples << ". M snps is " << nsnps << std::endl;
+    cao.print(tick.date(), "N (# samples):", nsamples, ", M (# SNPs):", nsnps);
   }
 
   ~FileBeagle() {}

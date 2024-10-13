@@ -278,9 +278,9 @@ void Data::standardize_E() {
 #pragma omp parallel for
   for (uint i = 0; i < nsnps; ++i) {
     for (uint j = 0; j < nsamples; ++j) {
+      double sd = sqrt(F(i) * (1 - F(i)));
       // in case denominator is too small.
-      if (G(j, i) != BED_MISSING_VALUE && sqrt(F(i) * (1 - F(i))) > VAR_TOL)
-        G(j, i) /= sqrt(F(i) * (1 - F(i)));
+      if (sd > VAR_TOL) G(j, i) /= sd;
     }
   }
 }

@@ -89,8 +89,10 @@ void FileBed::read_all() {
     }
     // do centering and initialing
     for (j = 0; j < nsamples; ++j) {
-      if (G(j, i) != BED_MISSING_VALUE) G(j, i) -= F(i);
-      if ((G(j, i) == BED_MISSING_VALUE) && params.project <= 1) G(j, i) = 0.0;  // impute to mean
+      if (G(j, i) == BED_MISSING_VALUE)
+        G(j, i) = 0.0;  // impute to mean
+      else
+        G(j, i) -= F(i);
     }
   }
 
