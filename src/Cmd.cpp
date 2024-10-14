@@ -62,6 +62,10 @@ Param::Param(int argc, char **argv) {
                                       "2: by solving the least squares system Vx=g. skip sites with missingness\n"
                                       "3: by Augmentation, Decomposition and Procrusters transformation\n",
                        project, &project);
+  opts.add<Value<int>>("", "inbreed", "compute the inbreeding coefficient accounting for population structure.\n"
+                                      "0: disabled\n"
+                                      "1: compute per-site inbreeding coefficient and HWE test\n",
+                       inbreed, &inbreed);
   opts.add<Value<std::string>>("", "match-bim", "the .mbim file to be matched, where the 7th column is allele frequency", "", &filebim);
   opts.add<Switch>("", "ld", "output a binary matrix for downstream LD related analysis", &ld);
   opts.add<Value<double>>("", "ld-r2", "r2 cutoff for LD-based pruning. (usually 0.2)", ld_r2, &ld_r2);
@@ -178,6 +182,7 @@ Param::Param(int argc, char **argv) {
       pca = false;
       memory /= 2.0;  // adjust memory estimator
     }
+
     // handle projection
     if (project > 0) {
       if (fileV.empty() || fileS.empty())
@@ -186,6 +191,12 @@ Param::Param(int argc, char **argv) {
       impute = true;
       memory = 0;
       out_of_core = false;
+    }
+
+    // handle inbreeding
+    if (inbreed > 0) {
+      if (fileU.empty() || fileV.empty() || fileS.empty())
+        throw std::invalid_argument("please use --read-U, --read-S and --read-V together with --inbreed");
     }
   } catch (const popl::invalid_option &e) {
     std::cerr << "Invalid Option Exception: " << e.what() << "\n";

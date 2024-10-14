@@ -64,8 +64,8 @@ void Data::prepare() {
         stop[i] = stop[i] >= nsnps ? nsnps - 1 : stop[i];
       }
       // initial some variables for blockwise for specific files here.
-      if ((params.file_t != FileType::CSV) && (params.file_t != FileType::BINARY)) F = Mat1D::Zero(nsnps);
       if (params.file_t == FileType::PLINK) centered_geno_lookup = Arr2D::Zero(4, nsnps);  // for plink input
+      if ((params.file_t != FileType::CSV) && (params.file_t != FileType::BINARY)) F = Mat1D::Zero(nsnps);
     }
   }
 }
@@ -94,6 +94,7 @@ void Data::save_snps_in_bim() {
   cao.print(tick.date(), "save matched sites in .mbim file and params.perm is", params.perm);
   // could be permuted
   std::ifstream ifs_bim(params.filein + ".bim");
+  if (!ifs_bim.is_open()) cao.error(params.filein + ".bim not exists!");
   std::ofstream ofs_bim(params.fileout + ".mbim");
   std::string line;
   int i, j;

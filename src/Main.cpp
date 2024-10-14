@@ -11,7 +11,9 @@
 #include "FileBinary.hpp"
 #include "FileCsv.hpp"
 #include "FilePlink.hpp"
+#include "FileUSV.hpp"
 #include "Halko.hpp"
+#include "Inbreeding.hpp"
 #include "LD.hpp"
 #include "Projection.hpp"
 
@@ -23,6 +25,12 @@
 
 // clang-on
 using namespace std;
+
+static int bye() {
+  cao.print(tick.date(), "total elapsed wall time:", tick.abstime(), "seconds");
+  cao.print(tick.date(), "have a nice day. bye!");
+  return 0;
+}
 
 int main(int argc, char* argv[]) {
   Param params(argc, argv);
@@ -48,9 +56,7 @@ int main(int argc, char* argv[]) {
 
     run_ld_stuff(data, params);
     delete data;
-    cao.print(tick.date(), "total elapsed wall time:", tick.abstime(), "seconds");
-    cao.print(tick.date(), "have a nice day. bye!");
-    return 0;
+    return bye();
   }
 
   // particular case for projection
@@ -58,9 +64,15 @@ int main(int argc, char* argv[]) {
     data = new FileBed(params);
     run_projection(data, params);
     delete data;
-    cao.print(tick.date(), "total elapsed wall time:", tick.abstime(), "seconds");
-    cao.print(tick.date(), "have a nice day. bye!");
-    return 0;
+    return bye();
+  }
+
+  // particular case for inbreeding
+  if (params.inbreed > 0) {
+    data = new FileUSV(params);
+    run_inbreeding(data, params);
+    delete data;
+    return bye();
   }
 
   if (params.perm && params.out_of_core) {
@@ -122,8 +134,5 @@ int main(int argc, char* argv[]) {
                               params.filein + ".fam");
 
   cao.print(tick.date(), "total elapsed reading time: ", data->readtime, "seconds");
-  cao.print(tick.date(), "total elapsed wall time:", tick.abstime(), "seconds");
-  cao.print(tick.date(), "eigenvecs and eigenvals are saved. have a nice day. bye!");
-
-  return 0;
+  return bye();
 }

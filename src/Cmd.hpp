@@ -65,6 +65,8 @@ class Param {
   uint clump_bp = 250000;
   // for projection
   int project = 0;
+  // for inbreeding
+  int inbreed = 0;
 
   // general
   uint scale = 0;  // do scaling. 0: just centering. 1: log scaling. 2: cpmed
@@ -82,6 +84,7 @@ class Param {
   int ploidy = 2;
   bool keepsnp = false;
   bool savebim = false;
+  bool readpi = false; // true if read U,S,V
 
   std::ostringstream ss;
 };

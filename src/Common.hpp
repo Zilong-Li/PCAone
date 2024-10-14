@@ -8,6 +8,8 @@
 
 #include <Eigen/Dense>
 #include <algorithm>
+#include <cfloat>
+#include <cmath>
 #include <cstdio>
 #include <iterator>
 #include <numeric>
@@ -115,6 +117,45 @@ struct ZstdCS {
   size_t lastRet = 1;
   std::string buffCur = "";
   std::string buffLine, buffInTmp, buffOutTmp;
+};
+
+// C++ equivalent of Python's math.isclose function
+// https://github.com/jamadagni/areclose/blob/master/areclose.hpp
+struct AreClose {
+  AreClose() : abs_tol{0}, rel_tol{1e-09} {}
+
+  AreClose(double absTol, double relTol) : abs_tol{absTol}, rel_tol{relTol} {
+    if (invalidTolerance(abs_tol) || invalidTolerance(rel_tol)) abs_tol = rel_tol = NAN;
+    // this makes operator() always return false
+  }
+
+  bool operator()(double a, double b) const {
+    // The following is needed to catch infinities of the same sign since their
+    // difference is NAN. And rarely, finite inputs may also be equal.
+    if (a == b) return true;
+
+    // Since an infinity would have an infinite relative tolerance,
+    // any finite number would be considered relatively close to an infinity.
+    // Further we need to catch infinities of opposite signs whose
+    // difference is infinite and would compare equal to their relative
+    // tolerance. The following is needed for both those cases:
+    if (std::isinf(a) || std::isinf(b)) return false;
+
+    // The below is effectively the same as:
+    // abs(a - b) <= max(abs_tol, rel_tol * max(abs(a), abs(b)))
+    double diff = std::fabs(a - b);
+    return diff <= abs_tol || diff <= std::fabs(rel_tol * a) || diff <= std::fabs(rel_tol * b);
+  }
+  
+  static bool invalidTolerance(double tol) {
+    // A tolerance may be zero to switch off that particular type of tolerance checking
+    // but if it is non-zero then it should be finite and at least 4 × machine epsilon
+    // https://www.boost.org/doc/libs/1_75_0/libs/math/doc/html/math_toolkit/roots_noderiv/root_termination.html
+    return !(tol == 0.0 || (tol >= 4 * DBL_EPSILON && std::isfinite(tol)));
+  }
+
+ private:
+  double abs_tol, rel_tol;
 };
 
 #endif  // PCAone_Common_H

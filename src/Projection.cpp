@@ -1,5 +1,5 @@
 /*******************************************************************************
- * @file        https://github.com/Zilong-Li/PCAone/src/LD.cpp
+ * @file        https://github.com/Zilong-Li/PCAone/src/Projection.cpp
  * @author      Zilong Li
  * Copyright (C) 2024. Use of this code is governed by the LICENSE file.
  ******************************************************************************/

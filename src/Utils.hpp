@@ -2,6 +2,7 @@
 #define PCAONE_UTILES_
 
 #include <sys/utsname.h>
+#include <zlib.h>
 
 #include <cassert>
 #include <cmath>
@@ -27,6 +28,8 @@ extern Logger cao;
 
 std::string get_machine();
 
+int tgets(gzFile gz, char** buf, uint64* size) ;
+
 void fcloseOrDie(FILE* file);
 
 FILE* fopenOrDie(const char* filename, const char* instruction);
@@ -44,6 +47,8 @@ void flip_Omg(Mat2D& Omg2, Mat2D& Omg);
 void flip_Y(const Mat2D& X, Mat2D& Y);
 
 double rmse(const Mat2D& X, const Mat2D& Y);
+
+double rmse1d(const Mat1D& x, const Mat1D& y);
 
 Eigen::VectorXd minSSE(const Mat2D& X, const Mat2D& Y);
 
@@ -68,4 +73,7 @@ Mat2D read_eigvecs(const std::string& path, int n, int k);
 Mat1D read_frq(const std::string& path);
 
 void check_bim_vs_mbim(const std::string& bim_file, const std::string& mbim_file);
+
+void parse_beagle_file(Mat2D& P, gzFile fp, const int nsamples, const int nsnps);
+
 #endif  // PCAONE_UTILES_

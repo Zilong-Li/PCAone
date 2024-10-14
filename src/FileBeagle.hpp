@@ -1,11 +1,7 @@
 #ifndef PCAONE_FILEBEAGLE_
 #define PCAONE_FILEBEAGLE_
 
-#include <zlib.h>
-
 #include "Data.hpp"
-
-int tgets(gzFile gz, char **buf, uint64 *l);
 
 class FileBeagle : public Data {
  public:
@@ -37,7 +33,7 @@ class FileBeagle : public Data {
     cao.print(tick.date(), "N (# samples):", nsamples, ", M (# SNPs):", nsnps);
   }
 
-  ~FileBeagle() {}
+  ~FileBeagle() { free(buffer); }
 
   virtual void read_all();
   // below are for blockwise, remain for future.

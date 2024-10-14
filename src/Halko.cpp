@@ -324,15 +324,15 @@ void run_pca_with_halko(Data* data, const Param& params) {
     // if pcangsd, estimate GRM.
     if (params.pcangsd) {
       data->pcangsd_standardize_E(rsvd->U, rsvd->S, rsvd->V.transpose());
+      data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, rsvd->V);
       Mat2D C = data->G * data->G.transpose();
       C.array() /= (double)data->nsnps;
       C.diagonal() = data->Dc.array() / (double)data->nsnps;
-      std::ofstream out_cov(params.fileout + ".cov");
-      if (out_cov.is_open()) out_cov << C << "\n";
+      std::ofstream fcov(params.fileout + ".cov");
+      if (fcov.is_open()) fcov << C << "\n";
       // Eigen::SelfAdjointEigenSolver<MyMatrix> eig(C);
       // use Eigen::JacobiSVD to get eigenvecs
-      Eigen::JacobiSVD<Mat2D> svd(C, Eigen::ComputeThinU | Eigen::ComputeThinV);
-      data->write_eigs_files(svd.singularValues(), svd.matrixU(), svd.matrixU());
+      // Eigen::JacobiSVD<Mat2D> svd(C, Eigen::ComputeThinU | Eigen::ComputeThinV);
     } else {
       rsvd->setFlags(true, true, false);
       rsvd->computeUSV(params.maxp, params.tol);

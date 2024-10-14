@@ -86,21 +86,22 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
 
       if (params.pcangsd) {
         data->pcangsd_standardize_E(U, svals, V.transpose());
+        evals.noalias() = svals.array().square().matrix() / data->nsnps;
         Mat2D C = data->G * data->G.transpose();
         C.array() /= (double)data->nsnps;
         C.diagonal() = data->Dc.array() / (double)data->nsnps;
-        std::ofstream out_cov(params.fileout + ".cov");
-        if (out_cov.is_open()) out_cov << C << "\n";
+        std::ofstream fcov(params.fileout + ".cov");
+        if (fcov.is_open()) fcov << C << "\n";
         // calculate eigenvectors
-        DenseSymMatProd<double> op2(C);
-        SymEigsSolver<DenseSymMatProd<double>> eigs2(op2, params.k, params.ncv);
-        eigs2.init();
-        nconv = eigs2.compute(SortRule::LargestAlge, params.imaxiter, params.itol);
-        assert(eigs2.info() == CompInfo::Successful);
-        nu = min(params.k, nconv);
-        U = eigs2.eigenvectors().leftCols(nu);
-        V = eigs2.eigenvectors().leftCols(nu);
-        evals = eigs2.eigenvalues();
+        // DenseSymMatProd<double> op2(C);
+        // SymEigsSolver<DenseSymMatProd<double>> eigs2(op2, params.k, params.ncv);
+        // eigs2.init();
+        // nconv = eigs2.compute(SortRule::LargestAlge, params.imaxiter, params.itol);
+        // assert(eigs2.info() == CompInfo::Successful);
+        // nu = min(params.k, nconv);
+        // U = eigs2.eigenvectors().leftCols(nu);
+        // V = eigs2.eigenvectors().leftCols(nu);
+        // evals = eigs2.eigenvalues();
       } else {
         data->standardize_E();
         svds.compute(params.imaxiter, params.itol);
@@ -115,7 +116,6 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
     data->write_eigs_files(evals, U, V);
     // NOTE: pcangsd only gives us evals of covariance matrix
     if (params.ld && !params.pcangsd) data->write_residuals(svals, U, V.transpose());
-
   } else {
     // for blockwise
     ArnoldiOpData* op = new ArnoldiOpData(data);

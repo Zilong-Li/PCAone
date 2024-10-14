@@ -8,48 +8,11 @@
 
 using namespace std;
 
-// inspired by Angsd
-int tgets(gzFile gz, char **buf, uint64 *l) {
-  int rlen = 0;
-neverUseGoto:
-  char *tok = gzgets(gz, *buf + rlen, *l - rlen);
-  if (!tok) return rlen;
-  int tmp = tok ? strlen(tok) : 0;
-  if (tok[tmp - 1] != '\n') {
-    rlen += tmp;
-    *l *= 2;
-    *buf = (char *)realloc(*buf, *l);
-    goto neverUseGoto;
-  }
-  rlen += tmp;
-  return rlen;
-}
-
 // read all data and estimate F
 void FileBeagle::read_all() {
   fp = gzopen(params.filein.c_str(), "r");
-  tgets(fp, &buffer, &bufsize);
-  char *tok;
-  uint i = 0, j = 0;
-  // read all GP data into P
-  while (tgets(fp, &buffer, &bufsize)) {
-    if (buffer != original) original = buffer;
-    tok = strtok_r(buffer, delims, &buffer);
-    tok = strtok_r(NULL, delims, &buffer);
-    tok = strtok_r(NULL, delims, &buffer);
-    for (i = 0; i < nsamples; i++) {
-      tok = strtok_r(NULL, delims, &buffer);
-      P(2 * i + 0, j) = strtod(tok, NULL);
-      tok = strtok_r(NULL, delims, &buffer);
-      P(2 * i + 1, j) = strtod(tok, NULL);
-      tok = strtok_r(NULL, delims, &buffer);
-    }
-    buffer = original;
-    j++;
-  }
+  parse_beagle_file(P, fp, nsamples, nsnps);
   gzclose(fp);
-  assert(j == nsnps);
-
   cao.print(tick.date(), "begin to estimate allele frequencies");
   F = Mat1D::Constant(nsnps, 0.25);
   {  // out of scope: eigen object will be released;

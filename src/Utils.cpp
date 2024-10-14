@@ -23,6 +23,28 @@ std::string get_machine() {
          "\nOperating system version: " + version + "\nOperating system name: " + sysname + "\n";
 }
 
+/*
+** @brief gz line gets
+** @param gz   file hander returned by gzopen
+** @param buf  buffer used for storing data
+** @param size buffer size for realloc buffer
+** @return length and buffer of current line
+*/
+int tgets(gzFile gz, char** buf, uint64* size) {
+  int rlen = 0;
+  char* tok = gzgets(gz, *buf + rlen, *size - rlen);  // return buf or NULL
+  if (!tok) return rlen;
+  int tmp = tok ? strlen(tok) : 0;
+  if (tok[tmp - 1] != '\n') {
+    // expand buf size if no end-of-line found
+    rlen += tmp;
+    *size *= 2;
+    *buf = (char*)realloc(*buf, *size);
+  }
+  rlen += tmp;
+  return rlen;
+}
+
 void fcloseOrDie(FILE* file) {
   if (!fclose(file)) {
     return;
@@ -133,6 +155,8 @@ double rmse(const Mat2D& X, const Mat2D& Y) {
   flip_Y(X, Z);
   return sqrt((X - Z).array().square().sum() / (X.cols() * X.rows()));
 }
+
+double rmse1d(const Mat1D& x, const Mat1D& y) { return sqrt((x - y).array().square().sum() / x.size()); }
 
 // Y is the truth matrix, X is the test matrix
 Eigen::VectorXd minSSE(const Mat2D& X, const Mat2D& Y) {
@@ -333,4 +357,32 @@ void check_bim_vs_mbim(const std::string& bim_file, const std::string& mbim_file
           "id1 vs id2 => " +
           id1 + " vs " + id2);
   }
+}
+
+void parse_beagle_file(Mat2D& P, gzFile fp, const int nsamples, const int nsnps) {
+  // Mat2D P(nsamples * 2, nsnps);  // genotype likelihood
+  const char* delims = "\t \n";
+  char *original, *buffer, *tok;
+  uint64 bufsize = (uint64)128 * 1024 * 1024;
+  original = buffer = (char*)calloc(bufsize, sizeof(char));
+  tgets(fp, &buffer, &bufsize);
+  int i = 0, j = 0;
+  // read all GL data into P
+  while (tgets(fp, &buffer, &bufsize)) {
+    if (buffer != original) original = buffer;
+    tok = strtok_r(buffer, delims, &buffer);
+    tok = strtok_r(NULL, delims, &buffer);
+    tok = strtok_r(NULL, delims, &buffer);
+    for (i = 0; i < nsamples; i++) {
+      tok = strtok_r(NULL, delims, &buffer);
+      P(2 * i + 0, j) = strtod(tok, NULL);
+      tok = strtok_r(NULL, delims, &buffer);
+      P(2 * i + 1, j) = strtod(tok, NULL);
+      tok = strtok_r(NULL, delims, &buffer);
+    }
+    buffer = original;
+    j++;
+  }
+  assert(nsnps == j);
+  free(buffer);
 }
