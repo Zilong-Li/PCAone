@@ -20,9 +20,9 @@ void calc_inbreed_coef(Mat2D& Fd, const Mat1D& F, const Mat2D& PI, const Mat2D& 
       // Fadj = (1-pi)*pi*F;
       double Fadj = (1.0 - PI(i, j)) * PI(i, j) * F(j);
       // (1-pi)^2 + pi(1-pi)*F
-      double p0 = fmax(1e-4, (1 - PI(i, j) * (1 - PI(i, j)) + Fadj));
+      double p0 = fmax(1e-4, (1.0 - PI(i, j) * (1.0 - PI(i, j)) + Fadj));
       // 2pi(1-pi)(1-F)
-      double p1 = fmax(1e-4, 2 * PI(i, j) * (1 - PI(i, j)) - 2.0 * Fadj);
+      double p1 = fmax(1e-4, 2.0 * PI(i, j) * (1.0 - PI(i, j)) - 2.0 * Fadj);
       // pi^2 + pi(1-pi)*F
       double p2 = fmax(1e-4, PI(i, j) * PI(i, j) + Fadj);
       // normalize
@@ -40,7 +40,7 @@ void calc_inbreed_coef(Mat2D& Fd, const Mat1D& F, const Mat2D& PI, const Mat2D& 
       // sum over indiiduals
       obsH += pp1 / ppSum;
       // count heterozygotes
-      expH += 2.0 * PI(i, j) * (1 - PI(i, j));
+      expH += 2.0 * PI(i, j) * (1.0 - PI(i, j));
     }
     // ANGSD procedure
     obsH = fmax(1e-4, obsH / (double)nsamples);
@@ -54,17 +54,17 @@ void calc_inbreed_coef(Mat2D& Fd, const Mat1D& F, const Mat2D& PI, const Mat2D& 
 void run_inbreeding_em(Mat1D& F, const Mat2D& PI, const Mat2D& GL, const Param& params) {
   const int nsnps = PI.cols();
   Mat2D Fd(nsnps, 2);
-  Mat1D f1(nsnps), d1(nsnps);
+  Mat1D F1(nsnps), D1(nsnps);
   double sr2, sv2, alpha, diff;
   AreClose areClose;
   for (uint it = 0; it < params.maxiter; it++) {
     calc_inbreed_coef(Fd, F, PI, GL);
-    f1 = Fd.col(0);
-    d1 = Fd.col(1);
-    sr2 = d1.array().square().sum();
-    calc_inbreed_coef(Fd, f1, PI, GL);
-    f1 = F;  // f1 is F0
-    sv2 = (Fd.col(1) - d1).array().square().sum();
+    F1 = Fd.col(0);
+    D1 = Fd.col(1);
+    sr2 = D1.array().square().sum();
+    calc_inbreed_coef(Fd, F1, PI, GL);
+    F1 = F;  // f1 is F0
+    sv2 = (Fd.col(1) - D1).array().square().sum();
     // safety break
     if (areClose(sv2, 0.0)) {
       F = Fd.col(0);  // copy
@@ -73,13 +73,13 @@ void run_inbreeding_em(Mat1D& F, const Mat2D& PI, const Mat2D& GL, const Param& 
       break;
     }
     alpha = -fmax(1.0, sqrt(sr2 / sv2));
-    F = F + 2 * alpha * d1 + alpha * alpha * (Fd.col(1) - d1);
+    F = F - 2 * alpha * D1 + alpha * alpha * (Fd.col(1) - D1);
     // map to domain [-1, 1]
     F = (F.array() < -1.0).select(-1.0, F);
     F = (F.array() > 1.0).select(1.0, F);
     // Stabilization step and convergence check
     calc_inbreed_coef(Fd, F, PI, GL);
-    diff = rmse1d(f1, Fd.col(0));
+    diff = rmse1d(F1, Fd.col(0));
     cao.print(tick.date(), "Inbreeding coefficients estimated, iter =", it + 1, "RMSE =", diff);
     if (diff < params.tolem) {
       cao.print(tick.date(), "EM inbreeding coefficient coverged");
