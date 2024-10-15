@@ -114,9 +114,9 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
   if (bed_ifstream.tellg() != offset) cao.error("something wrong with read_snp_block!");
   // if G is not initial then initial it
   // if actual_block_size is smaller than blocksize, don't resize G;
-  if (G.cols() < params.blocksize || (actual_block_size < params.blocksize)) {
+  if (G.cols() < blocksize || (actual_block_size < blocksize)) {
     G = Mat2D::Zero(nsamples, actual_block_size);
-    inbed.reserve(bed_bytes_per_snp * params.blocksize);
+    inbed.reserve(bed_bytes_per_snp * blocksize);
   }
   uint64 c, b, i, j, k, snp_idx;
   uchar buf;
@@ -201,9 +201,9 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
 void FileBed::read_block_update(uint64 start_idx, uint64 stop_idx, const Mat2D &U, const Mat1D &svals,
                                 const Mat2D &VT, bool standardize) {
   uint actual_block_size = stop_idx - start_idx + 1;
-  if (G.cols() < params.blocksize || (actual_block_size < params.blocksize)) {
+  if (G.cols() < blocksize || (actual_block_size < blocksize)) {
     G = Mat2D::Zero(nsamples, actual_block_size);
-    inbed.reserve(bed_bytes_per_snp * params.blocksize);
+    inbed.reserve(bed_bytes_per_snp * blocksize);
   }
   // check where we are
   if (params.verbose) {

@@ -8,7 +8,7 @@ const double VAR_TOL = 1e-9;
 
 class Data {
  public:
-  Data(Param& params_) : params(params_) { cao.print(tick.date(), "program started"); }
+  Data(const Param& params_) : params(params_) { cao.print(tick.date(), "program started"); }
 
   virtual ~Data() {}
 
@@ -31,12 +31,12 @@ class Data {
   void calcu_vt_initial(const Mat2D& T, Mat2D& VT, bool standardize);
   void calcu_vt_update(const Mat2D& T, const Mat2D& U, const Mat1D& svals, Mat2D& VT, bool standardize);
 
-  Param& params;
+  const Param& params;
 
   bool snpmajor = true;
   bool nsamples_ge_nsnps = false;  // if nsamples greater than or equal to nsnps
   bool initialFonly = false;
-  uint nsamples, nsnps;
+  uint blocksize, nsamples, nsnps;
   double readtime = 0;
   uint nblocks = 1;
   uint bandFactor = 1;

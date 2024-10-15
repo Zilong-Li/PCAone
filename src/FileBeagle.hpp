@@ -5,7 +5,7 @@
 
 class FileBeagle : public Data {
  public:
-  FileBeagle(Param &params_) : Data(params_) {
+  FileBeagle(const Param &params_) : Data(params_) {
     cao.print(tick.date(), "start parsing BEAGLE format");
     original = buffer = (char *)calloc(bufsize, sizeof(char));
     if (params.nsnps > 0 && params.nsamples > 0) {

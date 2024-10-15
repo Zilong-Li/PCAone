@@ -6,7 +6,6 @@
 
 #include "FileBgen.hpp"
 
-#include <functional>
 #include <thread>
 
 using namespace std;
@@ -128,8 +127,8 @@ void FileBgen::read_all() {
 }
 
 void FileBgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize) {
-  read_bgen_block(G, F, bg, dosages, probs1d, frequency_was_estimated, nsamples, nsnps, params.blocksize,
-                  start_idx, stop_idx, standardize);
+  read_bgen_block(G, F, bg, dosages, probs1d, frequency_was_estimated, nsamples, nsnps, blocksize, start_idx,
+                  stop_idx, standardize);
 }
 
 void read_bgen_block(Mat2D &G, Mat1D &F, bgen::CppBgenReader *bg, float *dosages, float *probs1d,

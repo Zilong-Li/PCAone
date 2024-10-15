@@ -22,7 +22,7 @@ PermMat permute_bgen(std::string& fin, std::string fout, int nthreads);
 class FileBgen : public Data {
  public:
   // using Data::Data;
-  FileBgen(Param& params_) : Data(params_) {
+  FileBgen(const Param& params_) : Data(params_) {
     cao.print(tick.date(), "start parsing BGEN format");
     bg = new bgen::CppBgenReader(params.filein, "", true);
     nsamples = bg->header.nsamples;

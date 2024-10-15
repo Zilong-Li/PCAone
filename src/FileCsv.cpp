@@ -69,7 +69,7 @@ void FileCsv::check_file_offset_first_var() {
 }
 
 void FileCsv::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize) {
-  read_csvzstd_block(zbuf, params.blocksize, start_idx, stop_idx, G, nsamples, libsize, tidx, median_libsize,
+  read_csvzstd_block(zbuf, blocksize, start_idx, stop_idx, G, nsamples, libsize, tidx, median_libsize,
                      params.scale);
 }
 

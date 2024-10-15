@@ -7,7 +7,7 @@
 class FileBed : public Data {
  public:
   //
-  FileBed(Param &params_) : Data(params_) {
+  FileBed(const Param &params_) : Data(params_) {
     cao.print(tick.date(), "start parsing PLINK format");
     std::string fbim = params.filein + ".bim";
     std::string ffam = params.filein + ".fam";

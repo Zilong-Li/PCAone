@@ -16,7 +16,7 @@ PermMat shuffle_csvzstd_to_bin(std::string& fin, std::string fout, uint gb, uint
 // only do centering
 class FileCsv : public Data {
  public:
-  FileCsv(Param& params_) : Data(params_) {
+  FileCsv(const Param& params_) : Data(params_) {
     cao.print(tick.date(), "start parsing CSV format compressed by ZSTD");
 
     if (params.nsnps > 0 && params.nsamples > 0 && !params.cpmed) {

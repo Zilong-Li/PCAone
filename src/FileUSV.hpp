@@ -6,7 +6,7 @@
 // To get \Pi mainly
 class FileUSV : public Data {
  public:
-  FileUSV(Param &params_) : Data(params_) {
+  FileUSV(const Param &params_) : Data(params_) {
     cao.print(tick.date(), "start parsing U:", params.fileU, ", S:", params.fileS, ", V:", params.fileV);
     S = read_eigvals(params.fileS);
     K = S.size();

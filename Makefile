@@ -135,7 +135,7 @@ else ifeq ($(Platform),Darwin)
 		MYFLAGS += -DEIGEN_USE_BLAS
 		INC     += -I${ACCELERATE_ROOT}/include
 		LPATHS  += -L${ACCELERATE_ROOT}/lib
-		DLIBS   += -llapack -lblas -lgomp -lpthread
+		DLIBS   += -Wl,-rpath,${ACCELERATE_ROOT}/lib -llapack -lblas -lgomp -lpthread
 
 	else
 		DLIBS += -lomp -lpthread -L$(LIB_PATH)

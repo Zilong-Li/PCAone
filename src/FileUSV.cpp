@@ -26,7 +26,7 @@ void FileUSV::read_all() {
 // NOTE: sanity check if blocks are continuous
 void FileUSV::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize) {
   uint actual_block_size = stop_idx - start_idx + 1;
-  if (G.cols() < params.blocksize || (actual_block_size < params.blocksize)) {
+  if (G.cols() < blocksize || (actual_block_size < blocksize)) {
     G = Mat2D::Zero(nsamples, actual_block_size);
   }
 #pragma omp parallel for
