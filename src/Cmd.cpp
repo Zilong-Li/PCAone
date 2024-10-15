@@ -57,6 +57,7 @@ Param::Param(int argc, char **argv) {
   opts.add<Switch>("", "emu", "use EMU algorithm for genotype input with missingness", &emu);
   opts.add<Switch>("", "pcangsd", "use PCAngsd algorithm for genotype likelihood input", &pcangsd);
   opts.add<Value<double>>("", "maf", "exclude variants with MAF lower than this value", maf, &maf);
+  opts.add<Value<std::string>>("", "match-bim", "the .mbim file to be matched, where the 7th column is allele frequency", "", &filebim);
   opts.add<Value<int>>("", "project", "project the new samples onto the existing PCs.\n"
                                       "0: disabled\n"
                                       "1: by multiplying the loadings with mean imputation for missing genotypes\n"
@@ -67,7 +68,6 @@ Param::Param(int argc, char **argv) {
                                       "0: disabled\n"
                                       "1: compute per-site inbreeding coefficient and HWE test\n",
                        inbreed, &inbreed);
-  opts.add<Value<std::string>>("", "match-bim", "the .mbim file to be matched, where the 7th column is allele frequency", "", &filebim);
   opts.add<Switch>("", "ld", "output a binary matrix for downstream LD related analysis", &ld);
   opts.add<Value<double>>("", "ld-r2", "r2 cutoff for LD-based pruning. (usually 0.2)", ld_r2, &ld_r2);
   opts.add<Value<uint>>("", "ld-bp", "physical distance threshold in bases for LD. (usually 1000000)", ld_bp, &ld_bp);
@@ -113,6 +113,17 @@ Param::Param(int argc, char **argv) {
       for (const auto &uo : opts.unknown_options()) std::cerr << "unknown option: " << uo << "\n";
       exit(EXIT_FAILURE);
     }
+    if (svd_opt->value() == 0)
+      svd_t = SvdType::IRAM;
+    else if (svd_opt->value() == 1)
+      svd_t = SvdType::PCAoneAlg1;
+    else if (svd_opt->value() == 2)
+      svd_t = SvdType::PCAoneAlg2;
+    else if (svd_opt->value() == 3)
+      svd_t = SvdType::FULL;
+    else
+      svd_t = SvdType::PCAoneAlg2;
+    
     if (plinkfile->is_set())
       file_t = FileType::PLINK;
     else if (binfile->is_set())
@@ -130,16 +141,6 @@ Param::Param(int argc, char **argv) {
       std::cout << opts << "\n";
       exit(EXIT_SUCCESS);
     }
-    if (svd_opt->value() == 0)
-      svd_t = SvdType::IRAM;
-    else if (svd_opt->value() == 1)
-      svd_t = SvdType::PCAoneAlg1;
-    else if (svd_opt->value() == 2)
-      svd_t = SvdType::PCAoneAlg2;
-    else if (svd_opt->value() == 3)
-      svd_t = SvdType::FULL;
-    else
-      svd_t = SvdType::PCAoneAlg2;
 
     ncv = 20 > (2 * k + 1) ? 20 : (2 * k + 1);
     oversamples = 10 > k ? 10 : k;

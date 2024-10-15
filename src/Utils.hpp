@@ -12,6 +12,7 @@
 #include <iostream>
 #include <random>
 #include <stdexcept>
+#include <string>
 
 #include "Common.hpp"
 #include "Logger.hpp"
@@ -28,7 +29,7 @@ extern Logger cao;
 
 std::string get_machine();
 
-int tgets(gzFile gz, char** buf, uint64* size) ;
+int tgets(gzFile gz, char** buf, uint64* size);
 
 void fcloseOrDie(FILE* file);
 
@@ -75,5 +76,9 @@ Mat1D read_frq(const std::string& path);
 void check_bim_vs_mbim(const std::string& bim_file, const std::string& mbim_file);
 
 void parse_beagle_file(Mat2D& P, gzFile fp, const int nsamples, const int nsnps);
+
+String1D parse_beagle_samples(const std::string& fin);
+
+void write_eigvecs2_beagle(const Mat2D& U, const std::string& fin, const std::string& fout);
 
 #endif  // PCAONE_UTILES_

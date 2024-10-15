@@ -314,7 +314,7 @@ void run_pca_with_halko(Data* data, const Param& params) {
         diff = 1.0 - mev(rsvd->V, Vpre);
       else
         diff = minSSE(rsvd->V, Vpre).sum() / Vpre.cols();
-      cao.print(tick.date(), "individual allele frequencies estimated (iter =", i + 1, "), diff =", diff);
+      cao.print(tick.date(), "individual allele frequencies estimated iter =", i + 1, ", diff =", diff);
       if (diff < params.tolem) {
         cao.print(tick.date(), "come to convergence!");
         break;
@@ -324,7 +324,7 @@ void run_pca_with_halko(Data* data, const Param& params) {
     // if pcangsd, estimate GRM.
     if (params.pcangsd) {
       data->pcangsd_standardize_E(rsvd->U, rsvd->S, rsvd->V.transpose());
-      data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, rsvd->V);
+      // data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, rsvd->V);
       Mat2D C = data->G * data->G.transpose();
       C.array() /= (double)data->nsnps;
       C.diagonal() = data->Dc.array() / (double)data->nsnps;
@@ -332,19 +332,20 @@ void run_pca_with_halko(Data* data, const Param& params) {
       if (fcov.is_open()) fcov << C << "\n";
       // Eigen::SelfAdjointEigenSolver<MyMatrix> eig(C);
       // use Eigen::JacobiSVD to get eigenvecs
-      // Eigen::JacobiSVD<Mat2D> svd(C, Eigen::ComputeThinU | Eigen::ComputeThinV);
+      Eigen::JacobiSVD<Mat2D> svd(C, Eigen::ComputeThinU | Eigen::ComputeThinV);
+      // output real eigenvectors of covariance in eigvecs2
+      write_eigvecs2_beagle(svd.matrixU(), params.filein, params.fileout + ".eigvecs2");
     } else {
       rsvd->setFlags(true, true, false);
       rsvd->computeUSV(params.maxp, params.tol);
     }
   }
-  if (!params.pcangsd) {
-    if (params.perm)
-      data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, data->perm * rsvd->V);
-    else
-      data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, rsvd->V);
-    if (params.ld) data->write_residuals(rsvd->S, rsvd->U, rsvd->V.transpose());
-  }
+  // output PI
+  if (params.perm)
+    data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, data->perm * rsvd->V);
+  else
+    data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, rsvd->V);
+  if (params.ld) data->write_residuals(rsvd->S, rsvd->U, rsvd->V.transpose());
 
   delete rsvd;
 

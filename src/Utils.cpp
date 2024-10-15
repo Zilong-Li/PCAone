@@ -386,3 +386,35 @@ void parse_beagle_file(Mat2D& P, gzFile fp, const int nsamples, const int nsnps)
   assert(nsnps == j);
   free(buffer);
 }
+
+String1D parse_beagle_samples(const std::string& fin) {
+  const char* delims = "\t \n";
+  char *buffer, *tok;
+  uint64 bufsize = (uint64)128 * 1024 * 1024;
+  buffer = (char*)calloc(bufsize, sizeof(char));
+  gzFile fp = gzopen(fin.c_str(), "r");
+  tgets(fp, &buffer, &bufsize);
+  strtok_r(buffer, delims, &buffer);
+  int nCol = 1;
+  String1D res;
+  while ((tok = strtok_r(NULL, delims, &buffer))) {
+    nCol++;
+    if ((nCol - 1) % 3 == 0) res.push_back(std::string(tok));
+  }
+  if (nCol % 3) cao.error("Number of columns should be a multiple of 3.");
+  return res;
+}
+
+void write_eigvecs2_beagle(const Mat2D& U, const std::string& fin, const std::string& fout) {
+  std::ofstream feig2(fout);
+  if (!feig2.is_open()) cao.error("can not open " + fout);
+  feig2 << "#FID\tIID";
+  int i = 0;
+  for (i = 0; i < U.rows(); i++) feig2 << "\tPC" << i + 1;
+  feig2 << "\n";
+  i = 0;
+  for (const auto& s : parse_beagle_samples(fin)) {
+    feig2 << s << "\t" << s << "\t" << U.row(i) << "\n";
+    i++;
+  }
+}
