@@ -13,6 +13,10 @@ MKLROOT       =
 OPENBLAS_ROOT =
 LAPACK_ROOT   =
 
+# for MacOS
+# use accelerate framework as blas lib
+ACCELERATE_ROOT =
+
 # by default dynamical linking
 STATIC        = 0
 # only if static = 1, IOMP5 works
@@ -34,6 +38,8 @@ CXXSTD         = c++17  # default c++17 if not set by the user
 CXXFLAGS	  += -O3 -Wall -std=$(CXXSTD) -m64 -fPIC
 MYFLAGS        = -DVERSION=\"$(VERSION)\"
 # CURRENT_DIR   = $(shell pwd)
+INC_PATH       = /usr/local/include
+LIB_PATH       = /usr/local/lib
 INC           = -I./external -I./external/zstd/lib
 PCALIB = libpcaone.a
 AVX = 1
@@ -50,7 +56,6 @@ ifeq ($(strip $(DEBUG)),1)
 endif
 
 ifeq ($(strip $(STATIC)),1)
-	INC  += -I./external/zstd/lib
 	ifeq ($(Platform), Darwin)
 		SLIBS += /usr/local/opt/zlib/lib/libz.a
 		ifeq ($(strip $(IOMP5)), 1)
@@ -105,7 +110,7 @@ ifeq ($(Platform),Linux)
 else ifeq ($(Platform),Darwin)
 ###### for mac
 	MYFLAGS  += -Xpreprocessor -fopenmp
-	INC      += -I/usr/local/include
+	INC      += -I$(INC_PATH)
 	ifneq ($(strip $(MKLROOT)),)
 		MYFLAGS += -DWITH_MKL -DEIGEN_USE_MKL_ALL
 		INC     += -I${MKLROOT}/include/
@@ -126,8 +131,14 @@ else ifeq ($(Platform),Darwin)
 		LPATHS  += -L${OPENBLAS_ROOT}/lib -L${LAPACK_ROOT}/lib
 		DLIBS   += -llapack -llapacke -lopenblas -lgfortran -lgomp -lpthread
 
+	else ifneq ($(strip $(ACCELERATE_ROOT)),)
+		MYFLAGS += -DEIGEN_USE_BLAS
+		INC     += -I${ACCELERATE_ROOT}/include
+		LPATHS  += -L${ACCELERATE_ROOT}/lib
+		DLIBS   += -llapack -lblas -lgomp -lpthread
+
 	else
-		DLIBS += -lomp -lpthread -L/usr/local/lib
+		DLIBS += -lomp -lpthread -L$(LIB_PATH)
 	endif
 
 endif

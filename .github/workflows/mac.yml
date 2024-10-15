@@ -23,7 +23,7 @@ jobs:
         export CXX=$(brew --prefix llvm)/bin/clang++
         export LDFLAGS="-L"$(brew --prefix llvm)/lib
         export CPPFLAGS="-I"$(brew --prefix llvm)/include
-        make -j4 AVX=0
+        make -j4 AVX=0 INC_PATH=$(brew --prefix llvm)/include LIB_PATH=$(brew --prefix llvm)/lib
 
     - name: test
       run: ./PCAone --help
