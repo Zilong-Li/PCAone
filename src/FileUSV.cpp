@@ -15,7 +15,7 @@ void FileUSV::read_all() {
 #pragma omp parallel for
     for (int i = 0; i < F.size(); i++) {
       for (int j = 0; j < G.rows(); j++) {
-        G(j, i) = (G(j, i) - 2.0 * F(i)) / 2.0;
+        G(j, i) = (G(j, i) + 2.0 * F(i)) / 2.0;
         G(j, i) = fmin(fmax(G(j, i), 1e-4), 1.0 - 1e-4);
       }
     }

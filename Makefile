@@ -136,7 +136,8 @@ endif
 # tar OBJ as libpcaone.a
 OBJ = src/Arnoldi.o src/Halko.o src/Data.o src/Utils.o src/Cmd.o \
 		src/FileBeagle.o src/FileCsv.o src/FileBgen.o src/FilePlink.o \
-		src/FileBinary.o src/FileUSV.o src/LD.o src/Projection.o src/Inbreeding.o
+		src/FileBinary.o src/FileUSV.o src/LD.o src/Projection.o src/Inbreeding.o \
+		src/kfunc.o
 
 SLIBS += ./external/bgen/bgenlib.a ./external/zstd/lib/libzstd.a
 
