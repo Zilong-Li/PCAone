@@ -32,7 +32,7 @@ void FileBed::read_all() {
   bed_ifstream.read(reinterpret_cast<char *>(&inbed[0]), bed_bytes_per_snp * nsnps);
   uint64 c, i, j, b, k;
   uchar buf;
-  if (params.project == 0) {
+  if (params.estaf) {
     F = Mat1D::Zero(nsnps);
     // estimate allele frequency first
 #pragma omp parallel for private(i, j, b, c, k, buf)
@@ -59,7 +59,7 @@ void FileBed::read_all() {
       if (params.verbose && F(i) == 0.5) cao.warn("sites with MAF=0.5 found. NaN values expected in LD r2.");
     }
     filter_snps_resize_F();  // filter and resize nsnps
-  } else {
+  } else if (params.project > 0) {
     // read frq from original set
     cao.print(tick.date(), "read frequency of SNPs from the extended bim (.mbim)");
     F = read_frq(params.filebim);
@@ -88,11 +88,13 @@ void FileBed::read_all() {
       }
     }
     // do centering and initialing
-    for (j = 0; j < nsamples; ++j) {
-      if (G(j, i) == BED_MISSING_VALUE)
-        G(j, i) = 0.0;  // impute to mean
-      else
-        G(j, i) -= F(i);
+    if (params.center) {
+      for (j = 0; j < nsamples; ++j) {
+        if (G(j, i) == BED_MISSING_VALUE)
+          G(j, i) = 0.0;  // impute to mean
+        else
+          G(j, i) -= F(i);
+      }
     }
   }
 
@@ -122,6 +124,7 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
   bed_ifstream.read(reinterpret_cast<char *>(&inbed[0]), bed_bytes_per_snp * actual_block_size);
   // bed_ifstream.rdbuf()->sgetn(reinterpret_cast<char *> (&inbed[0]),
   // bed_bytes_per_snp * actual_block_size);
+  if (!params.center) frequency_was_estimated = true;
   if (frequency_was_estimated) {
 #pragma omp parallel for private(i, j, b, k, snp_idx, buf)
     for (i = 0; i < actual_block_size; ++i) {
@@ -130,9 +133,13 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
         buf = inbed[i * bed_bytes_per_snp + b];
         for (k = 0; k < 4; ++k, ++j) {
           if (j < nsamples) {
-            G(j, i) = centered_geno_lookup(buf & 3, snp_idx);
-            double sd = sqrt(F(snp_idx) * (1 - F(snp_idx)));
-            if (standardize && sd > VAR_TOL) G(j, i) /= sd;
+            if (params.center) {
+              G(j, i) = centered_geno_lookup(buf & 3, snp_idx);
+              double sd = sqrt(F(snp_idx) * (1 - F(snp_idx)));
+              if (standardize && sd > VAR_TOL) G(j, i) /= sd;
+            } else {
+              G(j, i) = BED2GENO[buf & 3];
+            }
             buf >>= 2;
           }
         }

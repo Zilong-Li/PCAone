@@ -85,6 +85,8 @@ class Param {
   bool keepsnp = false;
   bool savebim = false;
   bool readpi = false; // true if read U,S,V
+  bool center = true; // false if G is raw data likelihood
+  bool estaf = true; // false if project,inbreed enabled
 
   std::ostringstream ss;
 };

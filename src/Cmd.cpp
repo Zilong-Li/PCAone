@@ -123,7 +123,7 @@ Param::Param(int argc, char **argv) {
       svd_t = SvdType::FULL;
     else
       svd_t = SvdType::PCAoneAlg2;
-    
+
     if (plinkfile->is_set())
       file_t = FileType::PLINK;
     else if (binfile->is_set())
@@ -197,13 +197,13 @@ Param::Param(int argc, char **argv) {
       if (fileV.empty() || fileS.empty())
         throw std::invalid_argument("please use --read-S and --read-V together with --project");
       if (project > 2) throw std::invalid_argument("more projection methods are coming. stay tuned!");
-      impute = true;
+      estaf = false, impute = true, out_of_core = false;
       memory = 0;
-      out_of_core = false;
     }
 
     // handle inbreeding
     if (inbreed > 0) {
+      estaf = false, center = false;
       if (fileU.empty() || fileV.empty() || fileS.empty())
         throw std::invalid_argument("please use --USV together with --inbreed");
     }
