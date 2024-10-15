@@ -7,9 +7,10 @@
 class FileUSV : public Data {
  public:
   FileUSV(Param &params_) : Data(params_) {
-    cao.print(tick.date(), "start parsing U (.eigvec), S(.eigval) and V(.loadings)");
+    cao.print(tick.date(), "start parsing U:", params.fileU, ", S:", params.fileS, ", V:", params.fileV);
     S = read_eigvals(params.fileS);
     K = S.size();
+    cao.print(tick.date(), "start parsing mbim:", params.filebim, "and read allele frequency of SNPs");
     F = read_frq(params.filebim);
     nsnps = F.size();
 
@@ -25,7 +26,7 @@ class FileUSV : public Data {
       nsamples = U.rows();
     }
     // get the original diagnoal back
-    S = (S * nsnps / params.ploidy).cwiseSqrt();
+    S = (S * nsnps / params.ploidy).array().sqrt();
   }
 
   ~FileUSV() {}

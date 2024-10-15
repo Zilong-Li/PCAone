@@ -36,7 +36,7 @@ class Param {
   double alpha = 0.001;
   // can be tol_emu or tol_pcangsd
   double tolem = 1e-6;
-  double tolmaf = 1e-4;
+  double tolmaf = 1e-6;
   double maf = 0.0;
   // for arnoldi
   uint ncv = 20;  // max(20, 2*k + 1)

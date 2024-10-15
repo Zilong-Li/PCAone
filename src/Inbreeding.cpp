@@ -7,10 +7,7 @@
 
 #include "FilePlink.hpp"
 
-// PI is N x M
-// GL is (N x 2) x M
-// Fd is M x 2. The 1st column is new F and the 2nd is the F_new - F
-void calc_inbreed_coef(Mat2D& Fd, const Mat1D& F, const Mat2D& PI, const Mat2D& GL) {
+void calc_inbreed_coef(Mat1D& D, Mat1D& F, const Mat2D& PI, const Mat2D& GL) {
   const int nsnps = PI.cols();
   const int nsamples = PI.rows();
 #pragma omp parallel for
@@ -45,41 +42,40 @@ void calc_inbreed_coef(Mat2D& Fd, const Mat1D& F, const Mat2D& PI, const Mat2D& 
     // ANGSD procedure
     obsH = fmax(1e-4, obsH / (double)nsamples);
     // Update the inbreeding coefficient
-    Fd(j, 0) = 1.0 - (nsamples * obsH / expH);
-    Fd(j, 0) = fmin(fmax(-1.0, Fd(j, 0)), 1.0);
-    Fd(j, 1) = Fd(j, 0) - F(j);
+    double f = 1.0 - ((double)nsamples * obsH / expH);
+    f = fmin(fmax(-1.0, f), 1.0);
+    D(j) = f - F(j);
+    F(j) = f;
   }
 }
 
 void run_inbreeding_em(Mat1D& F, const Mat2D& PI, const Mat2D& GL, const Param& params) {
   const int nsnps = PI.cols();
-  Mat2D Fd(nsnps, 2);
-  Mat1D F1(nsnps), D1(nsnps);
+  Mat1D F0(nsnps), D1(nsnps), D2(nsnps);
   double sr2, sv2, alpha, diff;
   AreClose areClose;
   for (uint it = 0; it < params.maxiter; it++) {
-    calc_inbreed_coef(Fd, F, PI, GL);
-    F1 = Fd.col(0);
-    D1 = Fd.col(1);
+    F0 = F;                            // copy the initial F
+    calc_inbreed_coef(D1, F, PI, GL);  // F is F1
     sr2 = D1.array().square().sum();
-    calc_inbreed_coef(Fd, F1, PI, GL);
-    F1 = F;  // f1 is F0
-    sv2 = (Fd.col(1) - D1).array().square().sum();
+    calc_inbreed_coef(D2, F, PI, GL);  // F is F2
+    sv2 = (D2 - D1).array().square().sum();
     // safety break
     if (areClose(sv2, 0.0)) {
-      F = Fd.col(0);  // copy
+      F = F0;  // copy
       cao.print(tick.date(), "Inbreeding coefficients estimated, iter =", it + 1, "RMSE = 0.0");
       cao.print(tick.date(), "EM inbreeding coefficient coverged");
       break;
     }
-    alpha = -fmax(1.0, sqrt(sr2 / sv2));
-    F = F - 2 * alpha * D1 + alpha * alpha * (Fd.col(1) - D1);
+    alpha = fmax(1.0, sqrt(sr2 / sv2));
+    cao.print("alpha:", alpha, sr2, sv2);
+    F = F0 + 2 * alpha * D1 + alpha * alpha * (D2 - D1);  // F is F3
     // map to domain [-1, 1]
     F = (F.array() < -1.0).select(-1.0, F);
     F = (F.array() > 1.0).select(1.0, F);
     // Stabilization step and convergence check
-    calc_inbreed_coef(Fd, F, PI, GL);
-    diff = rmse1d(F1, Fd.col(0));
+    calc_inbreed_coef(D1, F, PI, GL);  // F is F4
+    diff = rmse1d(F0, F);
     cao.print(tick.date(), "Inbreeding coefficients estimated, iter =", it + 1, "RMSE =", diff);
     if (diff < params.tolem) {
       cao.print(tick.date(), "EM inbreeding coefficient coverged");

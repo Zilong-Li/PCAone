@@ -17,6 +17,7 @@ void FileBeagle::read_all() {
   F = Mat1D::Constant(nsnps, 0.25);
   {  // out of scope: eigen object will be released;
     Mat1D Ft = Mat1D::Zero(nsnps);
+    double scale = 1.0 / (2.0 * nsamples);
     double diff;
     // run EM to estimate allele frequencies
     for (uint it = 0; it < params.maxiter; it++) {
@@ -26,11 +27,11 @@ void FileBeagle::read_all() {
         double p0, p1, p2, pt = 0.0;
         for (uint i = 0; i < nsamples; i++) {
           p0 = P(2 * i + 0, j) * (1.0 - F(j)) * (1.0 - F(j));
-          p1 = P(2 * i + 1, j) * 2 * F(j) * (1.0 - F(j));
+          p1 = P(2 * i + 1, j) * 2.0 * F(j) * (1.0 - F(j));
           p2 = (1 - P(2 * i + 0, j) - P(2 * i + 1, j)) * F(j) * F(j);
-          pt += (p1 + 2 * p2) / (2 * (p0 + p1 + p2));
+          pt += (p1 + 2.0 * p2) / (p0 + p1 + p2);
         }
-        F(j) = pt / (double)nsamples;
+        F(j) = pt * scale;
       }
       // calculate differences between iterations
       diff = sqrt((F - Ft).array().square().sum() / nsnps);

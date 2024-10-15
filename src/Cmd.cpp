@@ -36,6 +36,7 @@ Param::Param(int argc, char **argv) {
   auto csvfile = opts.add<Value<std::string>>("c", "csv", "path of comma seperated CSV file compressed by zstd", "", &filein);
   auto bgenfile = opts.add<Value<std::string>>("g", "bgen", "path of BGEN file compressed by gzip/zstd", "", &filein);
   auto beaglefile = opts.add<Value<std::string>>("G", "beagle", "path of BEAGLE file compressed by gzip", "", &filein);
+  auto usvprefix = opts.add<Value<std::string>>("", "USV", "prefix to PCAone .eigvecs/.eigvals/.loadings/.mbim");
   opts.add<Value<std::string>>("", "read-U", "path of file with left singular vectors (.eigvecs)", "", &fileU);
   opts.add<Value<std::string>>("", "read-V", "path of file with right singular vectors (.loadings)", "", &fileV);
   opts.add<Value<std::string>>("", "read-S", "path of file with eigen values (.eigvals)", "", &fileS);
@@ -182,6 +183,13 @@ Param::Param(int argc, char **argv) {
       pca = false;
       memory /= 2.0;  // adjust memory estimator
     }
+    // handle PI, i.e U,S,V
+    if (usvprefix->is_set()) {
+      if (fileU.empty()) fileU = usvprefix->value() + ".eigvecs";
+      if (fileS.empty()) fileS = usvprefix->value() + ".eigvals";
+      if (fileV.empty()) fileV = usvprefix->value() + ".loadings";
+      if (filebim.empty()) filebim = usvprefix->value() + ".mbim";
+    }
 
     // handle projection
     if (project > 0) {
@@ -196,7 +204,7 @@ Param::Param(int argc, char **argv) {
     // handle inbreeding
     if (inbreed > 0) {
       if (fileU.empty() || fileV.empty() || fileS.empty())
-        throw std::invalid_argument("please use --read-U, --read-S and --read-V together with --inbreed");
+        throw std::invalid_argument("please use --USV together with --inbreed");
     }
   } catch (const popl::invalid_option &e) {
     std::cerr << "Invalid Option Exception: " << e.what() << "\n";

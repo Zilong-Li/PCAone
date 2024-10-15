@@ -89,7 +89,8 @@ void Data::filter_snps_resize_F() {
   }
 }
 
-// only works for plink inputs
+// initially only works with plink inputs
+// but can work with beagle file as long as there is beagle.gz.bim file
 void Data::save_snps_in_bim() {
   cao.print(tick.date(), "save matched sites in .mbim file and params.perm is", params.perm);
   // could be permuted
@@ -134,7 +135,6 @@ void Data::save_snps_in_bim() {
   VT = (U'/s) * G = T * G
   V = G' * (U/s) // calculate V is not a good idea
  **/
-
 void Data::calcu_vt_initial(const Mat2D &T, Mat2D &VT, bool standardize) {
   if (nblocks == 1) {
     cao.error("only one block exists. please use in-memory mode instead");
