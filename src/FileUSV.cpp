@@ -11,7 +11,7 @@ using namespace std;
 // get \PI and store it in G
 void FileUSV::read_all() {
   G = U * S.asDiagonal() * V.transpose();
-  if (params.pcangsd) {// genotype likelihoods
+  if (params.inbreed) {  // genotype likelihoods
 #pragma omp parallel for
     for (int i = 0; i < F.size(); i++) {
       for (int j = 0; j < G.rows(); j++) {
@@ -38,7 +38,7 @@ void FileUSV::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
         G(j, i) += U(j, k) * S(k) * V(snp_idx, k);
       }
       // NOTE:  map to domain(0,1)?
-      if (params.pcangsd) {
+      if (params.inbreed) {
         G(j, i) = (G(j, i) + 2.0 * F(snp_idx)) / 2.0;
         G(j, i) = fmin(fmax(G(j, i), 1e-4), 1.0 - 1e-4);
       }

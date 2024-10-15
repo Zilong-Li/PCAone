@@ -43,9 +43,8 @@ int main(int argc, char* argv[]) {
   Data* data = nullptr;
 
   // particular case for LD
-  if (((params.file_t == FileType::BINARY) &&
-       (params.print_r2 || params.ld_r2 > 0 || !params.clump.empty())) ||
-      ((params.file_t == FileType::PLINK) && !params.fileU.empty())) {
+  if (((params.file_t == FileType::BINARY || ((params.file_t == FileType::PLINK) && !params.fileU.empty())) &&
+       (params.print_r2 || params.ld_r2 > 0 || !params.clump.empty()))) {
     if (params.filebim.empty()) params.filebim = params.filein + ".bim";
     if (params.file_t == FileType::BINARY)
       data = new FileBin(params);
@@ -53,7 +52,6 @@ int main(int argc, char* argv[]) {
       params.memory = 0, params.out_of_core = false;
       data = new FileBed(params);
     }
-
     run_ld_stuff(data, params);
     delete data;
     return bye();

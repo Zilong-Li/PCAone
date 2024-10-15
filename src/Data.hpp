@@ -36,7 +36,7 @@ class Data {
   bool snpmajor = true;
   bool nsamples_ge_nsnps = false;  // if nsamples greater than or equal to nsnps
   bool initialFonly = false;
-  uint blocksize, nsamples, nsnps;
+  uint blocksize = 0, nsamples = 0, nsnps = 0;
   double readtime = 0;
   uint nblocks = 1;
   uint bandFactor = 1;

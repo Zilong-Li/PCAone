@@ -19,50 +19,51 @@ void Data::prepare() {
     tick.clock();
     read_all();
     readtime += tick.reltime();
+    cao.print(tick.date(), "done reading all data");
+    return;
+  }
+
+  // some common settings for out-of-core
+  if (params.svd_t == SvdType::IRAM) {
+    // ram of arnoldi = n * b * 8 / 1024 kb
+    blocksize = (uint)ceil((double)params.memory * 134217728 / nsamples);
   } else {
-    // some common settings
-    if (params.svd_t == SvdType::IRAM) {
-      // ram of arnoldi = n * b * 8 / 1024 kb
-      blocksize = (uint)ceil((double)params.memory * 134217728 / nsamples);
+    // ram of halko = (3*n*l + 2*m*l + 5*m + n*b)*8/1024 Kb
+    uint l = params.k + params.oversamples;
+    double m = (double)(3 * nsamples * l + 2 * nsnps * l + 5 * nsnps) / 134217728;
+    if (params.memory > 1.1 * m)
+      m = 0;
+    else
+      cao.warn("minimum RAM required is " + to_string(m) + " GB. trying to allocate more RAM.");
+    blocksize = (unsigned int)ceil(
+        (double)((m + params.memory) * 134217728 - 3 * nsamples * l - 2 * nsnps * l - 5 * nsnps) / nsamples);
+  }
+  nblocks = (unsigned int)ceil((double)nsnps / blocksize);
+  cao.print(tick.date(), "initial setting by -m/--memory: blocksize =", blocksize, ", nblocks =", nblocks,
+            ", factor =", bandFactor);
+  if (nblocks == 1) cao.error("only one block exists. please remove -m option");
+  if (params.svd_t == SvdType::PCAoneAlg2 && params.pca) {
+    // decrease blocksize to fit the fancy halko
+    if (nblocks < params.bands) {
+      blocksize = (unsigned int)ceil((double)nsnps / params.bands);
     } else {
-      // ram of halko = (3*n*l + 2*m*l + 5*m + n*b)*8/1024 Kb
-      uint l = params.k + params.oversamples;
-      double m = (double)(3 * nsamples * l + 2 * nsnps * l + 5 * nsnps) / 134217728;
-      if (params.memory > 1.1 * m)
-        m = 0;
-      else
-        cao.warn("minimum RAM required is " + to_string(m) + " GB. trying to allocate more RAM.");
-      blocksize = (unsigned int)ceil(
-          (double)((m + params.memory) * 134217728 - 3 * nsamples * l - 2 * nsnps * l - 5 * nsnps) /
-          nsamples);
+      bandFactor = (unsigned int)ceil((double)nblocks / params.bands);
+      blocksize = (unsigned int)ceil((double)nsnps / (params.bands * bandFactor));
     }
     nblocks = (unsigned int)ceil((double)nsnps / blocksize);
-    cao.print(tick.date(), "initial setting by -m/--memory: blocksize =", blocksize, ", nblocks =", nblocks,
-              ", factor =", bandFactor);
-    if (nblocks == 1) cao.error("only one block exists. please remove -m option");
-    if (params.svd_t == SvdType::PCAoneAlg2 && params.pca) {
-      // decrease blocksize to fit the fancy halko
-      if (nblocks < params.bands) {
-        blocksize = (unsigned int)ceil((double)nsnps / params.bands);
-      } else {
-        bandFactor = (unsigned int)ceil((double)nblocks / params.bands);
-        blocksize = (unsigned int)ceil((double)nsnps / (params.bands * bandFactor));
-      }
-      nblocks = (unsigned int)ceil((double)nsnps / blocksize);
-      cao.print(tick.date(), "after adjustment by PCAone: -w =", params.bands, ", blocksize =", blocksize,
-                ", nblocks =", nblocks, ", factor =", bandFactor);
-    }
-    start.resize(nblocks);
-    stop.resize(nblocks);
-    for (uint i = 0; i < nblocks; i++) {
-      start[i] = i * blocksize;
-      stop[i] = start[i] + blocksize - 1;
-      stop[i] = stop[i] >= nsnps ? nsnps - 1 : stop[i];
-    }
-    // initial some variables for blockwise for specific files here.
-    if (params.file_t == FileType::PLINK) centered_geno_lookup = Arr2D::Zero(4, nsnps);  // for plink input
-    if ((params.file_t != FileType::CSV) && (params.file_t != FileType::BINARY)) F = Mat1D::Zero(nsnps);
+    cao.print(tick.date(), "after adjustment by PCAone: -w =", params.bands, ", blocksize =", blocksize,
+              ", nblocks =", nblocks, ", factor =", bandFactor);
   }
+  start.resize(nblocks);
+  stop.resize(nblocks);
+  for (uint i = 0; i < nblocks; i++) {
+    start[i] = i * blocksize;
+    stop[i] = start[i] + blocksize - 1;
+    stop[i] = stop[i] >= nsnps ? nsnps - 1 : stop[i];
+  }
+  // initial some variables for blockwise for specific files here.
+  if (params.file_t == FileType::PLINK) centered_geno_lookup = Arr2D::Zero(4, nsnps);  // for plink input
+  if ((params.file_t != FileType::CSV) && (params.file_t != FileType::BINARY)) F = Mat1D::Zero(nsnps);
 }
 
 void Data::filter_snps_resize_F() {

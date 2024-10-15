@@ -93,6 +93,7 @@ Param::Param(int argc, char **argv) {
   opts.add<Value<uint>, Attribute::advanced>("", "ncv", "the number of Lanzcos basis vectors for IRAM", ncv, &ncv);
   opts.add<Value<uint>, Attribute::advanced>("", "oversamples", "the number of oversampling columns for RSVD", oversamples, &oversamples);
   opts.add<Value<uint>, Attribute::advanced>("", "rand", "the random matrix type. 0: uniform, 1: guassian", rand, &rand);
+  opts.add<Value<uint>, Attribute::advanced>("", "maxiter", "maximum number of EM iterations", maxiter, &maxiter);
   opts.add<Value<double>, Attribute::advanced>("", "tol-rsvd", "tolerance for RSVD algorithm", tol, &tol);
   opts.add<Value<double>, Attribute::advanced>("", "tol-em", "tolerance for EMU/PCAngsd algorithm", tolem, &tolem);
   opts.add<Value<double>, Attribute::advanced>("", "tol-maf", "tolerance for MAF estimation by EM", tolmaf, &tolmaf);
@@ -157,8 +158,8 @@ Param::Param(int argc, char **argv) {
         throw std::invalid_argument(
             "not supporting PCAone --svd 2 for PCAngsd/EMU algorithm yet! "
             "please specify --svd 1 or 0");
-    } else {
-      maxiter = 0;
+      // } else {
+      //   maxiter = 0;
     }
     if (memory > 0) {
       out_of_core = true;
