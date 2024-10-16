@@ -2,7 +2,7 @@
 #+subtitle: Version 0.4.8
 #+author: Zilong Li 
 #+email: zilong.dk@gmail.com
-#+options: toc:2 num:nil email:t
+#+options: toc:2 num:nil email:t -:nil ^:nil
 #+latex_compiler: xelatex
 #+latex_class: article
 #+latex_class_options: [a4paper, 11pt]
@@ -12,6 +12,7 @@
 #+latex_header: \usepackage{upquote}
 #+latex_header: \hypersetup{colorlinks=true, linkcolor=blue}
 #+latex: \clearpage
+
 
 [[https://github.com/Zilong-Li/PCAone/actions/workflows/linux.yml/badge.svg]]
 [[https://github.com/Zilong-Li/PCAone/actions/workflows/mac.yml/badge.svg]]
@@ -421,8 +422,8 @@ PCAone -b ref_samples -k 10 --printv -o ref
 
 Then, we need to read in the SNPs loadings from the ref set (=--read-V=) and
 its scaling factors (=--read-S=) as well as the allele frequencies form the
-=.mbim= file via =--match-bim=. *Note one can use the --USV option instead to
-simplify the usage since v0.4.8*. Here is the example command to project new
+=.mbim= file via =--match-bim=. *Note:* one can use the =--USV= option instead to
+simplify the usage since v0.4.8 Here is the example command to project new
 target samples and get the PCs coordinates.
 
 #+begin_src shell
