@@ -24,25 +24,32 @@ void Data::prepare() {
   }
 
   // some common settings for out-of-core
-  if (params.svd_t == SvdType::IRAM) {
-    // ram of arnoldi = n * b * 8 / 1024 kb
-    blocksize = (uint)ceil((double)params.memory * 134217728 / nsamples);
+  if (params.pca) {
+    if (params.svd_t == SvdType::IRAM) {
+      // ram of arnoldi = n * b * 8 / 1024 kb
+      blocksize = (uint)ceil((double)params.memory * 134217728 / nsamples);
+    } else {
+      // ram of halko = (3*n*l + 2*m*l + 5*m + n*b)*8/1024 Kb
+      uint l = params.k + params.oversamples;
+      double m = (double)(3 * nsamples * l + 2 * nsnps * l + 5 * nsnps) / 134217728;
+      if (params.memory > 1.1 * m)
+        m = 0;
+      else
+        cao.warn("minimum RAM required is " + to_string(m) + " GB. trying to allocate more RAM.");
+      blocksize = (unsigned int)ceil(
+          (double)((m + params.memory) * 134217728 - 3 * nsamples * l - 2 * nsnps * l - 5 * nsnps) /
+          nsamples);
+    }
   } else {
-    // ram of halko = (3*n*l + 2*m*l + 5*m + n*b)*8/1024 Kb
-    uint l = params.k + params.oversamples;
-    double m = (double)(3 * nsamples * l + 2 * nsnps * l + 5 * nsnps) / 134217728;
-    if (params.memory > 1.1 * m)
-      m = 0;
-    else
-      cao.warn("minimum RAM required is " + to_string(m) + " GB. trying to allocate more RAM.");
-    blocksize = (unsigned int)ceil(
-        (double)((m + params.memory) * 134217728 - 3 * nsamples * l - 2 * nsnps * l - 5 * nsnps) / nsamples);
+    // ram of non-pca run
+    blocksize = (uint)ceil((double)params.memory * 134217728 / nsamples);
   }
+
   nblocks = (unsigned int)ceil((double)nsnps / blocksize);
   cao.print(tick.date(), "initial setting by -m/--memory: blocksize =", blocksize, ", nblocks =", nblocks,
             ", factor =", bandFactor);
   if (nblocks == 1) cao.error("only one block exists. please remove -m option");
-  if (params.svd_t == SvdType::PCAoneAlg2 && params.pca) {
+  if (params.pca && params.svd_t == SvdType::PCAoneAlg2) {
     // decrease blocksize to fit the fancy halko
     if (nblocks < params.bands) {
       blocksize = (unsigned int)ceil((double)nsnps / params.bands);

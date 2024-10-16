@@ -198,13 +198,13 @@ Param::Param(int argc, char **argv) {
       if (fileV.empty() || fileS.empty())
         throw std::invalid_argument("please use --read-S and --read-V together with --project");
       if (project > 2) throw std::invalid_argument("more projection methods are coming. stay tuned!");
-      estaf = false, impute = true, out_of_core = false;
+      estaf = false, impute = true, out_of_core = false, pca = false;
       memory = 0;
     }
 
     // handle inbreeding
     if (inbreed > 0) {
-      estaf = false, center = false;
+      estaf = false, center = false, pca = false;
       if (fileU.empty() || fileV.empty() || fileS.empty())
         throw std::invalid_argument("please use --USV together with --inbreed");
     }
