@@ -1,13 +1,11 @@
 #+TITLE: Principal Component Analysis All in One
-#+subtitle: Version 0.4.7 
+#+subtitle: Version 0.4.8
 #+author: Zilong Li 
 #+email: zilong.dk@gmail.com
 #+options: toc:2 num:nil email:t
 #+latex_compiler: xelatex
 #+latex_class: article
 #+latex_class_options: [a4paper, 11pt]
-# #+latex_header: \usepackage{fontspec}
-# #+latex_header: \setmainfont{RobotoMono-VariableFont_wght}[Path=/usr/local/share/fonts/TTF/]
 #+latex_header: \usepackage[margin=0.9in,bmargin=1.0in,tmargin=1.0in]{geometry}
 #+latex_header: \usepackage{amssymb}
 #+latex_header: \usepackage{adjustbox}
@@ -61,6 +59,7 @@ missingness and uncertainty. The PDF manual can be downloaded [[https://github.c
   - [[#memory-efficient-modes][Memory-efficient modes]]
   - [[#data-normalization][Data Normalization]]
   - [[#projection][Projection]]
+  - [[#hwe-accounting-for-population-structure][HWE accounting for population structure]]
   - [[#ancestry-adjusted-ld-matrix][Ancestry-Adjusted LD matrix]]
   - [[#report-ld-statistics][Report LD statistics]]
   - [[#prunning-based-on-ancestry-adjusted-ld][Prunning based on Ancestry-Adjusted LD]]
@@ -235,7 +234,7 @@ If this doesn't work because the server is too outdated, run =make clean && make
 * Documentation
 ** Options
 
-Run =./PCAone --help= to see all options including hidden advanced options. The below are some useful options.
+Run =./PCAone --help= to see all options including hidden advanced options. The below are common useful options.
 
 #+begin_src example
 Main options:
@@ -250,6 +249,7 @@ Main options:
   -c, --csv arg                  path of comma seperated CSV file compressed by zstd
   -g, --bgen arg                 path of BGEN file compressed by gzip/zstd
   -G, --beagle arg               path of BEAGLE file compressed by gzip
+  --USV arg                      prefix to PCAone .eigvecs/.eigvals/.loadings/.mbim
   --read-U arg                   path of file with left singular vectors (.eigvecs)
   --read-V arg                   path of file with right singular vectors (.loadings)
   --read-S arg                   path of file with eigen values (.eigvals)
@@ -268,12 +268,15 @@ Main options:
   --emu                          use EMU algorithm for genotype input with missingness
   --pcangsd                      use PCAngsd algorithm for genotype likelihood input
   --maf arg (=0)                 exclude variants with MAF lower than this value
+  --match-bim arg                the .mbim file to be matched, where the 7th column is allele frequency
   --project arg (=0)             project the new samples onto the existing PCs.
                                  0: disabled
                                  1: by multiplying the loadings with mean imputation for missing genotypes
                                  2: by solving the least squares system Vx=g. skip sites with missingness
                                  3: by Augmentation, Decomposition and Procrusters transformation
-  --match-bim arg                the .mbim file to be matched, where the 7th column is allele frequency
+  --inbreed arg (=0)             compute the inbreeding coefficient accounting for population structure.
+                                 0: disabled
+                                 1: compute per-site inbreeding coefficient and HWE test
   --ld                           output a binary matrix for downstream LD related analysis
   --ld-r2 arg (=0)               r2 cutoff for LD-based pruning. (usually 0.2)
   --ld-bp arg (=0)               physical distance threshold in bases for LD. (usually 1000000)
@@ -413,21 +416,41 @@ Project new samples onto existing PCs is supported with =--project= option.
 First, we run PCAone on a set of reference samples and output the loadings:
 
 #+begin_src shell
-PCAone -b ref_set -k 10 --printv -o ref
+PCAone -b ref_samples -k 10 --printv -o ref
 #+end_src
 
 Then, we need to read in the SNPs loadings from the ref set (=--read-V=) and
 its scaling factors (=--read-S=) as well as the allele frequencies form the
-=.mbim= file via =--match-bim=. Here is the example command to project new
+=.mbim= file via =--match-bim=. *Note one can use the =--USV= option instead to
+simplify the usage since v0.4.8*. Here is the example command to project new
 target samples and get the PCs coordinates.
 
 #+begin_src shell
-PCAone -b new_sample \
-       --match-bim ref.mbim \
-       --read-S ref.eigvals \
-       --read-V ref.loadings \
-       --project 1 \  ## check the manual on projection methods
-       -o sample
+PCAone -b new_samples \
+       --USV ref \  ## prefix to .eigvecs, .eigvals, .loadings
+       --project 2 \  ## check the manual on projection methods
+       -o new
+#+end_src
+
+** HWE accounting for population structure
+
+To test Hardy-Weinberg equilibrium in presence of population structure, we
+need to work on the so-called individual allele frequencies matrix \(\Pi\),
+which can be reconstructed via the output of PCAone, i.e the
+=.eigvecs,.eigvals,.loadings and .mbim= files, generated by
+
+#+begin_src shell
+PCAone -b example/plink -k 3 -V -o pcaone
+#+end_src
+
+Then we apply =--inbreed 1= option to obtain the P value of HWE and inbreeding
+coefficient per-site. The output file is named with suffix =.hwe=.
+
+#+begin_src shell
+PCAone -b example/plink \
+       --USV pcaone \  
+       --inbreed 1 \ 
+       -o inbreed
 #+end_src
 
 ** Ancestry-Adjusted LD matrix

@@ -163,7 +163,7 @@ Param::Param(int argc, char **argv) {
     }
     if (memory > 0) {
       out_of_core = true;
-      if (pcangsd) throw std::invalid_argument("not supporting -m option for PCAngsd algorithm yet!");
+      if (pcangsd) throw std::invalid_argument("not supporting -m option for PCAngsd with BEAGLE file yet!");
     }
     if (bands < 4 || bands % 2 != 0)
       throw std::invalid_argument(
@@ -196,7 +196,8 @@ Param::Param(int argc, char **argv) {
     // handle projection
     if (project > 0) {
       if (fileV.empty() || fileS.empty())
-        throw std::invalid_argument("please use --read-S and --read-V together with --project");
+        throw std::invalid_argument(
+            "please use --read-S and --read-V together with --project, or simply --USV");
       if (project > 2) throw std::invalid_argument("more projection methods are coming. stay tuned!");
       estaf = false, impute = true, out_of_core = false, pca = false;
       memory = 0;

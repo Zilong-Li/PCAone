@@ -1,3 +1,12 @@
+- v0.4.8
+  - HWE test accounting for population structure via =--inbreed 1=
+    - BEAGLE file can work with in-core mode
+    - PLINK file can work with both in-core and out-of-core mode
+  - new option =--USV= as the prefix of pcaone =.eigvecs/.eigvals/.loadigns/.mbim= files
+  - simplied usage because both =--project= and =--inbreed= can work together with =--USV=
+  - the output =.eigvecs2= stores the eigenvectors of the covariance matrix, which also works for BEALGE file with genotype likelihood input.
+  - the =.eigvecs,.eigvals,.loadings= stores the U,S,V matrix for reconstructing the PI matrix
+    
 - v0.4.7
   - *breaking*: rename option =--ld-bim= as =--match-bim=
   - projection support via =--project=
