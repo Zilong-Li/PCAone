@@ -429,7 +429,7 @@ void write_eigvecs2_beagle(const Mat2D& U, const std::string& fin, const std::st
   }
 }
 
-double chisq1d(double x) {
+double chisq1d(const double x) {
   double p = kf_gammaq(1.0 / 2.0, x / 2.0);  // nan expected
-  return std::isnan(x) ? 1.0 : p;            // if nan, then retrun 1.0
+  return std::isnan(p) ? 1.0 : p;            // if nan, then retrun 1.0
 }

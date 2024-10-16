@@ -186,6 +186,13 @@ data:
 	wget http://popgen.dk/zilong/datahub/pca/example.tar.gz
 	tar -xzf example.tar.gz && rm -f example.tar.gz
 
+hwe:
+	./PCAone -b example/plink -k 3 -vV
+	./PCAone -b example/plink --USV pcaone --inbreed 1 -o inbreed_m0
+	./PCAone -b example/plink --USV pcaone --inbreed 1 -o inbreed_m1 -m 1
+	diff inbreed_m0.hwe inbreed_m1.hwe
+	rm -f inbreed* pcaone.*
+
 ld_matrix:
 	./PCAone -b example/plink -k 3 --ld -o adj -d 2 
 	./PCAone -b example/plink -k 3 --ld -o pcaone -d 2 -m 2

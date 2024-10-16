@@ -11,7 +11,8 @@
 
 // type 1: Genotype input, {1, -9, 0.5, 0}, GL is N x M
 // type 2: Genotype likelihood input, GL is (N x 2) x M
-void calc_inbreed_coef(Mat1D& D, Mat1D& F, const Mat2D& PI, const Mat2D& GL, int type, int size, uint start) {
+void calc_inbreed_coef(Mat1D& D, Mat1D& F, const Mat2D& PI, const Mat2D& GL, const int type, const int size,
+                       const uint start) {
   const int nsnps = size;
   const int nsamples = PI.rows();
   if (type != 1 && type != 2) cao.error("type must be 1 or 2");
@@ -35,12 +36,8 @@ void calc_inbreed_coef(Mat1D& D, Mat1D& F, const Mat2D& PI, const Mat2D& GL, int
       p2 /= pSum;
 
       // posterior
-      if (type == 2) {
-        pp0 = GL(2 * i + 0, j) * p0;
-        pp1 = GL(2 * i + 1, j) * p1;
-        pp2 = (1.0 - GL(2 * i + 0, j) - GL(2 * i + 1, j)) * p2;
-      }
-      if (type == 1) {  // should check missingness
+      if (type == 1) {
+        // should check genotype missingness
         if (GL(i, j) == 0.0) {
           pp0 = p0, pp1 = 0, pp2 = 0;
         }
@@ -50,6 +47,10 @@ void calc_inbreed_coef(Mat1D& D, Mat1D& F, const Mat2D& PI, const Mat2D& GL, int
         if (GL(i, j) == 1.0) {
           pp0 = 0, pp1 = 0, pp2 = p2;
         }
+      } else {
+        pp0 = GL(2 * i + 0, j) * p0;
+        pp1 = GL(2 * i + 1, j) * p1;
+        pp2 = (1.0 - GL(2 * i + 0, j) - GL(2 * i + 1, j)) * p2;
       }
       ppSum = pp0 + pp1 + pp2;
 
@@ -68,8 +69,8 @@ void calc_inbreed_coef(Mat1D& D, Mat1D& F, const Mat2D& PI, const Mat2D& GL, int
   }
 }
 
-void calc_inbreed_site_lrt(Mat1D& T, const Mat1D& F, const Mat2D& PI, const Mat2D& GL, int type, int size,
-                           uint start) {
+void calc_inbreed_site_lrt(Mat1D& T, const Mat1D& F, const Mat2D& PI, const Mat2D& GL, const int type,
+                           const int size, const uint start) {
   if (type != 1 && type != 2) cao.error("type must be 1 or 2");
   const int nsnps = size;
   const int nsamples = PI.rows();
@@ -93,17 +94,6 @@ void calc_inbreed_site_lrt(Mat1D& T, const Mat1D& F, const Mat2D& PI, const Mat2
       p2 /= pSum;
 
       // posterior // Likelihood*prior
-      if (type == 2) {
-        l0 = GL(2 * i + 0, j) * p0;
-        l1 = GL(2 * i + 1, j) * p1;
-        l2 = (1.0 - GL(2 * i + 0, j) - GL(2 * i + 1, j)) * p2;
-        logAlt += log(l0 + l1 + l2);
-        // Null model
-        l0 = GL(2 * i + 0, j) * (1.0 - PI(i, j)) * (1.0 - PI(i, j));
-        l1 = GL(2 * i + 1, j) * 2.0 * PI(i, j) * (1.0 - PI(i, j));
-        l2 = (1.0 - GL(2 * i + 0, j) - GL(2 * i + 1, j)) * PI(i, j) * PI(i, j);
-        logNull += log(l0 + l1 + l2);
-      }
       if (type == 1) {
         if (GL(i, j) == 0.0) {
           logAlt += log(p0);
@@ -117,6 +107,16 @@ void calc_inbreed_site_lrt(Mat1D& T, const Mat1D& F, const Mat2D& PI, const Mat2
           logAlt += log(p2);
           logNull += log(PI(i, j) * PI(i, j));
         }
+      } else {
+        l0 = GL(2 * i + 0, j) * p0;
+        l1 = GL(2 * i + 1, j) * p1;
+        l2 = (1.0 - GL(2 * i + 0, j) - GL(2 * i + 1, j)) * p2;
+        logAlt += log(l0 + l1 + l2);
+        // Null model
+        l0 = GL(2 * i + 0, j) * (1.0 - PI(i, j)) * (1.0 - PI(i, j));
+        l1 = GL(2 * i + 1, j) * 2.0 * PI(i, j) * (1.0 - PI(i, j));
+        l2 = (1.0 - GL(2 * i + 0, j) - GL(2 * i + 1, j)) * PI(i, j) * PI(i, j);
+        logNull += log(l0 + l1 + l2);
       }
     }
     T(jj) = 2.0 * (logAlt - logNull);
@@ -132,7 +132,7 @@ void write_hwe_per_site(const std::string& fout, const std::string& fbim, const 
   std::string line;
   const std::string sep{"\t"};
   int j = 0;
-  ohwe << "#ID\tHWE\tLRT\tInbreeding_coefficient\n";
+  ohwe << "#ID\tHWE_P\tLRT\tInbreeding_coefficient\n";
   while (getline(fin, line)) {
     auto id = split_string(line, sep)[1];
     ohwe << id << "\t" << hwe(j) << "\t" << lrt(j) << "\t" << coef(j) << "\n";
@@ -265,7 +265,6 @@ void run_inbreeding(Data* data, const Param& params) {
       }
 #pragma omp parallel for
       for (int j = 0; j < F.size(); j++) {
-        // 1 degreed chi-squared dist
         D2(j) = chisq1d(D1(j));
       }
       write_hwe_per_site(params.fileout + ".hwe", params.filebim, D2, D1, F);

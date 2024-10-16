@@ -74,6 +74,6 @@ String1D parse_beagle_samples(const std::string& fin);
 void write_eigvecs2_beagle(const Mat2D& U, const std::string& fin, const std::string& fout);
 
 /// return the p-value of 1-degreed chi-squared
-double chisq1d(double x);
+double chisq1d(const double x);
 
 #endif  // PCAONE_UTILES_
