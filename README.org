@@ -421,7 +421,7 @@ PCAone -b ref_samples -k 10 --printv -o ref
 
 Then, we need to read in the SNPs loadings from the ref set (=--read-V=) and
 its scaling factors (=--read-S=) as well as the allele frequencies form the
-=.mbim= file via =--match-bim=. *Note one can use the =--USV= option instead to
+=.mbim= file via =--match-bim=. *Note one can use the --USV option instead to
 simplify the usage since v0.4.8*. Here is the example command to project new
 target samples and get the PCs coordinates.
 
