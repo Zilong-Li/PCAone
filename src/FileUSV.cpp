@@ -37,8 +37,8 @@ void FileUSV::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
       for (int k = 0; k < K; ++k) {
         G(j, i) += U(j, k) * S(k) * V(snp_idx, k);
       }
-      // NOTE:  map to domain(0,1)?
       if (params.inbreed) {
+        //  map to domain
         G(j, i) = (G(j, i) + 2.0 * F(snp_idx)) / 2.0;
         G(j, i) = fmin(fmax(G(j, i), 1e-4), 1.0 - 1e-4);
       }

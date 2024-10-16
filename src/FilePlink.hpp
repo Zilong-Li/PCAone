@@ -24,6 +24,10 @@ class FileBed : public Data {
     bed_ifstream.read(reinterpret_cast<char *>(&header[0]), 3);
     if ((header[0] != 0x6c) || (header[1] != 0x1b) || (header[2] != 0x01))
       cao.error("Incorrect magic number in plink bed file.");
+    if (params.pca) {
+      centered_geno_lookup = Arr2D::Zero(4, nsnps);
+      F = Mat1D::Zero(nsnps);
+    }
   }
 
   ~FileBed() {}

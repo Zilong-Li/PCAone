@@ -61,9 +61,6 @@ void Data::prepare() {
     stop[i] = start[i] + blocksize - 1;
     stop[i] = stop[i] >= nsnps ? nsnps - 1 : stop[i];
   }
-  // initial some variables for blockwise for specific files here.
-  if (params.file_t == FileType::PLINK) centered_geno_lookup = Arr2D::Zero(4, nsnps);  // for plink input
-  if ((params.file_t != FileType::CSV) && (params.file_t != FileType::BINARY)) F = Mat1D::Zero(nsnps);
 }
 
 void Data::filter_snps_resize_F() {

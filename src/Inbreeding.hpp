@@ -8,13 +8,13 @@
 // GL is (N x 2) x M
 // D is Fnew-F
 // F is updated as Fnew in-place
-void calc_inbreed_coef(Mat1D& D, Mat1D& F, const Mat2D& PI, const Mat2D& GL, int type, int start = 0);
+void calc_inbreed_coef(Mat1D& D, Mat1D& F, const Mat2D& PI, const Mat2D& GL, int type, int size, uint start);
 
 // log-likelihoods test per site
 // F is the estimated inbreeding coef
 // T is output
-void calc_inbreed_site_lrt(Mat1D& T, const Mat1D& F, const Mat2D& PI, const Mat2D& GL, int type,
-                           int start = 0);
+void calc_inbreed_site_lrt(Mat1D& T, const Mat1D& F, const Mat2D& PI, const Mat2D& GL, int type, int size,
+                           uint start);
 
 void write_hwe_per_site(const std::string& fout, const std::string& fbim, const Mat1D& hwe, const Mat1D& lrt,
                         const Mat1D& coef);

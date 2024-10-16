@@ -5,16 +5,14 @@
  ******************************************************************************/
 #include "Inbreeding.hpp"
 
-#include <cassert>
-
 #include "Cmd.hpp"
 #include "FilePlink.hpp"
-#include "kfunc.h"
+#include "Utils.hpp"
 
 // type 1: Genotype input, {1, -9, 0.5, 0}, GL is N x M
 // type 2: Genotype likelihood input, GL is (N x 2) x M
-void calc_inbreed_coef(Mat1D& D, Mat1D& F, const Mat2D& PI, const Mat2D& GL, int type, int start) {
-  const int nsnps = PI.cols();
+void calc_inbreed_coef(Mat1D& D, Mat1D& F, const Mat2D& PI, const Mat2D& GL, int type, int size, uint start) {
+  const int nsnps = size;
   const int nsamples = PI.rows();
   if (type != 1 && type != 2) cao.error("type must be 1 or 2");
 #pragma omp parallel for
@@ -44,19 +42,13 @@ void calc_inbreed_coef(Mat1D& D, Mat1D& F, const Mat2D& PI, const Mat2D& GL, int
       }
       if (type == 1) {  // should check missingness
         if (GL(i, j) == 0.0) {
-          pp0 = p0;
-          pp1 = 0;
-          pp2 = 0;
+          pp0 = p0, pp1 = 0, pp2 = 0;
         }
         if (GL(i, j) == 0.5) {
-          pp0 = 0;
-          pp1 = p1;
-          pp2 = 0;
+          pp0 = 0, pp1 = p1, pp2 = 0;
         }
         if (GL(i, j) == 1.0) {
-          pp0 = 0;
-          pp1 = 0;
-          pp2 = p2;
+          pp0 = 0, pp1 = 0, pp2 = p2;
         }
       }
       ppSum = pp0 + pp1 + pp2;
@@ -71,14 +63,15 @@ void calc_inbreed_coef(Mat1D& D, Mat1D& F, const Mat2D& PI, const Mat2D& GL, int
     // Update the inbreeding coefficient
     double f = 1.0 - ((double)nsamples * obsH / expH);
     f = fmin(fmax(-1.0, f), 1.0);
-    D(jj) = f - F(jj);
-    F(jj) = f;
+    D(jj) = f - F(jj);  // Fnew - Fold
+    F(jj) = f;          // update with Fnew
   }
 }
 
-void calc_inbreed_site_lrt(Mat1D& T, const Mat1D& F, const Mat2D& PI, const Mat2D& GL, int type, int start) {
+void calc_inbreed_site_lrt(Mat1D& T, const Mat1D& F, const Mat2D& PI, const Mat2D& GL, int type, int size,
+                           uint start) {
   if (type != 1 && type != 2) cao.error("type must be 1 or 2");
-  const int nsnps = PI.cols();
+  const int nsnps = size;
   const int nsamples = PI.rows();
 #pragma omp parallel for
   for (int j = 0; j < nsnps; j++) {
@@ -156,14 +149,14 @@ void run_inbreeding_em(int type, const Mat2D& GL, const Mat2D& PI, const Param& 
   double sr2, sv2, alpha, diff;
   AreClose areClose;
   for (uint it = 0; it < params.maxiter; it++) {
-    F0 = F;                                  // copy the initial F
-    calc_inbreed_coef(D1, F, PI, GL, type);  // F is F1
+    F0 = F;                                            // copy the initial F
+    calc_inbreed_coef(D1, F, PI, GL, type, nsnps, 0);  // F is F1
     sr2 = D1.array().square().sum();
-    calc_inbreed_coef(D2, F, PI, GL, type);  // F is F2
+    calc_inbreed_coef(D2, F, PI, GL, type, nsnps, 0);  // F is F2
     sv2 = (D2 - D1).array().square().sum();
     // safety break
     if (areClose(sv2, 0.0)) {
-      cao.print(tick.date(), "Inbreeding coefficients estimated, iter =", it + 1, "RMSE = 0.0");
+      cao.print(tick.date(), "Inbreeding coefficients estimated, iter =", it + 1, ", RMSE = 0.0");
       cao.print(tick.date(), "EM inbreeding coefficient coverged");
       break;
     }
@@ -174,7 +167,7 @@ void run_inbreeding_em(int type, const Mat2D& GL, const Mat2D& PI, const Param& 
     F = (F.array() < -1.0).select(-1.0, F);
     F = (F.array() > 1.0).select(1.0, F);
     // Stabilization step and convergence check
-    calc_inbreed_coef(D1, F, PI, GL, type);  // F is F4
+    calc_inbreed_coef(D1, F, PI, GL, type, nsnps, 0);  // F is F4
     diff = rmse1d(F0, F);
     cao.print(tick.date(), "Inbreeding coefficients estimated, iter =", it + 1, ", RMSE =", diff);
     if (diff < params.tolem) {
@@ -184,12 +177,10 @@ void run_inbreeding_em(int type, const Mat2D& GL, const Mat2D& PI, const Param& 
     if (it == params.maxiter - 1) cao.warn("EM inbreeding coefficient not coverged!");
   }
   cao.print(tick.date(), "compute the LRT test");
-  calc_inbreed_site_lrt(D1, F, PI, GL, type);
+  calc_inbreed_site_lrt(D1, F, PI, GL, type, nsnps, 0);
 #pragma omp parallel for
   for (int j = 0; j < F.size(); j++) {
-    // 1 degreed chi-squared dist
-    D2(j) = kf_gammaq(1.0 / 2.0, D1(j) / 2.0);  // nan expected
-    D2(j) = std::isnan(D2(j)) ? 1.0 : D2(j);    // if nan, then retrun 1.0
+    D2(j) = chisq1d(D1(j));
   }
   write_hwe_per_site(params.fileout + ".hwe", params.filebim, D2, D1, F);
 }
@@ -206,7 +197,7 @@ void run_inbreeding(Data* data, const Param& params) {
     run_inbreeding_em(2, G, data->G, params);
   }
   if (params.file_t == FileType::PLINK) {
-    Data* geno = new FileBed(params);
+    FileBed* geno = new FileBed(params);
     geno->prepare();
     assert(geno->blocksize == data->blocksize);
     // run EM-HWE
@@ -221,15 +212,21 @@ void run_inbreeding(Data* data, const Param& params) {
       AreClose areClose;
       for (uint it = 0; it < params.maxiter; it++) {
         F0 = F;  // copy the initial F
-        data->check_file_offset_first_var();
         geno->check_file_offset_first_var();
         for (uint b = 0; b < geno->nblocks; b++) {
-          data->read_block_initial(data->start[b], data->stop[b], false);
           geno->read_block_initial(geno->start[b], geno->stop[b], false);
-          calc_inbreed_coef(D1, F, data->G, geno->G, 1, data->start[b]);  // F is F1
-          calc_inbreed_coef(D2, F, data->G, geno->G, 1, data->start[b]);  // F is F2
+          data->read_block_initial(data->start[b], data->stop[b], false);
+          calc_inbreed_coef(D1, F, data->G, geno->G, 1, data->stop[b] - data->start[b] + 1,
+                            data->start[b]);  // F is F1
         }
         sr2 = D1.array().square().sum();
+        geno->check_file_offset_first_var();
+        for (uint b = 0; b < geno->nblocks; b++) {
+          geno->read_block_initial(geno->start[b], geno->stop[b], false);
+          data->read_block_initial(data->start[b], data->stop[b], false);
+          calc_inbreed_coef(D2, F, data->G, geno->G, 1, data->stop[b] - data->start[b] + 1,
+                            data->start[b]);  // F is F2
+        }
         sv2 = (D2 - D1).array().square().sum();
         // safety break
         if (areClose(sv2, 0.0)) {
@@ -244,12 +241,12 @@ void run_inbreeding(Data* data, const Param& params) {
         F = (F.array() < -1.0).select(-1.0, F);
         F = (F.array() > 1.0).select(1.0, F);
         // Stabilization step and convergence check
-        data->check_file_offset_first_var();
         geno->check_file_offset_first_var();
         for (uint b = 0; b < geno->nblocks; b++) {
-          data->read_block_initial(data->start[b], data->stop[b], false);
           geno->read_block_initial(geno->start[b], geno->stop[b], false);
-          calc_inbreed_coef(D1, F, data->G, geno->G, 1, data->start[b]);  // F is F4
+          data->read_block_initial(data->start[b], data->stop[b], false);
+          calc_inbreed_coef(D1, F, data->G, geno->G, 1, data->stop[b] - data->start[b] + 1,
+                            data->start[b]);  // F is F4
         }
         diff = rmse1d(F0, F);
         cao.print(tick.date(), "Inbreeding coefficients estimated, iter =", it + 1, ", RMSE =", diff);
@@ -260,18 +257,16 @@ void run_inbreeding(Data* data, const Param& params) {
         if (it == params.maxiter - 1) cao.warn("EM inbreeding coefficient not coverged!");
       }
       cao.print(tick.date(), "compute the LRT test");
-      data->check_file_offset_first_var();
       geno->check_file_offset_first_var();
       for (uint b = 0; b < geno->nblocks; b++) {
-        data->read_block_initial(data->start[b], data->stop[b], false);
         geno->read_block_initial(geno->start[b], geno->stop[b], false);
-        calc_inbreed_site_lrt(D1, F, data->G, geno->G, 1, data->start[b]);
+        data->read_block_initial(data->start[b], data->stop[b], false);
+        calc_inbreed_site_lrt(D1, F, data->G, geno->G, 1, data->stop[b] - data->start[b] + 1, data->start[b]);
       }
 #pragma omp parallel for
       for (int j = 0; j < F.size(); j++) {
         // 1 degreed chi-squared dist
-        D2(j) = kf_gammaq(1.0 / 2.0, D1(j) / 2.0);  // nan expected
-        D2(j) = std::isnan(D2(j)) ? 1.0 : D2(j);    // if nan, then retrun 1.0
+        D2(j) = chisq1d(D1(j));
       }
       write_hwe_per_site(params.fileout + ".hwe", params.filebim, D2, D1, F);
     }

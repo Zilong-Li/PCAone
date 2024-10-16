@@ -1,17 +1,9 @@
 #ifndef PCAONE_UTILES_
 #define PCAONE_UTILES_
 
-#include <sys/utsname.h>
 #include <zlib.h>
 
-#include <cassert>
-#include <cmath>
 #include <cstdio>
-#include <cstring>
-#include <fstream>
-#include <iostream>
-#include <random>
-#include <stdexcept>
 #include <string>
 
 #include "Common.hpp"
@@ -51,7 +43,7 @@ double rmse(const Mat2D& X, const Mat2D& Y);
 
 double rmse1d(const Mat1D& x, const Mat1D& y);
 
-Eigen::VectorXd minSSE(const Mat2D& X, const Mat2D& Y);
+Mat1D minSSE(const Mat2D& X, const Mat2D& Y);
 
 double mev(const Mat2D& X, const Mat2D& Y);
 
@@ -59,7 +51,7 @@ void mev_rmse_byk(const Mat2D& X, const Mat2D& Y, Mat1D& Vm, Mat1D& Vr);
 
 double get_median(std::vector<double> v);
 
-std::vector<std::string> split_string(const std::string& s, const std::string& separators);
+String1D split_string(const std::string& s, const std::string& separators);
 
 void make_plink2_eigenvec_file(int K, std::string fout, const std::string& fin, const std::string& fam);
 
@@ -80,5 +72,8 @@ void parse_beagle_file(Mat2D& P, gzFile fp, const int nsamples, const int nsnps)
 String1D parse_beagle_samples(const std::string& fin);
 
 void write_eigvecs2_beagle(const Mat2D& U, const std::string& fin, const std::string& fout);
+
+/// return the p-value of 1-degreed chi-squared
+double chisq1d(double x);
 
 #endif  // PCAONE_UTILES_

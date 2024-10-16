@@ -40,7 +40,16 @@ int main(int argc, char* argv[]) {
   // set number of threads
   // openblas_set_num_threads(params.threads);
   omp_set_num_threads(params.threads);
+  cao.print(tick.date(), "program started");
   Data* data = nullptr;
+
+  // particular case for inbreeding
+  if (params.inbreed > 0) {
+    data = new FileUSV(params);
+    run_inbreeding(data, params);
+    delete data;
+    return bye();
+  }
 
   // particular case for LD
   if (((params.file_t == FileType::BINARY || ((params.file_t == FileType::PLINK) && !params.fileU.empty())) &&
@@ -61,14 +70,6 @@ int main(int argc, char* argv[]) {
   if ((params.project > 0) && (params.file_t == FileType::PLINK)) {
     data = new FileBed(params);
     run_projection(data, params);
-    delete data;
-    return bye();
-  }
-
-  // particular case for inbreeding
-  if (params.inbreed > 0) {
-    data = new FileUSV(params);
-    run_inbreeding(data, params);
     delete data;
     return bye();
   }

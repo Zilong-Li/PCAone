@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <iterator>
 #include <numeric>
+#include <random>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -22,16 +23,16 @@
 
 #define MAF(a) ((a) > 0.5 ? (1 - a) : (a))
 
-typedef Eigen::MatrixXd Mat2D;
-typedef Eigen::VectorXd Mat1D;
-typedef Eigen::ArrayXXd Arr2D;
-typedef Eigen::ArrayXd Arr1D;
-typedef Eigen::Array<bool, Eigen::Dynamic, 1> ArrBool;
+using Mat2D = Eigen::MatrixXd;
+using Mat1D = Eigen::VectorXd;
+using Arr2D = Eigen::ArrayXXd;
+using Arr1D = Eigen::ArrayXd;
+using ArrBool = Eigen::Array<bool, Eigen::Dynamic, 1>;
 using PermMat = Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic>;
 
-typedef unsigned char uchar;
-typedef unsigned int uint;
-typedef unsigned long long uint64;
+using uchar = unsigned char;
+using uint = unsigned int;
+using uint64 = unsigned long long;
 using Int1D = std::vector<int>;
 using Int2D = std::vector<Int1D>;
 using Double1D = std::vector<double>;
@@ -146,7 +147,7 @@ struct AreClose {
     double diff = std::fabs(a - b);
     return diff <= abs_tol || diff <= std::fabs(rel_tol * a) || diff <= std::fabs(rel_tol * b);
   }
-  
+
   static bool invalidTolerance(double tol) {
     // A tolerance may be zero to switch off that particular type of tolerance checking
     // but if it is non-zero then it should be finite and at least 4 × machine epsilon

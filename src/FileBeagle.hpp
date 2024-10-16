@@ -29,7 +29,10 @@ class FileBeagle : public Data {
       gzclose(fp);
     }
 
-    P = Mat2D::Zero(nsamples * 2, nsnps);  // Mat2D is column major
+    if (params.pca) {  // initial F and P
+      F = Mat1D::Zero(nsnps);
+      P = Mat2D::Zero(nsamples * 2, nsnps);  // Mat2D is column major
+    }
     cao.print(tick.date(), "N (# samples):", nsamples, ", M (# SNPs):", nsnps);
   }
 

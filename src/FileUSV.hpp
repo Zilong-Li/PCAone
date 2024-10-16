@@ -9,11 +9,11 @@ class FileUSV : public Data {
   FileUSV(const Param &params_) : Data(params_) {
     cao.print(tick.date(), "start parsing U:", params.fileU, ", S:", params.fileS, ", V:", params.fileV);
     S = read_eigvals(params.fileS);
-    K = S.size();
+    if (S.size() != params.k) cao.warn("the value of -k not equal the number of rows in" + params.fileS);
+    K = fmin(S.size(), params.k);
     cao.print(tick.date(), "start parsing mbim:", params.filebim, "and read allele frequency of SNPs");
     F = read_frq(params.filebim);
     nsnps = F.size();
-
     if (params.nsnps > 0 && params.nsamples > 0) {
       cao.print(tick.date(), "use nsamples and nsnps given by user");
       nsamples = params.nsamples;

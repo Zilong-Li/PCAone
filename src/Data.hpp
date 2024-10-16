@@ -8,7 +8,7 @@ const double VAR_TOL = 1e-9;
 
 class Data {
  public:
-  Data(const Param& params_) : params(params_) { cao.print(tick.date(), "program started"); }
+  Data(const Param& params_) : params(params_) {}
 
   virtual ~Data() {}
 
@@ -33,11 +33,11 @@ class Data {
 
   const Param& params;
 
+  double readtime = 0;
   bool snpmajor = true;
   bool nsamples_ge_nsnps = false;  // if nsamples greater than or equal to nsnps
   bool initialFonly = false;
   uint blocksize = 0, nsamples = 0, nsnps = 0;
-  double readtime = 0;
   uint nblocks = 1;
   uint bandFactor = 1;
   uint nops = 0;

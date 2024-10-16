@@ -6,6 +6,16 @@
 
 #include "Utils.hpp"
 
+#include <sys/utsname.h>
+
+#include <algorithm>  // sort
+#include <cassert>
+#include <cmath>
+#include <cstring>
+#include <fstream>
+
+#include "kfunc.h"
+
 using namespace std;
 
 std::string get_machine() {
@@ -105,7 +115,7 @@ void flip_UV(Mat2D& U, Mat2D& V, bool ubase) {
         } else if (V.rows() == U.cols()) {
           V.row(i) *= -1;
         } else {
-          throw std::runtime_error("the dimention of U and V have different k ranks.\n");
+          cao.error("the dimention of U and V have different k ranks.\n");
         }
       }
     }
@@ -125,7 +135,7 @@ void flip_UV(Mat2D& U, Mat2D& V, bool ubase) {
           V.row(i) *= -1;
         }
       } else {
-        throw std::runtime_error("the dimention of U and V have different k ranks.\n");
+        cao.error("the dimention of U and V have different k ranks.\n");
       }
     }
   }
@@ -159,9 +169,9 @@ double rmse(const Mat2D& X, const Mat2D& Y) {
 double rmse1d(const Mat1D& x, const Mat1D& y) { return sqrt((x - y).array().square().sum() / x.size()); }
 
 // Y is the truth matrix, X is the test matrix
-Eigen::VectorXd minSSE(const Mat2D& X, const Mat2D& Y) {
+Mat1D minSSE(const Mat2D& X, const Mat2D& Y) {
   Eigen::Index w1, w2;
-  Eigen::VectorXd res(X.cols());
+  Mat1D res(X.cols());
   for (Eigen::Index i = 0; i < X.cols(); ++i) {
     // test against the original matrix to find the index with mincoeff
     ((-Y).colwise() + X.col(i)).array().square().colwise().sum().minCoeff(&w1);
@@ -208,8 +218,8 @@ double get_median(std::vector<double> v) {
   }
 }
 
-std::vector<std::string> split_string(const std::string& s, const std::string& separators) {
-  std::vector<std::string> ret;
+String1D split_string(const std::string& s, const std::string& separators) {
+  String1D ret;
   bool is_seperator[256] = {false};
   for (auto& ch : separators) {
     is_seperator[(unsigned int)ch] = true;
@@ -417,4 +427,9 @@ void write_eigvecs2_beagle(const Mat2D& U, const std::string& fin, const std::st
     feig2 << s << "\t" << s << "\t" << U.row(i) << "\n";
     i++;
   }
+}
+
+double chisq1d(double x) {
+  double p = kf_gammaq(1.0 / 2.0, x / 2.0);  // nan expected
+  return std::isnan(x) ? 1.0 : p;            // if nan, then retrun 1.0
 }

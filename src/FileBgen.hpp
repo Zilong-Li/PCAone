@@ -29,6 +29,9 @@ class FileBgen : public Data {
     nsnps = bg->header.nvariants;
     cao.print(tick.date(), "the layout of bgen file is", bg->header.layout, ". N (#samples):", nsamples,
               ". M (#SNPs):", nsnps);
+    if (params.pca) { // initial F
+      F = Mat1D::Zero(nsnps);
+    }
   }
 
   ~FileBgen() { delete bg; }
