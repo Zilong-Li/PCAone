@@ -10,9 +10,10 @@ using namespace std;
 
 // read all data and estimate F
 void FileBeagle::read_all() {
+  P = Mat2D::Zero(nsamples * 2, nsnps);
   fp = gzopen(params.filein.c_str(), "r");
   parse_beagle_file(P, fp, nsamples, nsnps);
-  gzclose(fp);
+  if (!params.pca) return;
   cao.print(tick.date(), "begin to estimate allele frequencies");
   F = Mat1D::Constant(nsnps, 0.25);
   {  // out of scope: eigen object will be released;
@@ -59,5 +60,37 @@ void FileBeagle::read_all() {
       p2 = (1 - P(2 * i + 0, s) - P(2 * i + 1, s)) * F(j) * F(j);
       G(i, j) = (p1 + 2 * p2) / (p0 + p1 + p2) - 2.0 * F(j);
     }
+  }
+}
+
+void FileBeagle::check_file_offset_first_var() {
+  if (params.verbose) cao.print("reopen beagle file and read head line");
+  fp = gzopen(params.filein.c_str(), "r");
+  tgets(fp, &buffer, &bufsize);  // parse header line
+  if (buffer != original) original = buffer;
+}
+
+void FileBeagle::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize) {
+  if (params.pca) cao.error("doesn't support out-of-core PCAngsd algorithm");
+  uint actual_block_size = stop_idx - start_idx + 1;
+  if (G.cols() < blocksize || (actual_block_size < blocksize)) {
+    P = Mat2D::Zero(nsamples * 2, actual_block_size);
+  }
+  char* tok;
+  // read all GL data into P
+  for (uint j = 0; j < actual_block_size; ++j) {
+    tgets(fp, &buffer, &bufsize);  // get a line
+    if (buffer != original) original = buffer;
+    tok = strtok_r(buffer, delims, &buffer);
+    tok = strtok_r(NULL, delims, &buffer);
+    tok = strtok_r(NULL, delims, &buffer);
+    for (uint i = 0; i < nsamples; i++) {
+      tok = strtok_r(NULL, delims, &buffer);
+      P(2 * i + 0, j) = strtod(tok, NULL);
+      tok = strtok_r(NULL, delims, &buffer);
+      P(2 * i + 1, j) = strtod(tok, NULL);
+      tok = strtok_r(NULL, delims, &buffer);
+    }
+    buffer = original;
   }
 }

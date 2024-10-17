@@ -6,6 +6,7 @@
 #include "Inbreeding.hpp"
 
 #include "Cmd.hpp"
+#include "FileBeagle.hpp"
 #include "FilePlink.hpp"
 #include "Utils.hpp"
 
@@ -40,12 +41,12 @@ void calc_inbreed_coef(Mat1D& D, Mat1D& F, const Mat2D& PI, const Mat2D& GL, con
         // should check genotype missingness
         if (GL(i, j) == 0.0) {
           pp0 = p0, pp1 = 0, pp2 = 0;
-        }
-        if (GL(i, j) == 0.5) {
+        } else if (GL(i, j) == 0.5) {
           pp0 = 0, pp1 = p1, pp2 = 0;
-        }
-        if (GL(i, j) == 1.0) {
+        } else if (GL(i, j) == 1.0) {
           pp0 = 0, pp1 = 0, pp2 = p2;
+        } else {
+          cao.error("missing genotypes found");
         }
       } else {
         pp0 = GL(2 * i + 0, j) * p0;
@@ -98,14 +99,14 @@ void calc_inbreed_site_lrt(Mat1D& T, const Mat1D& F, const Mat2D& PI, const Mat2
         if (GL(i, j) == 0.0) {
           logAlt += log(p0);
           logNull += log((1.0 - PI(i, j)) * (1.0 - PI(i, j)));
-        }
-        if (GL(i, j) == 0.5) {
+        } else if (GL(i, j) == 0.5) {
           logAlt += log(p1);
           logNull += log(2.0 * PI(i, j) * (1.0 - PI(i, j)));
-        }
-        if (GL(i, j) == 1.0) {
+        } else if (GL(i, j) == 1.0) {
           logAlt += log(p2);
           logNull += log(PI(i, j) * PI(i, j));
+        } else {
+          cao.error("missing genotypes found");
         }
       } else {
         l0 = GL(2 * i + 0, j) * p0;
@@ -185,90 +186,108 @@ void run_inbreeding_em(int type, const Mat2D& GL, const Mat2D& PI, const Param& 
   write_hwe_per_site(params.fileout + ".hwe", params.filebim, D2, D1, F);
 }
 
-void run_inbreeding(Data* data, const Param& params) {
+void run_inbreeding(Data* Pi, const Param& params) {
   cao.print(tick.date(), "run inbreeding coefficient estimator");
-  data->prepare();
-  if (params.file_t == FileType::BEAGLE) {
-    Mat2D G(data->nsamples * 2, data->nsnps);  // genotype likelihood
-    gzFile fp = gzopen(params.filein.c_str(), "r");
-    parse_beagle_file(G, fp, data->nsamples, data->nsnps);
-    gzclose(fp);
-    // run EM-HWE
-    run_inbreeding_em(2, G, data->G, params);
-  }
+  Pi->prepare();
+  Data* data = nullptr;
   if (params.file_t == FileType::PLINK) {
-    FileBed* geno = new FileBed(params);
-    geno->prepare();
-    assert(geno->blocksize == data->blocksize);
-    // run EM-HWE
-    if (!params.out_of_core) {
-      run_inbreeding_em(1, geno->G, data->G, params);
-    } else {
-      // out of core run
-      int nsnps = data->nsnps;
-      Mat1D F = Mat1D::Zero(nsnps);  // init inbreeding coef
-      Mat1D F0(nsnps), D1(nsnps), D2(nsnps);
-      double sr2, sv2, alpha, diff;
-      AreClose areClose;
-      for (uint it = 0; it < params.maxiter; it++) {
-        F0 = F;  // copy the initial F
-        geno->check_file_offset_first_var();
-        for (uint b = 0; b < geno->nblocks; b++) {
-          geno->read_block_initial(geno->start[b], geno->stop[b], false);
-          data->read_block_initial(data->start[b], data->stop[b], false);
-          calc_inbreed_coef(D1, F, data->G, geno->G, 1, data->stop[b] - data->start[b] + 1,
-                            data->start[b]);  // F is F1
-        }
-        sr2 = D1.array().square().sum();
-        geno->check_file_offset_first_var();
-        for (uint b = 0; b < geno->nblocks; b++) {
-          geno->read_block_initial(geno->start[b], geno->stop[b], false);
-          data->read_block_initial(data->start[b], data->stop[b], false);
-          calc_inbreed_coef(D2, F, data->G, geno->G, 1, data->stop[b] - data->start[b] + 1,
-                            data->start[b]);  // F is F2
-        }
-        sv2 = (D2 - D1).array().square().sum();
-        // safety break
-        if (areClose(sv2, 0.0)) {
-          cao.print(tick.date(), "Inbreeding coefficients estimated, iter =", it + 1, "RMSE = 0.0");
-          cao.print(tick.date(), "EM inbreeding coefficient coverged");
-          break;
-        }
-        alpha = fmax(1.0, sqrt(sr2 / sv2));
-        if (params.verbose) cao.print("alpha:", alpha, sr2, sv2);
-        F = F0 + 2 * alpha * D1 + alpha * alpha * (D2 - D1);  // F is F3
-        // map to domain [-1, 1]
-        F = (F.array() < -1.0).select(-1.0, F);
-        F = (F.array() > 1.0).select(1.0, F);
-        // Stabilization step and convergence check
-        geno->check_file_offset_first_var();
-        for (uint b = 0; b < geno->nblocks; b++) {
-          geno->read_block_initial(geno->start[b], geno->stop[b], false);
-          data->read_block_initial(data->start[b], data->stop[b], false);
-          calc_inbreed_coef(D1, F, data->G, geno->G, 1, data->stop[b] - data->start[b] + 1,
-                            data->start[b]);  // F is F4
-        }
-        diff = rmse1d(F0, F);
-        cao.print(tick.date(), "Inbreeding coefficients estimated, iter =", it + 1, ", RMSE =", diff);
-        if (diff < params.tolem) {
-          cao.print(tick.date(), "EM inbreeding coefficient coverged");
-          break;
-        }
-        if (it == params.maxiter - 1) cao.warn("EM inbreeding coefficient not coverged!");
-      }
-      cao.print(tick.date(), "compute the LRT test");
-      geno->check_file_offset_first_var();
-      for (uint b = 0; b < geno->nblocks; b++) {
-        geno->read_block_initial(geno->start[b], geno->stop[b], false);
-        data->read_block_initial(data->start[b], data->stop[b], false);
-        calc_inbreed_site_lrt(D1, F, data->G, geno->G, 1, data->stop[b] - data->start[b] + 1, data->start[b]);
-      }
-#pragma omp parallel for
-      for (int j = 0; j < F.size(); j++) {
-        D2(j) = chisq1d(D1(j));
-      }
-      write_hwe_per_site(params.fileout + ".hwe", params.filebim, D2, D1, F);
-    }
-    delete geno;
+    data = new FileBed(params);
+  } else if (params.file_t == FileType::BEAGLE) {
+    data = new FileBeagle(params);
+  } else {
+    cao.error("input file not supported for estmating inbreeding coefficient");
   }
+  data->prepare();
+  assert(data->blocksize == Pi->blocksize);
+  if (!params.out_of_core) {
+    if (params.file_t == FileType::PLINK) run_inbreeding_em(1, data->G, Pi->G, params);
+    if (params.file_t == FileType::BEAGLE) run_inbreeding_em(2, data->P, Pi->G, params);
+    delete data;
+    return;
+  }
+  // out of core run
+  int nsnps = Pi->nsnps;
+  Mat1D F = Mat1D::Zero(nsnps);  // init inbreeding coef
+  Mat1D F0(nsnps), D1(nsnps), D2(nsnps);
+  double sr2, sv2, alpha, diff;
+  AreClose areClose;
+  for (uint it = 0; it < params.maxiter; it++) {
+    F0 = F;  // copy the initial F
+    data->check_file_offset_first_var();
+    for (uint b = 0; b < data->nblocks; b++) {
+      data->read_block_initial(data->start[b], data->stop[b], false);
+      Pi->read_block_initial(Pi->start[b], Pi->stop[b], false);
+      if (params.file_t == FileType::PLINK) {
+        calc_inbreed_coef(D1, F, Pi->G, data->G, 1, Pi->stop[b] - Pi->start[b] + 1,
+                          Pi->start[b]);  // F is F1
+      } else {
+        calc_inbreed_coef(D1, F, Pi->G, data->P, 2, Pi->stop[b] - Pi->start[b] + 1,
+                          Pi->start[b]);  // F is F1
+      }
+    }
+    sr2 = D1.array().square().sum();
+    data->check_file_offset_first_var();
+    for (uint b = 0; b < data->nblocks; b++) {
+      data->read_block_initial(data->start[b], data->stop[b], false);
+      Pi->read_block_initial(Pi->start[b], Pi->stop[b], false);
+      if (params.file_t == FileType::PLINK) {
+        calc_inbreed_coef(D2, F, Pi->G, data->G, 1, Pi->stop[b] - Pi->start[b] + 1,
+                          Pi->start[b]);  // F is F2
+      } else {
+        calc_inbreed_coef(D2, F, Pi->G, data->P, 2, Pi->stop[b] - Pi->start[b] + 1,
+                          Pi->start[b]);  // F is F2
+      }
+    }
+    sv2 = (D2 - D1).array().square().sum();
+    // safety break
+    if (areClose(sv2, 0.0)) {
+      cao.print(tick.date(), "Inbreeding coefficients estimated, iter =", it + 1, "RMSE = 0.0");
+      cao.print(tick.date(), "EM inbreeding coefficient coverged");
+      break;
+    }
+    alpha = fmax(1.0, sqrt(sr2 / sv2));
+    if (params.verbose) cao.print("alpha:", alpha, sr2, sv2);
+    F = F0 + 2 * alpha * D1 + alpha * alpha * (D2 - D1);  // F is F3
+    // map to domain [-1, 1]
+    F = (F.array() < -1.0).select(-1.0, F);
+    F = (F.array() > 1.0).select(1.0, F);
+    // Stabilization step and convergence check
+    data->check_file_offset_first_var();
+    for (uint b = 0; b < data->nblocks; b++) {
+      data->read_block_initial(data->start[b], data->stop[b], false);
+      Pi->read_block_initial(Pi->start[b], Pi->stop[b], false);
+      if (params.file_t == FileType::PLINK) {
+        calc_inbreed_coef(D1, F, Pi->G, data->G, 1, Pi->stop[b] - Pi->start[b] + 1,
+                          Pi->start[b]);  // F is F4
+      } else {
+        calc_inbreed_coef(D1, F, Pi->G, data->P, 2, Pi->stop[b] - Pi->start[b] + 1,
+                          Pi->start[b]);  // F is F4
+      }
+    }
+    diff = rmse1d(F0, F);
+    cao.print(tick.date(), "Inbreeding coefficients estimated, iter =", it + 1, ", RMSE =", diff);
+    if (diff < params.tolem) {
+      cao.print(tick.date(), "EM inbreeding coefficient coverged");
+      break;
+    }
+    if (it == params.maxiter - 1) cao.warn("EM inbreeding coefficient not coverged!");
+  }
+  cao.print(tick.date(), "compute the LRT test");
+  data->check_file_offset_first_var();
+  for (uint b = 0; b < data->nblocks; b++) {
+    data->read_block_initial(data->start[b], data->stop[b], false);
+    Pi->read_block_initial(Pi->start[b], Pi->stop[b], false);
+    if (params.file_t == FileType::PLINK) {
+      calc_inbreed_site_lrt(D1, F, Pi->G, data->G, 1, Pi->stop[b] - Pi->start[b] + 1, Pi->start[b]);
+    } else {
+      calc_inbreed_site_lrt(D1, F, Pi->G, data->P, 2, Pi->stop[b] - Pi->start[b] + 1, Pi->start[b]);
+    }
+  }
+#pragma omp parallel for
+  for (int j = 0; j < F.size(); j++) {
+    D2(j) = chisq1d(D1(j));
+  }
+  write_hwe_per_site(params.fileout + ".hwe", params.filebim, D2, D1, F);
+
+  delete data;
 }

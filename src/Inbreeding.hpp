@@ -22,6 +22,6 @@ void write_hwe_per_site(const std::string& fout, const std::string& fbim, const 
 
 void run_inbreeding_em(int type, const Mat2D& GL, const Mat2D& PI, const Param& params);
 
-void run_inbreeding(Data* data, const Param& params);
+void run_inbreeding(Data* Pi, const Param& params);
 
 #endif  // PCAONE_INBREEDING_

@@ -19,8 +19,15 @@ extern Timer tick;
 extern Logger cao;
 #endif
 
+/// get the machine information
 std::string get_machine();
 
+/* @brief gets a line of gzfile
+ * @param gz   file hander returned by gzopen
+ * @param buf  buffer used for storing data
+ * @param size buffer size for realloc buffer
+ * @return extended buf length
+ */
 int tgets(gzFile gz, char** buf, uint64* size);
 
 void fcloseOrDie(FILE* file);

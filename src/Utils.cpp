@@ -15,6 +15,7 @@
 #include <fstream>
 
 #include "kfunc.h"
+#include "zlib.h"
 
 using namespace std;
 
@@ -33,13 +34,6 @@ std::string get_machine() {
          "\nOperating system version: " + version + "\nOperating system name: " + sysname + "\n";
 }
 
-/*
-** @brief gz line gets
-** @param gz   file hander returned by gzopen
-** @param buf  buffer used for storing data
-** @param size buffer size for realloc buffer
-** @return length and buffer of current line
-*/
 int tgets(gzFile gz, char** buf, uint64* size) {
   int rlen = 0;
   char* tok = gzgets(gz, *buf + rlen, *size - rlen);  // return buf or NULL
@@ -82,11 +76,11 @@ size_t freadOrDie(void* buffer, size_t sizeToRead, FILE* file) {
 }
 
 size_t count_lines(const std::string& fpath) {
-  std::ifstream in(fpath);
-  if (!in.is_open()) throw invalid_argument("can not open " + fpath);
+  std::ifstream fin(fpath);
+  if (!fin.is_open()) throw invalid_argument("can not open " + fpath);
   size_t count = 0;
   std::string line;
-  while (getline(in, line)) {
+  while (getline(fin, line)) {
     count++;
   }
   return count;
@@ -208,13 +202,12 @@ double get_median(std::vector<double> v) {
   size_t n = v.size();
   if (n == 0) {
     return 0;
+  }
+  std::sort(v.begin(), v.end());
+  if (n % 2 == 0) {
+    return (v[n / 2 - 1] + v[n / 2]) / 2.0;
   } else {
-    std::sort(v.begin(), v.end());
-    if (n % 2 == 0) {
-      return (v[n / 2 - 1] + v[n / 2]) / 2.0;
-    } else {
-      return v[n / 2];
-    }
+    return v[n / 2];
   }
 }
 
@@ -411,6 +404,7 @@ String1D parse_beagle_samples(const std::string& fin) {
     nCol++;
     if ((nCol - 1) % 3 == 0) res.push_back(std::string(tok));
   }
+  gzclose(fp);
   if (nCol % 3) cao.error("Number of columns should be a multiple of 3.");
   return res;
 }

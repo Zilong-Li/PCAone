@@ -142,11 +142,41 @@ Param::Param(int argc, char **argv) {
       std::cout << opts << "\n";
       exit(EXIT_SUCCESS);
     }
+    // handle PI, i.e U,S,V
+    if (usvprefix->is_set()) {
+      if (fileU.empty()) fileU = usvprefix->value() + ".eigvecs";
+      if (fileS.empty()) fileS = usvprefix->value() + ".eigvals";
+      if (fileV.empty()) fileV = usvprefix->value() + ".loadings";
+      if (filebim.empty()) filebim = usvprefix->value() + ".mbim";
+    }
+    
+    // handle LD
+    if (print_r2 || ld_bp > 0 || ld_r2 > 0 || !clump.empty()) {
+      pca = false;
+      memory /= 2.0;  // adjust memory estimator
+    }
+    
+    // handle projection
+    if (project > 0) {
+      if (fileV.empty() || fileS.empty())
+        throw std::invalid_argument(
+            "please use --read-S and --read-V together with --project, or simply --USV");
+      if (project > 2) throw std::invalid_argument("more projection methods are coming. stay tuned!");
+      estaf = false, impute = true, out_of_core = false, pca = false;
+      memory = 0;
+    }
+
+    // handle inbreeding
+    if (inbreed > 0) {
+      estaf = false, center = false, pca = false;
+      if (fileU.empty() || fileV.empty() || fileS.empty())
+        throw std::invalid_argument("please use --USV together with --inbreed");
+    }
 
     ncv = 20 > (2 * k + 1) ? 20 : (2 * k + 1);
     oversamples = 10 > k ? 10 : k;
     // beagle.gz only represents genotype likelihood for pcangsd algorithm now
-    if (file_t == FileType::BEAGLE && svd_t == SvdType::PCAoneAlg2)
+    if (pca && file_t == FileType::BEAGLE && svd_t == SvdType::PCAoneAlg2)
       throw std::invalid_argument(
           "not supporting PCAone --svd 2 for PCAngsd algorithm yet! "
           "please use --svd 1 or 0 option");
@@ -158,12 +188,13 @@ Param::Param(int argc, char **argv) {
         throw std::invalid_argument(
             "not supporting PCAone --svd 2 for PCAngsd/EMU algorithm yet! "
             "please specify --svd 1 or 0");
-      // } else {
-      //   maxiter = 0;
+    } else if (pca) {
+      maxiter = 0;
     }
     if (memory > 0) {
       out_of_core = true;
-      if (pcangsd) throw std::invalid_argument("not supporting -m option for PCAngsd with BEAGLE file yet!");
+      if (pca && pcangsd)
+        throw std::invalid_argument("not supporting -m option for PCAngsd with BEAGLE file yet!");
     }
     if (bands < 4 || bands % 2 != 0)
       throw std::invalid_argument(
@@ -181,34 +212,6 @@ Param::Param(int argc, char **argv) {
           "please remove --maf option");
     if (svd_t == SvdType::PCAoneAlg2 && !noshuffle) perm = true;
     if (svd_t == SvdType::FULL) out_of_core = false;
-    if (print_r2 || ld_bp > 0 || ld_r2 > 0 || !clump.empty()) {
-      pca = false;
-      memory /= 2.0;  // adjust memory estimator
-    }
-    // handle PI, i.e U,S,V
-    if (usvprefix->is_set()) {
-      if (fileU.empty()) fileU = usvprefix->value() + ".eigvecs";
-      if (fileS.empty()) fileS = usvprefix->value() + ".eigvals";
-      if (fileV.empty()) fileV = usvprefix->value() + ".loadings";
-      if (filebim.empty()) filebim = usvprefix->value() + ".mbim";
-    }
-
-    // handle projection
-    if (project > 0) {
-      if (fileV.empty() || fileS.empty())
-        throw std::invalid_argument(
-            "please use --read-S and --read-V together with --project, or simply --USV");
-      if (project > 2) throw std::invalid_argument("more projection methods are coming. stay tuned!");
-      estaf = false, impute = true, out_of_core = false, pca = false;
-      memory = 0;
-    }
-
-    // handle inbreeding
-    if (inbreed > 0) {
-      estaf = false, center = false, pca = false;
-      if (fileU.empty() || fileV.empty() || fileS.empty())
-        throw std::invalid_argument("please use --USV together with --inbreed");
-    }
   } catch (const popl::invalid_option &e) {
     std::cerr << "Invalid Option Exception: " << e.what() << "\n";
     std::cerr << "error:  ";
