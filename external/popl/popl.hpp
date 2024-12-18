@@ -3,8 +3,10 @@
     (  _ \ /  \(  _ \(  )
      ) __/(  O )) __// (_/\
     (__)   \__/(__)  \____/
-    version 1.3.0
+    version 1.4.0
     https://github.com/badaix/popl
+
+    modified by Zilong-Li Nov 03, 2024
 
     This file is part of popl (program options parser lib)
     Copyright (C) 2015-2021 Johannes Pohl
@@ -41,7 +43,7 @@
 namespace popl
 {
 
-#define POPL_VERSION "1.3.0"
+#define POPL_VERSION "1.4.0"
 
 
 /// Option's argument type
@@ -62,6 +64,7 @@ enum class Argument
 /**
  * inactive: Option is not set and will not be parsed
  * hidden:   Option is active, but will not show up in the help message
+ * headline: Option is a head line as start of a new section
  * required: Option must be set on the command line. Otherwise an exception will be thrown
  * optional: Option must not be set. Default attribute.
  * advanced: Option is advanced and will only show up in the advanced help message
@@ -69,8 +72,9 @@ enum class Argument
  */
 enum class Attribute
 {
-    inactive = 0,
-    hidden = 1,
+    inactive = -1,
+    hidden = 0,
+    headline = 1,
     required = 2,
     optional = 3,
     advanced = 4,
@@ -1183,7 +1187,10 @@ inline std::string ConsoleOptionPrinter::print(const Attribute& max_attribute) c
             optionStr.resize(optionRightMargin, ' ');
         else
             optionStr += "\n" + std::string(optionRightMargin, ' ');
-        s << optionStr;
+        if (option->attribute() != Attribute::headline)
+            s << optionStr;
+        else
+            s << "\n";
 
         std::string line;
         std::vector<std::string> lines;
