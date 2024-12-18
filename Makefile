@@ -187,7 +187,7 @@ data:
 	tar -xzf example.tar.gz && rm -f example.tar.gz
 
 hwe:
-	./PCAone -b example/plink -k 3 -vV
+	./PCAone -b example/plink -k 3 -V
 	./PCAone -b example/plink --USV pcaone --inbreed 1 -o inbreed_m0
 	./PCAone -b example/plink --USV pcaone --inbreed 1 -o inbreed_m1 -m 1
 	diff inbreed_m0.hwe inbreed_m1.hwe

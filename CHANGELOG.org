@@ -1,3 +1,7 @@
+- v0.4.9
+  - use C+17 standard
+  - breaking: =--verbose= takes integer value as the level of verbose
+
 - v0.4.8
   - HWE test accounting for population structure via =--inbreed 1=
     - BEAGLE file can work with in-core mode
