@@ -10,6 +10,7 @@ GPATH
 external/*/*.a
 *.dylib
 /external/zstd/lib/*.a
+/external/zstd/lib/*.so*
 /external/zstd/lib/obj/
 compile_commands.json
 .ccls-cache

@@ -35,8 +35,8 @@ static int bye() {
 int main(int argc, char* argv[]) {
   Param params(argc, argv);
   cao.cao.open(params.fileout + ".log");
-  string commandargs = params.ss.str();
-  cao << get_machine() << commandargs << endl;
+  if (params.verbose > 0) cao.is_screen = true;
+  cao.print(get_machine(), params.ss.str());
   // set number of threads
   // openblas_set_num_threads(params.threads);
   omp_set_num_threads(params.threads);

@@ -8,10 +8,7 @@
 
 #include <sys/utsname.h>
 
-#include <algorithm>  // sort
-#include <cassert>
-#include <cmath>
-#include <cstring>
+#include <cstring> // strtok_r
 #include <fstream>
 
 #include "kfunc.h"
@@ -386,8 +383,10 @@ void parse_beagle_file(Mat2D& P, gzFile fp, const int nsamples, const int nsnps)
     buffer = original;
     j++;
   }
-  assert(nsnps == j);
   free(buffer);
+  if (nsnps != j) {
+    cao.error("something wrong parsing beagle");
+  }
 }
 
 String1D parse_beagle_samples(const std::string& fin) {

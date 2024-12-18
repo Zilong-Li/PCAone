@@ -1,10 +1,7 @@
 #ifndef PCAONE_UTILES_
 #define PCAONE_UTILES_
 
-#include <zlib.h>
-
-#include <cstdio>
-#include <string>
+#include "zlib.h"
 
 #include "Common.hpp"
 #include "Logger.hpp"

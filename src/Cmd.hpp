@@ -77,7 +77,7 @@ class Param {
   bool noshuffle = false;
   bool emu = false;
   bool pcangsd = false;  // read GP field for PCAngsd instead of GT.
-  bool verbose = false;
+  uint verbose = 1; // verbose level. 0: no verbose; 1: output to screen; 2: debug info 
   bool mev = true;
   bool out_of_core = false;  // otherwise load all matrix into RAM.
   int ploidy = 2;

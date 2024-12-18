@@ -35,7 +35,7 @@ void Data::prepare() {
       if (params.memory > 1.1 * m)
         m = 0;
       else
-        cao.warn("minimum RAM required is " + to_string(m) + " GB. trying to allocate more RAM.");
+        cao.warn("minimum RAM required is ", m, " GB. trying to allocate more RAM.");
       blocksize = (unsigned int)ceil(
           (double)((m + params.memory) * 134217728 - 3 * nsamples * l - 2 * nsnps * l - 5 * nsnps) /
           nsamples);

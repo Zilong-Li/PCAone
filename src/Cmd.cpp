@@ -5,6 +5,7 @@
  ******************************************************************************/
 
 #include "Cmd.hpp"
+
 #include "popl/popl.hpp"
 
 using namespace popl;
@@ -24,7 +25,11 @@ Param::Param(int argc, char **argv) {
   auto help_opt = opts.add<Switch>("h", "help", "print all options including hidden advanced options");
   opts.add<Value<double>>("m", "memory", "RAM usage in GB unit for out-of-core mode. default is in-core mode", memory, &memory);
   opts.add<Value<uint>>("n", "threads", "the number of threads to be used", threads, &threads);
-  opts.add<Switch>("v", "verbose", "verbose message output", &verbose);
+  opts.add<Value<uint>>("v", "verbose", "verbose level.\n"
+                                        "0: no message on screen\n"
+                                        "1: print messages to screen\n"
+                                        "2: enable debug information"
+                        , verbose, &verbose);
   opts.add<Value<std::string>, Attribute::headline>("","PCA","PCA algorithms:");
   auto svd_opt = opts.add<Value<uint>>("d", "svd", "SVD method to be applied. default 2 is recommended for big data.\n"
                                        "0: the Implicitly Restarted Arnoldi Method (IRAM)\n"
@@ -44,7 +49,6 @@ Param::Param(int argc, char **argv) {
   opts.add<Switch>("", "pcangsd", "use PCAngsd algorithm for genotype likelihood input", &pcangsd);
   opts.add<Value<uint>, Attribute::advanced>("", "M", "the number of features (eg. SNPs) if already known", 0, &nsnps);
   opts.add<Value<uint>, Attribute::advanced>("", "N", "the number of samples if already known", 0, &nsamples);
-  // opts.add<Switch, Attribute::advanced>("", "debug", "turn on debugging mode", &debug);
   opts.add<Value<uint>, Attribute::advanced>("", "buffer", "memory buffer in GB unit for permuting the data", buffer, &buffer);
   opts.add<Value<uint>, Attribute::advanced>("", "imaxiter", "maximum number of IRAM iterations", imaxiter, &imaxiter);
   opts.add<Value<double>, Attribute::advanced>("", "itol", "stopping tolerance for IRAM algorithm", itol, &itol);
@@ -64,7 +68,7 @@ Param::Param(int argc, char **argv) {
   auto csvfile = opts.add<Value<std::string>>("c", "csv", "path of comma seperated CSV file compressed by zstd", "", &filein);
   auto bgenfile = opts.add<Value<std::string>>("g", "bgen", "path of BGEN file compressed by gzip/zstd", "", &filein);
   auto beaglefile = opts.add<Value<std::string>>("G", "beagle", "path of BEAGLE file compressed by gzip", "", &filein);
-  opts.add<Value<std::string>>("", "match-bim", "the .mbim file to be matched, where the 7th column is allele frequency", "", &filebim);
+  opts.add<Value<std::string>>("f", "match-bim", "the .mbim file to be matched, where the 7th column is allele frequency", "", &filebim);
   auto usvprefix = opts.add<Value<std::string>>("", "USV", "prefix of PCAone .eigvecs/.eigvals/.loadings/.mbim");
   opts.add<Value<std::string>, Attribute::advanced>("", "read-U", "path of file with left singular vectors (.eigvecs)", "", &fileU);
   opts.add<Value<std::string>, Attribute::advanced>("", "read-V", "path of file with right singular vectors (.loadings)", "", &fileV);
@@ -153,13 +157,13 @@ Param::Param(int argc, char **argv) {
       if (fileV.empty()) fileV = usvprefix->value() + ".loadings";
       if (filebim.empty()) filebim = usvprefix->value() + ".mbim";
     }
-    
+
     // handle LD
     if (print_r2 || ld_bp > 0 || ld_r2 > 0 || !clump.empty()) {
       pca = false;
       memory /= 2.0;  // adjust memory estimator
     }
-    
+
     // handle projection
     if (project > 0) {
       if (fileV.empty() || fileS.empty())
