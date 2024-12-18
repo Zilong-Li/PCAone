@@ -162,7 +162,7 @@ void run_inbreeding_em(int type, const Mat2D& GL, const Mat2D& PI, const Param& 
       break;
     }
     alpha = fmax(1.0, sqrt(sr2 / sv2));
-    if (params.verbose) cao.print("alpha:", alpha, sr2, sv2);
+    if (params.verbose > 1) cao.print("alpha:", alpha, ", sr2:", sr2, ", sv2:", sv2);
     F = F0 + 2 * alpha * D1 + alpha * alpha * (D2 - D1);  // F is F3
     // map to domain [-1, 1]
     F = (F.array() < -1.0).select(-1.0, F);
@@ -187,7 +187,6 @@ void run_inbreeding_em(int type, const Mat2D& GL, const Mat2D& PI, const Param& 
 }
 
 void run_inbreeding(Data* Pi, const Param& params) {
-  cao.print(tick.date(), "run inbreeding coefficient estimator");
   Pi->prepare();
   Data* data = nullptr;
   if (params.file_t == FileType::PLINK) {
@@ -199,6 +198,8 @@ void run_inbreeding(Data* Pi, const Param& params) {
   }
   data->prepare();
   assert(data->blocksize == Pi->blocksize);
+  
+  cao.print(tick.date(), "run inbreeding coefficient estimator");
   if (!params.out_of_core) {
     if (params.file_t == FileType::PLINK) run_inbreeding_em(1, data->G, Pi->G, params);
     if (params.file_t == FileType::BEAGLE) run_inbreeding_em(2, data->P, Pi->G, params);
@@ -246,7 +247,7 @@ void run_inbreeding(Data* Pi, const Param& params) {
       break;
     }
     alpha = fmax(1.0, sqrt(sr2 / sv2));
-    if (params.verbose) cao.print("alpha:", alpha, sr2, sv2);
+    if (params.verbose > 1) cao.print("alpha:", alpha, ", sr2:", sr2, ", sv2:", sv2);
     F = F0 + 2 * alpha * D1 + alpha * alpha * (D2 - D1);  // F is F3
     // map to domain [-1, 1]
     F = (F.array() < -1.0).select(-1.0, F);

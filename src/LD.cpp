@@ -7,6 +7,7 @@
 #include "LD.hpp"
 
 #include <zlib.h>
+#include <cstddef>
 
 #include "Cmd.hpp"
 #include "Data.hpp"
@@ -146,14 +147,14 @@ void ld_prune_small(Data* data, const std::string& fileout, const std::string& f
             pick_random_one);
   ArrBool keep = ArrBool::Constant(data->nsnps, true);
   const double df = 1.0 / (data->nsamples - 1);  // N-1
-  int b = 0, start = 0, end = 0;
+  uint b = 0, start = 0, end = 0;
   data->check_file_offset_first_var();
   data->read_block_initial(data->start[b], data->stop[b], false);
   Mat2D G = data->G;  // make a copy. we need two G anyway
   b++;
   data->read_block_initial(data->start[b], data->stop[b], false);
-  for (int w = 0; w < (int)snp.ws.size(); w++) {
-    int i = snp.ws[w];
+  for (size_t w = 0; w < snp.ws.size(); w++) {
+    uint i = snp.ws[w];
     if (!keep(i)) continue;
     start = i;  // ensure start >= data->start[b-1]
     if (start < data->start[b - 1]) cao.error("BUG: ld_prune_small ");
@@ -165,7 +166,7 @@ void ld_prune_small(Data* data, const std::string& fileout, const std::string& f
     }
 #pragma omp parallel for
     for (int j = 1; j < snp.we[w]; j++) {
-      int k = i + j;
+      uint k = i + j;
       if (!keep(k)) continue;
       double r = 0;
       if (i >= data->start[b - 1] && k <= data->stop[b - 1]) {
@@ -384,8 +385,8 @@ void ld_r2_small(Data* data, const SNPld& snp, const std::string& filebim, const
   std::string line{"CHR_A\tBP_A\tSNP_A\tCHR_B\tBP_B\tSNP_B\tR2\n"};
   gzwrite(gzfp, line.c_str(), line.size());
 
-  for (int w = 0; w < (int)snp.ws.size(); w++) {
-    int i = snp.ws[w];
+  for (size_t w = 0; w < snp.ws.size(); w++) {
+    uint i = snp.ws[w];
     if (snp.we[w] + i - 1 > data->stop[b]) {  // renew G and data->G
       G = data->G;                            // copy
       b++;
@@ -395,7 +396,7 @@ void ld_r2_small(Data* data, const SNPld& snp, const std::string& filebim, const
     if (data->params.verbose) cao.print(tick.date(), "process window", w, ", the index SNP is", i);
 
     for (int j = 1; j < snp.we[w]; j++) {
-      int k = i + j;
+      uint k = i + j;
       double r = 0;
       if (i >= data->start[b - 1] && k <= data->stop[b - 1]) {
         r = calc_cor(G.col(i - data->start[b - 1]), G.col(k - data->start[b - 1]), df);

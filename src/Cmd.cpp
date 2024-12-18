@@ -185,10 +185,8 @@ Param::Param(int argc, char **argv) {
     oversamples = 10 > k ? 10 : k;
     // beagle.gz only represents genotype likelihood for pcangsd algorithm now
     if (pca && file_t == FileType::BEAGLE && svd_t == SvdType::PCAoneAlg2)
-      throw std::invalid_argument(
-          "not supporting PCAone --svd 2 for PCAngsd algorithm yet! "
-          "please use --svd 1 or 0 option");
-    if (file_t == FileType::BEAGLE) pcangsd = true;
+      throw std::invalid_argument("--svd 2 with --pcangsd not supported yet! use --svd 1 or 0 instead");
+    if (pca && file_t == FileType::BEAGLE) pcangsd = true;
     if (haploid && (file_t == FileType::PLINK || file_t == FileType::BGEN)) ploidy = 1;
     if (emu || pcangsd) {
       impute = true;

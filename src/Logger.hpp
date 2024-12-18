@@ -25,7 +25,7 @@ class Logger
         is_screen = screen;
         cao.open(filename.c_str());
         if(!cao) throw std::runtime_error(filename + " : " + std::strerror(errno));
-        cao.precision(3);
+        cao.precision(6);
         cao.flags(std::ios::fixed | std::ios::right);
     }
 
@@ -64,7 +64,7 @@ class Logger
         cao << std::endl;
         if(is_screen)
         {
-            std::cout.precision(3);
+            std::cout.precision(6);
             std::cout.flags(std::ios::fixed | std::ios::right);
             (..., printSpace(std::cout, args));
             std::cout << std::endl;
