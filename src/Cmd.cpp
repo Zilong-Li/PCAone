@@ -190,25 +190,17 @@ Param::Param(int argc, char **argv) {
     if (haploid && (file_t == FileType::PLINK || file_t == FileType::BGEN)) ploidy = 1;
     if (emu || pcangsd) {
       impute = true;
-      if (svd_t == SvdType::PCAoneAlg2)
-        throw std::invalid_argument(
-            "not supporting PCAone --svd 2 for PCAngsd/EMU algorithm yet! "
-            "please specify --svd 1 or 0");
+      if (svd_t == SvdType::PCAoneAlg2) fancyem = true;
     } else if (pca) {
       maxiter = 0;
     }
-    if (memory > 0) {
-      out_of_core = true;
-      if (pca && pcangsd)
-        throw std::invalid_argument("not supporting -m option for PCAngsd with BEAGLE file yet!");
-    }
-    if (bands < 4 || bands % 2 != 0)
-      throw std::invalid_argument(
-          "the -w/--batches must be a power of 2 and the minimun is 4. "
-          "the recommended is 64.");
+    if (memory > 0 && svd_t != SvdType::FULL) out_of_core = true;
+    if (out_of_core && pca && pcangsd)
+      throw std::invalid_argument("not supporting -m option for PCAngsd with BEAGLE file yet!");
+    if (bands < 8 || bands % 2 != 0)
+      throw std::invalid_argument("the -w/--batches must be a power of 2 and the minimun is 8.");
     if (maf > 0.5) {
-      std::cerr << "warning: you specify '--maf' a value greater than 0.5. "
-                   "will do 1-maf for you!\n";
+      std::cerr << "warning: you specify '--maf' a value greater than 0.5.\n";
       maf = 1 - maf;
     }
     keepsnp = maf > 0 ? true : false;
@@ -217,7 +209,6 @@ Param::Param(int argc, char **argv) {
           "does not support --maf filters for out-of-core mode yet! "
           "please remove --maf option");
     if (svd_t == SvdType::PCAoneAlg2 && !noshuffle) perm = true;
-    if (svd_t == SvdType::FULL) out_of_core = false;
   } catch (const popl::invalid_option &e) {
     std::cerr << "Invalid Option Exception: " << e.what() << "\n";
     std::cerr << "error:  ";

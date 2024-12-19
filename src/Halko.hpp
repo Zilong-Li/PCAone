@@ -8,7 +8,7 @@ class RsvdOpData {
  public:
   Data* data;
   using Index = Eigen::Index;
-  bool update = false, standardize = false, verbose = false;
+  bool update = false, standardize = false;
   Mat2D U, V;
   Mat1D S;
 
@@ -25,13 +25,14 @@ class RsvdOpData {
   virtual void computeGandH(Mat2D& G, Mat2D& H, int pi) = 0;
 
   /// update, standardize, verbose
-  inline void setFlags(bool is_update, bool is_standardize, bool is_verbose) {
+  inline void setFlags(bool is_update, bool is_standardize) {
     update = is_update;
     standardize = is_standardize;
-    verbose = is_verbose;
   }
 
   void computeUSV(int p, double tol);
+
+  void computeB(Mat2D& B, Mat2D& G, const Mat2D& H);
 };
 
 class NormalRsvdOpData : public RsvdOpData {

@@ -68,6 +68,7 @@ class Param {
   int inbreed = 0;
 
   // general
+  uint verbose = 1; // verbose level. 0: no verbose; 1: output to screen; 2: debug info 
   uint scale = 0;  // do scaling. 0: just centering. 1: log scaling. 2: cpmed
   bool groff = false;
   bool cpmed = false;
@@ -77,7 +78,7 @@ class Param {
   bool noshuffle = false;
   bool emu = false;
   bool pcangsd = false;  // read GP field for PCAngsd instead of GT.
-  uint verbose = 1; // verbose level. 0: no verbose; 1: output to screen; 2: debug info 
+  bool fancyem = false; // true if emu/pcangsd + svd 2
   bool mev = true;
   bool out_of_core = false;  // otherwise load all matrix into RAM.
   int ploidy = 2;

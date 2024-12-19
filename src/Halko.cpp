@@ -8,31 +8,38 @@
 
 using namespace std;
 
+void RsvdOpData::computeB(Mat2D& B, Mat2D& G, const Mat2D& H) {
+  const Index size{ranks() + oversamples()};
+  const Index nrow{rows()};
+  Mat2D R(size, size), Rt(size, size);
+  {
+    Eigen::HouseholderQR<Eigen::Ref<Mat2D>> qr(G);
+    R.noalias() = Mat2D::Identity(size, nrow) * qr.matrixQR().triangularView<Eigen::Upper>();  // get R1
+    G.noalias() = qr.householderQ() * Mat2D::Identity(nrow, size);                             // hold Q1 in G
+  }
+  {
+    Eigen::HouseholderQR<Eigen::Ref<Mat2D>> qr(G);
+    Rt.noalias() = Mat2D::Identity(size, nrow) * qr.matrixQR().triangularView<Eigen::Upper>();  // get R2
+    G.noalias() = qr.householderQ() * Mat2D::Identity(nrow, size);  // hold Q2 in G
+  }
+  R = Rt * R;  // get R = R1R2;
+  // B is size x ncol
+  // R.T * B = H.T
+  B.noalias() = R.transpose().fullPivHouseholderQr().solve(H.transpose());
+}
+
 void RsvdOpData::computeUSV(int p, double tol) {
   const Index size{ranks() + oversamples()};
   const Index k{ranks()};
   const Index nrow{rows()};
   const Index ncol{cols()};
-  Mat2D Upre, H(ncol, size), G(nrow, size), R(size, size), Rt(size, size), B(size, ncol);
+  Mat2D Upre, H(ncol, size), G(nrow, size), B(size, ncol);
   double diff;
   for (int pi = 0; pi <= p; ++pi) {
     computeGandH(G, H, pi);
+    computeB(B, G, H);
     // check if converged
-    {
-      Eigen::HouseholderQR<Eigen::Ref<Mat2D>> qr(G);
-      R.noalias() = Mat2D::Identity(size, nrow) * qr.matrixQR().triangularView<Eigen::Upper>();  // get R1
-      G.noalias() = qr.householderQ() * Mat2D::Identity(nrow, size);  // hold Q1 in G
-    }
-    {
-      Eigen::HouseholderQR<Eigen::Ref<Mat2D>> qr(G);
-      Rt.noalias() = Mat2D::Identity(size, nrow) * qr.matrixQR().triangularView<Eigen::Upper>();  // get R2
-      G.noalias() = qr.householderQ() * Mat2D::Identity(nrow, size);  // hold Q2 in G
-    }
-    R = Rt * R;  // get R = R1R2;
-    // B is size x ncol
-    // R.T * B = H.T
-    B.noalias() = R.transpose().fullPivHouseholderQr().solve(H.transpose());
-    Eigen::JacobiSVD<Mat2D> svd(B, Eigen::ComputeThinU | Eigen::ComputeThinV);
+    Eigen::BDCSVD<Mat2D> svd(B, Eigen::ComputeThinU | Eigen::ComputeThinV);
     U = svd.matrixV().leftCols(k);
     if (data->params.printu) {
       std::ofstream ulog(
@@ -44,7 +51,7 @@ void RsvdOpData::computeUSV(int p, double tol) {
         diff = 1 - mev(U, Upre);
       else
         diff = minSSE(U, Upre).sum() / Upre.cols();
-      if (verbose) cao.print(tick.date(), "running of epoch =", pi, ", diff =", diff);
+      if (data->params.verbose) cao.print(tick.date(), "running of epoch =", pi, ", diff =", diff);
       if (diff < tol || pi == p) {
         if (data->params.svd_t == SvdType::PCAoneAlg2 && std::pow(2, pi) < data->params.bands) {
           cao.print("PCAone converged but continues running to get S and V.");
@@ -52,7 +59,7 @@ void RsvdOpData::computeUSV(int p, double tol) {
         } else {
           V.noalias() = G * svd.matrixU().leftCols(k);
           S = svd.singularValues().head(k);
-          if (verbose) cao.print(tick.date(), "stops at epoch =", pi + 1);
+          if (data->params.verbose) cao.print(tick.date(), "stops at epoch =", pi + 1);
           break;
         }
       } else {
@@ -210,6 +217,17 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
             Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
             flip_Omg(Omg2, Omg);
           }
+          // update estimates rightaway 
+          if (update && data->params.fancyem) {
+            cao.print(b, ",", i, ",", j, ",", band);
+            Mat2D B(size, H.rows());
+            computeB(B, G, H);
+            Eigen::BDCSVD<Mat2D> svd(B, Eigen::ComputeThinU | Eigen::ComputeThinV);
+            U = svd.matrixV().leftCols(nk);
+            V.noalias() = G * svd.matrixU().leftCols(nk);
+            S = svd.singularValues().head(nk);
+            data->update_batch_E(U, S, V.transpose());
+          }
         }
       }
     }
@@ -291,20 +309,20 @@ void run_pca_with_halko(Data* data, const Param& params) {
   if (!params.impute) {
     if (params.file_t == FileType::PLINK || params.file_t == FileType::BGEN) {
       if (params.ld)
-        rsvd->setFlags(false, false, true);
+        rsvd->setFlags(false, false);
       else
-        rsvd->setFlags(false, true, true);
+        rsvd->setFlags(false, true);
     } else {
-      rsvd->setFlags(false, false, true);
+      rsvd->setFlags(false, false);
     }
     rsvd->computeUSV(params.maxp, params.tol);
   } else {
     // for EM iteration
-    rsvd->setFlags(false, false, false);
+    rsvd->setFlags(false, false);
     rsvd->computeUSV(params.maxp, params.tol);
     // flip_UV(rsvd->U, rsvd->V, false);
     double diff;
-    rsvd->setFlags(true, false, false);
+    rsvd->setFlags(true, false);
     cao.print(tick.date(), "do EM-PCA algorithms for data with uncertainty.");
     for (uint i = 0; i < params.maxiter; ++i) {
       Vpre = rsvd->V;
@@ -336,7 +354,7 @@ void run_pca_with_halko(Data* data, const Param& params) {
       // output real eigenvectors of covariance in eigvecs2
       write_eigvecs2_beagle(svd.matrixU(), params.filein, params.fileout + ".eigvecs2");
     } else {
-      rsvd->setFlags(true, true, false);
+      rsvd->setFlags(true, true);
       rsvd->computeUSV(params.maxp, params.tol);
     }
   }

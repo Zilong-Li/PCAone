@@ -1,6 +1,7 @@
 - v0.4.9
   - use C+17 standard
-  - breaking: =--verbose= takes integer value as the level of verbose
+  - *breaking*: =--verbose= takes integer value as the level of verbose
+  - new short option: =-f=
 
 - v0.4.8
   - HWE test accounting for population structure via =--inbreed 1=
