@@ -288,7 +288,7 @@ void Data::standardize_E() {
 
 void Data::pcangsd_standardize_E(const Mat2D &U, const Mat1D &svals, const Mat2D &VT) {
   cao.print(tick.date(), "begin to standardize the matrix for pcangsd");
-  uint ks = svals.size();
+  uint nk = svals.size();
   Dc = Mat1D::Zero(nsamples);
 #pragma omp parallel
   {
@@ -301,7 +301,7 @@ void Data::pcangsd_standardize_E(const Mat2D &U, const Mat1D &svals, const Mat2D
       for (uint i = 0; i < nsamples; i++) {
         // Rescale individual allele frequencies
         pt = 0.0;
-        for (uint k = 0; k < ks; ++k) {
+        for (uint k = 0; k < nk; ++k) {
           pt += U(i, k) * svals(k) * VT(k, j);
         }
         pt = (pt + 2.0 * F(j)) / 2.0;
@@ -325,6 +325,36 @@ void Data::pcangsd_standardize_E(const Mat2D &U, const Mat1D &svals, const Mat2D
     {
       for (uint i = 0; i < nsamples; i++) {
         Dc[i] += diag_private[i];  // Sum arrays for threads
+      }
+    }
+  }
+}
+
+void Data::predict_block_E(uint64 start_idx, uint64 stop_idx, const Mat2D &U) {
+  // assume full size G is in memory
+  // Eigen::ColPivHouseholderQR<Mat2D> qr(U);  // nsamples x nk
+  const uint nk = U.cols();
+// get beta by linear regresion on data without NAs
+// Ux = g, x is the beta
+#pragma omp parallel for
+  for (uint j = start_idx; j <= stop_idx; j++) {
+    // find non-missing samples
+    Int1D idx;
+    for (uint i = 0; i < nsamples; i++) {
+      if (!C(j * nsamples + i)) idx.push_back(i);
+    }
+    // cao.print("predict", idx.size());
+    // what if idx.size()==0
+    Mat1D v = U(idx, Eigen::all).colPivHouseholderQr().solve(G(idx, j));
+    // predict for NAs in E
+    for (uint i = 0; i < nsamples; i++) {
+      if (C(j * nsamples + i))  //  bool & 1
+      {                         // sites need to be predicted
+        G(i, j) = 0.0;
+        for (uint k = 0; k < nk; ++k) {
+          G(i, j) += U(i, k) * v(k);
+        }
+        G(i, j) = fmin(fmax(G(i, j), -F(j)), 1 - F(j));
       }
     }
   }

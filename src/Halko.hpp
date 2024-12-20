@@ -32,7 +32,7 @@ class RsvdOpData {
 
   void computeUSV(int p, double tol);
 
-  void computeB(Mat2D& B, Mat2D& G, const Mat2D& H);
+  Mat2D computeU(const Mat2D& G, const Mat2D& H);
 };
 
 class NormalRsvdOpData : public RsvdOpData {
@@ -57,7 +57,7 @@ class NormalRsvdOpData : public RsvdOpData {
 class FancyRsvdOpData : public RsvdOpData {
  private:
   const Index nk, os, size;
-  uint64 band, blocksize, actual_block_size, start_idx, stop_idx;
+  uint64 bandsize, blocksize, actual_block_size, start_idx, stop_idx;
   Mat2D Omg, Omg2, H1, H2;
 
  public:

@@ -8,37 +8,52 @@
 
 using namespace std;
 
-void RsvdOpData::computeB(Mat2D& B, Mat2D& G, const Mat2D& H) {
+Mat2D RsvdOpData::computeU(const Mat2D& G, const Mat2D& H) {
   const Index size{ranks() + oversamples()};
-  const Index nrow{rows()};
-  Mat2D R(size, size), Rt(size, size);
+  const Index nrow{G.rows()};
+  const Index nk{ranks()};
+  Mat2D R(size, size), Rt(size, size), Gt(nrow, G.cols());
+  Eigen::HouseholderQR<Mat2D> qr(G);
+  R.noalias() = Mat2D::Identity(size, nrow) * qr.matrixQR().triangularView<Eigen::Upper>();  // get R1
+  Gt.noalias() = qr.householderQ() * Mat2D::Identity(nrow, size);
   {
-    Eigen::HouseholderQR<Eigen::Ref<Mat2D>> qr(G);
-    R.noalias() = Mat2D::Identity(size, nrow) * qr.matrixQR().triangularView<Eigen::Upper>();  // get R1
-    G.noalias() = qr.householderQ() * Mat2D::Identity(nrow, size);                             // hold Q1 in G
-  }
-  {
-    Eigen::HouseholderQR<Eigen::Ref<Mat2D>> qr(G);
+    Eigen::HouseholderQR<Eigen::Ref<Mat2D>> qr(Gt);
     Rt.noalias() = Mat2D::Identity(size, nrow) * qr.matrixQR().triangularView<Eigen::Upper>();  // get R2
-    G.noalias() = qr.householderQ() * Mat2D::Identity(nrow, size);  // hold Q2 in G
+    Gt.noalias() = qr.householderQ() * Mat2D::Identity(nrow, size);  // hold Q2 in Gt
   }
-  R = Rt * R;  // get R = R1R2;
+  R = Rt * R;  // get R = Rt * R
   // B is size x ncol
   // R.T * B = H.T
-  B.noalias() = R.transpose().fullPivHouseholderQr().solve(H.transpose());
+  Mat2D B = R.transpose().fullPivHouseholderQr().solve(H.transpose());
+  Eigen::BDCSVD<Mat2D> svd(B, Eigen::ComputeThinU | Eigen::ComputeThinV);
+  // B is K x nsamples, thus we use matrixV() for PCs
+  return svd.matrixV().leftCols(nk);
 }
 
 void RsvdOpData::computeUSV(int p, double tol) {
   const Index size{ranks() + oversamples()};
   const Index k{ranks()};
-  const Index nrow{rows()};
-  const Index ncol{cols()};
-  Mat2D Upre, H(ncol, size), G(nrow, size), B(size, ncol);
+  const Index nrow{rows()};  // nsnps
+  const Index ncol{cols()};  // nsamples
+  Mat2D Upre, H(ncol, size), G(nrow, size), B(size, ncol), R(size, size), Rt(size, size);
   double diff;
   for (int pi = 0; pi <= p; ++pi) {
     computeGandH(G, H, pi);
-    computeB(B, G, H);
     // check if converged
+    {
+      Eigen::HouseholderQR<Eigen::Ref<Mat2D>> qr(G);
+      R.noalias() = Mat2D::Identity(size, nrow) * qr.matrixQR().triangularView<Eigen::Upper>();  // get R1
+      G.noalias() = qr.householderQ() * Mat2D::Identity(nrow, size);  // hold Q1 in G
+    }
+    {
+      Eigen::HouseholderQR<Eigen::Ref<Mat2D>> qr(G);
+      Rt.noalias() = Mat2D::Identity(size, nrow) * qr.matrixQR().triangularView<Eigen::Upper>();  // get R2
+      G.noalias() = qr.householderQ() * Mat2D::Identity(nrow, size);  // hold Q2 in G
+    }
+    R = Rt * R;  // get R = R1R2;
+    // B is size x ncol
+    // R.T * B = H.T
+    B.noalias() = R.transpose().fullPivHouseholderQr().solve(H.transpose());
     Eigen::BDCSVD<Mat2D> svd(B, Eigen::ComputeThinU | Eigen::ComputeThinV);
     U = svd.matrixV().leftCols(k);
     if (data->params.printu) {
@@ -160,7 +175,7 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
           data->standardize_E();
         }
       }
-      band = 1;
+      bandsize = 1;
       blocksize = (unsigned int)ceil((double)data->nsnps / data->params.bands);
       if (blocksize < data->params.bands)
         cao.warn("block size < window size. please consider the IRAM method");
@@ -169,8 +184,8 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
       if (data->params.perm) PCAone::permute_matrix(data->G, data->perm);
     }
     {
-      // band : 2, 4, 8, 16, 32, 64, 128
-      band = fmin(band * 2, data->params.bands);
+      // bandsize : 2, 4, 8, 16, 32, 64, 128
+      bandsize = fmin(bandsize * 2, data->params.bands);
       for (uint b = 0, i = 1, j = 1; b < data->params.bands; ++b, ++i, ++j) {
         start_idx = b * blocksize;
         stop_idx = (b + 1) * blocksize >= data->nsnps ? data->nsnps - 1 : (b + 1) * blocksize - 1;
@@ -188,23 +203,23 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
             flip_Omg(Omg2, Omg);
             H2.setZero();
           }
-        } else if (i <= band / 2) {
+        } else if (i <= bandsize / 2) {
           // continues to add in data based on current band
           H1.noalias() +=
               data->G.middleCols(start_idx, actual_block_size) * G.middleRows(start_idx, actual_block_size);
-        } else if (i > band / 2 && i <= band) {
+        } else if (i > bandsize / 2 && i <= bandsize) {
           H2.noalias() +=
               data->G.middleCols(start_idx, actual_block_size) * G.middleRows(start_idx, actual_block_size);
         }
-        if ((b + 1) >= band) {
-          if (i == band) {
+        if ((b + 1) >= bandsize) {
+          if (i == bandsize) {
             H = H1 + H2;
             Eigen::HouseholderQR<Mat2D> qr(H);
             Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
             flip_Omg(Omg2, Omg);
             H1.setZero();
             i = 0;
-          } else if (i == band / 2) {
+          } else if (i == bandsize / 2) {
             H = H1 + H2;
             Eigen::HouseholderQR<Mat2D> qr(H);
             Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
@@ -217,28 +232,23 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
             Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
             flip_Omg(Omg2, Omg);
           }
-          // update estimates rightaway 
-          if (update && data->params.fancyem) {
-            cao.print(b, ",", i, ",", j, ",", band);
-            Mat2D B(size, H.rows());
-            computeB(B, G, H);
-            Eigen::BDCSVD<Mat2D> svd(B, Eigen::ComputeThinU | Eigen::ComputeThinV);
-            U = svd.matrixV().leftCols(nk);
-            V.noalias() = G * svd.matrixU().leftCols(nk);
-            S = svd.singularValues().head(nk);
-            data->update_batch_E(U, S, V.transpose());
+          // update estimates rightaway
+          if (data->params.fancyem) {
+            U = computeU(G.middleRows(start_idx, actual_block_size), H);  // only use G in band
+            if (data->params.verbose > 1) cao.print(b, ",", i, ",", j, ",", bandsize);
+            data->predict_block_E(start_idx, stop_idx, U);
           }
         }
       }
     }
   } else {
     if (pi == 0) {
-      band = data->bandFactor;
+      bandsize = data->bandFactor;
     }
     {
       data->check_file_offset_first_var();
       // band : 2, 4, 8, 16, 32, 64
-      band = fmin(band * 2, data->nblocks);
+      bandsize = fmin(bandsize * 2, data->nblocks);
       for (uint b = 0, i = 1, j = 1; b < data->nblocks; ++b, ++i, ++j) {
         start_idx = data->start[b];
         stop_idx = data->stop[b];
@@ -261,20 +271,20 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
             flip_Omg(Omg2, Omg);
             H2.setZero();
           }
-        } else if (i <= band / 2) {
+        } else if (i <= bandsize / 2) {
           H1.noalias() += data->G * G.middleRows(start_idx, actual_block_size);
-        } else if (i > band / 2 && i <= band) {
+        } else if (i > bandsize / 2 && i <= bandsize) {
           H2.noalias() += data->G * G.middleRows(start_idx, actual_block_size);
         }
-        if ((b + 1) >= band) {
-          if (i == band) {
+        if ((b + 1) >= bandsize) {
+          if (i == bandsize) {
             H = H1 + H2;
             Eigen::HouseholderQR<Mat2D> qr(H);
             Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
             flip_Omg(Omg2, Omg);
             H1 = Mat2D::Zero(cols(), size);
             i = 0;
-          } else if (i == band / 2) {
+          } else if (i == bandsize / 2) {
             H = H1 + H2;
             Eigen::HouseholderQR<Mat2D> qr(H);
             Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
