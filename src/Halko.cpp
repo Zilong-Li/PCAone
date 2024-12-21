@@ -6,6 +6,11 @@
 
 #include "Halko.hpp"
 
+#include <filesystem>
+#include <string>
+
+#include "Utils.hpp"
+
 using namespace std;
 
 Mat2D RsvdOpData::computeU(const Mat2D& G, const Mat2D& H) {
@@ -39,6 +44,9 @@ void RsvdOpData::computeUSV(int p, double tol) {
   double diff;
   for (int pi = 0; pi <= p; ++pi) {
     computeGandH(G, H, pi);
+    if (data->params.fancyem) {
+      continue;
+    }
     // check if converged
     {
       Eigen::HouseholderQR<Eigen::Ref<Mat2D>> qr(G);
@@ -56,11 +64,6 @@ void RsvdOpData::computeUSV(int p, double tol) {
     B.noalias() = R.transpose().fullPivHouseholderQr().solve(H.transpose());
     Eigen::BDCSVD<Mat2D> svd(B, Eigen::ComputeThinU | Eigen::ComputeThinV);
     U = svd.matrixV().leftCols(k);
-    if (data->params.printu) {
-      std::ofstream ulog(
-          std::string(data->params.fileout + ".epoch." + std::to_string(pi) + ".eigvecs").c_str());
-      ulog << U;
-    }
     if (pi > 0) {
       if (data->params.mev)
         diff = 1 - mev(U, Upre);
@@ -176,70 +179,88 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
         }
       }
       bandsize = 1;
+      // blocksize: how many snps in each block
       blocksize = (unsigned int)ceil((double)data->nsnps / data->params.bands);
       if (blocksize < data->params.bands)
         cao.warn("block size < window size. please consider the IRAM method");
-      // permute snps of G, see
-      // https://stackoverflow.com/questions/15858569/randomly-permute-rows-columns-of-a-matrix-with-eigen
       if (data->params.perm) PCAone::permute_matrix(data->G, data->perm);
     }
-    {
-      // bandsize : 2, 4, 8, 16, 32, 64, 128
-      bandsize = fmin(bandsize * 2, data->params.bands);
-      for (uint b = 0, i = 1, j = 1; b < data->params.bands; ++b, ++i, ++j) {
-        start_idx = b * blocksize;
-        stop_idx = (b + 1) * blocksize >= data->nsnps ? data->nsnps - 1 : (b + 1) * blocksize - 1;
-        actual_block_size = stop_idx - start_idx + 1;
-        G.middleRows(start_idx, actual_block_size).noalias() =
-            data->G.middleCols(start_idx, actual_block_size).transpose() * Omg;
-        if (pi > 0 && j <= std::pow(2, pi - 1) && std::pow(2, pi) < data->params.bands) {
-          H1.noalias() +=
-              data->G.middleCols(start_idx, actual_block_size) * G.middleRows(start_idx, actual_block_size);
-          // additional complementary power iteration for last read
-          if (j == std::pow(2, pi - 1)) {
-            H = H1 + H2;
-            Eigen::HouseholderQR<Mat2D> qr(H);
-            Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
-            flip_Omg(Omg2, Omg);
-            H2.setZero();
-          }
-        } else if (i <= bandsize / 2) {
-          // continues to add in data based on current band
-          H1.noalias() +=
-              data->G.middleCols(start_idx, actual_block_size) * G.middleRows(start_idx, actual_block_size);
-        } else if (i > bandsize / 2 && i <= bandsize) {
-          H2.noalias() +=
-              data->G.middleCols(start_idx, actual_block_size) * G.middleRows(start_idx, actual_block_size);
+    // bandsize: how many blocks in each band, 2, 4, 8, 16, 32, 64, ...
+    bandsize = fmin(bandsize * 2, data->params.bands);
+    // b: the index of current block
+    for (uint b = 0, i = 1, j = 1; b < data->params.bands; ++b, ++i, ++j) {
+      start_idx = b * blocksize;
+      stop_idx = (b + 1) * blocksize >= data->nsnps ? data->nsnps - 1 : (b + 1) * blocksize - 1;
+      actual_block_size = stop_idx - start_idx + 1;
+      G.middleRows(start_idx, actual_block_size).noalias() =
+          data->G.middleCols(start_idx, actual_block_size).transpose() * Omg;
+      if (pi > 0 && j <= std::pow(2, pi - 1) && std::pow(2, pi) < data->params.bands) {
+        H1.noalias() +=
+            data->G.middleCols(start_idx, actual_block_size) * G.middleRows(start_idx, actual_block_size);
+        // additional complementary power iteration for last read
+        if (j == std::pow(2, pi - 1)) {
+          H = H1 + H2;
+          Eigen::HouseholderQR<Mat2D> qr(H);
+          Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
+          PCAone::flipOmg(Omg2, Omg);
+          H2.setZero();
         }
-        if ((b + 1) >= bandsize) {
-          if (i == bandsize) {
-            H = H1 + H2;
-            Eigen::HouseholderQR<Mat2D> qr(H);
-            Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
-            flip_Omg(Omg2, Omg);
-            H1.setZero();
-            i = 0;
-          } else if (i == bandsize / 2) {
-            H = H1 + H2;
-            Eigen::HouseholderQR<Mat2D> qr(H);
-            Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
-            flip_Omg(Omg2, Omg);
-            H2.setZero();
-          } else if ((b + 1) == data->nblocks) {
-            cao.warn("shouldn't see this if mini-batches is 2^x");
-            H = H1 + H2;
-            Eigen::HouseholderQR<Mat2D> qr(H);
-            Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
-            flip_Omg(Omg2, Omg);
-          }
+      } else if (i <= bandsize / 2) {
+        // continues to add in data based on current band
+        H1.noalias() +=
+            data->G.middleCols(start_idx, actual_block_size) * G.middleRows(start_idx, actual_block_size);
+      } else if (i > bandsize / 2 && i <= bandsize) {
+        H2.noalias() +=
+            data->G.middleCols(start_idx, actual_block_size) * G.middleRows(start_idx, actual_block_size);
+      }
+      if ((b + 1) < bandsize) continue;
+      // add up H and update Omg
+      if ((i == bandsize) || (i == bandsize / 2)) {
+        H = H1 + H2;
+        Eigen::HouseholderQR<Mat2D> qr(H);
+        Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
+        PCAone::flipOmg(Omg2, Omg);
+        // first find out which blocks/bands have been used
+        uint wb = b / bandsize, s = 0, e = 0;
+        if (i == bandsize) {
+          H1.setZero();
+          i = 0;
+          s = blocksize * bandsize * wb;
+          e = s + blocksize * bandsize;
+        } else if (i == bandsize / 2) {
+          H2.setZero();
+          s = blocksize * bandsize * wb - blocksize * bandsize / 2;
+          e = s + blocksize * bandsize;
+        }
+        e = e >= data->nsnps ? data->nsnps - 1 : e - 1;  // bound check
+        if (data->params.verbose > 1)
+          cao.print(b, ",", i, ",", j, ",", bandsize, ",s:", s, ",e:", e, ",wb:", wb);
+        if (data->params.fancyem) {
           // update estimates rightaway
-          if (data->params.fancyem) {
-            U = computeU(G.middleRows(start_idx, actual_block_size), H);  // only use G in band
-            if (data->params.verbose > 1) cao.print(b, ",", i, ",", j, ",", bandsize);
-            data->predict_block_E(start_idx, stop_idx, U);
+          U = computeU(G.middleRows(s, e - s + 1), H);  // only use G in sliding window
+          if (data->params.printu) {
+            std::filesystem::path dirpath = "fancy-tests";
+            if (!std::filesystem::exists(dirpath)) {
+              std::filesystem::create_directory(dirpath);
+              cao.print("dir created:", dirpath);
+            }
+            std::filesystem::path curfile = dirpath / tick.intime();
+            std::ofstream logu(curfile);
+            logu << U;
           }
+          data->predict_missing_E(U, s, e);
         }
       }
+
+#if defined(DEBUG)
+      if ((b + 1) == data->nblocks) {
+        cao.warn("shouldn't see this if mini-batches is 2^x");
+        H = H1 + H2;
+        Eigen::HouseholderQR<Mat2D> qr(H);
+        Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
+        flip_Omg(Omg2, Omg);
+      }
+#endif
     }
   } else {
     if (pi == 0) {
@@ -268,7 +289,7 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
             H = H1 + H2;
             Eigen::HouseholderQR<Mat2D> qr(H);
             Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
-            flip_Omg(Omg2, Omg);
+            PCAone::flipOmg(Omg2, Omg);
             H2.setZero();
           }
         } else if (i <= bandsize / 2) {
@@ -281,20 +302,20 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
             H = H1 + H2;
             Eigen::HouseholderQR<Mat2D> qr(H);
             Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
-            flip_Omg(Omg2, Omg);
+            PCAone::flipOmg(Omg2, Omg);
             H1 = Mat2D::Zero(cols(), size);
             i = 0;
           } else if (i == bandsize / 2) {
             H = H1 + H2;
             Eigen::HouseholderQR<Mat2D> qr(H);
             Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
-            flip_Omg(Omg2, Omg);
+            PCAone::flipOmg(Omg2, Omg);
             H2 = Mat2D::Zero(cols(), size);
           } else if ((b + 1) == data->nblocks) {
             H = H1 + H2;
             Eigen::HouseholderQR<Mat2D> qr(H);
             Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
-            flip_Omg(Omg2, Omg);
+            PCAone::flipOmg(Omg2, Omg);
           }
         }
       }

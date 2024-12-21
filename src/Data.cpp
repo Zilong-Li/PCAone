@@ -330,7 +330,7 @@ void Data::pcangsd_standardize_E(const Mat2D &U, const Mat1D &svals, const Mat2D
   }
 }
 
-void Data::predict_block_E(uint64 start_idx, uint64 stop_idx, const Mat2D &U) {
+void Data::predict_missing_E(const Mat2D &U, uint64 start_idx, uint64 stop_idx) {
   // assume full size G is in memory
   // Eigen::ColPivHouseholderQR<Mat2D> qr(U);  // nsamples x nk
   const uint nk = U.cols();
@@ -339,23 +339,23 @@ void Data::predict_block_E(uint64 start_idx, uint64 stop_idx, const Mat2D &U) {
 #pragma omp parallel for
   for (uint j = start_idx; j <= stop_idx; j++) {
     // find non-missing samples
-    Int1D idx;
+    Int1D idx, na_idx;
     for (uint i = 0; i < nsamples; i++) {
-      if (!C(j * nsamples + i)) idx.push_back(i);
+      if (!C(j * nsamples + i))
+        idx.push_back(i);
+      else
+        na_idx.push_back(i);
     }
     // cao.print("predict", idx.size());
-    // what if idx.size()==0
+    // FIXME: what if idx.size()==0
     Mat1D v = U(idx, Eigen::all).colPivHouseholderQr().solve(G(idx, j));
     // predict for NAs in E
-    for (uint i = 0; i < nsamples; i++) {
-      if (C(j * nsamples + i))  //  bool & 1
-      {                         // sites need to be predicted
-        G(i, j) = 0.0;
-        for (uint k = 0; k < nk; ++k) {
-          G(i, j) += U(i, k) * v(k);
-        }
-        G(i, j) = fmin(fmax(G(i, j), -F(j)), 1 - F(j));
+    for (auto i : na_idx) {  // sites need to be predicted
+      G(i, j) = 0.0;
+      for (uint k = 0; k < nk; ++k) {
+        G(i, j) += U(i, k) * v(k);
       }
+      G(i, j) = fmin(fmax(G(i, j), -F(j)), 1 - F(j));
     }
   }
 }
