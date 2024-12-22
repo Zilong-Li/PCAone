@@ -73,7 +73,6 @@ class Param {
   bool groff = false;
   bool cpmed = false;
   bool printv = false;
-  bool printu = false;
   bool impute = false;
   bool noshuffle = false;
   bool emu = false;

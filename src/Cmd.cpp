@@ -28,7 +28,8 @@ Param::Param(int argc, char **argv) {
   opts.add<Value<uint>>("v", "verbose", "verbose level.\n"
                                         "0: no message on screen\n"
                                         "1: print messages to screen\n"
-                                        "2: enable debug information"
+                                        "2: enable verbose information\n"
+                                        "3: enable debug information"
                         , verbose, &verbose);
   opts.add<Value<std::string>, Attribute::headline>("","PCA","PCA algorithms:");
   auto svd_opt = opts.add<Value<uint>>("d", "svd", "SVD method to be applied. default 2 is recommended for big data.\n"
@@ -59,7 +60,6 @@ Param::Param(int argc, char **argv) {
   opts.add<Value<double>, Attribute::advanced>("", "tol-rsvd", "tolerance for RSVD algorithm", tol, &tol);
   opts.add<Value<double>, Attribute::advanced>("", "tol-em", "tolerance for EMU/PCAngsd algorithm", tolem, &tolem);
   opts.add<Value<double>, Attribute::advanced>("", "tol-maf", "tolerance for MAF estimation by EM", tolmaf, &tolmaf);
-  opts.add<Switch, Attribute::hidden>("", "printu", "output eigen vector of each epoch (for tests)", &printu);
   
   opts.add<Value<std::string>, Attribute::headline>("","INPUT","Input options:");
   auto plinkfile = opts.add<Value<std::string>>("b", "bfile", "prefix of PLINK .bed/.bim/.fam files", "", &filein);
@@ -70,15 +70,15 @@ Param::Param(int argc, char **argv) {
   auto beaglefile = opts.add<Value<std::string>>("G", "beagle", "path of BEAGLE file compressed by gzip", "", &filein);
   opts.add<Value<std::string>>("f", "match-bim", "the .mbim file to be matched, where the 7th column is allele frequency", "", &filebim);
   auto usvprefix = opts.add<Value<std::string>>("", "USV", "prefix of PCAone .eigvecs/.eigvals/.loadings/.mbim");
-  opts.add<Value<std::string>, Attribute::advanced>("", "read-U", "path of file with left singular vectors (.eigvecs)", "", &fileU);
-  opts.add<Value<std::string>, Attribute::advanced>("", "read-V", "path of file with right singular vectors (.loadings)", "", &fileV);
-  opts.add<Value<std::string>, Attribute::advanced>("", "read-S", "path of file with eigen values (.eigvals)", "", &fileS);
+  opts.add<Value<std::string>, Attribute::hidden>("", "read-U", "path of file with left singular vectors (.eigvecs)", "", &fileU);
+  opts.add<Value<std::string>, Attribute::hidden>("", "read-V", "path of file with right singular vectors (.loadings)", "", &fileV);
+  opts.add<Value<std::string>, Attribute::hidden>("", "read-S", "path of file with eigen values (.eigvals)", "", &fileS);
   
   opts.add<Value<std::string>, Attribute::headline>("","OUTPUT","Output options:");
   opts.add<Value<std::string>>("o", "out", "prefix of output files. default [pcaone]", fileout, &fileout);
   opts.add<Switch>("V", "printv", "output the right eigenvectors with suffix .loadings", &printv);
-  opts.add<Switch>("", "ld", "output a binary matrix for downstream LD related analysis", &ld);
-  opts.add<Switch>("", "print-r2", "print LD r2 to *.ld.gz file for pairwise SNPs within a window", &print_r2);
+  opts.add<Switch>("D", "ld", "output a binary matrix for downstream LD related analysis", &ld);
+  opts.add<Switch>("R", "print-r2", "print LD r2 to *.ld.gz file for pairwise SNPs within a window", &print_r2);
   
   opts.add<Value<std::string>, Attribute::headline>("","MISC","Misc options:");
   opts.add<Value<double>>("", "maf", "exclude variants with MAF lower than this value", maf, &maf);

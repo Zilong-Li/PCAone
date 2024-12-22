@@ -6,25 +6,32 @@
 
 #include "Halko.hpp"
 
-#include <filesystem>
-#include <string>
+#include <thread>  // std::this_thread::sleep_for
 
+#include "Common.hpp"
 #include "Utils.hpp"
 
 using namespace std;
 
+void RsvdOpData::initOmg() {
+  auto rng = std::default_random_engine{};
+  if (data->params.rand)
+    Omg = PCAone::StandardNormalRandom<Mat2D, std::default_random_engine>(cols(), size(), rng);
+  else
+    Omg = PCAone::UniformRandom<Mat2D, std::default_random_engine>(cols(), size(), rng);
+}
+
 Mat2D RsvdOpData::computeU(const Mat2D& G, const Mat2D& H) {
-  const Index size{ranks() + oversamples()};
   const Index nrow{G.rows()};
   const Index nk{ranks()};
-  Mat2D R(size, size), Rt(size, size), Gt(nrow, G.cols());
+  Mat2D R(size(), size()), Rt(size(), size()), Gt(nrow, G.cols());
   Eigen::HouseholderQR<Mat2D> qr(G);
-  R.noalias() = Mat2D::Identity(size, nrow) * qr.matrixQR().triangularView<Eigen::Upper>();  // get R1
-  Gt.noalias() = qr.householderQ() * Mat2D::Identity(nrow, size);
+  R.noalias() = Mat2D::Identity(size(), nrow) * qr.matrixQR().triangularView<Eigen::Upper>();  // get R1
+  Gt.noalias() = qr.householderQ() * Mat2D::Identity(nrow, size());
   {
     Eigen::HouseholderQR<Eigen::Ref<Mat2D>> qr(Gt);
-    Rt.noalias() = Mat2D::Identity(size, nrow) * qr.matrixQR().triangularView<Eigen::Upper>();  // get R2
-    Gt.noalias() = qr.householderQ() * Mat2D::Identity(nrow, size);  // hold Q2 in Gt
+    Rt.noalias() = Mat2D::Identity(size(), nrow) * qr.matrixQR().triangularView<Eigen::Upper>();  // get R2
+    Gt.noalias() = qr.householderQ() * Mat2D::Identity(nrow, size());  // hold Q2 in Gt
   }
   R = Rt * R;  // get R = Rt * R
   // B is size x ncol
@@ -36,34 +43,44 @@ Mat2D RsvdOpData::computeU(const Mat2D& G, const Mat2D& H) {
 }
 
 void RsvdOpData::computeUSV(int p, double tol) {
-  const Index size{ranks() + oversamples()};
-  const Index k{ranks()};
+  const Index nk{ranks()};
   const Index nrow{rows()};  // nsnps
   const Index ncol{cols()};  // nsamples
-  Mat2D Upre, H(ncol, size), G(nrow, size), B(size, ncol), R(size, size), Rt(size, size);
+  Mat2D Upre, H(ncol, size()), G(nrow, size()), B(size(), ncol), R(size(), size()), Rt(size(), size());
   double diff;
   for (int pi = 0; pi <= p; ++pi) {
     computeGandH(G, H, pi);
-    if (data->params.fancyem) {
+    if (data->params.fancyem && !standardize) {
+      if (data->params.verbose > 2) {
+        std::filesystem::path dirpath = "fancy-tests";
+        if (!std::filesystem::exists(dirpath)) {
+          std::filesystem::create_directory(dirpath);
+          cao.print("dir created:", dirpath);
+        }
+        std::filesystem::path curfile = dirpath / tick.intime();
+        std::ofstream logu(curfile);
+        logu << U;
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+      }
       continue;
     }
     // check if converged
     {
       Eigen::HouseholderQR<Eigen::Ref<Mat2D>> qr(G);
-      R.noalias() = Mat2D::Identity(size, nrow) * qr.matrixQR().triangularView<Eigen::Upper>();  // get R1
-      G.noalias() = qr.householderQ() * Mat2D::Identity(nrow, size);  // hold Q1 in G
+      R.noalias() = Mat2D::Identity(size(), nrow) * qr.matrixQR().triangularView<Eigen::Upper>();  // get R1
+      G.noalias() = qr.householderQ() * Mat2D::Identity(nrow, size());  // hold Q1 in G
     }
     {
       Eigen::HouseholderQR<Eigen::Ref<Mat2D>> qr(G);
-      Rt.noalias() = Mat2D::Identity(size, nrow) * qr.matrixQR().triangularView<Eigen::Upper>();  // get R2
-      G.noalias() = qr.householderQ() * Mat2D::Identity(nrow, size);  // hold Q2 in G
+      Rt.noalias() = Mat2D::Identity(size(), nrow) * qr.matrixQR().triangularView<Eigen::Upper>();  // get R2
+      G.noalias() = qr.householderQ() * Mat2D::Identity(nrow, size());  // hold Q2 in G
     }
     R = Rt * R;  // get R = R1R2;
     // B is size x ncol
     // R.T * B = H.T
     B.noalias() = R.transpose().fullPivHouseholderQr().solve(H.transpose());
     Eigen::BDCSVD<Mat2D> svd(B, Eigen::ComputeThinU | Eigen::ComputeThinV);
-    U = svd.matrixV().leftCols(k);
+    U = svd.matrixV().leftCols(nk);
     if (pi > 0) {
       if (data->params.mev)
         diff = 1 - mev(U, Upre);
@@ -75,8 +92,8 @@ void RsvdOpData::computeUSV(int p, double tol) {
           cao.print("PCAone converged but continues running to get S and V.");
           p = std::log2(data->params.bands);
         } else {
-          V.noalias() = G * svd.matrixU().leftCols(k);
-          S = svd.singularValues().head(k);
+          V.noalias() = G * svd.matrixU().leftCols(nk);
+          S = svd.singularValues().head(nk);
           if (data->params.verbose) cao.print(tick.date(), "stops at epoch =", pi + 1);
           break;
         }
@@ -90,14 +107,9 @@ void RsvdOpData::computeUSV(int p, double tol) {
 }
 
 void NormalRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
-  // check size of G and H first;
-  if (pi == 0) {
-    auto rng = std::default_random_engine{};
-    if (data->params.rand)
-      Omg = PCAone::StandardNormalRandom<Mat2D, std::default_random_engine>(data->nsamples, size, rng);
-    else
-      Omg = PCAone::UniformRandom<Mat2D, std::default_random_engine>(data->nsamples, size, rng);
-  }
+  // reset omg to random
+  if (pi == 0 && reset) initOmg();
+
   if (!data->params.out_of_core) {
     if (pi == 0) {
       if (update) {
@@ -153,13 +165,8 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
   if (H.cols() != size || H.rows() != cols() || G.cols() != size || G.rows() != rows()) {
     cao.error("the size of G or H doesn't match with each other.");
   }
-  if (pi == 0) {
-    auto rng = std::default_random_engine{};
-    if (data->params.rand)
-      Omg = PCAone::StandardNormalRandom<Mat2D, std::default_random_engine>(data->nsamples, size, rng);
-    else
-      Omg = PCAone::UniformRandom<Mat2D, std::default_random_engine>(data->nsamples, size, rng);
-    Omg2 = Omg;
+  if (pi == 0 && reset) {
+    initOmg();
   }
   if (std::pow(2, pi) >= data->params.bands) {
     // reset H1, H2 to zero
@@ -187,6 +194,7 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
     }
     // bandsize: how many blocks in each band, 2, 4, 8, 16, 32, 64, ...
     bandsize = fmin(bandsize * 2, data->params.bands);
+    bool saving = false;
     // b: the index of current block
     for (uint b = 0, i = 1, j = 1; b < data->params.bands; ++b, ++i, ++j) {
       start_idx = b * blocksize;
@@ -199,10 +207,11 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
             data->G.middleCols(start_idx, actual_block_size) * G.middleRows(start_idx, actual_block_size);
         // additional complementary power iteration for last read
         if (j == std::pow(2, pi - 1)) {
+          saving = true;
           H = H1 + H2;
           Eigen::HouseholderQR<Mat2D> qr(H);
           Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
-          PCAone::flipOmg(Omg2, Omg);
+          // PCAone::flipOmg(Omg2, Omg);
           H2.setZero();
         }
       } else if (i <= bandsize / 2) {
@@ -216,109 +225,90 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
       if ((b + 1) < bandsize) continue;
       // add up H and update Omg
       if ((i == bandsize) || (i == bandsize / 2)) {
+        saving = true;
         H = H1 + H2;
         Eigen::HouseholderQR<Mat2D> qr(H);
         Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
-        PCAone::flipOmg(Omg2, Omg);
-        // first find out which blocks/bands have been used
-        uint wb = b / bandsize, s = 0, e = 0;
+        // PCAone::flipOmg(Omg2, Omg);
         if (i == bandsize) {
           H1.setZero();
           i = 0;
-          s = blocksize * bandsize * wb;
-          e = s + blocksize * bandsize;
         } else if (i == bandsize / 2) {
           H2.setZero();
-          s = blocksize * bandsize * wb - blocksize * bandsize / 2;
-          e = s + blocksize * bandsize;
-        }
-        e = e >= data->nsnps ? data->nsnps - 1 : e - 1;  // bound check
-        if (data->params.verbose > 1)
-          cao.print(b, ",", i, ",", j, ",", bandsize, ",s:", s, ",e:", e, ",wb:", wb);
-        if (data->params.fancyem) {
-          // update estimates rightaway
-          U = computeU(G.middleRows(s, e - s + 1), H);  // only use G in sliding window
-          if (data->params.printu) {
-            std::filesystem::path dirpath = "fancy-tests";
-            if (!std::filesystem::exists(dirpath)) {
-              std::filesystem::create_directory(dirpath);
-              cao.print("dir created:", dirpath);
-            }
-            std::filesystem::path curfile = dirpath / tick.intime();
-            std::ofstream logu(curfile);
-            logu << U;
-          }
-          data->predict_missing_E(U, s, e);
         }
       }
 
-#if defined(DEBUG)
-      if ((b + 1) == data->nblocks) {
-        cao.warn("shouldn't see this if mini-batches is 2^x");
+      if (saving) {
+        saving = false;  // reset
+        // find out which blocks/bands have been used
+        uint e = blocksize * j;  // end point
+        uint s = e - blocksize * bandsize;
+        e = e >= data->nsnps ? data->nsnps - 1 : e - 1;  // bound check
+        if (data->params.verbose > 1)
+          cao.print(b, ",", bandsize, ",", i == 0 ? bandsize : i, ",", j, ",s:", s, ",e:", e, ",pi:", pi);
+        if (data->params.fancyem) {
+          // update estimates rightaway
+          U = computeU(G.middleRows(s, e - s + 1), H);  // only use G in sliding window
+          data->predict_missing_E(U, s, e);
+        }
+      }
+    }
+
+    return;
+  }
+
+  // out-of-core implementation
+  if (pi == 0) bandsize = data->bandFactor;
+  data->check_file_offset_first_var();
+  // band : 2, 4, 8, 16, 32, 64
+  bandsize = fmin(bandsize * 2, data->nblocks);
+  for (uint b = 0, i = 1, j = 1; b < data->nblocks; ++b, ++i, ++j) {
+    start_idx = data->start[b];
+    stop_idx = data->stop[b];
+    actual_block_size = stop_idx - start_idx + 1;
+    tick.clock();
+    if (update) {
+      data->read_block_update(start_idx, stop_idx, U, S, V.transpose(), standardize);
+    } else {
+      data->read_block_initial(start_idx, stop_idx, standardize);
+    }
+    data->readtime += tick.reltime();
+    G.middleRows(start_idx, actual_block_size).noalias() = data->G.transpose() * Omg;
+    if (pi > 0 && j <= std::pow(2, pi - 1) * data->bandFactor && std::pow(2, pi) < data->params.bands) {
+      H1.noalias() += data->G * G.middleRows(start_idx, actual_block_size);
+      // additional complementary power iteration for last read
+      if (j == std::pow(2, pi - 1)) {
         H = H1 + H2;
         Eigen::HouseholderQR<Mat2D> qr(H);
         Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
-        flip_Omg(Omg2, Omg);
+        // PCAone::flipOmg(Omg2, Omg);
+        H2.setZero();
       }
-#endif
+    } else if (i <= bandsize / 2) {
+      H1.noalias() += data->G * G.middleRows(start_idx, actual_block_size);
+    } else if (i > bandsize / 2 && i <= bandsize) {
+      H2.noalias() += data->G * G.middleRows(start_idx, actual_block_size);
     }
-  } else {
-    if (pi == 0) {
-      bandsize = data->bandFactor;
-    }
-    {
-      data->check_file_offset_first_var();
-      // band : 2, 4, 8, 16, 32, 64
-      bandsize = fmin(bandsize * 2, data->nblocks);
-      for (uint b = 0, i = 1, j = 1; b < data->nblocks; ++b, ++i, ++j) {
-        start_idx = data->start[b];
-        stop_idx = data->stop[b];
-        actual_block_size = stop_idx - start_idx + 1;
-        tick.clock();
-        if (update) {
-          data->read_block_update(start_idx, stop_idx, U, S, V.transpose(), standardize);
-        } else {
-          data->read_block_initial(start_idx, stop_idx, standardize);
-        }
-        data->readtime += tick.reltime();
-        G.middleRows(start_idx, actual_block_size).noalias() = data->G.transpose() * Omg;
-        if (pi > 0 && j <= std::pow(2, pi - 1) * data->bandFactor && std::pow(2, pi) < data->params.bands) {
-          H1.noalias() += data->G * G.middleRows(start_idx, actual_block_size);
-          // additional complementary power iteration for last read
-          if (j == std::pow(2, pi - 1)) {
-            H = H1 + H2;
-            Eigen::HouseholderQR<Mat2D> qr(H);
-            Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
-            PCAone::flipOmg(Omg2, Omg);
-            H2.setZero();
-          }
-        } else if (i <= bandsize / 2) {
-          H1.noalias() += data->G * G.middleRows(start_idx, actual_block_size);
-        } else if (i > bandsize / 2 && i <= bandsize) {
-          H2.noalias() += data->G * G.middleRows(start_idx, actual_block_size);
-        }
-        if ((b + 1) >= bandsize) {
-          if (i == bandsize) {
-            H = H1 + H2;
-            Eigen::HouseholderQR<Mat2D> qr(H);
-            Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
-            PCAone::flipOmg(Omg2, Omg);
-            H1 = Mat2D::Zero(cols(), size);
-            i = 0;
-          } else if (i == bandsize / 2) {
-            H = H1 + H2;
-            Eigen::HouseholderQR<Mat2D> qr(H);
-            Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
-            PCAone::flipOmg(Omg2, Omg);
-            H2 = Mat2D::Zero(cols(), size);
-          } else if ((b + 1) == data->nblocks) {
-            H = H1 + H2;
-            Eigen::HouseholderQR<Mat2D> qr(H);
-            Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
-            PCAone::flipOmg(Omg2, Omg);
-          }
-        }
-      }
+    if ((b + 1) < bandsize) continue;
+
+    if (i == bandsize) {
+      H = H1 + H2;
+      Eigen::HouseholderQR<Mat2D> qr(H);
+      Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
+      // PCAone::flipOmg(Omg2, Omg);
+      H1 = Mat2D::Zero(cols(), size);
+      i = 0;
+    } else if (i == bandsize / 2) {
+      H = H1 + H2;
+      Eigen::HouseholderQR<Mat2D> qr(H);
+      Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
+      // PCAone::flipOmg(Omg2, Omg);
+      H2 = Mat2D::Zero(cols(), size);
+    } else if ((b + 1) == data->nblocks) {
+      H = H1 + H2;
+      Eigen::HouseholderQR<Mat2D> qr(H);
+      Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
+      // PCAone::flipOmg(Omg2, Omg);
     }
   }
 }
@@ -349,12 +339,12 @@ void run_pca_with_halko(Data* data, const Param& params) {
     rsvd->computeUSV(params.maxp, params.tol);
   } else {
     // for EM iteration
-    rsvd->setFlags(false, false);
+    rsvd->setFlags(false, false, !params.fancyem);
     rsvd->computeUSV(params.maxp, params.tol);
     // flip_UV(rsvd->U, rsvd->V, false);
     double diff;
-    rsvd->setFlags(true, false);
-    cao.print(tick.date(), "do EM-PCA algorithms for data with uncertainty.");
+    rsvd->setFlags(true, false, !params.fancyem);
+    cao.print(tick.date(), "run EM-PCA for data with uncertainty. maxiter =", params.maxiter);
     for (uint i = 0; i < params.maxiter; ++i) {
       Vpre = rsvd->V;
       rsvd->computeUSV(params.maxp, params.tol);
@@ -370,8 +360,8 @@ void run_pca_with_halko(Data* data, const Param& params) {
       }
     }
 
-    // if pcangsd, estimate GRM.
     if (params.pcangsd) {
+      cao.print(tick.date(), "estimate GRM for pcangsd");
       data->pcangsd_standardize_E(rsvd->U, rsvd->S, rsvd->V.transpose());
       // data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, rsvd->V);
       Mat2D C = data->G * data->G.transpose();
@@ -385,7 +375,8 @@ void run_pca_with_halko(Data* data, const Param& params) {
       // output real eigenvectors of covariance in eigvecs2
       write_eigvecs2_beagle(svd.matrixU(), params.filein, params.fileout + ".eigvecs2");
     } else {
-      rsvd->setFlags(true, true);
+      cao.print(tick.date(), "standardize the final matrix for EMU");
+      rsvd->setFlags(true, true, !params.fancyem);
       rsvd->computeUSV(params.maxp, params.tol);
     }
   }

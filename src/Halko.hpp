@@ -8,9 +8,10 @@ class RsvdOpData {
  public:
   Data* data;
   using Index = Eigen::Index;
-  bool update = false, standardize = false;
-  Mat2D U, V;
-  Mat1D S;
+  bool update = false, standardize = false, reset = true;
+  Mat2D U, Omg;  // nsamples x nk
+  Mat2D V;       // nsnps x nk
+  Mat1D S;       // nk x 1
 
  public:
   RsvdOpData(Data* data_) : data(data_) {}
@@ -21,16 +22,22 @@ class RsvdOpData {
   virtual Index cols() const = 0;
   virtual Index ranks() const = 0;
   virtual Index oversamples() const = 0;
+  inline Index size() const { return ranks() + oversamples(); }
 
   virtual void computeGandH(Mat2D& G, Mat2D& H, int pi) = 0;
 
-  /// update, standardize, verbose
-  inline void setFlags(bool is_update, bool is_standardize) {
+  /// update: whether to update the data in place
+  /// standardize: whether to standardize the data in place
+  /// reset: whether to reset the random matrix Omg
+  inline void setFlags(bool is_update, bool is_standardize, bool reset_omg = true) {
     update = is_update;
     standardize = is_standardize;
+    reset = reset_omg;
   }
 
   void computeUSV(int p, double tol);
+
+  void initOmg();
 
   Mat2D computeU(const Mat2D& G, const Mat2D& H);
 };
@@ -39,10 +46,11 @@ class NormalRsvdOpData : public RsvdOpData {
  private:
   const Index nk, os, size;
   uint64 actual_block_size, start_idx, stop_idx;
-  Mat2D Omg;
 
  public:
-  NormalRsvdOpData(Data* data_, int k_, int os_ = 10) : RsvdOpData(data_), nk(k_), os(os_), size(k_ + os_) {}
+  NormalRsvdOpData(Data* data_, int k_, int os_ = 10) : RsvdOpData(data_), nk(k_), os(os_), size(k_ + os_) {
+    initOmg();
+  }
 
   ~NormalRsvdOpData() {}
 
@@ -58,10 +66,11 @@ class FancyRsvdOpData : public RsvdOpData {
  private:
   const Index nk, os, size;
   uint64 bandsize, blocksize, actual_block_size, start_idx, stop_idx;
-  Mat2D Omg, Omg2, H1, H2;
+  Mat2D H1, H2;
 
  public:
   FancyRsvdOpData(Data* data_, int k_, int os_ = 10) : RsvdOpData(data_), nk(k_), os(os_), size(k_ + os_) {
+    initOmg();
     H1 = Mat2D::Zero(cols(), size);
     H2 = Mat2D::Zero(cols(), size);
   }
@@ -76,7 +85,6 @@ class FancyRsvdOpData : public RsvdOpData {
   void computeGandH(Mat2D& G, Mat2D& H, int pi = 0);
 };
 
-// void print_summary_table(const Mat2D& Upre, const Mat2D& Ucur);
 void run_pca_with_halko(Data* data, const Param& params);
 
 #endif  // PCAONE_HALKO_

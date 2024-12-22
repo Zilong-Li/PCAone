@@ -77,14 +77,14 @@ void FileBed::read_all() {
       for (k = 0; k < 4; ++k, ++j) {
         if (j < nsamples) {
           G(j, i) = BED2GENO[buf & 3];
-          if (G(j, i) != BED_MISSING_VALUE) {
-            // 0 indicate G(i,j) don't need to be predicted.
-            if (params.impute) C[i * nsamples + j] = 0;
-          } else {
-            // 1 indicate G(i,j) need to be predicted and updated.
-            if (params.impute) C[i * nsamples + j] = 1;
-          }
           buf >>= 2;
+          if (params.impute) {
+            // 1 indicate G(i,j) need to be predicted and updated.
+            if (G(j, i) != BED_MISSING_VALUE)
+              C[i * nsamples + j] = 0;
+            else
+              C[i * nsamples + j] = 1;
+          }
         }
       }
     }
