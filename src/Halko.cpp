@@ -91,6 +91,10 @@ void RsvdOpData::computeUSV(int p, double tol) {
 }
 
 void NormalRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
+  if (!data->snpmajor) {
+    cao.error("only work with snp major input data now.");
+  }
+
   // reset omg to random
   if (pi == 0 && reset) initOmg();
 
@@ -107,40 +111,37 @@ void NormalRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
         }
       }
     }
-    if (data->snpmajor || true) {  // only work with snpmajor input data now.
-      if (pi > 0) {
-        Eigen::HouseholderQR<Eigen::Ref<Mat2D>> qr(H);
-        Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);  // hold H in Omega
-      }
-      G.noalias() = data->G.transpose() * Omg;
-      H.noalias() = data->G * G;
+    if (pi > 0) {
+      Eigen::HouseholderQR<Eigen::Ref<Mat2D>> qr(H);
+      Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);  // hold H in Omega
     }
-  } else {
-    // for block version
-    // data->G is always nsamples x nsnps;
-    if (data->snpmajor || true) {
-      // for nsnps > nsamples
-      if (pi > 0) {
-        Eigen::HouseholderQR<Eigen::Ref<Mat2D>> qr(H);
-        Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
-      }
-      H = Mat2D::Zero(cols(), size);
-      data->check_file_offset_first_var();
-      for (uint i = 0; i < data->nblocks; ++i) {
-        start_idx = data->start[i];
-        stop_idx = data->stop[i];
-        actual_block_size = stop_idx - start_idx + 1;
-        tick.clock();
-        if (update) {
-          data->read_block_update(start_idx, stop_idx, U, S, V.transpose(), standardize);
-        } else {
-          data->read_block_initial(start_idx, stop_idx, standardize);
-        }
-        data->readtime += tick.reltime();
-        G.middleRows(start_idx, actual_block_size).noalias() = data->G.transpose() * Omg;
-        H.noalias() += data->G * G.middleRows(start_idx, actual_block_size);
-      }
+    G.noalias() = data->G.transpose() * Omg;
+    H.noalias() = data->G * G;
+    return;
+  }
+
+  // for block version
+  // data->G is always nsamples x nsnps;
+  // for nsnps > nsamples
+  if (pi > 0) {
+    Eigen::HouseholderQR<Eigen::Ref<Mat2D>> qr(H);
+    Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
+  }
+  H = Mat2D::Zero(cols(), size);
+  data->check_file_offset_first_var();
+  for (uint i = 0; i < data->nblocks; ++i) {
+    start_idx = data->start[i];
+    stop_idx = data->stop[i];
+    actual_block_size = stop_idx - start_idx + 1;
+    tick.clock();
+    if (update) {
+      data->read_block_update(start_idx, stop_idx, U, S, V.transpose(), standardize);
+    } else {
+      data->read_block_initial(start_idx, stop_idx, standardize);
     }
+    data->readtime += tick.reltime();
+    G.middleRows(start_idx, actual_block_size).noalias() = data->G.transpose() * Omg;
+    H.noalias() += data->G * G.middleRows(start_idx, actual_block_size);
   }
 }
 
@@ -178,12 +179,12 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
       }
     }
     // bandsize: how many blocks in each band, 2, 4, 8, 16, 32, 64, ...
+    bandsize = fmin(bandsize * 2, data->params.bands);
     // b: the index of current block
     for (uint b = 0, i = 1, j = 1; b < data->params.bands; ++b, ++i, ++j) {
       start_idx = b * blocksize;
       stop_idx = (b + 1) * blocksize >= data->nsnps ? data->nsnps - 1 : (b + 1) * blocksize - 1;
       actual_block_size = stop_idx - start_idx + 1;
-      if (U.size() > 0) data->predict_missing_E(U, start_idx, stop_idx);
       G.middleRows(start_idx, actual_block_size).noalias() =
           data->G.middleCols(start_idx, actual_block_size).transpose() * Omg;
       if (pi > 0 && j <= std::pow(2, pi - 1) && std::pow(2, pi) < data->params.bands) {

@@ -181,14 +181,20 @@ Param::Param(int argc, char **argv) {
         throw std::invalid_argument("please use --USV together with --inbreed");
     }
 
+    // handle memory and misc options
     ncv = 20 > (2 * k + 1) ? 20 : (2 * k + 1);
-    oversamples = 10 > k ? 10 : k;
+    oversamples = oversamples > k ? oversamples : k;
     if (haploid && (file_t == FileType::PLINK || file_t == FileType::BGEN)) ploidy = 1;
     if (memory > 0 && svd_t != SvdType::FULL) out_of_core = true;
+    if (maf > 0.5) {
+      std::cerr << "warning: you specify '--maf' a value greater than 0.5.\n";
+      maf = 1 - maf;
+    }
+    keepsnp = maf > 0 ? true : false;
+    if (maf && out_of_core)
+      throw std::invalid_argument("does not support --maf filters for out-of-core mode yet! ");
 
-    // beagle.gz only represents genotype likelihood for pcangsd algorithm now
-    if (pca && file_t == FileType::BEAGLE && svd_t == SvdType::PCAoneAlg2)
-      throw std::invalid_argument("--svd 2 with --pcangsd not supported yet! use --svd 1 or 0 instead");
+    // handle EM-PCA
     if (pca && file_t == FileType::BEAGLE) pcangsd = true;
     if (emu || pcangsd) {
       impute = true;
@@ -202,13 +208,6 @@ Param::Param(int argc, char **argv) {
     if (bands < 4 || bands % 2 != 0)
       throw std::invalid_argument("the -w/--batches must be a power of 2 and the minimun is 4.");
     
-    if (maf > 0.5) {
-      std::cerr << "warning: you specify '--maf' a value greater than 0.5.\n";
-      maf = 1 - maf;
-    }
-    keepsnp = maf > 0 ? true : false;
-    if (maf && out_of_core)
-      throw std::invalid_argument("does not support --maf filters for out-of-core mode yet! ");
     if (svd_t == SvdType::PCAoneAlg2 && !noshuffle) perm = true;
     
   } catch (const popl::invalid_option &e) {
