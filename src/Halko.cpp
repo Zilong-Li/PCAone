@@ -17,6 +17,7 @@ void RsvdOpData::initOmg() {
     Omg = PCAone::StandardNormalRandom<Mat2D, std::default_random_engine>(cols(), size(), rng);
   else
     Omg = PCAone::UniformRandom<Mat2D, std::default_random_engine>(cols(), size(), rng);
+  Omg2 = Omg;
 }
 
 Mat2D RsvdOpData::computeU(const Mat2D& G, const Mat2D& H) {
@@ -195,7 +196,7 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
           H = H1 + H2;
           Eigen::HouseholderQR<Mat2D> qr(H);
           Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
-          // PCAone::flipOmg(Omg2, Omg);
+          PCAone::flipOmg(Omg2, Omg);
           H2.setZero();
         }
       } else if (i <= bandsize / 2) {
@@ -212,6 +213,7 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
         H = H1 + H2;
         Eigen::HouseholderQR<Mat2D> qr(H);
         Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
+        PCAone::flipOmg(Omg2, Omg);
         if (i == bandsize) {
           H1.setZero();
           i = 0;
@@ -248,7 +250,7 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
         H = H1 + H2;
         Eigen::HouseholderQR<Mat2D> qr(H);
         Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
-        // PCAone::flipOmg(Omg2, Omg);
+        PCAone::flipOmg(Omg2, Omg);
         H2.setZero();
       }
     } else if (i <= bandsize / 2) {
@@ -257,25 +259,18 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
       H2.noalias() += data->G * G.middleRows(start_idx, actual_block_size);
     }
     if ((b + 1) < bandsize) continue;
-
-    if (i == bandsize) {
+    // add up H and update Omg
+    if ((i == bandsize) || (i == bandsize / 2)) {
       H = H1 + H2;
       Eigen::HouseholderQR<Mat2D> qr(H);
       Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
-      // PCAone::flipOmg(Omg2, Omg);
-      H1 = Mat2D::Zero(cols(), size);
-      i = 0;
-    } else if (i == bandsize / 2) {
-      H = H1 + H2;
-      Eigen::HouseholderQR<Mat2D> qr(H);
-      Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
-      // PCAone::flipOmg(Omg2, Omg);
-      H2 = Mat2D::Zero(cols(), size);
-    } else if ((b + 1) == data->nblocks) {
-      H = H1 + H2;
-      Eigen::HouseholderQR<Mat2D> qr(H);
-      Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
-      // PCAone::flipOmg(Omg2, Omg);
+      PCAone::flipOmg(Omg2, Omg);
+      if (i == bandsize) {
+        H1.setZero();
+        i = 0;
+      } else if (i == bandsize / 2) {
+        H2.setZero();
+      }
     }
   }
 }

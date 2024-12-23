@@ -9,7 +9,7 @@ class RsvdOpData {
   Data* data;
   using Index = Eigen::Index;
   bool update = false, standardize = false, reset = true;
-  Mat2D U, Omg;  // nsamples x nk
+  Mat2D U, Omg, Omg2;  // nsamples x nk
   Mat2D V;       // nsnps x nk
   Mat1D S;       // nk x 1
 

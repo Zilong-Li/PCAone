@@ -27,7 +27,7 @@
 using namespace std;
 
 static int bye() {
-  cao.print(tick.date(), "total elapsed wall time:", tick.abstime(), "seconds");
+  cao.print(tick.date(), "total elapsed wall time:", tick.abstime(), " seconds");
   cao.print(tick.date(), "have a nice day. bye!");
   return 0;
 }
@@ -92,7 +92,7 @@ int main(int argc, char* argv[]) {
     } else {
       cao.error("wrong file type used!");
     }
-    cao.print(tick.date(), "elapsed time of permuting data:", tick.reltime(), "seconds");
+    cao.print(tick.date(), "elapsed time of permuting data:", tick.reltime(), " seconds");
   } else {
     if (params.file_t == FileType::PLINK) {
       data = new FileBed(params);
@@ -132,6 +132,6 @@ int main(int argc, char* argv[]) {
     make_plink2_eigenvec_file(params.k, params.fileout + ".eigvecs2", params.fileout + ".eigvecs",
                               params.filein + ".fam");
 
-  cao.print(tick.date(), "total elapsed reading time: ", data->readtime, "seconds");
+  cao.print(tick.date(), "total elapsed reading time: ", data->readtime, " seconds");
   return bye();
 }

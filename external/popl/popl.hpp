@@ -1168,7 +1168,7 @@ inline std::string ConsoleOptionPrinter::print(const Attribute& max_attribute) c
 
     std::stringstream s;
     if (!option_parser_->description().empty())
-        s << option_parser_->description() << ":\n";
+        s << option_parser_->description() << "\n";
 
     size_t optionRightMargin(20);
     const size_t maxDescriptionLeftMargin(40);
@@ -1263,15 +1263,19 @@ inline std::string GroffOptionPrinter::print(const Attribute& max_attribute) con
 
     std::stringstream s;
     if (!option_parser_->description().empty())
-        s << ".SS " << option_parser_->description() << ":\n";
+        s << ".SH DESCRIPTION\n.PP\n" << option_parser_->description() << "\n";
 
     for (const auto& option : option_parser_->options())
     {
         if ((option->attribute() <= Attribute::hidden) || (option->attribute() > max_attribute))
             continue;
-        s << ".TP\n\\fB" << to_string(option) << "\\fR\n";
-        if (!option->description().empty())
+        if (option->attribute() != Attribute::headline){
+          s << ".TP\n\\fB" << to_string(option) << "\\fR\n";
+          if (!option->description().empty())
             s << option->description() << "\n";
+        } else{
+          s << ".SH\n" << option->description() << "\n";
+        }
     }
 
     return s.str();
