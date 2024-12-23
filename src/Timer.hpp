@@ -15,6 +15,7 @@ class Timer {
   ~Timer();
   void clock();
   std::string date();
+  std::string intime();
   double reltime();
   double abstime();
 };
@@ -44,6 +45,14 @@ inline std::string Timer::date() {
   auto in_time_t = std::chrono::system_clock::to_time_t(now);
   std::stringstream ss;
   ss << std::put_time(std::localtime(&in_time_t), "[%d/%m/%Y-%X]");
+  return ss.str();
+}
+
+inline std::string Timer::intime() {
+  auto now = std::chrono::system_clock::now();
+  auto in_time_t = std::chrono::system_clock::to_time_t(now);
+  std::stringstream ss;
+  ss << in_time_t;
   return ss.str();
 }
 

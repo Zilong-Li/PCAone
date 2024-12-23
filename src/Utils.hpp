@@ -39,8 +39,6 @@ std::string timestamp();
 
 void flip_UV(Mat2D& U, Mat2D& V, bool ubase = true);
 
-void flip_Omg(Mat2D& Omg2, Mat2D& Omg);
-
 void flip_Y(const Mat2D& X, Mat2D& Y);
 
 double rmse(const Mat2D& X, const Mat2D& Y);

@@ -11,6 +11,7 @@
 #include <cfloat>
 #include <cmath>
 #include <cstdio>
+#include <filesystem>
 #include <iterator>
 #include <numeric>
 #include <random>
@@ -43,6 +44,7 @@ using UMapIntString = std::unordered_map<int, std::string>;
 using Pds = std::pair<double, std::string>;
 using UMapIntPds = std::unordered_map<int, Pds>;
 
+
 /**
  * Recode genotype codes to allelic dosages of first allele in .bim file (A1),
  * similarly to .raw files generated with '--recode A' in PLINK. A coding for
@@ -72,7 +74,7 @@ inline std::vector<size_t> sortidx(const std::vector<T>& v) {
 
 struct Line {
   std::string data;
-  operator std::string const &() const { return data; }
+  operator std::string const&() const { return data; }
   friend std::istream& operator>>(std::istream& ifs, Line& line) { return std::getline(ifs, line.data); }
 };
 

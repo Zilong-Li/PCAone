@@ -28,7 +28,8 @@ Param::Param(int argc, char **argv) {
   opts.add<Value<uint>>("v", "verbose", "verbose level.\n"
                                         "0: no message on screen\n"
                                         "1: print messages to screen\n"
-                                        "2: enable debug information"
+                                        "2: enable verbose information\n"
+                                        "3: enable debug information"
                         , verbose, &verbose);
   opts.add<Value<std::string>, Attribute::headline>("","PCA","PCA algorithms:");
   auto svd_opt = opts.add<Value<uint>>("d", "svd", "SVD method to be applied. default 2 is recommended for big data.\n"
@@ -59,7 +60,6 @@ Param::Param(int argc, char **argv) {
   opts.add<Value<double>, Attribute::advanced>("", "tol-rsvd", "tolerance for RSVD algorithm", tol, &tol);
   opts.add<Value<double>, Attribute::advanced>("", "tol-em", "tolerance for EMU/PCAngsd algorithm", tolem, &tolem);
   opts.add<Value<double>, Attribute::advanced>("", "tol-maf", "tolerance for MAF estimation by EM", tolmaf, &tolmaf);
-  opts.add<Switch, Attribute::hidden>("", "printu", "output eigen vector of each epoch (for tests)", &printu);
   
   opts.add<Value<std::string>, Attribute::headline>("","INPUT","Input options:");
   auto plinkfile = opts.add<Value<std::string>>("b", "bfile", "prefix of PLINK .bed/.bim/.fam files", "", &filein);
@@ -70,15 +70,15 @@ Param::Param(int argc, char **argv) {
   auto beaglefile = opts.add<Value<std::string>>("G", "beagle", "path of BEAGLE file compressed by gzip", "", &filein);
   opts.add<Value<std::string>>("f", "match-bim", "the .mbim file to be matched, where the 7th column is allele frequency", "", &filebim);
   auto usvprefix = opts.add<Value<std::string>>("", "USV", "prefix of PCAone .eigvecs/.eigvals/.loadings/.mbim");
-  opts.add<Value<std::string>, Attribute::advanced>("", "read-U", "path of file with left singular vectors (.eigvecs)", "", &fileU);
-  opts.add<Value<std::string>, Attribute::advanced>("", "read-V", "path of file with right singular vectors (.loadings)", "", &fileV);
-  opts.add<Value<std::string>, Attribute::advanced>("", "read-S", "path of file with eigen values (.eigvals)", "", &fileS);
+  opts.add<Value<std::string>, Attribute::hidden>("", "read-U", "path of file with left singular vectors (.eigvecs)", "", &fileU);
+  opts.add<Value<std::string>, Attribute::hidden>("", "read-V", "path of file with right singular vectors (.loadings)", "", &fileV);
+  opts.add<Value<std::string>, Attribute::hidden>("", "read-S", "path of file with eigen values (.eigvals)", "", &fileS);
   
   opts.add<Value<std::string>, Attribute::headline>("","OUTPUT","Output options:");
   opts.add<Value<std::string>>("o", "out", "prefix of output files. default [pcaone]", fileout, &fileout);
   opts.add<Switch>("V", "printv", "output the right eigenvectors with suffix .loadings", &printv);
-  opts.add<Switch>("", "ld", "output a binary matrix for downstream LD related analysis", &ld);
-  opts.add<Switch>("", "print-r2", "print LD r2 to *.ld.gz file for pairwise SNPs within a window", &print_r2);
+  opts.add<Switch>("D", "ld", "output a binary matrix for downstream LD related analysis", &ld);
+  opts.add<Switch>("R", "print-r2", "print LD r2 to *.ld.gz file for pairwise SNPs within a window", &print_r2);
   
   opts.add<Value<std::string>, Attribute::headline>("","MISC","Misc options:");
   opts.add<Value<double>>("", "maf", "exclude variants with MAF lower than this value", maf, &maf);
@@ -183,41 +183,34 @@ Param::Param(int argc, char **argv) {
 
     ncv = 20 > (2 * k + 1) ? 20 : (2 * k + 1);
     oversamples = 10 > k ? 10 : k;
+    if (haploid && (file_t == FileType::PLINK || file_t == FileType::BGEN)) ploidy = 1;
+    if (memory > 0 && svd_t != SvdType::FULL) out_of_core = true;
+
     // beagle.gz only represents genotype likelihood for pcangsd algorithm now
     if (pca && file_t == FileType::BEAGLE && svd_t == SvdType::PCAoneAlg2)
       throw std::invalid_argument("--svd 2 with --pcangsd not supported yet! use --svd 1 or 0 instead");
     if (pca && file_t == FileType::BEAGLE) pcangsd = true;
-    if (haploid && (file_t == FileType::PLINK || file_t == FileType::BGEN)) ploidy = 1;
     if (emu || pcangsd) {
       impute = true;
       if (svd_t == SvdType::PCAoneAlg2)
-        throw std::invalid_argument(
-            "not supporting PCAone --svd 2 for PCAngsd/EMU algorithm yet! "
-            "please specify --svd 1 or 0");
+        throw std::invalid_argument("fancy EM-PCA with --svd 2 is on the way!");
     } else if (pca) {
       maxiter = 0;
     }
-    if (memory > 0) {
-      out_of_core = true;
-      if (pca && pcangsd)
-        throw std::invalid_argument("not supporting -m option for PCAngsd with BEAGLE file yet!");
-    }
+    if (out_of_core && pca && pcangsd)
+      throw std::invalid_argument("not supporting -m option for PCAngsd with BEAGLE file yet!");
     if (bands < 4 || bands % 2 != 0)
-      throw std::invalid_argument(
-          "the -w/--batches must be a power of 2 and the minimun is 4. "
-          "the recommended is 64.");
+      throw std::invalid_argument("the -w/--batches must be a power of 2 and the minimun is 4.");
+    
     if (maf > 0.5) {
-      std::cerr << "warning: you specify '--maf' a value greater than 0.5. "
-                   "will do 1-maf for you!\n";
+      std::cerr << "warning: you specify '--maf' a value greater than 0.5.\n";
       maf = 1 - maf;
     }
     keepsnp = maf > 0 ? true : false;
     if (maf && out_of_core)
-      throw std::invalid_argument(
-          "does not support --maf filters for out-of-core mode yet! "
-          "please remove --maf option");
+      throw std::invalid_argument("does not support --maf filters for out-of-core mode yet! ");
     if (svd_t == SvdType::PCAoneAlg2 && !noshuffle) perm = true;
-    if (svd_t == SvdType::FULL) out_of_core = false;
+    
   } catch (const popl::invalid_option &e) {
     std::cerr << "Invalid Option Exception: " << e.what() << "\n";
     std::cerr << "error:  ";

@@ -132,15 +132,6 @@ void flip_UV(Mat2D& U, Mat2D& V, bool ubase) {
   }
 }
 
-void flip_Omg(Mat2D& Omg2, Mat2D& Omg) {
-  for (Eigen::Index i = 0; i < Omg.cols(); ++i) {
-    // if signs of half of values are flipped then correct signs.
-    if ((Omg2.col(i) - Omg.col(i)).array().abs().sum() > 2 * (Omg2.col(i) + Omg.col(i)).array().abs().sum()) {
-      Omg.col(i) *= -1;
-    }
-  }
-  Omg2 = Omg;
-}
 
 void flip_Y(const Mat2D& X, Mat2D& Y) {
   for (Eigen::Index i = 0; i < X.cols(); ++i) {

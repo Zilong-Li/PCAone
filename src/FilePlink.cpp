@@ -56,7 +56,8 @@ void FileBed::read_all() {
       // should remove sites with F=0 and 1.0
       if (F(i) == 0.0 || F(i) == 1.0) cao.error("sites with MAF=0 found! remove them first!");
       // in LD r2,F=0.5 means sample standard deviation is 0
-      if (params.verbose && F(i) == 0.5) cao.warn("sites with MAF=0.5 found. NaN values expected in LD r2.");
+      if (params.ld && params.verbose > 1 && F(i) == 0.5)
+        cao.warn("MAF for site ", i, "is 0.5. NaN values expected in calculating LD R2.");
     }
     filter_snps_resize_F();  // filter and resize nsnps
   } else if (params.project > 0) {
@@ -76,14 +77,14 @@ void FileBed::read_all() {
       for (k = 0; k < 4; ++k, ++j) {
         if (j < nsamples) {
           G(j, i) = BED2GENO[buf & 3];
-          if (G(j, i) != BED_MISSING_VALUE) {
-            // 0 indicate G(i,j) don't need to be predicted.
-            if (params.impute) C[i * nsamples + j] = 0;
-          } else {
-            // 1 indicate G(i,j) need to be predicted and updated.
-            if (params.impute) C[i * nsamples + j] = 1;
-          }
           buf >>= 2;
+          if (params.impute) {
+            // 1 indicate G(i,j) need to be predicted and updated.
+            if (G(j, i) != BED_MISSING_VALUE)
+              C[i * nsamples + j] = 0;
+            else
+              C[i * nsamples + j] = 1;
+          }
         }
       }
     }

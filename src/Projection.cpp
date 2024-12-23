@@ -44,11 +44,11 @@ void run_projection(Data* data, const Param& params) {
 
     if (p_miss == 0.0) {
       cao.warn("there is no missing genotypes");
-      Eigen::BDCSVD<Mat2D> svd(V, Eigen::ComputeThinU | Eigen::ComputeThinV);
+      Eigen::ColPivHouseholderQR<Mat2D> qr(V);
 
       for (uint i = 0; i < data->nsamples; i++) {
         // Vx = g
-        U.row(i) = svd.solve(data->G.row(i).transpose());
+        U.row(i) = qr.solve(data->G.row(i).transpose());
       }
     } else {
       Int1D idx;
@@ -58,10 +58,10 @@ void run_projection(Data* data, const Param& params) {
         for (int j = 0; j < V.rows(); j++) {
           if (!data->C(j * data->nsamples + i)) idx.push_back(j);
         }
-        Eigen::BDCSVD<Mat2D> svd(V(idx, Eigen::all), Eigen::ComputeThinU | Eigen::ComputeThinV);
+        Eigen::ColPivHouseholderQR<Mat2D> qr(V(idx, Eigen::all));
         Mat1D g = data->G(i, idx);
         // Vx = g
-        U.row(i) = svd.solve(g);
+        U.row(i) = qr.solve(g);
       }
     }
 
