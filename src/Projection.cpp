@@ -21,52 +21,43 @@ void run_projection(Data* data, const Param& params) {
   data->prepare();
   data->standardize_E();
   double p_miss = (double)data->C.count() / (double)data->C.size();
+  // Singular = sqrt(Eigen * M)
+  Mat1D S = (read_eigvals(params.fileS) * data->nsnps / params.ploidy).array().sqrt();
+  const int pcs = S.size();
+  Mat2D V = read_eigvecs(params.fileV, data->nsnps, pcs);  // M x K
+  Mat2D U(data->nsamples, pcs);
 
   if (params.project == 1) {
-    if (p_miss > 0)
-      cao.warn(
-          "there are missing genotypes. recommend the alternative method "
-          "--project 2 or 3.");
+    if (p_miss > 0) cao.warn("there are missing genotypes. recommend using --project 2 or 3.");
     // get 1 / Singular = sqrt(Eigen * M)
-    Mat1D S = 1.0 / (read_eigvals(params.fileS) * data->nsnps / params.ploidy).array().sqrt();
-    int pcs = S.size();
+    V = V * (S.array().inverse().matrix().asDiagonal());
     // G V = U D
-    Mat2D V = read_eigvecs(params.fileV, data->nsnps, pcs) * S.asDiagonal();  // M x K
-    Mat2D U = data->G * V;
-
-    data->write_eigs_files(1.0 / S.array(), U, V);
+    U = data->G * V;
   } else if (params.project == 2) {
-    // get  Singular = sqrt(Eigen * M)
-    Mat1D S = (read_eigvals(params.fileS) * data->nsnps / params.ploidy).array().sqrt();
-    int pcs = S.size();
-    Mat2D V = read_eigvecs(params.fileV, data->nsnps, pcs) * S.asDiagonal();  // M x K
-    Mat2D U(data->nsamples, pcs);
-
+    V = V * S.asDiagonal();
     if (p_miss == 0.0) {
       cao.warn("there is no missing genotypes");
       Eigen::ColPivHouseholderQR<Mat2D> qr(V);
-
+#pragma omp parallel for
       for (uint i = 0; i < data->nsamples; i++) {
         // Vx = g
         U.row(i) = qr.solve(data->G.row(i).transpose());
       }
     } else {
-      Int1D idx;
+#pragma omp parallel for
       for (uint i = 0; i < data->nsamples; i++) {
         // find non-missing snps for sample i
-        idx.clear();
+        Int1D idx;
         for (int j = 0; j < V.rows(); j++) {
           if (!data->C(j * data->nsamples + i)) idx.push_back(j);
         }
-        Eigen::ColPivHouseholderQR<Mat2D> qr(V(idx, Eigen::all));
-        Mat1D g = data->G(i, idx);
         // Vx = g
-        U.row(i) = qr.solve(g);
+        U.row(i) = V(idx, Eigen::all).colPivHouseholderQr().solve(data->G(i, idx).transpose());
       }
     }
-
-    data->write_eigs_files(S, U, V);
   } else {
     cao.error("have not implemented yet");
   }
+
+  data->write_eigs_files(S.array().square() / data->nsnps, U, V);
 }
