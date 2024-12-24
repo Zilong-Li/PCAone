@@ -5,6 +5,7 @@
 
 #include "Arnoldi.hpp"
 #include "Cmd.hpp"
+#include "Common.hpp"
 #include "Data.hpp"
 #include "FileBeagle.hpp"
 #include "FileBgen.hpp"
@@ -126,12 +127,26 @@ int main(int argc, char* argv[]) {
     cao.error("unsupported PCA method!");
   }
 
+  cao.print(tick.date(), "total elapsed reading time: ", data->readtime, " seconds");
+
   delete data;
 
   if (params.file_t == FileType::PLINK)
     make_plink2_eigenvec_file(params.k, params.fileout + ".eigvecs2", params.fileout + ".eigvecs",
                               params.filein + ".fam");
 
-  cao.print(tick.date(), "total elapsed reading time: ", data->readtime, " seconds");
+  // remove temp files if verbose < 3
+  if (params.perm && params.out_of_core && params.verbose < 3) {
+    if (params.file_t == FileType::PLINK) {
+      for (auto suf : std::vector<std::string>{".bed", ".bim", ".fam"}) {
+        std::filesystem::path tmpfile{params.filein + suf};
+        std::filesystem::remove(tmpfile);
+      }
+    }
+    if ((params.file_t == FileType::BGEN) || (params.file_t == FileType::CSV)) {
+      std::filesystem::path tmpfile{params.filein};
+      std::filesystem::remove(tmpfile);
+    }
+  }
   return bye();
 }

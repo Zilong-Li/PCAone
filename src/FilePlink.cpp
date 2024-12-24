@@ -174,7 +174,7 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
       // should remove sites with F=0 and 1.0
       if (F(snp_idx) == 0.0 || F(snp_idx) == 1.0) cao.error("sites with MAF=0 found! remove them first!");
       // in LD r2,F=0.5 means sample standard deviation is 0
-      if (params.verbose > 1 && F(snp_idx) == 0.5)
+      if (params.ld && params.verbose > 1 && F(snp_idx) == 0.5)
         cao.warn("MAF for site ", snp_idx, "is 0.5. NaN values expected in calculating LD R2.");
       // do centering and initialing
       centered_geno_lookup(1, snp_idx) = 0.0;                       // missing
