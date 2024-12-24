@@ -16,30 +16,33 @@ Param::Param(int argc, char **argv) {
   std::string copyr{"PCA All In One (v" + (std::string)VERSION + ")        https://github.com/Zilong-Li/PCAone\n" +
                     "(C) 2021-2024 Zilong Li        GNU General Public License v3\n" +
   "\n" +
-                    "Usage: use plink files as input and apply default window-based RSVD method\n" +
-                    "       PCAone --bfile plink -n 20 \n\n" +
-                    "       use csv file as input and apply the Implicitly Restarted Arnoldi Method\n" +
-                    "       PCAone --csv csv.zst --svd 0 \n" +
+                    "Usage: use PLINK files as input and apply default window-based RSVD method:\n" +
+                    "       $ PCAone -b plink \n\n" +
+                    "       use CSV file as input and apply the Implicitly Restarted Arnoldi Method:\n" +
+                    "       $ PCAone -c csv.zst -d 0 \n\n" +
+                    "       compute ancestry adjusted LD matrix:\n" +
+                    "       $ PCAone -b plink -k 2 -D -o adj \n" +
+                    "       $ PCAone -B adj -f adj.mbim --print-r2 -o adj \n" +
   "\n"};
   OptionParser opts(copyr);
   opts.add<Value<std::string>, Attribute::headline>("","PCAone","General options:");
   auto help_opt = opts.add<Switch>("h", "help", "print all options including hidden advanced options");
   opts.add<Value<double>>("m", "memory", "RAM usage in GB unit for out-of-core mode. default is in-core mode", memory, &memory);
   opts.add<Value<uint>>("n", "threads", "the number of threads to be used", threads, &threads);
-  opts.add<Value<uint>>("v", "verbose", "verbosity level for logs. any level x includes messages for all levels (1...x).\n"
-                                        "0: silent. no message on screen;\n"
+  opts.add<Value<uint>>("v", "verbose", "verbosity level for logs. any level x includes messages for all levels (1...x). Options are\n"
+                                        "0: silent, no messages on screen;\n"
                                         "1: concise messages to screen;\n"
                                         "2: more verbose information;\n"
                                         "3: enable debug information."
                         , verbose, &verbose);
   opts.add<Value<std::string>, Attribute::headline>("","PCA","PCA algorithms:");
-  auto svd_opt = opts.add<Value<uint>>("d", "svd", "SVD method to be applied. default 2 is recommended for big data.\n"
+  auto svd_opt = opts.add<Value<uint>>("d", "svd", "SVD method to be applied. default 2 is recommended for big data. Options are\n"
                                                    "0: the Implicitly Restarted Arnoldi Method (IRAM);\n"
                                                    "1: the Yu's single-pass Randomized SVD with power iterations;\n"
                                                    "2: the accurate window-based Randomized SVD method (PCAone);\n"
                                                    "3: the full Singular Value Decomposition.", 2);
   opts.add<Value<uint>>("k", "pc", "top k principal components (PCs) to be calculated", k, &k);
-  opts.add<Value<uint>>("C", "scale", "do scaling for input file.\n"
+  opts.add<Value<uint>>("C", "scale", "do scaling for input file. Options are\n"
                                       "0: do just centering;\n"
                                       "1: do log transformation eg. log(x+0.01) for RNA-seq data;\n"
                                       "2: do count per median log transformation (CPMED) for scRNAs.", scale,  &scale);
@@ -82,17 +85,17 @@ Param::Param(int argc, char **argv) {
   
   opts.add<Value<std::string>, Attribute::headline>("","MISC","Misc options:");
   opts.add<Value<double>>("", "maf", "exclude variants with MAF lower than this value", maf, &maf);
-  opts.add<Value<int>>("", "project", "project the new samples onto the existing PCs.\n"
+  opts.add<Value<int>>("", "project", "project the new samples onto the existing PCs. Options are\n"
                                       "0: disabled;\n"
                                       "1: by multiplying the loadings with mean imputation for missing genotypes;\n"
                                       "2: by solving the least squares system Vx=g. skip sites with missingness;\n"
                                       "3: by Augmentation, Decomposition and Procrusters transformation.\n", project, &project);
-  opts.add<Value<int>>("", "inbreed", "compute the inbreeding coefficient accounting for population structure.\n"
+  opts.add<Value<int>>("", "inbreed", "compute the inbreeding coefficient accounting for population structure. Options are\n"
                                       "0: disabled;\n"
                                       "1: compute per-site inbreeding coefficient and HWE test.\n", inbreed, &inbreed);
   opts.add<Value<double>>("", "ld-r2", "r2 cutoff for LD-based pruning (usually 0.2).", ld_r2, &ld_r2);
   opts.add<Value<uint>>("", "ld-bp", "physical distance threshold in bases for LD (usually 1000000).", ld_bp, &ld_bp);
-  opts.add<Value<int>>("", "ld-stats", "statistics to calculate LD r2 for pairwise SNPs.\n"
+  opts.add<Value<int>>("", "ld-stats", "statistics to compute LD R2 for pairwise SNPs. Options are\n"
                                        "0: the ancestry adjusted, i.e. correlation between residuals;\n"
                                        "1: the standard, i.e. correlation between two alleles.\n", ld_stats, &ld_stats);
   auto clumpfile = opts.add<Value<std::string>>("", "clump", "assoc-like file with target variants and pvalues for clumping.", "", &clump);
@@ -101,7 +104,7 @@ Param::Param(int argc, char **argv) {
   opts.add<Value<double>>("", "clump-p2", "secondary significance threshold for clumped SNPs.", clump_p2, &clump_p2);
   opts.add<Value<double>>("", "clump-r2", "r2 cutoff for LD-based clumping.", clump_r2, &clump_r2);
   opts.add<Value<uint>>("", "clump-bp", "physical distance threshold in bases for clumping.", clump_bp, &clump_bp);
-  opts.add<Switch, Attribute::hidden>("", "groff", "print groff formatted help message.", &groff);
+  opts.add<Switch, Attribute::hidden>("", "groff", "PCAone 1 \"24 December 2024\" \"PCAone-v"+ std::string(VERSION)+"\"  \"Bioinformatics tools\"", &groff);
   
   // collect command line options acutal in effect
   ss << (std::string) "PCAone (v" + VERSION + ")    https://github.com/Zilong-Li/PCAone\n";
@@ -204,9 +207,9 @@ Param::Param(int argc, char **argv) {
       throw std::invalid_argument("not supporting -m option for PCAngsd with BEAGLE file yet!");
     if (bands < 4 || bands % 2 != 0)
       throw std::invalid_argument("the -w/--batches must be a power of 2 and the minimun is 4.");
-    
+
     if (svd_t == SvdType::PCAoneAlg2 && !noshuffle) perm = true;
-    
+
   } catch (const popl::invalid_option &e) {
     std::cerr << "Invalid Option Exception: " << e.what() << "\n";
     std::cerr << "error:  ";

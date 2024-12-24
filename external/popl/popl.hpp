@@ -1262,6 +1262,11 @@ inline std::string GroffOptionPrinter::print(const Attribute& max_attribute) con
         throw std::invalid_argument("attribute must be 'optional', 'advanced', or 'default'");
 
     std::stringstream s;
+    for (const auto& option : option_parser_->options()){
+    // use groff option as the title
+      if(option->long_name()=="groff")
+        s << ".TH " << option->description() << "\n";
+    }
     if (!option_parser_->description().empty())
         s << ".SH DESCRIPTION\n.PP\n" << option_parser_->description() << "\n";
 
