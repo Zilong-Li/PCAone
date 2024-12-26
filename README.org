@@ -164,7 +164,7 @@ PCAone --help
 set architecture. =PCAone= has been tested on both =Linux= and =MacOS= system. To
 build PCAone from the source code, the following dependencies are required:
 
-- GCC/Clang compiler with C++11 support
+- GCC/Clang compiler with C++17 support
 - GNU make
 - zlib
 
