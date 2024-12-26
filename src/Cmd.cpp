@@ -16,13 +16,13 @@ Param::Param(int argc, char **argv) {
   std::string copyr{"PCA All In One (v" + (std::string)VERSION + ")        https://github.com/Zilong-Li/PCAone\n" +
                     "(C) 2021-2024 Zilong Li        GNU General Public License v3\n" +
   "\n" +
-                    "Usage: use PLINK files as input and apply default window-based RSVD method:\n" +
+                    "Usage: 1) use PLINK files as input and apply default window-based RSVD method\n" +
                     "       $ PCAone -b plink \n\n" +
-                    "       use CSV file as input and apply the Implicitly Restarted Arnoldi Method:\n" +
+                    "       2) use CSV file as input and apply the Implicitly Restarted Arnoldi Method\n" +
                     "       $ PCAone -c csv.zst -d 0 \n\n" +
-                    "       compute ancestry adjusted LD matrix:\n" +
+                    "       3) compute ancestry adjusted LD matrix and R2\n" +
                     "       $ PCAone -b plink -k 2 -D -o adj \n" +
-                    "       $ PCAone -B adj -f adj.mbim --print-r2 -o adj \n" +
+                    "       $ PCAone -B adj -f adj.mbim -R" +
   "\n"};
   OptionParser opts(copyr);
   opts.add<Value<std::string>, Attribute::headline>("","PCAone","General options:");
@@ -81,7 +81,7 @@ Param::Param(int argc, char **argv) {
   opts.add<Value<std::string>>("o", "out", "prefix of output files. default [pcaone].", fileout, &fileout);
   opts.add<Switch>("V", "printv", "output the right eigenvectors with suffix .loadings.", &printv);
   opts.add<Switch>("D", "ld", "output a binary matrix for downstream LD related analysis.", &ld);
-  opts.add<Switch>("R", "print-r2", "print LD r2 to *.ld.gz file for pairwise SNPs within a window.", &print_r2);
+  opts.add<Switch>("R", "print-r2", "print LD R2 to *.ld.gz file for pairwise SNPs within a window controlled by --ld-bp.", &print_r2);
   
   opts.add<Value<std::string>, Attribute::headline>("","MISC","Misc options:");
   opts.add<Value<double>>("", "maf", "exclude variants with MAF lower than this value", maf, &maf);
@@ -93,8 +93,8 @@ Param::Param(int argc, char **argv) {
   opts.add<Value<int>>("", "inbreed", "compute the inbreeding coefficient accounting for population structure. Options are\n"
                                       "0: disabled;\n"
                                       "1: compute per-site inbreeding coefficient and HWE test.\n", inbreed, &inbreed);
-  opts.add<Value<double>>("", "ld-r2", "r2 cutoff for LD-based pruning (usually 0.2).", ld_r2, &ld_r2);
-  opts.add<Value<uint>>("", "ld-bp", "physical distance threshold in bases for LD (usually 1000000).", ld_bp, &ld_bp);
+  opts.add<Value<double>>("", "ld-r2", "R2 cutoff for LD-based pruning (usually 0.2).", ld_r2, &ld_r2);
+  opts.add<Value<uint>>("", "ld-bp", "physical distance threshold in bases for LD window (usually 1000000).", ld_bp, &ld_bp);
   opts.add<Value<int>>("", "ld-stats", "statistics to compute LD R2 for pairwise SNPs. Options are\n"
                                        "0: the ancestry adjusted, i.e. correlation between residuals;\n"
                                        "1: the standard, i.e. correlation between two alleles.\n", ld_stats, &ld_stats);

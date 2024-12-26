@@ -1,5 +1,5 @@
 #+TITLE: Principal Component Analysis All in One
-#+subtitle: Version 0.4.8
+#+subtitle: Version 0.4.9
 #+author: Zilong Li 
 #+email: zilong.dk@gmail.com
 #+options: toc:2 num:nil email:t -:nil ^:nil
@@ -12,7 +12,6 @@
 #+latex_header: \usepackage{upquote}
 #+latex_header: \hypersetup{colorlinks=true, linkcolor=blue}
 #+latex: \clearpage
-
 
 [[https://github.com/Zilong-Li/PCAone/actions/workflows/linux.yml/badge.svg]]
 [[https://github.com/Zilong-Li/PCAone/actions/workflows/mac.yml/badge.svg]]
@@ -43,11 +42,9 @@ missingness and uncertainty. The PDF manual can be downloaded [[https://github.c
 * Table of Contents :toc:quote:noexport:
 #+BEGIN_QUOTE
 - [[#introduction][Introduction]]
-- [[#cite-the-work][Cite the work]]
 - [[#features][Features]]
+- [[#cite-the-work][Cite the work]]
 - [[#quick-start][Quick start]]
-  - [[#download-pcaone][Download PCAone]]
-  - [[#download-example-dataset][Download example dataset]]
 - [[#installation][Installation]]
   - [[#download-compiled-binary][Download compiled binary]]
   - [[#via-conda][Via Conda]]
@@ -72,16 +69,6 @@ missingness and uncertainty. The PDF manual can be downloaded [[https://github.c
 - [[#acknowledgements][Acknowledgements]]
 #+END_QUOTE
 
-* Cite the work
-
-- If you use PCAone, please first cite our paper on genome reseach [[https://genome.cshlp.org/content/early/2023/10/05/gr.277525.122][Fast and accurate out-of-core PCA framework for large scale biobank data]].
-
-- If using the EMU algorithm, please also cite [[https://academic.oup.com/bioinformatics/article/37/13/1868/6103565][Large-scale inference of population structure in presence of missingness using PCA]].
-
-- If using the PCAngsd algorithm, please also cite [[https://www.genetics.org/content/210/2/719][Inferring Population Structure and Admixture Proportions in Low-Depth NGS Data]].
-  
-- If using the ancestry ajusted LD statistics for pruning and clumping, please also cite [[https://doi.org/10.1101/2024.05.02.592187][Measuring linkage disequilibrium and improvement of pruning and clumping in structured populations]].
-
 * Features
 
 See [[file:CHANGELOG.org][change log]] here.
@@ -93,11 +80,21 @@ See [[file:CHANGELOG.org][change log]] here.
 - Supports a general comma separated CSV format for single cell RNA-seq or bulk RNA-seq data compressed by [[https://github.com/facebook/zstd][zstd]].
 - Supports [[https://github.com/Rosemeis/emu][EMU]] algorithm for scenario with large proportion of missingness.
 - Supports [[https://github.com/Rosemeis/pcangsd][PCAngsd]] algorithm for low coverage sequencing scenario with genotype likelihood as input.
-- Novel [[https://www.biorxiv.org/content/10.1101/2024.05.02.592187v1][LD]] prunning and clumping method for admixed population.
+- Novel [[https://www.biorxiv.org/content/10.1101/2024.05.02.592187v1][LD]] prunning and clumping method that accounts for population structure in the data.
+- Projection support for data with missingness.
+- HWE test taking population structure into account.
+
+* Cite the work
+
+- If you use PCAone, please first cite our paper on genome reseach [[https://genome.cshlp.org/content/early/2023/10/05/gr.277525.122][Fast and accurate out-of-core PCA framework for large scale biobank data]].
+
+- If using the EMU algorithm, please also cite [[https://academic.oup.com/bioinformatics/article/37/13/1868/6103565][Large-scale inference of population structure in presence of missingness using PCA]].
+
+- If using the PCAngsd algorithm, please also cite [[https://www.genetics.org/content/210/2/719][Inferring Population Structure and Admixture Proportions in Low-Depth NGS Data]].
+  
+- If using the ancestry ajusted LD statistics for pruning and clumping, please also cite [[https://doi.org/10.1101/2024.05.02.592187][Measuring linkage disequilibrium and improvement of pruning and clumping in structured populations]].
 
 * Quick start
-
-We can run the following on Linux to have a quick start.
 
 #+begin_src shell
 pkg=https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-avx2-Linux.zip
@@ -112,7 +109,7 @@ plot(d[,1:2+2], col=factor(d[,1]), xlab="PC1", ylab="PC2");
 legend("topright", legend=unique(d[,1]), col=1:4, pch = 21, cex=1.2);'
 #+end_src
 
-We will find those files in current directory.
+You will find these files in current directory.
 
 #+begin_src shell
 .
@@ -125,9 +122,17 @@ We will find those files in current directory.
 └── pcaone.log        # log file
 #+end_src
 
-** Download PCAone
+\newpage
 
-For most modern CPUs and Linux systems, download the one named with =avx2=.
+* Installation
+
+There are 3 ways to install PCAone.
+
+** Download compiled binary
+
+There are compiled binaries provided for both Linux and Mac platform. Check
+[[https://github.com/Zilong-Li/PCAone/releases][the releases page]] to download one. For most modern CPUs and Linux systems,
+download the one named with =avx2=.
 
 #+begin_src shell
 pkg=https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-avx2-Linux.zip
@@ -142,25 +147,6 @@ pkg=https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-x64-Linu
 wget $pkg || curl -LO $pkg
 unzip -o PCAone-x64-Linux.zip
 #+end_src
-
-** Download example dataset
-
-#+begin_src shell
-pkg=http://popgen.dk/zilong/datahub/pca/example.tar.gz
-wget $pkg || curl -LO $pkg
-tar -xzf example.tar.gz && rm -f example.tar.gz
-#+end_src
-
-You should find a fold named =example= with some example data.
-
-* Installation
-
-There are 3 ways to install PCAone.
-
-** Download compiled binary
-
-There are compiled binaries provided for both Linux and Mac platform. Check
-[[https://github.com/Zilong-Li/PCAone/releases][the releases page]] to download one.
 
 ** Via Conda
 
@@ -235,62 +221,71 @@ If this doesn't work because the server is too outdated, run =make clean && make
 * Documentation
 ** Options
 
-Run =./PCAone --help= to see all options including hidden advanced options. The below are common useful options.
+Run =PCAone --groff > pcaone.1 && man ./pcaone.1= or =PCAone --help= to read the manual. Here are common options.
 
 #+begin_src example
-Main options:
+General options:
   -h, --help                     print all options including hidden advanced options
-  -d, --svd arg (=2)             SVD method to be applied. default 2 is recommended for big data.
-                                 0: the Implicitly Restarted Arnoldi Method (IRAM)
-                                 1: the Yu's single-pass Randomized SVD with power iterations
-                                 2: the accurate window-based Randomized SVD method (PCAone)
-                                 3: the full Singular Value Decomposition.
-  -b, --bfile arg                prefix to PLINK .bed/.bim/.fam files
-  -B, --binary arg               path of binary file
-  -c, --csv arg                  path of comma seperated CSV file compressed by zstd
-  -g, --bgen arg                 path of BGEN file compressed by gzip/zstd
-  -G, --beagle arg               path of BEAGLE file compressed by gzip
-  --USV arg                      prefix to PCAone .eigvecs/.eigvals/.loadings/.mbim
-  --read-U arg                   path of file with left singular vectors (.eigvecs)
-  --read-V arg                   path of file with right singular vectors (.loadings)
-  --read-S arg                   path of file with eigen values (.eigvals)
-  -k, --pc arg (=10)             top k principal components (PCs) to be calculated
   -m, --memory arg (=0)          RAM usage in GB unit for out-of-core mode. default is in-core mode
   -n, --threads arg (=12)        the number of threads to be used
-  -o, --out arg (=pcaone)        prefix to output files. default [pcaone]
-  -p, --maxp arg (=40)           maximum number of power iterations for RSVD algorithm
-  -S, --no-shuffle               do not shuffle columns of data for --svd 2 (if not locally correlated)
-  -v, --verbose                  verbose message output
-  -V, --printv                   output the right eigenvectors with suffix .loadings
-  -C, --scale arg (=0)           do scaling for input file.
-                                 0: do just centering
-                                 1: do log transformation eg. log(x+0.01) for RNA-seq data
-                                 2: do count per median log transformation (CPMED) for scRNAs
-  --emu                          use EMU algorithm for genotype input with missingness
-  --pcangsd                      use PCAngsd algorithm for genotype likelihood input
+  -v, --verbose arg (=1)         verbosity level for logs. any level x includes messages for all levels (1...x). Options are
+                                 0: silent, no messages on screen;
+                                 1: concise messages to screen;
+                                 2: more verbose information;
+                                 3: enable debug information.
+
+PCA algorithms:
+  -d, --svd arg (=2)             SVD method to be applied. default 2 is recommended for big data. Options are
+                                 0: the Implicitly Restarted Arnoldi Method (IRAM);
+                                 1: the Yu's single-pass Randomized SVD with power iterations;
+                                 2: the accurate window-based Randomized SVD method (PCAone);
+                                 3: the full Singular Value Decomposition.
+  -k, --pc arg (=10)             top k principal components (PCs) to be calculated
+  -C, --scale arg (=0)           do scaling for input file. Options are
+                                 0: do just centering;
+                                 1: do log transformation eg. log(x+0.01) for RNA-seq data;
+                                 2: do count per median log transformation (CPMED) for scRNAs.
+  -p, --maxp arg (=40)           maximum number of power iterations for RSVD algorithm.
+  -S, --no-shuffle               do not shuffle columns of data for --svd 2 (if not locally correlated).
+  --emu                          use EMU algorithm for genotype input with missingness.
+  --pcangsd                      use PCAngsd algorithm for genotype likelihood input.
+
+Input options:
+  -b, --bfile arg                prefix of PLINK .bed/.bim/.fam files.
+  -B, --binary arg               path of binary file.
+  -c, --csv arg                  path of comma seperated CSV file compressed by zstd.
+  -g, --bgen arg                 path of BGEN file compressed by gzip/zstd.
+  -G, --beagle arg               path of BEAGLE file compressed by gzip.
+  -f, --match-bim arg            the .mbim file to be matched, where the 7th column is allele frequency.
+  --USV arg                      prefix of PCAone .eigvecs/.eigvals/.loadings/.mbim.
+
+Output options:
+  -o, --out arg (=pcaone)        prefix of output files. default [pcaone].
+  -V, --printv                   output the right eigenvectors with suffix .loadings.
+  -D, --ld                       output a binary matrix for downstream LD related analysis.
+  -R, --print-r2                 print LD R2 to *.ld.gz file for pairwise SNPs within a window controlled by --ld-bp.
+
+Misc options:
   --maf arg (=0)                 exclude variants with MAF lower than this value
-  --match-bim arg                the .mbim file to be matched, where the 7th column is allele frequency
-  --project arg (=0)             project the new samples onto the existing PCs.
-                                 0: disabled
-                                 1: by multiplying the loadings with mean imputation for missing genotypes
-                                 2: by solving the least squares system Vx=g. skip sites with missingness
-                                 3: by Augmentation, Decomposition and Procrusters transformation
-  --inbreed arg (=0)             compute the inbreeding coefficient accounting for population structure.
-                                 0: disabled
-                                 1: compute per-site inbreeding coefficient and HWE test
-  --ld                           output a binary matrix for downstream LD related analysis
-  --ld-r2 arg (=0)               r2 cutoff for LD-based pruning. (usually 0.2)
-  --ld-bp arg (=0)               physical distance threshold in bases for LD. (usually 1000000)
-  --ld-stats arg (=0)            statistics to calculate LD r2 for pairwise SNPs.
-                                 0: the ancestry adjusted, i.e. correlation between residuals
-                                 1: the standard, i.e. correlation between two alleles
-  --print-r2                     print LD r2 to *.ld.gz file for pairwise SNPs within a window
-  --clump arg                    assoc-like file with target variants and pvalues for clumping
-  --clump-names arg (=CHR,BP,P)  column names in assoc-like file for locating chr, pos and pvalue
-  --clump-p1 arg (=0.0001)       significance threshold for index SNPs
-  --clump-p2 arg (=0.01)         secondary significance threshold for clumped SNPs
-  --clump-r2 arg (=0.5)          r2 cutoff for LD-based clumping
-  --clump-bp arg (=250000)       physical distance threshold in bases for clumping
+  --project arg (=0)             project the new samples onto the existing PCs. Options are
+                                 0: disabled;
+                                 1: by multiplying the loadings with mean imputation for missing genotypes;
+                                 2: by solving the least squares system Vx=g. skip sites with missingness;
+                                 3: by Augmentation, Decomposition and Procrusters transformation.
+  --inbreed arg (=0)             compute the inbreeding coefficient accounting for population structure. Options are
+                                 0: disabled;
+                                 1: compute per-site inbreeding coefficient and HWE test.
+  --ld-r2 arg (=0)               R2 cutoff for LD-based pruning (usually 0.2).
+  --ld-bp arg (=0)               physical distance threshold in bases for LD window (usually 1000000).
+  --ld-stats arg (=0)            statistics to compute LD R2 for pairwise SNPs. Options are
+                                 0: the ancestry adjusted, i.e. correlation between residuals;
+                                 1: the standard, i.e. correlation between two alleles.
+  --clump arg                    assoc-like file with target variants and pvalues for clumping.
+  --clump-names arg (=CHR,BP,P)  column names in assoc-like file for locating chr, pos and pvalue.
+  --clump-p1 arg (=0.0001)       significance threshold for index SNPs.
+  --clump-p2 arg (=0.01)         secondary significance threshold for clumped SNPs.
+  --clump-r2 arg (=0.5)          r2 cutoff for LD-based clumping.
+  --clump-bp arg (=250000)       physical distance threshold in bases for clumping.
 #+end_src
 
 \newpage
