@@ -22,7 +22,7 @@ Param::Param(int argc, char **argv) {
                     "       $ PCAone -c csv.zst -d 0 \n\n" +
                     "       3) compute ancestry adjusted LD matrix and R2\n" +
                     "       $ PCAone -b plink -k 2 -D -o adj \n" +
-                    "       $ PCAone -B adj -f adj.mbim -R" +
+                    "       $ PCAone -B adj.residuals -f adj.mbim -R --ld-bp 1000" +
   "\n"};
   OptionParser opts(copyr);
   opts.add<Value<std::string>, Attribute::headline>("","PCAone","General options:");
