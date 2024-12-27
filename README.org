@@ -168,10 +168,7 @@ build PCAone from the source code, the following dependencies are required:
 - GNU make
 - zlib
 
-We *recommend* building the software from source with MKL as backend to
-maximize the performance. For MacOS users, we recommend using =llvm= by =brew
-install llvm= instead of the default =clang= shipped with MacOS. Check out the
-[[https://github.com/Zilong-Li/PCAone/blob/dev/.github/workflows/mac.yml#L21][mac workflow]].
+We *recommend* building the software from source with MKL as backend to maximize the performance. For MacOS users, we recommend =llvm= by =brew install llvm= instead of the default =clang= shipped with MacOS. Check out the [[https://github.com/Zilong-Li/PCAone/blob/dev/.github/workflows/mac.yml#L21][mac workflow]].
 
 *** With MKL or OpenBLAS as backend
 
@@ -296,14 +293,14 @@ This depends on your datasets, particularlly the relationship between number
 of samples (=N=) and the number of variants / features (=M=) and the top PCs
 (=k=). Here is an overview and the recommendation.
 
-|--------------------------+-----------+----------------------|
-| Method                   | Accuracy  | Scenario             |
-|--------------------------+-----------+----------------------|
-| IRAM (-d 0)              | Very high | =N < 1000=             |
-| Window-Based RSVD (-d 2) | Very high | =M > 1,000,000=        |
-| RSVD   (-d 1)            | High      | accuracy insensitive |
-| Full SVD     (-d 3)      | Exact     | cost insensitive     |
-|--------------------------+-----------+----------------------|
+|--------------------------+-----------+-------------------------------------------|
+| Method                   | Accuracy  | Scenario                                  |
+|--------------------------+-----------+-------------------------------------------|
+| IRAM (-d 0)              | Very high | large scale data with =N < 5000=            |
+| Window-based RSVD (-d 2) | Very high | large scale data with =M > 1,000,000=       |
+| RSVD (-d 1)              | High      | accuracy insensitive, any scale data      |
+| Full SVD (-d 3)          | Exact     | cost insensitive, full variance explained |
+|--------------------------+-----------+-------------------------------------------|
 
 ** Input formats
 
