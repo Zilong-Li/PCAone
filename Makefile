@@ -24,7 +24,7 @@ IOMP5         = 0
 
 ########################### end ###########################
 
-VERSION=0.4.9
+VERSION=0.5.0
 # detect OS architecture and add flags
 Platform     := $(shell uname -s)
 
@@ -135,7 +135,7 @@ else ifeq ($(Platform),Darwin)
 		MYFLAGS += -DEIGEN_USE_BLAS
 		INC     += -I${ACCELERATE_ROOT}/include
 		LPATHS  += -L${ACCELERATE_ROOT}/lib
-		DLIBS   += -Wl,-rpath,${ACCELERATE_ROOT}/lib -llapack -lblas -lgomp -lpthread
+		DLIBS   += -Wl,-rpath,${ACCELERATE_ROOT}/lib -llapack -lblas -lpthread
 
 	else
 		DLIBS += -lomp -lpthread -L$(LIB_PATH)
