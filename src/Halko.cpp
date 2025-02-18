@@ -115,6 +115,7 @@ void NormalRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
     if (pi > 0) {
       Eigen::HouseholderQR<Eigen::Ref<Mat2D>> qr(H);
       Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);  // hold H in Omega
+      PCAone::flipOmg(Omg2, Omg);
     }
     G.noalias() = data->G.transpose() * Omg;
     H.noalias() = data->G * G;
