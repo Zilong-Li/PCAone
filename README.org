@@ -92,7 +92,7 @@ See [[file:CHANGELOG.org][change log]] here.
 
 - If using the PCAngsd algorithm, please also cite [[https://www.genetics.org/content/210/2/719][Inferring Population Structure and Admixture Proportions in Low-Depth NGS Data]].
   
-- If using the ancestry ajusted LD statistics for pruning and clumping, please also cite [[https://doi.org/10.1101/2024.05.02.592187][Measuring linkage disequilibrium and improvement of pruning and clumping in structured populations]].
+- If using the ancestry ajusted LD statistics for pruning and clumping, please also cite [[ https://doi.org/10.1093/genetics/iyaf009][Measuring linkage disequilibrium and improvement of pruning and clumping in structured populations]].
 
 * Quick start
 
@@ -293,14 +293,14 @@ This depends on your datasets, particularlly the relationship between number
 of samples (=N=) and the number of variants / features (=M=) and the top PCs
 (=k=). Here is an overview and the recommendation.
 
-|--------------------------+-----------+-------------------------------------------|
-| Method                   | Accuracy  | Scenario                                  |
-|--------------------------+-----------+-------------------------------------------|
-| IRAM (-d 0)              | Very high | large scale data with =N < 5000=            |
-| Window-based RSVD (-d 2) | Very high | large scale data with =M > 1,000,000=       |
-| RSVD (-d 1)              | High      | accuracy insensitive, any scale data      |
-| Full SVD (-d 3)          | Exact     | cost insensitive, full variance explained |
-|--------------------------+-----------+-------------------------------------------|
+|--------------------------+-------------------------+-----------+-----------------------------------------|
+| Method                   | Scenario                | Accuracy  | Speed                                   |
+|--------------------------+-------------------------+-----------+-----------------------------------------|
+| Full SVD (-d 3)          | full variance explained | Exact     | slow for big =N= or =M=                     |
+| Window-based RSVD (-d 2) | data with =M >> N=        | Very high | fast (only 7 iterations used)           |
+| IRAM (-d 0)              | data with =N < 5000=      | Very high | denpends on =N= and # iterations          |
+| RSVD (-d 1)              | accuracy insensitive    | High      | depends on # iterations for convergence |
+|--------------------------+-------------------------+-----------+-----------------------------------------|
 
 ** Input formats
 
