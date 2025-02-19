@@ -49,6 +49,7 @@ class Param {
   bool perm = false;  // wheather data is permuted
   // for ld stuff
   bool print_r2 = false;
+  bool r2correction = false; // true if N < 20;
   // for ld pruning
   std::string filebim;  // the 7-th column can be MAF
   int ld_stats = 0;     // 0: adj; 1: std
@@ -86,7 +87,6 @@ class Param {
   bool readpi = false; // true if read U,S,V
   bool center = true; // false if G is raw data likelihood
   bool estaf = true; // false if project,inbreed enabled
-
   std::ostringstream ss;
 };
 

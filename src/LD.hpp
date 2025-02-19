@@ -31,6 +31,8 @@ Arr1D calc_sds(const Mat2D& X);
 
 double calc_cor(const Mat1D& x, const Mat1D& y, const double df);
 
+double calc_cor_correct_n(const Mat1D& x, const Mat1D& y);
+
 std::string get_snp_pos_bim(SNPld& snp, const std::string& filebim, bool header = false,
                             Int1D idx = Int1D{0, 3});
 
@@ -42,7 +44,7 @@ void ld_prune_small(Data* data, const std::string& fileout, const std::string& f
                     const double r2_tol);
 
 void ld_prune_big(const Mat2D& G, const SNPld& snp, double r2_tol, const std::string& fileout,
-                  const std::string& filebim);
+                  const std::string& filebim, const bool r2correction);
 
 void ld_clump_single_pheno(const std::string& fileout, const std::string& head, const int clump_bp,
                            const double clump_r2, const double clump_p1, const double clump_p2,

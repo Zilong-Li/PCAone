@@ -82,6 +82,7 @@ Param::Param(int argc, char **argv) {
   opts.add<Switch>("V", "printv", "output the right eigenvectors with suffix .loadings.", &printv);
   opts.add<Switch>("D", "ld", "output a binary matrix for downstream LD related analysis.", &ld);
   opts.add<Switch>("R", "print-r2", "print LD R2 to *.ld.gz file for pairwise SNPs within a window controlled by --ld-bp.", &print_r2);
+  opts.add<Switch>("T", "correction", "employ LD R2 correction for small sample size.", &r2correction);
   
   opts.add<Value<std::string>, Attribute::headline>("","MISC","Misc options:");
   opts.add<Value<double>>("", "maf", "exclude variants with MAF lower than this value", maf, &maf);

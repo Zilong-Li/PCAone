@@ -7,6 +7,7 @@
 #include "LD.hpp"
 
 #include <zlib.h>
+
 #include <cstddef>
 
 #include "Cmd.hpp"
@@ -25,7 +26,7 @@ Arr1D calc_sds(const Mat2D& X) {
 // compute the peason correlation coefficient
 // should check x.size()==y.size()
 double calc_cor(const Mat1D& x, const Mat1D& y, const double df) {
-  int N = x.size();
+  const size_t N = x.size();
   double numerator = x.dot(y);
   // Calculate variances with N-1 degrees of freedom
   double var_x = x.dot(x) / (N - 1);
@@ -46,6 +47,25 @@ double calc_cor(const Mat1D& x, const Mat1D& y, const double df) {
   double sd_x = 1.0 / std::sqrt(var_x);
   double sd_y = 1.0 / std::sqrt(var_y);
   return numerator * sd_x * sd_y * df;
+}
+
+// cor correction for small N
+double calc_cor_correct_n(const Mat1D& x, const Mat1D& y) {
+  const size_t N = x.size();
+  const double df = 2.0 * (N - 1);
+  const double mu_x = x.sum() / x.size();
+  const double mu_y = y.sum() / y.size();
+  const double sig_x = (x.dot(x) - N * (mu_x * mu_x)) / df;  // variance of x
+  const double sig_y = (y.dot(y) - N * (mu_y * mu_y)) / df;  // variance of y
+  const double Dxy = (x.dot(y) - N * mu_x * mu_y) / df;      // covariance between x and y
+  AreClose isClose;
+  if (isClose(Dxy * Dxy, sig_x * sig_y)) {
+    return 1.0;
+  } else {
+    return 1.0 + (Dxy * Dxy - sig_x * sig_y) /
+                     (-1.0 / (double)N * Dxy * Dxy + (double)(N - 1) / N * sig_x * sig_y -
+                      (double)(N - 2) / (2 * (N - 1) * (N - 1)) * Dxy * (mu_x - 1.0) * (mu_y - 1.0));
+  }
 }
 
 std::string get_snp_pos_bim(SNPld& snp, const std::string& filebim, bool header, Int1D idx) {
@@ -416,24 +436,35 @@ void ld_r2_small(Data* data, const SNPld& snp, const std::string& filebim, const
   gzclose(gzfp);
 }
 
-void ld_r2_big(const Mat2D& G, const SNPld& snp, const std::string& filebim, const std::string& fileout) {
+void ld_r2_big(const Mat2D& G, const SNPld& snp, const std::string& filebim, const std::string& fileout,
+               const bool r2correction) {
   std::ifstream fin(filebim);
   if (!fin.is_open()) cao.error("can not open " + filebim);
   String1D bims(std::istream_iterator<BIM>{fin}, std::istream_iterator<BIM>{});
-  Arr1D sds = 1.0 / calc_sds(G);
   const double df = 1.0 / (G.rows() - 1);  // N-1
+  Arr1D sds;
+  if (!r2correction) {
+    sds = 1.0 / calc_sds(G);
+  } else {
+    cao.print("employ sample size correction");
+  }
   gzFile gzfp = gzopen(fileout.c_str(), "wb");
   std::string line{"CHR_A\tBP_A\tSNP_A\tCHR_B\tBP_B\tSNP_B\tR2\n"};
   gzwrite(gzfp, line.c_str(), line.size());
-
+  double r{0.0};
   for (int w = 0; w < (int)snp.ws.size(); w++) {
     int i = snp.ws[w];
 
     for (int j = 1; j < snp.we[w]; j++) {
       int k = i + j;
-      double r = G.col(i).dot(G.col(k)) * (sds(i) * sds(k) * df);
+      if (r2correction) {
+        r = calc_cor_correct_n(G.col(i), G.col(k));
+      } else {
+        r = G.col(i).dot(G.col(k)) * (sds(i) * sds(k) * df);
+        r *= r;
+      }
       //// FIXME: this would be slow
-      line = bims[i] + "\t" + bims[k] + "\t" + std::to_string(r * r) + "\n";
+      line = bims[i] + "\t" + bims[k] + "\t" + std::to_string(r) + "\n";
       if (gzwrite(gzfp, line.c_str(), line.size()) != static_cast<int>(line.size()))
         cao.error("failed to write data to ld.gz file");
     }
@@ -465,7 +496,7 @@ void run_ld_stuff(Data* data, const Param& params) {
         // data->G.rowwise() -= data->G.colwise().mean();  // Centering
       }
       if (params.print_r2) {
-        ld_r2_big(data->G, snp, params.filebim, params.fileout + ".ld.gz");
+        ld_r2_big(data->G, snp, params.filebim, params.fileout + ".ld.gz", params.r2correction);
       } else {
         ld_prune_big(data->G, snp, params.ld_r2, params.fileout, params.filebim);
       }
