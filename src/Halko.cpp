@@ -36,7 +36,7 @@ Mat2D RsvdOpData::computeU(const Mat2D& G, const Mat2D& H) {
   // B is size x ncol
   // R.T * B = H.T
   Mat2D B = R.transpose().fullPivHouseholderQr().solve(H.transpose());
-  Eigen::BDCSVD<Mat2D> svd(B, Eigen::ComputeThinU | Eigen::ComputeThinV);
+  Eigen::JacobiSVD<Mat2D> svd(B, Eigen::ComputeThinU | Eigen::ComputeThinV);
   // B is K x nsamples, thus we use matrixV() for PCs
   return svd.matrixV().leftCols(nk);
 }
@@ -64,7 +64,7 @@ void RsvdOpData::computeUSV(int p, double tol) {
     // B is size x ncol
     // R.T * B = H.T
     B.noalias() = R.transpose().fullPivHouseholderQr().solve(H.transpose());
-    Eigen::BDCSVD<Mat2D> svd(B, Eigen::ComputeThinU | Eigen::ComputeThinV);
+    Eigen::JacobiSVD<Mat2D> svd(B, Eigen::ComputeThinU | Eigen::ComputeThinV);
     U = svd.matrixV().leftCols(nk);
     if (pi > 0) {
       if (data->params.mev)
@@ -206,17 +206,16 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
       if ((b + 1) < bandsize && !adjacent) continue;
 
       // add up H and update Omg
-      if ((i == bandsize) || (i == bandsize / 2) || adjacent) {
-        H = H1 + H2;
-        Eigen::HouseholderQR<Mat2D> qr(H);
-        Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
-        PCAone::flipOmg(Omg2, Omg);
-        if (i == bandsize) {
-          H1.setZero();
-          i = 0;
-        } else {
-          H2.setZero();
-        }
+      if (!((i == bandsize) || (i == bandsize / 2) || adjacent)) continue;
+      H = H1 + H2;
+      Eigen::HouseholderQR<Mat2D> qr(H);
+      Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
+      PCAone::flipOmg(Omg2, Omg);
+      if (i == bandsize) {
+        H1.setZero();
+        i = 0;
+      } else {
+        H2.setZero();
       }
     }
 
@@ -253,17 +252,16 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
 
     // cao.print("i:", i, ",j:", j, ",bandsize:", bandsize, ",pi:", pi);
     // add up H and update Omg
-    if ((i == bandsize) || (i == bandsize / 2) || adjacent) {
-      H = H1 + H2;
-      Eigen::HouseholderQR<Mat2D> qr(H);
-      Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
-      PCAone::flipOmg(Omg2, Omg);
-      if (i == bandsize) {
-        H1.setZero();
-        i = 0;
-      } else {
-        H2.setZero();
-      }
+    if (!((i == bandsize) || (i == bandsize / 2) || adjacent)) continue;
+    H = H1 + H2;
+    Eigen::HouseholderQR<Mat2D> qr(H);
+    Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
+    PCAone::flipOmg(Omg2, Omg);
+    if (i == bandsize) {
+      H1.setZero();
+      i = 0;
+    } else {
+      H2.setZero();
     }
   }
 }

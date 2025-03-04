@@ -1,11 +1,12 @@
 ######################### configure ################
 
-# for mkl
-# MKLROOT=$HOME/intel/oneapi/mkl/latest # for linux
-# MKLROOT=/opt/intel/oneapi/mkl/latest  # for mac
+# MKLROOT=/opt/intel/oneapi/mkl/latest 
+MKLROOT            =
+# /opt/intel/oneapi/compiler/latest/lib/
+ONEAPI_COMPILER   := ${MKLROOT}
+ONEAPI_OMP5       := $(ONEAPI_COMPILER)/lib/libiomp5.a
 # make sure libiomp5 can be found on mac
 # ln -s /opt/intel/oneapi/compiler/latest/mac/compiler/lib/libiomp5.dylib /opt/intel/oneapi/mkl/latest/lib/
-MKLROOT       =
 
 # install openblas lapack on mac with brew install openblas lapack
 # OPENBLAS_ROOT = /usr/local/opt/openblas
@@ -20,11 +21,15 @@ ACCELERATE_ROOT =
 # by default dynamical linking
 STATIC        = 0
 # only if static = 1, IOMP5 works
-IOMP5         = 0
+IOMP5         = 1
+
+# static libz
+STATIC_LIBZ := /usr/lib64/libz.a # /usr/lib/x86_64-linux-gnu/libz.a
+
 
 ########################### end ###########################
 
-VERSION=0.4.9
+VERSION=0.5.0
 # detect OS architecture and add flags
 Platform     := $(shell uname -s)
 
@@ -68,12 +73,9 @@ ifeq ($(strip $(STATIC)),1)
 			# CFLAGS += -Xpreprocessor -fopenmp
 		endif
 	else
-		SLIBS    += /usr/lib64/libz.a
-		ifeq ($(strip $(IOMP5)), 1)
-			CXXFLAGS += -static-libgcc -static-libstdc++
-		else
-			CXXFLAGS += -static
-		endif
+		SLIBS    += ${STATIC_LIBZ}
+		# CXXFLAGS += -static-libgcc -static-libstdc++
+		CXXFLAGS += -static
 	endif
 else
 	DLIBS    += -lz
@@ -86,15 +88,14 @@ ifeq ($(Platform),Linux)
 	ifneq ($(strip $(MKLROOT)),)
 		MYFLAGS += -DWITH_MKL -DEIGEN_USE_MKL_ALL
 		INC     += -I${MKLROOT}/include/
-		LPATHS  += -L${MKLROOT}/lib -L${MKLROOT}/lib/intel64
 		ifeq ($(strip $(STATIC)),1)
 			ifeq ($(strip $(IOMP5)), 1)
-				SLIBS += -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_intel_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -liomp5 -lpthread
+				SLIBS += -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_intel_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a ${ONEAPI_OMP5} -Wl,--end-group -L${ONEAPI_COMPILER}/lib -lpthread
 			else
 				SLIBS += -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_gnu_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -lgomp -lpthread
 			endif
 		else
-			DLIBS += -Wl,--no-as-needed -Wl,-rpath,${MKLROOT}/lib,-rpath,${MKLROOT}/lib/intel64 -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread
+			DLIBS += -Wl,--no-as-needed -Wl,-rpath,${ONEAPI_COMPILER}/lib,-rpath,${MKLROOT}/lib/intel64 -L${ONEAPI_COMPILER}/lib -L${MKLROOT}/lib/intel64 -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread
 		endif
 
 	else ifneq ($(strip $(OPENBLAS_ROOT)),)
@@ -152,14 +153,14 @@ OBJ = src/Arnoldi.o src/Halko.o src/Data.o src/Utils.o src/Cmd.o \
 
 SLIBS += ./external/bgen/bgenlib.a ./external/zstd/lib/libzstd.a
 
-LIBS += ${SLIBS} ${DLIBS} -lm -ldl
+LIBS += ${SLIBS} ${DLIBS} -ldl -lm
 
 .PHONY: all clean ld_matrix ld_r2 ld_prune ld_clump ld_tests
 
 all: ${program}
 
 ${program}: zstdlib bgenlib pcaonelib src/Main.o
-	$(CXX) $(CXXFLAGS) -o $(program) src/Main.o ${PCALIB} ${LPATHS} ${LIBS} ${LDFLAGS}
+	$(CXX) $(CXXFLAGS) -o $(program) src/Main.o ${PCALIB} ${LPATHS} ${LIBS}
 
 %.o: %.cpp
 	${CXX} ${CXXFLAGS} ${MYFLAGS} -o $@ -c $< ${INC}
