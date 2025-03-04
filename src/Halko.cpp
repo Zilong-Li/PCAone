@@ -174,7 +174,7 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
       // blocksize: how many snps in each block
       blocksize = (unsigned int)ceil((double)data->nsnps / data->params.bands);
       if (blocksize < data->params.bands)
-        cao.warn("block size < window size. please consider the IRAM method with --svd 1");
+        cao.warn("block size < window size. please consider the IRAM method with --svd 0");
       if (data->params.perm) {
         cao.print(tick.date(), "permuting data matrix by columns in place");
         PCAone::permute_matrix(data->G, data->perm);
@@ -183,34 +183,30 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
     // bandsize: how many blocks in each band, 2, 4, 8, 16, 32, 64, ...
     bandsize = fmin(bandsize * 2, data->params.bands);
     // b: the index of current block
-    for (uint b = 0, i = 1, j = 1; b < data->params.bands; ++b, ++i, ++j) {
+    for (uint b = 0, i = 1; b < data->params.bands; ++b, ++i) {
       start_idx = b * blocksize;
       stop_idx = (b + 1) * blocksize >= data->nsnps ? data->nsnps - 1 : (b + 1) * blocksize - 1;
       actual_block_size = stop_idx - start_idx + 1;
       G.middleRows(start_idx, actual_block_size).noalias() =
           data->G.middleCols(start_idx, actual_block_size).transpose() * Omg;
-      if (pi > 0 && j <= std::pow(2, pi - 1) && std::pow(2, pi) < data->params.bands) {
-        H1.noalias() +=
-            data->G.middleCols(start_idx, actual_block_size) * G.middleRows(start_idx, actual_block_size);
-        // additional complementary power iteration for last read
-        if (j == std::pow(2, pi - 1)) {
-          H = H1 + H2;
-          Eigen::HouseholderQR<Mat2D> qr(H);
-          Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
-          PCAone::flipOmg(Omg2, Omg);
-          H2.setZero();
-        }
-      } else if (i <= bandsize / 2) {
+
+      if (i <= bandsize / 2) {
         // continues to add in data based on current band
         H1.noalias() +=
             data->G.middleCols(start_idx, actual_block_size) * G.middleRows(start_idx, actual_block_size);
-      } else if (i > bandsize / 2 && i <= bandsize) {
+      } else {
         H2.noalias() +=
             data->G.middleCols(start_idx, actual_block_size) * G.middleRows(start_idx, actual_block_size);
       }
-      if ((b + 1) < bandsize) continue;
+
+      // use the first quarter band of succesive iteration (H1)
+      // for extra power iteration updates with the last used band (H2)
+      const bool adjacent =
+          (pi > 0 && (b + 1) == std::pow(2, pi - 1) && std::pow(2, pi) < data->params.bands);
+      if ((b + 1) < bandsize && !adjacent) continue;
+
       // add up H and update Omg
-      if ((i == bandsize) || (i == bandsize / 2)) {
+      if ((i == bandsize) || (i == bandsize / 2) || adjacent) {
         H = H1 + H2;
         Eigen::HouseholderQR<Mat2D> qr(H);
         Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
@@ -218,7 +214,7 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
         if (i == bandsize) {
           H1.setZero();
           i = 0;
-        } else if (i == bandsize / 2) {
+        } else {
           H2.setZero();
         }
       }
@@ -232,7 +228,7 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
   data->check_file_offset_first_var();
   // band : 2, 4, 8, 16, 32, 64
   bandsize = fmin(bandsize * 2, data->nblocks);
-  for (uint b = 0, i = 1, j = 1; b < data->nblocks; ++b, ++i, ++j) {
+  for (uint b = 0, i = 1; b < data->nblocks; ++b, ++i) {
     start_idx = data->start[b];
     stop_idx = data->stop[b];
     actual_block_size = stop_idx - start_idx + 1;
@@ -244,24 +240,20 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
     }
     data->readtime += tick.reltime();
     G.middleRows(start_idx, actual_block_size).noalias() = data->G.transpose() * Omg;
-    if (pi > 0 && j <= std::pow(2, pi - 1) * data->bandFactor && std::pow(2, pi) < data->params.bands) {
+
+    if (i <= bandsize / 2) {
       H1.noalias() += data->G * G.middleRows(start_idx, actual_block_size);
-      // additional complementary power iteration for last read
-      if (j == std::pow(2, pi - 1)) {
-        H = H1 + H2;
-        Eigen::HouseholderQR<Mat2D> qr(H);
-        Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
-        PCAone::flipOmg(Omg2, Omg);
-        H2.setZero();
-      }
-    } else if (i <= bandsize / 2) {
-      H1.noalias() += data->G * G.middleRows(start_idx, actual_block_size);
-    } else if (i > bandsize / 2 && i <= bandsize) {
+    } else {
       H2.noalias() += data->G * G.middleRows(start_idx, actual_block_size);
     }
-    if ((b + 1) < bandsize) continue;
+
+    const bool adjacent =
+        (pi > 0 && (b + 1) == std::pow(2, pi - 1) * data->bandFactor && std::pow(2, pi) < data->params.bands);
+    if ((b + 1) < bandsize && !adjacent) continue;
+
+    // cao.print("i:", i, ",j:", j, ",bandsize:", bandsize, ",pi:", pi);
     // add up H and update Omg
-    if ((i == bandsize) || (i == bandsize / 2)) {
+    if ((i == bandsize) || (i == bandsize / 2) || adjacent) {
       H = H1 + H2;
       Eigen::HouseholderQR<Mat2D> qr(H);
       Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);
@@ -269,7 +261,7 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
       if (i == bandsize) {
         H1.setZero();
         i = 0;
-      } else if (i == bandsize / 2) {
+      } else {
         H2.setZero();
       }
     }
