@@ -15,15 +15,13 @@ jobs:
     - uses: actions/checkout@v3
 
     - name: install dependency
-      run: brew install llvm
+      run: brew install libomp
 
     - name: make
       run: |
-        export CC=$(brew --prefix llvm)/bin/clang
-        export CXX=$(brew --prefix llvm)/bin/clang++
-        export LDFLAGS="-L"$(brew --prefix llvm)/lib
-        export CPPFLAGS="-I"$(brew --prefix llvm)/include
-        make -j4 AVX=0 INC_PATH=$(brew --prefix llvm)/include LIB_PATH=$(brew --prefix llvm)/lib
+        export LDFLAGS="-L"$(brew --prefix libomp)/lib
+        export CPPFLAGS="-I"$(brew --prefix libomp)/include
+        make -j4 
 
     - name: test
       run: ./PCAone --help

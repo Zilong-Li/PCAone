@@ -1,5 +1,11 @@
 ######################### configure ################
 
+VERSION=0.5.0
+# detect OS architecture and add flags
+Platform     := $(shell uname -s)
+
+$(info "building PCAone on ${Platform} -- version ${VERSION}")
+
 # MKLROOT=/opt/intel/oneapi/mkl/latest 
 MKLROOT            =
 # /opt/intel/oneapi/compiler/latest/lib/
@@ -8,32 +14,18 @@ ONEAPI_OMP5       := $(ONEAPI_COMPILER)/lib/libiomp5.a
 # make sure libiomp5 can be found on mac
 # ln -s /opt/intel/oneapi/compiler/latest/mac/compiler/lib/libiomp5.dylib /opt/intel/oneapi/mkl/latest/lib/
 
+# for MacOS use accelerate framework in default
 # install openblas lapack on mac with brew install openblas lapack
-# OPENBLAS_ROOT = /usr/local/opt/openblas
-# LAPACK_ROOT   = /usr/local/opt/lapack
-OPENBLAS_ROOT =
-LAPACK_ROOT   =
+OPENBLAS_ROOT  =
+LAPACK_ROOT   := ${OPENBLAS_ROOT}
 
-# for MacOS
-# use accelerate framework as blas lib
-ACCELERATE_ROOT =
 
-# by default dynamical linking
-STATIC        = 0
-# only if static = 1, IOMP5 works
-IOMP5         = 1
-
-# static libz
-STATIC_LIBZ := /usr/lib64/libz.a # /usr/lib/x86_64-linux-gnu/libz.a
-
+STATIC        = 0  # by default dynamical linking
+IOMP5         = 1  # use libiomp5 for mkl
+AVX           = 1  # enable avx2 fma
+DEBUG         = 0  # debug
 
 ########################### end ###########################
-
-VERSION=0.5.0
-# detect OS architecture and add flags
-Platform     := $(shell uname -s)
-
-$(info "building PCAone on ${Platform} -- version ${VERSION}")
 
 
 ####### INC, LPATHS, LIBS, MYFLAGS
@@ -43,42 +35,21 @@ CXXSTD         = c++17  # default c++17 if not set by the user
 CXXFLAGS	  += -O3 -Wall -std=$(CXXSTD) -m64 -fPIC
 MYFLAGS        = -DVERSION=\"$(VERSION)\"
 # CURRENT_DIR   = $(shell pwd)
-INC_PATH       = /usr/local/include
-LIB_PATH       = /usr/local/lib
 INC           = -I./external -I./external/zstd/lib
 PCALIB = libpcaone.a
-AVX = 1
-DEBUG = 0
 
-ifeq ($(strip $(AVX)),1)
-  $(info "use -mavx2 for PCAone")
-  CXXFLAGS += -mavx2 -mfma
+ifeq ($(Platform), Darwin)
+	CXXFLAGS += -march=native
+else
+	ifeq ($(strip $(AVX)),1)
+		$(info "use -mavx2 for PCAone")
+		CXXFLAGS += -mavx2 -mfma
+	endif
 endif
 
 ifeq ($(strip $(DEBUG)),1)
   $(info "use -mavx2 for PCAone")
   MYFLAGS += -DDEBUG
-endif
-
-ifeq ($(strip $(STATIC)),1)
-	ifeq ($(Platform), Darwin)
-		SLIBS += /usr/local/opt/zlib/lib/libz.a
-		ifeq ($(strip $(IOMP5)), 1)
-			SLIBS += /usr/local/opt/gcc/lib/gcc/11/libgomp.a  # gcc need libgomp.a
-			CXXFLAGS += -static-libgcc
-			MYFLAGS  += -fopenmp
-		else
-			SLIBS += /usr/local/lib/libomp.a  # clang needs libomp.a
-			CXXFLAGS += -stdlib=libc++
-			# CFLAGS += -Xpreprocessor -fopenmp
-		endif
-	else
-		SLIBS    += ${STATIC_LIBZ}
-		# CXXFLAGS += -static-libgcc -static-libstdc++
-		CXXFLAGS += -static
-	endif
-else
-	DLIBS    += -lz
 endif
 
 
@@ -90,58 +61,61 @@ ifeq ($(Platform),Linux)
 		INC     += -I${MKLROOT}/include/
 		ifeq ($(strip $(STATIC)),1)
 			ifeq ($(strip $(IOMP5)), 1)
-				SLIBS += -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_intel_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a ${ONEAPI_OMP5} -Wl,--end-group -L${ONEAPI_COMPILER}/lib -lpthread
+				SLIBS += -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_intel_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a ${ONEAPI_OMP5} -Wl,--end-group -L${ONEAPI_COMPILER}/lib
 			else
-				SLIBS += -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_gnu_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -lgomp -lpthread
+				SLIBS += -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_gnu_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -lgomp
 			endif
 		else
-			DLIBS += -Wl,--no-as-needed -Wl,-rpath,${ONEAPI_COMPILER}/lib,-rpath,${MKLROOT}/lib/intel64 -L${ONEAPI_COMPILER}/lib -L${MKLROOT}/lib/intel64 -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread
+			DLIBS += -Wl,--no-as-needed -Wl,-rpath,${ONEAPI_COMPILER}/lib,-rpath,${MKLROOT}/lib/intel64 -L${ONEAPI_COMPILER}/lib -L${MKLROOT}/lib/intel64 -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5
 		endif
 
 	else ifneq ($(strip $(OPENBLAS_ROOT)),)
 		MYFLAGS += -DWITH_OPENBLAS -DEIGEN_USE_BLAS -DEIGEN_USE_LAPACKE
 		INC     += -I${OPENBLAS_ROOT}/include -I${LAPACK_ROOT}/include
 		LPATHS  += -L${OPENBLAS_ROOT}/lib -L${LAPACK_ROOT}/lib
-		DLIBS   += -llapack -llapacke -lopenblas -lgfortran -lgomp -lpthread
+		DLIBS   += -llapack -llapacke -lopenblas -lgfortran -lgomp
 
 	else
-		DLIBS   += -lgomp -lpthread
+		DLIBS   += -lgomp
 	endif
 
 else ifeq ($(Platform),Darwin)
 ###### for mac
 	MYFLAGS  += -Xpreprocessor -fopenmp
-	INC      += -I$(INC_PATH)
-	ifneq ($(strip $(MKLROOT)),)
-		MYFLAGS += -DWITH_MKL -DEIGEN_USE_MKL_ALL
-		INC     += -I${MKLROOT}/include/
-		LPATHS  += -L${MKLROOT}/lib
+
+	ifneq ($(strip $(OPENBLAS_ROOT)),)
+		MYFLAGS += -DWITH_OPENBLAS -DEIGEN_USE_BLAS -DEIGEN_USE_LAPACKE
 		ifeq ($(strip $(STATIC)),1)
-			ifeq ($(strip $(IOMP5)), 1)
-				SLIBS += ${MKLROOT}/lib/libmkl_intel_lp64.a ${MKLROOT}/lib/libmkl_intel_thread.a ${MKLROOT}/lib/libmkl_core.a -liomp5 -lpthread
-			else
-				SLIBS += ${MKLROOT}/lib/libmkl_intel_lp64.a ${MKLROOT}/lib/libmkl_sequential.a ${MKLROOT}/lib/libmkl_core.a -lpthread
-			endif
+			# SLIBS += /usr/local/opt/gcc/lib/gcc/11/libgomp.a  # gcc need libgomp.a	
+			SLIBS += /opt/homebrew/opt/openblas/lib/libopenblas.a /opt/homebrew/opt/libomp/lib/libomp.a -L/opt/homebrew/opt/gcc/lib/gcc/14/ -lgfortran 
 		else
-			DLIBS += -Wl,-rpath,${MKLROOT}/lib -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread
+			DLIBS   += -lopenblas -lomp 
 		endif
 
-	else ifneq ($(strip $(OPENBLAS_ROOT)),)
-		MYFLAGS += -DWITH_OPENBLAS -DEIGEN_USE_BLAS -DEIGEN_USE_LAPACKE
-		INC     += -I${OPENBLAS_ROOT}/include -I${LAPACK_ROOT}/include
-		LPATHS  += -L${OPENBLAS_ROOT}/lib -L${LAPACK_ROOT}/lib
-		DLIBS   += -llapack -llapacke -lopenblas -lgfortran -lgomp -lpthread
-
-	else ifneq ($(strip $(ACCELERATE_ROOT)),)
+	else 	
 		MYFLAGS += -DEIGEN_USE_BLAS
-		INC     += -I${ACCELERATE_ROOT}/include
-		LPATHS  += -L${ACCELERATE_ROOT}/lib
-		DLIBS   += -Wl,-rpath,${ACCELERATE_ROOT}/lib -llapack -lblas -lgomp -lpthread
+		ifeq ($(strip $(STATIC)),1)
+			SLIBS += /opt/homebrew/opt/libomp/lib/libomp.a -framework Accelerate
+		else
+			DLIBS   += -lomp -framework Accelerate
+		endif
 
-	else
-		DLIBS += -lomp -lpthread -L$(LIB_PATH)
 	endif
 
+endif
+
+## libz
+ifeq ($(strip $(STATIC)),1)
+	ifeq ($(Platform), Darwin)
+		SLIBS += /opt/homebrew/opt/zlib/lib/libz.a
+		# CXXFLAGS += -stdlib=libc++
+	else
+		SLIBS    += /usr/lib64/libz.a # /usr/lib/x86_64-linux-gnu/libz.a
+		CXXFLAGS += -static
+		# CXXFLAGS += -static-libgcc -static-libstdc++
+	endif
+else
+	DLIBS    += -lz
 endif
 
 # OBJ = $(patsubst %.cpp, %.o, $(wildcard ./src/*.cpp))
@@ -153,17 +127,17 @@ OBJ = src/Arnoldi.o src/Halko.o src/Data.o src/Utils.o src/Cmd.o \
 
 SLIBS += ./external/bgen/bgenlib.a ./external/zstd/lib/libzstd.a
 
-LIBS += ${SLIBS} ${DLIBS} -ldl -lm
+LIBS += ${SLIBS} ${DLIBS} -lpthread -ldl -lm
 
 .PHONY: all clean ld_matrix ld_r2 ld_prune ld_clump ld_tests
 
 all: ${program}
 
 ${program}: zstdlib bgenlib pcaonelib src/Main.o
-	$(CXX) $(CXXFLAGS) -o $(program) src/Main.o ${PCALIB} ${LPATHS} ${LIBS}
+	$(CXX) $(CXXFLAGS) -o $(program) src/Main.o ${PCALIB} ${LPATHS} ${LIBS} ${LDFLAGS}
 
 %.o: %.cpp
-	${CXX} ${CXXFLAGS} ${MYFLAGS} -o $@ -c $< ${INC}
+	${CXX} ${CXXFLAGS} ${MYFLAGS} -o $@ -c $< ${INC} ${CPPFLAGS}
 
 zstdlib:
 	(cd ./external/zstd/lib/; $(MAKE) lib-nomt)

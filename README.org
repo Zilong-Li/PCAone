@@ -168,17 +168,27 @@ build PCAone from the source code, the following dependencies are required:
 - GNU make
 - zlib
 
-We *recommend* building the software from source with MKL as backend to maximize the performance. For MacOS users, we recommend =llvm= by =brew install llvm= instead of the default =clang= shipped with MacOS. Check out the [[https://github.com/Zilong-Li/PCAone/blob/dev/.github/workflows/mac.yml#L21][mac workflow]].
+On Linux, we *recommend* building the software from source with MKL as backend to maximize the performance.
 
 *** With MKL or OpenBLAS as backend
 
-Build PCAone dynamically with MKL can maximize the performance since the
-faster threading layer =libiomp5= will be linked at runtime. One can obtain
-the MKL by one of the following option:
+Build PCAone dynamically with MKL can maximize the performance for large
+dataset particularly, because the faster threading layer =libiomp5= will be
+linked at runtime. There are two options to obtain MKL library:
 
-- install =mkl= by conda
+- download =MKL= from [[https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl.html][the website]]
 
-#+begin_src sh
+After having =MKL= installed, find the =MKL= root path and replace the path below with your own.
+
+#+begin_src shell
+make -j4 MKLROOT=/opt/intel/oneapi/mkl/latest  ONEAPI_COMPILER=/opt/intel/oneapi/compiler/latest
+#+end_src
+
+Alternatively, for advanced user, modify variables directly in =Makefile= and run =make= to use MKL or OpenBlas as backend.
+
+- install =MKL= by conda
+
+#+begin_src shell
 conda install -c conda-forge -c anaconda -y mkl mkl-include intel-openmp
 git clone https://github.com/Zilong-Li/PCAone.git
 cd PCAone
@@ -186,19 +196,6 @@ cd PCAone
 make -j4 MKLROOT=${CONDA_PREFIX}
 ./PCAone -h
 #+end_src
-
-- download =mkl= from [[https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl.html][the website]]
-
-After having =mkl= installed, find the =mkl= root path and replace the path
-below with your own.
-
-#+begin_src shell
-# if libiomp5 is not in the mklroot path, please link it to $MKLROOT/lib folder
-make -j4 MKLROOT=/path/to/mklroot
-#+end_src
-
-Alternatively, for advanced user, modify variables directly in =Makefile=
-and run =make= to use MKL or OpenBlas as backend.
 
 *** Without MKL or OpenBLAS dependency
 
@@ -212,6 +209,15 @@ make -j4
 #+end_src
 
 If this doesn't work because the server is too outdated, run =make clean && make -j4 AVX=0= instead.
+
+*** For MacOS users, check out the [[https://github.com/Zilong-Li/PCAone/blob/dev/.github/workflows/mac.yml#L21][mac workflow]].
+
+#+begin_src shell
+brew install libomp
+export LDFLAGS="-L"$(brew --prefix libomp)/lib
+export CPPFLAGS="-I"$(brew --prefix libomp)/include
+make -j4 
+#+end_src
 
 \newpage
 
