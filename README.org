@@ -208,8 +208,6 @@ make -j4
 ./PCAone -h
 #+end_src
 
-If this doesn't work because the server is too outdated, run =make clean && make -j4 AVX=0= instead.
-
 *** For MacOS users, check out the [[https://github.com/Zilong-Li/PCAone/blob/dev/.github/workflows/mac.yml#L21][mac workflow]].
 
 #+begin_src shell

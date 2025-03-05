@@ -16,14 +16,13 @@ ONEAPI_OMP5       := $(ONEAPI_COMPILER)/lib/libiomp5.a
 
 # for MacOS use accelerate framework in default
 # install openblas lapack on mac with brew install openblas lapack
-OPENBLAS_ROOT  =
-LAPACK_ROOT   := ${OPENBLAS_ROOT}
+OPENBLAS  =
 
 
 STATIC        = 0  # by default dynamical linking
 IOMP5         = 1  # use libiomp5 for mkl
-AVX           = 1  # enable avx2 fma
 DEBUG         = 0  # debug
+AVX           =    # 1: enable avx2 fma, 0: do nothing
 
 ########################### end ###########################
 
@@ -31,8 +30,8 @@ DEBUG         = 0  # debug
 ####### INC, LPATHS, LIBS, MYFLAGS
 program       = PCAone
 CXX           ?= g++    # use default g++ only if not set in env
-CXXSTD         = c++17  # default c++17 if not set by the user
-CXXFLAGS	  += -O3 -Wall -std=$(CXXSTD) -m64 -fPIC
+CXXSTD         = c++17
+CXXFLAGS	  += -O3 -Wall -std=$(CXXSTD) -m64
 MYFLAGS        = -DVERSION=\"$(VERSION)\"
 # CURRENT_DIR   = $(shell pwd)
 INC           = -I./external -I./external/zstd/lib
@@ -41,15 +40,15 @@ PCALIB = libpcaone.a
 ifeq ($(Platform), Darwin)
 	CXXFLAGS += -march=native
 else
-	ifeq ($(strip $(AVX)),1)
-		$(info "use -mavx2 for PCAone")
+	ifeq ($(strip $(AVX)),)
+		CXXFLAGS += -march=native
+	else ifeq ($(strip $(AVX)),1)
 		CXXFLAGS += -mavx2 -mfma
 	endif
 endif
 
 ifeq ($(strip $(DEBUG)),1)
-  $(info "use -mavx2 for PCAone")
-  MYFLAGS += -DDEBUG
+	MYFLAGS += -DDEBUG
 endif
 
 
@@ -69,10 +68,8 @@ ifeq ($(Platform),Linux)
 			DLIBS += -Wl,--no-as-needed -Wl,-rpath,${ONEAPI_COMPILER}/lib,-rpath,${MKLROOT}/lib/intel64 -L${ONEAPI_COMPILER}/lib -L${MKLROOT}/lib/intel64 -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5
 		endif
 
-	else ifneq ($(strip $(OPENBLAS_ROOT)),)
+	else ifneq ($(strip $(OPENBLAS)),)
 		MYFLAGS += -DWITH_OPENBLAS -DEIGEN_USE_BLAS -DEIGEN_USE_LAPACKE
-		INC     += -I${OPENBLAS_ROOT}/include -I${LAPACK_ROOT}/include
-		LPATHS  += -L${OPENBLAS_ROOT}/lib -L${LAPACK_ROOT}/lib
 		DLIBS   += -llapack -llapacke -lopenblas -lgfortran -lgomp
 
 	else
@@ -83,7 +80,7 @@ else ifeq ($(Platform),Darwin)
 ###### for mac
 	MYFLAGS  += -Xpreprocessor -fopenmp
 
-	ifneq ($(strip $(OPENBLAS_ROOT)),)
+	ifneq ($(strip $(OPENBLAS)),)
 		MYFLAGS += -DWITH_OPENBLAS -DEIGEN_USE_BLAS -DEIGEN_USE_LAPACKE
 		ifeq ($(strip $(STATIC)),1)
 			# SLIBS += /usr/local/opt/gcc/lib/gcc/11/libgomp.a  # gcc need libgomp.a	
@@ -110,7 +107,7 @@ ifeq ($(strip $(STATIC)),1)
 		SLIBS += /opt/homebrew/opt/zlib/lib/libz.a
 		# CXXFLAGS += -stdlib=libc++
 	else
-		SLIBS    += /usr/lib64/libz.a # /usr/lib/x86_64-linux-gnu/libz.a
+		SLIBS    += /usr/lib/x86_64-linux-gnu/libz.a # /usr/lib64/libz.a # 
 		CXXFLAGS += -static
 		# CXXFLAGS += -static-libgcc -static-libstdc++
 	endif
