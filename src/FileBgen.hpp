@@ -15,7 +15,7 @@ void read_bgen_block(Mat2D& G, Mat1D& F, bgen::CppBgenReader* bg, float* dosages
 
 int shuffle_bgen_to_bin(std::string& fin, std::string fout, uint gb, bool standardize);
 
-void permute_bgen_thread(uint nsamples, std::vector<int> idx, std::string fin, std::string fout, int ithread);
+void permute_bgen_thread(std::vector<int> idx, std::string fin, std::string fout, int ithread);
 
 PermMat permute_bgen(std::string& fin, std::string fout, int nthreads);
 
@@ -29,7 +29,7 @@ class FileBgen : public Data {
     nsnps = bg->header.nvariants;
     dosages.resize(nsamples);
     F = Mat1D::Zero(nsnps); // initial F
-    cao.print(tick.date(), "the layout of bgen file is", bg->header.layout, ". N (#samples):", nsamples,
+    cao.print(tick.date(), "the layout is", bg->header.layout, ", compression is", bg->header.compression , ". N (#samples):", nsamples,
               ". M (#SNPs):", nsnps);
   }
 

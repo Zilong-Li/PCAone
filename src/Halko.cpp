@@ -267,19 +267,14 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
 }
 
 void run_pca_with_halko(Data* data, const Param& params) {
-  if (params.out_of_core) {
-    cao.print(tick.date(), "begin to run PCAone RSVD with out-of-core mode");
-  } else {
-    cao.print(tick.date(), "begin to run PCAone RSVD with in-core mode");
-  }
   Mat2D Vpre;
   Mat1D S;
   RsvdOpData* rsvd;
   if (params.svd_t == SvdType::PCAoneAlg2) {
-    cao.print(tick.date(), "initialize window-based RSVD (winSVD)");
+    cao.print(tick.date(), "initialize window-based RSVD (winSVD) with", params.out_of_core ? "out-of-core" : "in-core");
     rsvd = new FancyRsvdOpData(data, params.k, params.oversamples);
   } else {
-    cao.print(tick.date(), "initialize single-pass RSVD (sSVD)");
+    cao.print(tick.date(), "initialize single-pass RSVD (sSVD) with", params.out_of_core ? "out-of-core" : "in-core");
     rsvd = new NormalRsvdOpData(data, params.k, params.oversamples);
   }
   if (!params.impute) {

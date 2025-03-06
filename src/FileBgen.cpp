@@ -237,31 +237,23 @@ int shuffle_bgen_to_bin(std::string &fin, std::string fout, uint gb, bool standa
   return (nsnps == cur);
 }
 
-void permute_bgen_thread(uint nsamples, std::vector<int> idx, std::string fin, std::string fout,
-                         int ithread) {
+void permute_bgen_thread(std::vector<int> idx, std::string fin, std::string fout, int ithread) {
   fout = fout + ".perm." + to_string(ithread) + ".bgen";
-  uint compress_flag = 2, layout = 2;  // 1:zlib, 2:zstd
-
-  std::string metadata{""};
-  std::vector<std::string> sampleids;
-  bgen::CppBgenWriter bw(fout, nsamples, metadata, compress_flag, layout, sampleids);
-  bgen::CppBgenReader br(fin, "", true);
-  br.parse_all_variants();
+  bgen::CppBgenReader br(fin, "", false); // will call parse_all_variants();
+  bgen::CppBgenWriter bw(fout, br.header.nsamples, br.header.extra, br.header.compression, br.header.layout, br.samples.samples);
   for (auto i : idx) {
     auto var = br.variants[i];
-    auto data = var.copy_data();
+    std::vector<std::uint8_t> data = var.copy_data();
     bw.write_variant_direct(data);
   }
 }
 
 PermMat permute_bgen(std::string &fin, std::string fout, int nthreads) {
   cao.print(tick.date(), "begin to permute BGEN file");
-  uint nsamples, nsnps;
-  {
-    bgen::CppBgenReader br(fin, "", true);
-    nsamples = br.header.nsamples;
-    nsnps = br.header.nvariants;
-  }
+  bgen::CppBgenReader br(fin, "", true);
+  uint nsnps = br.header.nvariants;
+  std::string out = fout + ".perm.bgen";
+  bgen::CppBgenWriter bw(out, br.header.nsamples, br.header.extra, br.header.compression, br.header.layout, br.samples.samples);
   vector<int> perm(nsnps);
   std::iota(perm.begin(), perm.end(), 0);
   auto rng = std::default_random_engine{};
@@ -270,16 +262,11 @@ PermMat permute_bgen(std::string &fin, std::string fout, int nthreads) {
   uint tn = (nsnps + nthreads - 1) / nthreads;  // evenly spread index
   for (int i = 0; i < nthreads; i++) {
     vector<int> idx(perm.begin() + tn * i, i == nthreads - 1 ? perm.end() : perm.begin() + tn * (i + 1));
-    threads.emplace_back(permute_bgen_thread, nsamples, idx, fin, fout, i);
+    threads.emplace_back(permute_bgen_thread, idx, fin, fout, i);
   }
   // Wait for all threads to finish execution
   for (auto &t : threads) t.join();
   // now cat all bgen files into big one
-  uint compress_flag = 2, layout = 2;  // 1:zlib, 2:zstd
-  std::string metadata{""};
-  std::vector<std::string> sampleids;
-  std::string out = fout + ".perm.bgen";
-  bgen::CppBgenWriter bw(out, nsamples, metadata, compress_flag, layout, sampleids);
   std::ostreambuf_iterator<char> outIt(bw.handle);
   for (int i = 0; i < nthreads; i++) {
     fin = fout + ".perm." + to_string(i) + ".bgen";
