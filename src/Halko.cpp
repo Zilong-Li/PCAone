@@ -74,7 +74,7 @@ void RsvdOpData::computeUSV(int p, double tol) {
       if (data->params.verbose) cao.print(tick.date(), "running of epoch =", pi, ", diff =", diff);
       if (diff < tol || pi == p) {
         if (data->params.svd_t == SvdType::PCAoneAlg2 && std::pow(2, pi) < data->params.bands) {
-          cao.print("PCAone converged but continues running to get S and V.");
+          cao.print("PCAone winSVD converged but continues running to get S and V.");
           p = std::log2(data->params.bands);
         } else {
           V.noalias() = G * svd.matrixU().leftCols(nk);
@@ -276,8 +276,10 @@ void run_pca_with_halko(Data* data, const Param& params) {
   Mat1D S;
   RsvdOpData* rsvd;
   if (params.svd_t == SvdType::PCAoneAlg2) {
+    cao.print(tick.date(), "initialize window-based RSVD (winSVD)");
     rsvd = new FancyRsvdOpData(data, params.k, params.oversamples);
   } else {
+    cao.print(tick.date(), "initialize single-pass RSVD (sSVD)");
     rsvd = new NormalRsvdOpData(data, params.k, params.oversamples);
   }
   if (!params.impute) {

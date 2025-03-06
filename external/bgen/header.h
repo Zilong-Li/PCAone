@@ -17,7 +17,7 @@ class Header {
   std::string magic;
 public:
   Header(std::ifstream & handle);
-  Header() {};
+  Header() {}
   std::uint32_t offset;
   std::uint32_t nvariants;
   std::uint32_t nsamples = 5;

@@ -9,7 +9,7 @@
 // const double BGEN_MISSING_VALUE = -9;
 // const double BGEN2GENO[4] = {0, 0.5, 1, BGEN_MISSING_VALUE};
 
-void read_bgen_block(Mat2D& G, Mat1D& F, bgen::CppBgenReader* bg, float* dosages, float* probs1d,
+void read_bgen_block(Mat2D& G, Mat1D& F, bgen::CppBgenReader* bg, float* dosages,
                      bool& frequency_was_estimated, uint64 nsamples, uint64 nsnps, uint blocksize,
                      uint64 start_idx, uint64 stop_idx, bool standardize);
 
@@ -27,11 +27,10 @@ class FileBgen : public Data {
     bg = new bgen::CppBgenReader(params.filein, "", true);
     nsamples = bg->header.nsamples;
     nsnps = bg->header.nvariants;
+    dosages.resize(nsamples);
+    F = Mat1D::Zero(nsnps); // initial F
     cao.print(tick.date(), "the layout of bgen file is", bg->header.layout, ". N (#samples):", nsamples,
               ". M (#SNPs):", nsnps);
-    if (params.pca) { // initial F
-      F = Mat1D::Zero(nsnps);
-    }
   }
 
   ~FileBgen() { delete bg; }
@@ -47,8 +46,7 @@ class FileBgen : public Data {
 
  private:
   bgen::CppBgenReader* bg;
-  float* dosages = nullptr;
-  float* probs1d = nullptr;
+  std::vector<float> dosages, probs1d;
   bool frequency_was_estimated = false;
 };
 

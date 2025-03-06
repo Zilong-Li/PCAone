@@ -20,14 +20,15 @@ Header::Header(std::ifstream & handle) {
   magic = std::string(&buff[16], 4);
   
   // make sure we are reading a bgen file
-  if ((magic != "bgen") & ((int) (magic[0] & magic[1] & magic[2] & magic[3]) != 0)) {
+  if ((magic != "bgen") && ((int) (magic[0] & magic[1] & magic[2] & magic[3]) != 0)) {
     throw std::invalid_argument("doesn't appear to be a bgen file");
   }
   
   // read any extra data contained in the header
   int size = header_length - 20;
   if (size > 0) {
-    std::copy_n(std::istream_iterator<char>(handle), size, std::back_inserter(extra));
+    extra.resize(size);
+    handle.read(&extra[0], size);
   }
   
   // read flags data

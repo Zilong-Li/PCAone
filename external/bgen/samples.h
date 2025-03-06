@@ -12,7 +12,7 @@ public:
   Samples(std::ifstream & handle, int n_samples);
   Samples(std::string path, int n_samples);
   Samples(int n_samples);
-  Samples() {};
+  Samples() {}
   std::vector<std::string> samples;
 };
 

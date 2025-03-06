@@ -15,15 +15,17 @@ namespace bgen {
 
 class Variant {
   Genotypes geno;
+  std::ifstream * handle;
 public:
-  Variant(std::ifstream & handle, std::uint64_t & varoffset, int layout, int compression, int expected_n, std::uint64_t fsize);
-  Variant() {};
+  Variant(std::ifstream * _handle, std::uint64_t & varoffset, int layout, int compression, int expected_n, std::uint64_t fsize);
+  Variant() {}
   int probs_per_sample();
-  float * alt_dosage();
-  float * minor_allele_dosage();
-  float * probs_1d();
+  void alt_dosage(float * dosage);
+  void minor_allele_dosage(float * dosage);
+  void probs_1d(float * probs);
   bool phased();
   std::uint8_t * ploidy();
+  std::vector<std::uint8_t> copy_data();
   std::string minor_allele;
   
   std::uint64_t offset;

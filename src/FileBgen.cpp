@@ -13,6 +13,7 @@ using namespace std;
 void FileBgen::read_all() {
   uint i, j, k, gc;
   double gs, af;
+  cao.print(tick.date(), "start reading all data");
   if (!params.pcangsd) {
     F = Mat1D::Zero(nsnps);
     G = Mat2D::Zero(nsamples, nsnps);
@@ -20,7 +21,7 @@ void FileBgen::read_all() {
     for (j = 0, k = 0; j < nsnps; j++) {
       try {
         auto var = bg->next_var();
-        dosages = var.minor_allele_dosage();
+        var.minor_allele_dosage(dosages.data());
         gc = 0;
         gs = 0.0;
 // calculate allele frequency
@@ -69,7 +70,8 @@ void FileBgen::read_all() {
     for (j = 0; j < nsnps; j++) {
       try {
         auto var = bg->next_var();
-        probs1d = var.probs_1d();
+        probs1d.resize(nsamples * var.probs_per_sample());
+        var.probs_1d(probs1d.data());
 #pragma omp parallel for
         for (i = 0; i < nsamples; i++) {
           P(i * 2 + 0, j) = probs1d[i * 3 + 0];
@@ -127,11 +129,11 @@ void FileBgen::read_all() {
 }
 
 void FileBgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize) {
-  read_bgen_block(G, F, bg, dosages, probs1d, frequency_was_estimated, nsamples, nsnps, blocksize, start_idx,
+  read_bgen_block(G, F, bg, dosages.data(), frequency_was_estimated, nsamples, nsnps, blocksize, start_idx,
                   stop_idx, standardize);
 }
 
-void read_bgen_block(Mat2D &G, Mat1D &F, bgen::CppBgenReader *bg, float *dosages, float *probs1d,
+void read_bgen_block(Mat2D &G, Mat1D &F, bgen::CppBgenReader *bg, float *dosages, 
                      bool &frequency_was_estimated, uint64 nsamples, uint64 nsnps, uint blocksize,
                      uint64 start_idx, uint64 stop_idx, bool standardize) {
   uint actual_block_size = stop_idx - start_idx + 1;
@@ -143,7 +145,7 @@ void read_bgen_block(Mat2D &G, Mat1D &F, bgen::CppBgenReader *bg, float *dosages
     for (i = 0; i < actual_block_size; ++i) {
       snp_idx = start_idx + i;
       auto var = bg->next_var();
-      dosages = var.minor_allele_dosage();
+      var.minor_allele_dosage(dosages);
 #pragma omp parallel for
       for (j = 0; j < nsamples; j++) {
         if (std::isnan(dosages[j])) {
@@ -161,7 +163,7 @@ void read_bgen_block(Mat2D &G, Mat1D &F, bgen::CppBgenReader *bg, float *dosages
     for (i = 0; i < actual_block_size; ++i) {
       snp_idx = start_idx + i;
       auto var = bg->next_var();
-      dosages = var.minor_allele_dosage();
+      var.minor_allele_dosage(dosages);
       gc = 0;
       gs = 0.0;
 #pragma omp parallel for reduction(+ : gc) reduction(+ : gs)
@@ -207,8 +209,8 @@ int shuffle_bgen_to_bin(std::string &fin, std::string fout, uint gb, bool standa
   ofs.write((char *)&nsnps, ibyte);
   ofs.write((char *)&nsamples, ibyte);
   uint magic = ibyte * 2;
-  float *dosages = nullptr;
-  float *probs1d = nullptr;
+  std::vector<float> dosages(nsamples);
+
   bool frequency_was_estimated = false;
   std::vector<uint> perm(nsnps);
   std::iota(perm.begin(), perm.end(), 0);
@@ -221,7 +223,7 @@ int shuffle_bgen_to_bin(std::string &fin, std::string fout, uint gb, bool standa
     auto start_idx = i * blocksize;
     auto stop_idx = start_idx + blocksize - 1;
     stop_idx = stop_idx >= nsnps ? nsnps - 1 : stop_idx;
-    read_bgen_block(G, F, bg, dosages, probs1d, frequency_was_estimated, nsamples, nsnps, blocksize,
+    read_bgen_block(G, F, bg, dosages.data(), frequency_was_estimated, nsamples, nsnps, blocksize,
                     start_idx, stop_idx, standardize);
     for (Eigen::Index p = 0; p < G.cols(); p++, cur++) {
       ofs2 << perm[cur] << "\n";
@@ -238,21 +240,17 @@ int shuffle_bgen_to_bin(std::string &fin, std::string fout, uint gb, bool standa
 void permute_bgen_thread(uint nsamples, std::vector<int> idx, std::string fin, std::string fout,
                          int ithread) {
   fout = fout + ".perm." + to_string(ithread) + ".bgen";
-  uint geno_len, compress_flag = 2, layout = 2, ploidy_n = 2;  // 1:zlib, 2:zstd
-  float *probs = nullptr;
-  bool phased = false;
-  uint8_t bit_depth = 8;
-  string metadata;
-  vector<string> sampleids;
+  uint compress_flag = 2, layout = 2;  // 1:zlib, 2:zstd
+
+  std::string metadata{""};
+  std::vector<std::string> sampleids;
   bgen::CppBgenWriter bw(fout, nsamples, metadata, compress_flag, layout, sampleids);
   bgen::CppBgenReader br(fin, "", true);
   br.parse_all_variants();
   for (auto i : idx) {
     auto var = br.variants[i];
-    probs = var.probs_1d();
-    geno_len = nsamples * var.probs_per_sample();
-    bw.write_variant_header(var.varid, var.rsid, var.chrom, var.pos, var.alleles, var.n_samples);
-    bw.add_genotype_data(var.alleles.size(), probs, geno_len, ploidy_n, phased, bit_depth);
+    auto data = var.copy_data();
+    bw.write_variant_direct(data);
   }
 }
 
@@ -278,9 +276,9 @@ PermMat permute_bgen(std::string &fin, std::string fout, int nthreads) {
   for (auto &t : threads) t.join();
   // now cat all bgen files into big one
   uint compress_flag = 2, layout = 2;  // 1:zlib, 2:zstd
-  string metadata;
-  vector<string> sampleids;
-  string out = fout + ".perm.bgen";
+  std::string metadata{""};
+  std::vector<std::string> sampleids;
+  std::string out = fout + ".perm.bgen";
   bgen::CppBgenWriter bw(out, nsamples, metadata, compress_flag, layout, sampleids);
   std::ostreambuf_iterator<char> outIt(bw.handle);
   for (int i = 0; i < nthreads; i++) {

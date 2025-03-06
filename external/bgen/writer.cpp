@@ -5,6 +5,8 @@
 #include <stdexcept>
 #include <vector>
 
+#include <iostream>
+
 #include "zstd.h"
 #include <zlib.h>
 
@@ -14,22 +16,22 @@
 namespace bgen {
 
 // write a 32-bit value at a given file offset
-void write_at_offset(std::ofstream &handle, std::uint32_t &val, std::uint32_t offset=0) {
+static void write_at_offset(std::ofstream &handle, std::uint32_t &val, std::uint32_t offset=0) {
   std::uint64_t orig_pos = handle.tellp();
   handle.seekp(offset);
   handle.write(reinterpret_cast<char *>(&val), 4);
   handle.seekp(orig_pos);
 }
 
-void write_variants_offset(std::ofstream &handle, std::uint32_t &offset) {
+static void write_variants_offset(std::ofstream &handle, std::uint32_t &offset) {
   write_at_offset(handle, offset, 0);
 }
 
-void write_nvariants(std::ofstream &handle, std::uint32_t &offset, std::uint32_t &n_variants) {
+static void write_nvariants(std::ofstream &handle, std::uint32_t &offset, std::uint32_t &n_variants) {
   write_at_offset(handle, n_variants, offset);
 }
 
-// when the object is removed, finally write the number of variants, and where
+// when the object is removed, finally write the number of variants, and where 
 // the variant data starts
 CppBgenWriter::~CppBgenWriter() {
   write_variants_offset(handle, variant_data_offset);
@@ -122,7 +124,7 @@ std::uint64_t CppBgenWriter::write_variant_header(std::string &varid,
   handle.write(reinterpret_cast<char *>(&tmp), 2);
   handle << chrom;
   handle.write(reinterpret_cast<char *>(&pos), 4);
-
+  
   if (layout != 1) {
     std::uint16_t n_alleles = alleles.size();
     handle.write(reinterpret_cast<char *>(&n_alleles), 2);
@@ -142,8 +144,15 @@ std::uint64_t CppBgenWriter::write_variant_header(std::string &varid,
   return var_offset;
 }
 
+std::uint64_t CppBgenWriter::write_variant_direct(std::vector<std::uint8_t> & data) {
+  std::uint64_t var_offset = handle.tellp();
+  n_variants += 1;
+  std::copy(data.begin(), data.end(), std::ostreambuf_iterator<char>(handle));
+  return var_offset;
+}
+
 // uncompress a char array with zlib
-void zlib_compress(char * input, int input_len, std::vector<char> &output) {
+static void zlib_compress(char * input, int input_len, std::vector<char> &output) {
   z_stream strm;
   strm.zalloc = Z_NULL;
   strm.zfree = Z_NULL;
@@ -162,7 +171,7 @@ void zlib_compress(char * input, int input_len, std::vector<char> &output) {
 }
 
 // uncompress a char array with zstd
-void zstd_compress(char *input, int input_len, std::vector<char> &output) {
+static void zstd_compress(char *input, int input_len, std::vector<char> &output) {
   std::size_t total_out = ZSTD_compress(&output[0], output.size(), input, input_len, 3);
   output.resize(total_out);
 }
@@ -172,7 +181,7 @@ void zstd_compress(char *input, int input_len, std::vector<char> &output) {
 /// The decompressed data is stored in the 'uncompressed' member. Decompression
 /// is handled internally by either zlib_decompress, or zstd_decompress,
 /// depending on compression scheme.
-std::vector<char> compress(std::vector<std::uint8_t> &uncompressed, std::uint32_t compression) {
+static std::vector<char> compress(std::vector<std::uint8_t> &uncompressed, std::uint32_t compression) {
   std::vector<char> compressed(uncompressed.size() * 5 + 20);
   if (compression == 1) { // zlib
     zlib_compress(reinterpret_cast<char *>(&uncompressed[0]), (int)uncompressed.size(), compressed);
@@ -182,7 +191,7 @@ std::vector<char> compress(std::vector<std::uint8_t> &uncompressed, std::uint32_
   return compressed;
 }
 
-bool missing_genotypes(float *genotypes, std::uint32_t size) {
+static bool missing_genotypes(double *genotypes, std::uint32_t size) {
   std::uint16_t nan_count = 0;
   for (std::uint32_t i=0; i<size; i++) {
     nan_count += std::isnan(genotypes[i]);
@@ -193,8 +202,8 @@ bool missing_genotypes(float *genotypes, std::uint32_t size) {
   return nan_count == size;
 }
 
-std::vector<std::uint8_t> encode_layout1(
-                    float *genotypes,
+static std::vector<std::uint8_t> encode_layout1(
+                    double *genotypes,
                     std::uint32_t geno_len) {
   // genotypes are encoded as 16-bit uints, so resize to n_genotypes * 2
   std::vector<std::uint8_t> encoded(geno_len * 2 + 8);
@@ -203,7 +212,7 @@ std::vector<std::uint8_t> encode_layout1(
   std::int32_t scaled32;
   std::uint16_t scaled;
   bool missing;
-  float g;
+  double g;
   for (std::uint32_t j=0; j < geno_len; j+=3) {
     missing = missing_genotypes(&genotypes[j], 3);
     for (std::uint32_t k=0; k<3; k++) {
@@ -226,13 +235,13 @@ std::vector<std::uint8_t> encode_layout1(
 }
 
 /// @brief find the maximum genotype probability for a sample
-/// @param genotypes array of float of genotypes for the full cohort
+/// @param genotypes array of double of genotypes for the full cohort
 /// @param offset offset where the samples genotypes begin
 /// @param max_probs number of proabilities stored for the sample
 /// @param missing whether the sample lacks genotype data
-float get_sample_max(float *genotypes, std::uint32_t &offset, std::uint32_t &max_probs, bool &missing) {
-  float sample_max = 0;
-  float g;
+static double get_sample_max(double *genotypes, std::uint32_t &offset, std::uint32_t &max_probs, bool &missing) {
+  double sample_max = 0;
+  double g;
   for (std::uint32_t j = 0; j < (max_probs - 1); j++)
   {
     g = genotypes[offset + j];
@@ -253,38 +262,32 @@ float get_sample_max(float *genotypes, std::uint32_t &offset, std::uint32_t &max
 /// @param factor scaling factor for the genotype, to convert genotype to integer
 //         in the appropriate range
 /// @param sample_max maximum probability mobserved in the sample
-/// @return
-std::uint64_t emplace_probability(float &geno_prob,
+/// @return data with probability inserted
+static std::uint64_t emplace_probability(double &geno_prob,
                                   std::uint8_t *encoded,
                                   std::uint32_t &bit_remainder,
-                                  float &factor,
-                                  float &sample_max)
+                                  double &factor,
+                                  double &sample_max)
 {
+  double multiplied;
   std::uint64_t converted;
   std::uint64_t window;
 
   window = *reinterpret_cast<const std::uint32_t* >(encoded);
-  converted = geno_prob * factor;
-  if (geno_prob == sample_max) {
-    // if the value is the max for the sample, round up, otherwise low-bit depth
-    // encoded values can be too low
-    converted = std::ceil(converted);
-  } else {
-    converted = std::floor(converted);
-  }
+  multiplied = geno_prob * factor;
+  converted = std::round(multiplied);
   window |= (converted << bit_remainder);
   return window;
 }
 
-std::uint32_t encode_unphased(std::vector<std::uint8_t> &encoded,
+static std::uint32_t encode_unphased(std::vector<std::uint8_t> &encoded,
                      std::uint32_t genotype_offset,
                      std::uint32_t ploidy_offset,
                      std::uint32_t n_samples,
                      std::uint16_t n_alleles,
                      bool constant_ploidy,
                      std::uint32_t max_ploidy,
-                     float *genotypes,
-                     std::uint32_t geno_len,
+                     double *genotypes,
                      std::uint8_t &bit_depth)
 {
   int _ploid = (int)max_ploidy;
@@ -293,14 +296,14 @@ std::uint32_t encode_unphased(std::vector<std::uint8_t> &encoded,
   std::uint32_t max_probs = get_max_probs(_ploid, _n_alleles, phased);
   std::uint32_t n_probs = max_probs;  // for storing probs per person
 
-  float factor = std::pow(2, bit_depth) - 1;
+  double factor = std::pow(2, bit_depth) - 1;
   bool missing;
   std::uint32_t bit_idx=0;
   std::uint32_t byte_idx;
   std::uint32_t bit_remainder;
   std::uint64_t window;
-  float sample_max;
-  float g;
+  double sample_max;
+  double g;
   for (std::uint32_t i=0; i<(n_samples*max_probs); i+= max_probs) {
     if (!constant_ploidy) {
       _ploid = (int)(encoded[ploidy_offset + (i / max_probs)] &= 63);
@@ -319,24 +322,28 @@ std::uint32_t encode_unphased(std::vector<std::uint8_t> &encoded,
         g = 0;
       }
       byte_idx = genotype_offset + (bit_idx / 8);
-      bit_remainder = bit_idx % 8;
-      window = emplace_probability(g, &encoded[byte_idx], bit_remainder, factor, sample_max);
-      std::memcpy(&encoded[byte_idx], &window, 8);
+      if (bit_depth == 8) {
+        // fast path for 8-bit genotype data
+        encoded[byte_idx] = (std::uint8_t) std::round(g * factor);
+      } else {
+        bit_remainder = bit_idx % 8;
+        window = emplace_probability(g, &encoded[byte_idx], bit_remainder, factor, sample_max);
+        std::memcpy(&encoded[byte_idx], &window, 8);
+      }
       bit_idx += bit_depth;
     }
   }
-  return genotype_offset + (bit_idx / 8);
+  return genotype_offset + (bit_idx / 8) + (std::uint32_t)((bit_idx % 8) > 0);
 }
 
-std::uint32_t encode_phased(std::vector<std::uint8_t> &encoded,
+static std::uint32_t encode_phased(std::vector<std::uint8_t> &encoded,
                             std::uint32_t genotype_offset,
                             std::uint32_t ploidy_offset,
                             std::uint32_t n_samples,
                             std::uint16_t n_alleles,
                             bool constant_ploidy,
                             std::uint32_t max_ploidy,
-                            float *genotypes,
-                            std::uint32_t geno_len,
+                            double *genotypes,
                             std::uint8_t &bit_depth)
 {
   int _ploid = (int)max_ploidy;
@@ -345,12 +352,12 @@ std::uint32_t encode_phased(std::vector<std::uint8_t> &encoded,
   std::uint32_t max_probs = get_max_probs(_ploid, _n_alleles, phased);
   std::uint32_t n_probs = max_probs; // for storing probs per person
 
-  float factor = std::pow(2, bit_depth) - 1;
+  double factor = std::pow(2, bit_depth) - 1;
   bool missing;
   std::uint32_t bit_idx = 0;
   std::uint32_t byte_idx, bit_remainder;
   std::uint64_t window;
-  float g, sample_max;
+  double g, sample_max;
   std::uint32_t i = 0;
   std::uint32_t sample_idx=0;
   while (i < (n_samples * max_probs * max_ploidy)) {
@@ -388,20 +395,20 @@ std::uint32_t encode_phased(std::vector<std::uint8_t> &encoded,
     i += (max_probs * max_ploidy) - (n_probs * _ploid);
     sample_idx += 1;
   }
-  return genotype_offset + (bit_idx / 8);
+  return genotype_offset + (bit_idx / 8) + (std::uint32_t)((bit_idx % 8) > 0);
 }
 
-std::vector<std::uint8_t> encode_layout2(
+static std::vector<std::uint8_t> encode_layout2(
                     std::uint32_t n_samples,
                     std::uint16_t n_alleles,
-                    float *genotypes,
+                    double *genotypes,
                     std::uint32_t geno_len,
                     uint8_t *ploidy,
                     std::uint8_t min_ploidy,
                     std::uint8_t max_ploidy,
                     bool phased,
                     std::uint8_t &bit_depth
-                    )
+                    ) 
 {
   int _max_ploid = (int)max_ploidy;
   int _n_alleles = (int)n_alleles;
@@ -429,7 +436,7 @@ std::vector<std::uint8_t> encode_layout2(
   encoded[i] = max_ploidy;
   i += 1;
 
-  // set the individuals ploidy values. We'll fill samples with missing data
+  // set the individuals ploidy values. We'll fill samples with missing data 
   // when we run through the genotypes
   bool constant_ploidy = min_ploidy == max_ploidy;
   const std::uint32_t ploidy_offset = i;
@@ -450,29 +457,30 @@ std::vector<std::uint8_t> encode_layout2(
 
   if (!phased) {
     encoded_size = encode_unphased(encoded, i, ploidy_offset, n_samples, n_alleles,
-                                constant_ploidy, max_ploidy, genotypes, geno_len, bit_depth);
+                                constant_ploidy, max_ploidy, genotypes, bit_depth);
   } else {
     encoded_size = encode_phased(encoded, i, ploidy_offset, n_samples, n_alleles,
-                                   constant_ploidy, max_ploidy, genotypes, geno_len, bit_depth);
+                                   constant_ploidy, max_ploidy, genotypes, bit_depth);
   }
 
   encoded.resize(encoded_size);
   return encoded;
 }
 
+// convenience function for constant ploidy
 std::uint64_t CppBgenWriter::add_genotype_data(std::uint16_t n_alleles,
-                                               float *genotypes,
+                                               double *genotypes,
                                                std::uint32_t geno_len,
                                                std::uint8_t ploidy,
                                                bool phased,
                                                std::uint8_t bit_depth)
 {
-  std::uint8_t *ploidy_vector = nullptr;
+  std::uint8_t *ploidy_vector = {};
   return add_genotype_data(n_alleles, genotypes, geno_len, ploidy_vector, ploidy, ploidy, phased, bit_depth);
 }
 
 std::uint64_t CppBgenWriter::add_genotype_data(std::uint16_t n_alleles,
-                                               float *genotypes,
+                                               double *genotypes,
                                                std::uint32_t geno_len,
                                                uint8_t *ploidy,
                                                std::uint8_t min_ploidy,
@@ -488,7 +496,7 @@ std::uint64_t CppBgenWriter::add_genotype_data(std::uint16_t n_alleles,
   if (layout == 1) {
     encoded = encode_layout1(genotypes, geno_len);
   } else {
-    encoded = encode_layout2(n_samples, n_alleles, genotypes, geno_len, ploidy,
+    encoded = encode_layout2(n_samples, n_alleles, genotypes, geno_len, ploidy, 
                    min_ploidy, max_ploidy, phased, bit_depth);
   }
 
@@ -496,9 +504,9 @@ std::uint64_t CppBgenWriter::add_genotype_data(std::uint16_t n_alleles,
   if (compression != 0) {
     compressed = compress(encoded, compression);
   }
-  std::uint32_t compressed_len = compressed.size();
+  std::uint64_t compressed_len = compressed.size();
 
-  std::uint32_t size;
+  std::uint64_t size;
   if (layout == 1) {
     if (compression == 0) {
       for (auto &x : encoded) {

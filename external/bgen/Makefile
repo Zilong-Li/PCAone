@@ -1,13 +1,15 @@
 #
 # Makefile to compile bgen library
 #
+Platform    := $(shell uname -s)
 CXX         ?= g++
-CXXFLAGS    += -O3 -Wall -std=c++11
+CXXFLAGS     = -O2 -Wall -std=c++11
 AVX = 1
 
-ifeq ($(strip $(AVX)), 1)
-  $(info "use -mavx2 for bgen")
-  CXXFLAGS += -mavx -mavx2 -DAVX2
+ifeq ($(Platform), Darwin)
+	CXXFLAGS += -march=native
+else
+	CXXFLAGS += -mavx -mavx2
 endif
 
 OBJECTS      = $(patsubst %.cpp,%.o,$(wildcard *.cpp))
