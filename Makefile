@@ -158,6 +158,11 @@ data:
 	wget http://popgen.dk/zilong/datahub/pca/example.tar.gz
 	tar -xzf example.tar.gz && rm -f example.tar.gz
 
+example_tests:
+	./PCAone -g example/test.bgen -n4 -o m0
+	./PCAone -g example/test.bgen -n4 -m0.1 -o m1
+	diff m0.eigvals m1.eigvals
+
 hwe:
 	./PCAone -b example/plink -k 3 -V
 	./PCAone -b example/plink --USV pcaone --inbreed 1 -o inbreed_m0
@@ -213,6 +218,3 @@ ld_tests:
 	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 2
 	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
 
-bgen_tests:
-	./PCAone -g example/test.bgen -n6
-	./PCAone -g example/test.bgen -m 0.1 -n6

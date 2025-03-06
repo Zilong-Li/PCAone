@@ -23,8 +23,10 @@ jobs:
     - name: make
       run: make -j4
 
-    - name: download example data
-      run: make data
+    - name: download and test example data
+      run: |
+        make data
+        make example_tests
 
     - name: test LD module
       run: |

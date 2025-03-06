@@ -9,15 +9,6 @@
 // const double BGEN_MISSING_VALUE = -9;
 // const double BGEN2GENO[4] = {0, 0.5, 1, BGEN_MISSING_VALUE};
 
-void read_bgen_block(Mat2D& G, Mat1D& F, bgen::CppBgenReader* bg, float* dosages,
-                     bool& frequency_was_estimated, uint64 nsamples, uint64 nsnps, uint blocksize,
-                     uint64 start_idx, uint64 stop_idx, bool standardize);
-
-int shuffle_bgen_to_bin(std::string& fin, std::string fout, uint gb, bool standardize);
-
-void permute_bgen_thread(std::vector<int> idx, std::string fin, std::string fout, int ithread);
-
-PermMat permute_bgen(std::string& fin, std::string fout, int nthreads);
 
 class FileBgen : public Data {
  public:
@@ -28,9 +19,10 @@ class FileBgen : public Data {
     nsamples = bg->header.nsamples;
     nsnps = bg->header.nvariants;
     dosages.resize(nsamples);
-    F = Mat1D::Zero(nsnps); // initial F
-    cao.print(tick.date(), "the layout is", bg->header.layout, ", compression is", bg->header.compression , ". N (#samples):", nsamples,
-              ". M (#SNPs):", nsnps);
+    F = Mat1D::Zero(nsnps);  // initial F
+    cao.print(tick.date(), "N(#samples) =", nsamples, ", M(#SNPs) =", nsnps);
+    cao.print(tick.date(), "the layout is", bg->header.layout, ", compressed by",
+              bg->header.compression == 2 ? "zstd" : "zlib");
   }
 
   ~FileBgen() { delete bg; }
@@ -49,5 +41,9 @@ class FileBgen : public Data {
   std::vector<float> dosages, probs1d;
   bool frequency_was_estimated = false;
 };
+
+void permute_bgen_thread(std::vector<int> idx, std::string fin, std::string fout, int ithread);
+
+PermMat permute_bgen(std::string& fin, std::string fout, int nthreads);
 
 #endif  // PCAONE_FILEBGEN_

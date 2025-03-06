@@ -129,13 +129,6 @@ void FileBgen::read_all() {
 }
 
 void FileBgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize) {
-  read_bgen_block(G, F, bg, dosages.data(), frequency_was_estimated, nsamples, nsnps, blocksize, start_idx,
-                  stop_idx, standardize);
-}
-
-void read_bgen_block(Mat2D &G, Mat1D &F, bgen::CppBgenReader *bg, float *dosages, 
-                     bool &frequency_was_estimated, uint64 nsamples, uint64 nsnps, uint blocksize,
-                     uint64 start_idx, uint64 stop_idx, bool standardize) {
   uint actual_block_size = stop_idx - start_idx + 1;
   uint i, j, snp_idx;
   if (G.cols() < blocksize || (actual_block_size < blocksize)) {
@@ -145,7 +138,7 @@ void read_bgen_block(Mat2D &G, Mat1D &F, bgen::CppBgenReader *bg, float *dosages
     for (i = 0; i < actual_block_size; ++i) {
       snp_idx = start_idx + i;
       auto var = bg->next_var();
-      var.minor_allele_dosage(dosages);
+      var.minor_allele_dosage(dosages.data());
 #pragma omp parallel for
       for (j = 0; j < nsamples; j++) {
         if (std::isnan(dosages[j])) {
@@ -163,7 +156,7 @@ void read_bgen_block(Mat2D &G, Mat1D &F, bgen::CppBgenReader *bg, float *dosages
     for (i = 0; i < actual_block_size; ++i) {
       snp_idx = start_idx + i;
       auto var = bg->next_var();
-      var.minor_allele_dosage(dosages);
+      var.minor_allele_dosage(dosages.data());
       gc = 0;
       gs = 0.0;
 #pragma omp parallel for reduction(+ : gc) reduction(+ : gs)
@@ -194,53 +187,11 @@ void read_bgen_block(Mat2D &G, Mat1D &F, bgen::CppBgenReader *bg, float *dosages
   }
 }
 
-// this would be fast
-int shuffle_bgen_to_bin(std::string &fin, std::string fout, uint gb, bool standardize) {
-  cao.print(tick.date(), "begin to permute BGEN into BINARY file");
-  bgen::CppBgenReader *bg = new bgen::CppBgenReader(fin, "", true);
-  uint nsamples = bg->header.nsamples;
-  uint nsnps = bg->header.nvariants;
-  const uint ibyte = 4;
-  uint64 bytes_per_snp = nsamples * ibyte;
-  uint blocksize = 1073741824 * gb / bytes_per_snp;
-  uint nblocks = (nsnps + blocksize - 1) / blocksize;
-  std::ofstream ofs(fout + ".perm.bin", std::ios::binary);
-  std::ofstream ofs2(fout + ".perm.txt");
-  ofs.write((char *)&nsnps, ibyte);
-  ofs.write((char *)&nsamples, ibyte);
-  uint magic = ibyte * 2;
-  std::vector<float> dosages(nsamples);
-
-  bool frequency_was_estimated = false;
-  std::vector<uint> perm(nsnps);
-  std::iota(perm.begin(), perm.end(), 0);
-  auto rng = std::default_random_engine{};
-  std::shuffle(perm.begin(), perm.end(), rng);
-  Mat2D G;
-  Mat1D F(nsnps);
-  uint64 idx, cur = 0;
-  for (uint i = 0; i < nblocks; i++) {
-    auto start_idx = i * blocksize;
-    auto stop_idx = start_idx + blocksize - 1;
-    stop_idx = stop_idx >= nsnps ? nsnps - 1 : stop_idx;
-    read_bgen_block(G, F, bg, dosages.data(), frequency_was_estimated, nsamples, nsnps, blocksize,
-                    start_idx, stop_idx, standardize);
-    for (Eigen::Index p = 0; p < G.cols(); p++, cur++) {
-      ofs2 << perm[cur] << "\n";
-      idx = magic + perm[cur] * bytes_per_snp;
-      ofs.seekp(idx, std::ios_base::beg);
-      ofs.write((char *)G.col(p).data(), bytes_per_snp);
-    }
-  }
-  delete bg;
-  fin = fout + ".perm.bin";
-  return (nsnps == cur);
-}
-
 void permute_bgen_thread(std::vector<int> idx, std::string fin, std::string fout, int ithread) {
   fout = fout + ".perm." + to_string(ithread) + ".bgen";
-  bgen::CppBgenReader br(fin, "", false); // will call parse_all_variants();
-  bgen::CppBgenWriter bw(fout, br.header.nsamples, br.header.extra, br.header.compression, br.header.layout, br.samples.samples);
+  bgen::CppBgenReader br(fin, "", false);  // will call parse_all_variants();
+  bgen::CppBgenWriter bw(fout, br.header.nsamples, br.header.extra, br.header.compression, br.header.layout,
+                         br.samples.samples);
   for (auto i : idx) {
     auto var = br.variants[i];
     std::vector<std::uint8_t> data = var.copy_data();
@@ -253,7 +204,8 @@ PermMat permute_bgen(std::string &fin, std::string fout, int nthreads) {
   bgen::CppBgenReader br(fin, "", true);
   uint nsnps = br.header.nvariants;
   std::string out = fout + ".perm.bgen";
-  bgen::CppBgenWriter bw(out, br.header.nsamples, br.header.extra, br.header.compression, br.header.layout, br.samples.samples);
+  bgen::CppBgenWriter bw(out, br.header.nsamples, br.header.extra, br.header.compression, br.header.layout,
+                         br.samples.samples);
   vector<int> perm(nsnps);
   std::iota(perm.begin(), perm.end(), 0);
   auto rng = std::default_random_engine{};
