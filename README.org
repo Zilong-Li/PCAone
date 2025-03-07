@@ -2,7 +2,7 @@
 #+subtitle: Version 0.5.0
 #+author: Zilong Li 
 #+email: zilong.dk@gmail.com
-#+options: toc:2 num:nil email:t -:nil ^:nil
+#+options: toc:2 num:t email:t -:nil ^:nil
 #+latex_compiler: xelatex
 #+latex_class: article
 #+latex_class_options: [a4paper, 11pt]
@@ -13,11 +13,11 @@
 #+latex_header: \hypersetup{colorlinks=true, linkcolor=blue}
 #+latex: \clearpage
 
-[[https://github.com/Zilong-Li/PCAone/actions/workflows/linux.yml/badge.svg]]
-[[https://github.com/Zilong-Li/PCAone/actions/workflows/mac.yml/badge.svg]]
-[[https://bioconda.github.io/recipes/pcaone/README.html][https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat]]
-[[https://github.com/Zilong-Li/PCAone/releases/latest][https://img.shields.io/github/v/release/Zilong-Li/PCAone.svg]]
-[[https://anaconda.org/bioconda/pcaone/badges/downloads.svg]]
+# [[https://github.com/Zilong-Li/PCAone/actions/workflows/linux.yml/badge.svg]]
+# [[https://github.com/Zilong-Li/PCAone/actions/workflows/mac.yml/badge.svg]]
+# [[https://bioconda.github.io/recipes/pcaone/README.html][https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat]]
+# [[https://github.com/Zilong-Li/PCAone/releases/latest][https://img.shields.io/github/v/release/Zilong-Li/PCAone.svg]]
+# [[https://anaconda.org/bioconda/pcaone/badges/downloads.svg]]
 
 * Introduction
 
@@ -52,7 +52,7 @@ missingness and uncertainty. The PDF manual can be downloaded [[https://github.c
   - [[#which-svd-method-to-use][Which SVD method to use]]
   - [[#input-formats][Input formats]]
   - [[#output-formats][Output formats]]
-  - [[#memory-efficient-modes][Memory-efficient modes]]
+  - [[#memory-efficient-mode][Memory-efficient mode]]
   - [[#data-normalization][Data Normalization]]
   - [[#projection][Projection]]
   - [[#hwe-accounting-for-population-structure][HWE accounting for population structure]]
@@ -62,7 +62,7 @@ missingness and uncertainty. The PDF manual can be downloaded [[https://github.c
   - [[#clumping-based-on-ancestry-adjusted-ld][Clumping based on Ancestry-Adjusted LD]]
 - [[#more-tutorials][More tutorials]]
   - [[#genotype-data-plink][Genotype data (PLINK)]]
-  - [[#genotype-dosage-bgen][Genotype dosage (BGEN)]]
+  - [[#genotype-dosages-bgen][Genotype dosages (BGEN)]]
   - [[#single-cell-rna-seq-data-csv][Single cell RNA-seq data (CSV)]]
 - [[#acknowledgements][Acknowledgements]]
 #+END_QUOTE
@@ -104,7 +104,7 @@ tar -xzf example.tar.gz && rm -f example.tar.gz
 ./PCAone -b example/plink
 R -s -e 'd=read.table("pcaone.eigvecs2", h=F);
 plot(d[,1:2+2], col=factor(d[,1]), xlab="PC1", ylab="PC2");
-legend("topright", legend=unique(d[,1]), col=1:4, pch = 21, cex=1.2);'
+legend("topleft", legend=unique(d[,1]), col=1:4, pch = 21, cex=1.2);'
 #+end_src
 
 You will find these files in current directory.
@@ -149,7 +149,7 @@ PCAone --help
 
 ** Build from source
 
-=PCAone= has been tested on both =Linux= and =MacOS= system. To build PCAone from the source code, the following dependencies are required:
+PCAone has been tested on both =Linux= and =MacOS= system. To build PCAone from the source code, the following dependencies are required:
 
 - GCC/Clang compiler with C++17 support
 - GNU make
@@ -268,12 +268,6 @@ Misc options:
   --ld-stats arg (=0)            statistics to compute LD R2 for pairwise SNPs. Options are
                                  0: the ancestry adjusted, i.e. correlation between residuals;
                                  1: the standard, i.e. correlation between two alleles.
-  --clump arg                    assoc-like file with target variants and pvalues for clumping.
-  --clump-names arg (=CHR,BP,P)  column names in assoc-like file for locating chr, pos and pvalue.
-  --clump-p1 arg (=0.0001)       significance threshold for index SNPs.
-  --clump-p2 arg (=0.01)         secondary significance threshold for clumped SNPs.
-  --clump-r2 arg (=0.5)          r2 cutoff for LD-based clumping.
-  --clump-bp arg (=250000)       physical distance threshold in bases for clumping.
 #+end_src
 
 \newpage
@@ -284,14 +278,14 @@ This depends on your datasets, particularlly the relationship between number
 of samples (=N=) and the number of variants / features (=M=) and the top PCs
 (=k=). Here is an overview and the recommendation.
 
-|--------------------------+-----------+-------------------------------------------|
-| Method                   | Accuracy  | Scenario                                  |
-|--------------------------+-----------+-------------------------------------------|
-| IRAM (-d 0)              | Very high | large scale data with =N < 5000=            |
-| Window-based RSVD (-d 2) | Very high | large scale data with =M > 1,000,000=       |
-| RSVD (-d 1)              | High      | accuracy insensitive, any scale data      |
-| Full SVD (-d 3)          | Exact     | cost insensitive, full variance explained |
-|--------------------------+-----------+-------------------------------------------|
+|--------------------------+-----------+--------------------------------------|
+| Method                   | Accuracy  | Scenario                             |
+|--------------------------+-----------+--------------------------------------|
+| Full SVD (-d 3)          | Exact     | full variance explained              |
+| Window-based RSVD (-d 2) | Very high | large scale data with =M > 1,000,000=  |
+| IRAM (-d 0)              | Very high | large scale data with =N < 5000=       |
+| RSVD (-d 1)              | High      | accuracy insensitive, any scale data |
+|--------------------------+-----------+--------------------------------------|
 
 ** Input formats
 
@@ -342,36 +336,28 @@ The LD R2 for pairwise SNPs within a window can be outputted to a file
 with suffix =ld.gz= via =--print-r2= option. This file uses the same long
 format as the one [[https://www.cog-genomics.org/plink/1.9/ld#r][plink]] used.
 
-** Memory-efficient modes
+** Memory-efficient mode
 
 PCAone has both *in-core* and *out-of-core* mode for 3 different partial SVD
-algorithms, which are IRAM (=--svd 0=), Yu+Halko RSVD (=--svd 1=) and PCAone
-window-based RSVD (=--svd 2=). Also, PCAone supports full SVD (=--svd 3=) but
-with only *in-core* mode. Therefore, there are *7* ways for doing PCA in PCAone.
-In default PCAone uses *in-core* mode with =--memory 0=, which is the fastest
-way to do calculation. However, in case the server runs out of memory with
-=in-core= mode, the user can trigger =out-of-core mode= by specifying the amount
-of memory using =--memory= option with a value greater than 0.
+algorithms, which are IRAM (=--svd 0=), sSVD (=--svd 1=) and winSVD (=--svd 2=).
+Also, PCAone supports Full SVD (=--svd 3=) but with only *in-core* mode.
+Therefore, there are *7* ways for doing PCA in PCAone. In default PCAone uses
+*in-core* mode, which is the fastest way. However, in case the server runs out
+of memory, you can trigger =out-of-core mode= by specifying the amount of
+memory using =-m/--memory= option with a value greater than 0. Normally, use =-m 2=
+is enough for large dataset and PCAone will allocate more RAM when needed.
 
-*** Run PCAone window-based RSVD method (default) with in-core mode
+*** Run winSVD method (default) with in-core mode
 #+begin_src shell
 ./PCAone --bfile example/plink
 #+end_src
-*** Run PCAone window-based RSVD method (default) with out-of-core mode
+*** Run winSVD method with out-of-core mode
 #+begin_src shell
 ./PCAone --bfile example/plink -m 2
 #+end_src
-*** Run Yu+Halko RSVD method with in-core mode
-#+begin_src shell
-./PCAone --bfile example/plink --svd 1
-#+end_src
-*** Run Yu+Halko RSVD method with out-of-core mode
+*** Run sSVD method with out-of-core mode
 #+begin_src shell
 ./PCAone --bfile example/plink --svd 1 -m 2
-#+end_src
-*** Run IRAM method with in-core mode
-#+begin_src shell
-./PCAone --bfile example/plink --svd 0 -m 2
 #+end_src
 *** Run IRAM method with out-of-core mode
 #+begin_src shell
@@ -467,12 +453,8 @@ Currently, the LD R2 for pairwise SNPs within a window can be outputted via =--p
          -o adj
 #+end_src
 
-We provide the
-[[https://github.com/Zilong-Li/PCAone/blob/main/scripts/calc_decay_bin.R][calc_decay_bin.R]]
-script to parse the output file =.ld.gz= and calculate the average R2 for each
-bin as well as plotting. We also provide the nextflow
-[[https://github.com/Zilong-Li/PCAone/blob/main/workflows/ld.nf][ld.nf]] for
-benchmarking the LD statistics.
+We provide the [[https://github.com/Zilong-Li/PCAone/blob/main/scripts/calc_decay_bin.R][calc_decay_bin.R]] script to parse the output file =.ld.gz= and calculate the average R2 for each
+bin as well as plotting. We also provide the nextflow [[https://github.com/Zilong-Li/PCAone/blob/main/workflows/ld.nf][ld.nf]] for benchmarking the LD statistics.
 
 ** Prunning based on Ancestry-Adjusted LD
 
@@ -514,54 +496,46 @@ tar -xzf example.tar.gz && rm -f example.tar.gz
 
 ** Genotype data (PLINK)
 
-We want to compute the top 40 PCs for this genotype dataset using 20
-threads and only 2 GBs memory. We will use the proposed window-based RSVD
-algorithm with default setting =--svd 2=.
+If you want to get the variance explained of each PC, we need to use =--svd 3= to run Full SVD.
 
 #+begin_src shell
-./PCAone --bfile example/plink -k 40 -m 2 -n 20
+./PCAone --bfile example/plink -d 3
 #+end_src
 
 Then, we can make a PCA plot in R.
 #+begin_src R
 pcs <- read.table("pcaone.eigvecs2",h=F)
-plot(pcs[,1:2+2], col=factor(pcs[,1]), xlab = "PC1", ylab = "PC2")
-legend("topright", legend=unique(pcs[,1]), col=1:4, pch = 21, cex=1.2)
+vals <- scan("pcaone.eigvals")
+vals <- round(vals / sum(vals), 4)
+xlab <- paste0("PC1: ", vals[1] * 100, "%")
+ylab <- paste0("PC2: ", vals[2] * 100, "%")
+plot(pcs[,1:2+2], col=factor(pcs[,1]), xlab = xlab, ylab = ylab, cex.lab = 1.5)
+legend("topleft", legend=unique(pcs[,1]), col=1:4, pch = 21, cex=1.2)
 #+end_src
 
-** Genotype dosage (BGEN)
+** Genotype dosages (BGEN)
 
 Imputation tools usually generate the genotype probabilities or dosages in
 BGEN format. To do PCA with the imputed genotype probabilities, we can
 work on BGEN file with =--bgen= option instead.
 
 #+begin_src shell
-./PCAone --bgen example/test.bgen -k 10 -n 4 -m 2
-#+end_src
-
-Then, we can make a PCA plot in R.
-
-#+begin_src R
-pcs <- read.table("pcaone.eigvecs",h=F)
-pop <- read.table("example/plink.fam",h=F)[,1]
-plot(pcs[,1:2], col=factor(pop), xlab = "PC1", ylab = "PC2")
-legend("topright", legend=unique(pop), col=factor(unique(pop)), pch = 21, cex=1.2)
+./PCAone --bgen example/test.bgen -k 10 -m 2
 #+end_src
 
 ** Single cell RNA-seq data (CSV)
 
-In this example, we run PCA for the single cell RNAs-seq data using a
-different input format with a normalization method called count per median
-log transformation (CPMED).
+In this example, we run PCA for the scRNAs-seq data using CSV format with a
+normalization method called count per median log transformation (CPMED).
+Since the features (genes) tend to be not correlated locally, we use =-S=
+option to disable permutation for winSVD.
 
 #+begin_src shell
-./PCAone --csv example/BrainSpinalCord.csv.zst -k 10 -n 20 -m 4 --scale 2 --svd 1
+./PCAone --csv example/BrainSpinalCord.csv.zst -k 10 -m 2 --scale 2 -S
 #+end_src
-
-It should take around 5 minutes.
 
 * Acknowledgements
 
-PCAone use [[https://eigen.tuxfamily.org/index.php?title=Main_Page][Eigen]] for linear algebra operation. The IRAM method is based on
+PCAone uses [[https://eigen.tuxfamily.org/index.php?title=Main_Page][Eigen]] for linear algebra operation. The IRAM method is based on
 [[https://github.com/yixuan/spectra][yixuan/spectra]]. The bgen lib is ported from [[https://github.com/jeremymcrae/bgen][jeremymcrae/bgen]]. The EMU and
 PCAngsd algorithms are modified from [[https://github.com/Rosemeis][@Jonas]] packages.

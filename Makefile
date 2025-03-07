@@ -162,6 +162,7 @@ example_tests:
 	./PCAone -g example/test.bgen -n4 -o m0
 	./PCAone -g example/test.bgen -n4 -m0.1 -o m1
 	diff m0.eigvals m1.eigvals
+	./PCAone --csv example/BrainSpinalCord.csv.zst -k 10 -m 2 --scale 2 -S
 
 hwe:
 	./PCAone -b example/plink -k 3 -V

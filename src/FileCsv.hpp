@@ -12,8 +12,7 @@ void read_csvzstd_block(ZstdDS& zbuf, int blocksize, uint64 start_idx, uint64 st
 
 PermMat shuffle_csvzstd_to_bin(std::string& fin, std::string fout, uint gb, uint scale);
 
-// assume data is already noralized
-// only do centering
+// for other types, assume data is already noralized only do centering
 class FileCsv : public Data {
  public:
   FileCsv(const Param& params_) : Data(params_) {
@@ -27,7 +26,7 @@ class FileCsv : public Data {
       zbuf.fin = fopenOrDie(params.filein.c_str(), "rb");
       parse_csvzstd(zbuf, nsamples, nsnps, params.scale, libsize, tidx, median_libsize);
     }
-    cao.print(tick.date(), "shape of input matrix (features x samples) is", nsnps, "x", nsamples);
+    cao.print(tick.date(), "shape of input matrix (features x samples) is", nsnps, " x", nsamples);
   }
 
   ~FileCsv() {}

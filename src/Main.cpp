@@ -119,8 +119,8 @@ int main(int argc, char* argv[]) {
   } else if (params.svd_t == SvdType::PCAoneAlg1 || params.svd_t == SvdType::PCAoneAlg2) {
     run_pca_with_halko(data, params);
   } else if (params.svd_t == SvdType::FULL) {
-    cao.print(tick.date(), "running the Full SVD with in-core mode.");
     if (params.file_t == FileType::PLINK || params.file_t == FileType::BGEN) data->standardize_E();
+    cao.print(tick.date(), "running the Full SVD with in-core mode.");
     Eigen::JacobiSVD<Mat2D> svd(data->G, Eigen::ComputeThinU | Eigen::ComputeThinV);
     data->write_eigs_files(svd.singularValues().array().square() / data->nsnps, svd.matrixU(), svd.matrixV());
   } else {

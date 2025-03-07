@@ -164,8 +164,8 @@ void read_csvzstd_block(ZstdDS &zbuf, int blocksize, uint64 start_idx, uint64 st
           G(i, lastSNP) = log10(G(i, lastSNP) * median_libsize / libsize[i] + 1);
       }
 
+      // G.col(lastSNP).array() -= G.col(lastSNP).mean();  // only do centering
       lastSNP++;
-      G.col(lastSNP).array() -= G.col(lastSNP).mean();  // only do centering
     }
   }
 
@@ -196,7 +196,7 @@ void read_csvzstd_block(ZstdDS &zbuf, int blocksize, uint64 start_idx, uint64 st
               G(i, lastSNP) = log10(G(i, lastSNP) * median_libsize / libsize[i] + 1);
           }
 
-          G.col(lastSNP).array() -= G.col(lastSNP).mean();  // only do centering
+          // G.col(lastSNP).array() -= G.col(lastSNP).mean();  // only do centering
           lastSNP++;
         }
       }
@@ -204,6 +204,7 @@ void read_csvzstd_block(ZstdDS &zbuf, int blocksize, uint64 start_idx, uint64 st
     }
   }
 
+  G.rowwise() -= G.colwise().mean();  // do centering
   if (lastSNP != actual_block_size) cao.error("something wrong when read_block_initial");
 }
 
