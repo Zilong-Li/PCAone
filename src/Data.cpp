@@ -171,9 +171,7 @@ void Data::write_eigs_files(const Mat1D &S, const Mat2D &U, const Mat2D &V) {
   std::ofstream outs(params.fileout + ".eigvals");
   std::ofstream outu(params.fileout + ".eigvecs");
   Eigen::IOFormat fmt(6, Eigen::DontAlignCols, "\t", "\n");
-  if (outs.is_open()) {
-    outs << (S * params.ploidy).format(fmt) << '\n';
-  }
+  if (outs.is_open()) outs << (S * params.ploidy).format(fmt) << '\n';
   if (outu.is_open()) outu << U.format(fmt) << '\n';
   if (params.project == 0 && params.printv) {
     save_snps_in_bim();

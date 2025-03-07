@@ -2,7 +2,7 @@
 #+subtitle: Version 0.5.0
 #+author: Zilong Li 
 #+email: zilong.dk@gmail.com
-#+options: toc:2 num:nil email:t -:nil ^:nil
+#+options: toc:2 num:t email:t -:nil ^:nil
 #+latex_compiler: xelatex
 #+latex_class: article
 #+latex_class_options: [a4paper, 11pt]
@@ -13,11 +13,11 @@
 #+latex_header: \hypersetup{colorlinks=true, linkcolor=blue}
 #+latex: \clearpage
 
-[[https://github.com/Zilong-Li/PCAone/actions/workflows/linux.yml/badge.svg]]
-[[https://github.com/Zilong-Li/PCAone/actions/workflows/mac.yml/badge.svg]]
-[[https://bioconda.github.io/recipes/pcaone/README.html][https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat]]
-[[https://github.com/Zilong-Li/PCAone/releases/latest][https://img.shields.io/github/v/release/Zilong-Li/PCAone.svg]]
-[[https://anaconda.org/bioconda/pcaone/badges/downloads.svg]]
+# [[https://github.com/Zilong-Li/PCAone/actions/workflows/linux.yml/badge.svg]]
+# [[https://github.com/Zilong-Li/PCAone/actions/workflows/mac.yml/badge.svg]]
+# [[https://bioconda.github.io/recipes/pcaone/README.html][https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat]]
+# [[https://github.com/Zilong-Li/PCAone/releases/latest][https://img.shields.io/github/v/release/Zilong-Li/PCAone.svg]]
+# [[https://anaconda.org/bioconda/pcaone/badges/downloads.svg]]
 
 * Introduction
 
@@ -90,7 +90,7 @@ See [[file:CHANGELOG.org][change log]] here.
 
 - If using the PCAngsd algorithm, please also cite [[https://www.genetics.org/content/210/2/719][Inferring Population Structure and Admixture Proportions in Low-Depth NGS Data]].
   
-- If using the ancestry ajusted LD statistics for pruning and clumping, please also cite [[https://doi.org/10.1101/2024.05.02.592187][Measuring linkage disequilibrium and improvement of pruning and clumping in structured populations]].
+- If using the ancestry ajusted LD statistics for pruning and clumping, please also cite [[doi:10.1093/genetics/iyaf009][Measuring linkage disequilibrium and improvement of pruning and clumping in structured populations]].
 
 * Quick start
 
@@ -278,14 +278,14 @@ This depends on your datasets, particularlly the relationship between number
 of samples (=N=) and the number of variants / features (=M=) and the top PCs
 (=k=). Here is an overview and the recommendation.
 
-|--------------------------+-----------+--------------------------------------|
-| Method                   | Accuracy  | Scenario                             |
-|--------------------------+-----------+--------------------------------------|
-| Full SVD (-d 3)          | Exact     | full variance explained              |
-| Window-based RSVD (-d 2) | Very high | large scale data with =M > 1,000,000=  |
-| IRAM (-d 0)              | Very high | large scale data with =N < 5000=       |
-| RSVD (-d 1)              | High      | accuracy insensitive, any scale data |
-|--------------------------+-----------+--------------------------------------|
+|-----------------+-------------------------+-----------+--------------------------------|
+| Method          | Scenario                | Accuracy  | Speed                          |
+|-----------------+-------------------------+-----------+--------------------------------|
+| Full SVD (-d 3) | full variance explained | Exact     | slow for big =N= and =M=           |
+| winSVD (-d 2)   | data with =M >> N=        | Very high | fast (only 7 iterations used)  |
+| IRAM (-d 0)     | data with =N < 5000=      | Very high | denpends on =N= and # iterations |
+| sSVD (-d 1)     | accuracy insensitive    | High      | depends on # iterations        |
+|-----------------+-------------------------+-----------+--------------------------------|
 
 ** Input formats
 
