@@ -1,3 +1,8 @@
+- v0.5.0
+  - optimization: reducing the binary size
+  - fix Makefile: use clang and Accelerate framework on MacOS (faster than any other solutions)
+  - fix a small bug in FileCSV
+    
 - v0.4.9
   - use C+17 standard
   - *breaking*: =--verbose= takes integer value as the level of verbose
