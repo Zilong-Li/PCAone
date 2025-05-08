@@ -2,6 +2,7 @@
 #define _DECLARE_TOOLBOX_HERE
 
 #include <omp.h>
+#include <thread>
 
 #include "Arnoldi.hpp"
 #include "Cmd.hpp"
@@ -33,14 +34,22 @@ static int bye() {
   return 0;
 }
 
+static void setEnvironmentVariables(int threadCount) {
+  std::string countStr = std::to_string(threadCount);
+  setenv("MKL_NUM_THREADS", countStr.c_str(), 1);
+  setenv("OMP_NUM_THREADS", countStr.c_str(), 1);
+  setenv("OPENBLAS_NUM_THREADS", countStr.c_str(), 1);
+}
+
 int main(int argc, char* argv[]) {
   Param params(argc, argv);
   cao.cao.open(params.fileout + ".log");
   if (params.verbose > 0) cao.is_screen = true;
   cao.print(get_machine(), params.ss.str());
-  // set number of threads
-  // openblas_set_num_threads(params.threads);
-  omp_set_num_threads(params.threads);
+  // limit the number of threads
+  uint max_threads = std::thread::hardware_concurrency();
+  max_threads = params.threads > max_threads ? max_threads : params.threads;
+  setEnvironmentVariables(max_threads);
   cao.print(tick.date(), "program started");
   Data* data = nullptr;
 
