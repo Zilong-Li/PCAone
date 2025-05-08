@@ -70,7 +70,7 @@ void FileBeagle::check_file_offset_first_var() {
   if (buffer != original) original = buffer;
 }
 
-void FileBeagle::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize) {
+void FileBeagle::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize = false) {
   if (params.pca) cao.error("doesn't support out-of-core PCAngsd algorithm");
   uint actual_block_size = stop_idx - start_idx + 1;
   if (G.cols() < blocksize || (actual_block_size < blocksize)) {

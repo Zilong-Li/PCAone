@@ -25,16 +25,16 @@ class FileBgen : public Data {
               bg->header.compression == 2 ? "zstd" : "zlib");
   }
 
-  ~FileBgen() { delete bg; }
+  ~FileBgen() override { delete bg; }
 
-  virtual void read_all();
+  void read_all() final;
+
   // for blockwise
-  virtual void check_file_offset_first_var() { bg->offset = bg->header.offset + 4; }
+  void check_file_offset_first_var() final { bg->offset = bg->header.offset + 4; }
 
-  virtual void read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize = false);
+  void read_block_initial(uint64, uint64, bool) final;
 
-  virtual void read_block_update(uint64 start_idx, uint64 stop_idx, const Mat2D& U, const Mat1D& svals,
-                                 const Mat2D& VT, bool standardize) {}
+  void read_block_update(uint64, uint64, const Mat2D &, const Mat1D &, const Mat2D &, bool) final {}
 
  private:
   bgen::CppBgenReader* bg;

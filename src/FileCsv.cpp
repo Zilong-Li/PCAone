@@ -68,7 +68,7 @@ void FileCsv::check_file_offset_first_var() {
   zbuf.buffCur = "";
 }
 
-void FileCsv::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize) {
+void FileCsv::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize = false) {
   read_csvzstd_block(zbuf, blocksize, start_idx, stop_idx, G, nsamples, libsize, tidx, median_libsize,
                      params.scale);
 }
@@ -227,7 +227,7 @@ PermMat shuffle_csvzstd_to_bin(std::string &fin, std::string fout, uint gb, uint
   std::ofstream ofs2(fout + ".perm.txt");
   ofs.write((char *)&nsnps, ibyte);
   ofs.write((char *)&nsamples, ibyte);
-  uint magic = ibyte * 2;
+  uint64 magic = ibyte * 2;
   zbuf.fin = fopenOrDie(fin.c_str(), "rb");
   zbuf.lastRet = 1;
   zbuf.buffCur = "";

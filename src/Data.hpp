@@ -10,7 +10,7 @@ class Data {
  public:
   Data(const Param& params_) : params(params_) {}
 
-  virtual ~Data() {}
+  virtual ~Data() = default;
 
   virtual void read_all() = 0;
   // for blockwise

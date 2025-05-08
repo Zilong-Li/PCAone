@@ -30,16 +30,15 @@ class FileBed : public Data {
     }
   }
 
-  ~FileBed() {}
+  ~FileBed() override = default;
 
-  virtual void read_all();
+  void read_all() final;
   // for blockwise
-  virtual void check_file_offset_first_var();
+  void check_file_offset_first_var() final;
 
-  virtual void read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize);
+  void read_block_initial(uint64, uint64, bool) final;
 
-  virtual void read_block_update(uint64 start_idx, uint64 stop_idx, const Mat2D &U, const Mat1D &svals,
-                                 const Mat2D &VT, bool standardize);
+  void read_block_update(uint64, uint64, const Mat2D &, const Mat1D &, const Mat2D &, bool) final;
 
  private:
   std::ifstream bed_ifstream;

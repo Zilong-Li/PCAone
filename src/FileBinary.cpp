@@ -6,14 +6,14 @@ void FileBin::check_file_offset_first_var() {
   setlocale(LC_ALL, "C");
   ios_base::sync_with_stdio(false);
   // magic += missing_points.size() * sizeof(uint64);
-  long long offset = magic + nsnps * bytes_per_snp;
+  long long offset = ibyte * 2 + nsnps * bytes_per_snp;
   if (ifs_bin.tellg() == offset) {
     // reach the end of bed, reset the position to the first variant;
-    ifs_bin.seekg(magic, std::ios_base::beg);
-  } else if (ifs_bin.tellg() == magic) {
+    ifs_bin.seekg(ibyte * 2, std::ios_base::beg);
+  } else if (ifs_bin.tellg() == ibyte * 2) {
     ;
   } else {
-    ifs_bin.seekg(magic, std::ios_base::beg);
+    ifs_bin.seekg(ibyte * 2, std::ios_base::beg);
     if (params.verbose) cao.warn("confirm you are running the window-based RSVD (algorithm2)");
   }
 }
@@ -33,7 +33,7 @@ void FileBin::read_all() {
 void FileBin::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize) {
   // magic += missing_points.size() * sizeof(uint64);
   // check where we are
-  long long offset = magic + start_idx * bytes_per_snp;
+  long long offset = ibyte * 2 + start_idx * bytes_per_snp;
   if (ifs_bin.tellg() != offset) cao.error("something wrong with read_snp_block!\n");
   uint actual_block_size = stop_idx - start_idx + 1;
   G = Mat2D(nsamples, actual_block_size);
