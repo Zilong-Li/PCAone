@@ -20,6 +20,7 @@ void FileCsv::read_all() {
     while (input.pos < input.size) {
       ZSTD_outBuffer output = {buffOut, zbuf.buffOutSize, 0};
       zbuf.lastRet = ZSTD_decompressStream(zbuf.dctx, &output, &input);
+      if (ZSTD_isError(zbuf.lastRet)) cao.error("Error: ZSTD decompression failed");
       zbuf.buffCur += std::string((char *)buffOut, output.pos);
       while ((e = zbuf.buffCur.find("\n")) != std::string::npos) {
         zbuf.buffLine = zbuf.buffCur.substr(0, e);
@@ -86,6 +87,7 @@ void parse_csvzstd(ZstdDS &zbuf, uint &nsamples, uint &nsnps, uint scale, std::v
     while (input.pos < input.size) {
       ZSTD_outBuffer output = {buffOut, zbuf.buffOutSize, 0};
       zbuf.lastRet = ZSTD_decompressStream(zbuf.dctx, &output, &input);
+      if (ZSTD_isError(zbuf.lastRet)) cao.error("Error: ZSTD decompression failed");
       zbuf.buffCur += std::string((char *)buffOut, output.pos);
       while ((p = zbuf.buffCur.find("\n")) != std::string::npos) {
         nsnps++;
@@ -175,6 +177,7 @@ void read_csvzstd_block(ZstdDS &zbuf, int blocksize, uint64 start_idx, uint64 st
       while (input.pos < input.size) {
         ZSTD_outBuffer output = {buffOut, zbuf.buffOutSize, 0};
         zbuf.lastRet = ZSTD_decompressStream(zbuf.dctx, &output, &input);
+        if (ZSTD_isError(zbuf.lastRet)) cao.error("Error: ZSTD decompression failed");
         zbuf.buffCur += std::string((char *)buffOut, output.pos);
         while (lastSNP < actual_block_size && ((e = zbuf.buffCur.find("\n")) != std::string::npos)) {
           zbuf.buffLine = zbuf.buffCur.substr(0, e);
@@ -257,5 +260,6 @@ PermMat shuffle_csvzstd_to_bin(std::string &fin, std::string fout, uint gb, uint
   }
   fin = fout + ".perm.bin";
   ofs2 << indices << "\n";
+  // zstd_compress_file(fin, fin+".zst", 3);
   return PermMat(indices);
 }

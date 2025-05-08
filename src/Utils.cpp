@@ -8,7 +8,7 @@
 
 #include <sys/utsname.h>
 
-#include <cstring> // strtok_r
+#include <cstring>  // strtok_r
 #include <fstream>
 
 #include "kfunc.h"
@@ -69,7 +69,15 @@ size_t freadOrDie(void* buffer, size_t sizeToRead, FILE* file) {
   if (feof(file)) return readSize;             /* good, reached end of file */
   /* error */
   perror("fread");
-  exit(1);
+  exit(4);  // error fread
+}
+
+size_t fwriteOrDie(const void* buffer, size_t sizeToWrite, FILE* file) {
+  size_t const writtenSize = fwrite(buffer, 1, sizeToWrite, file);
+  if (writtenSize == sizeToWrite) return sizeToWrite; /* good */
+  /* error */
+  perror("fwrite");
+  exit(5);  // error fwrite
 }
 
 size_t count_lines(const std::string& fpath) {
@@ -131,7 +139,6 @@ void flip_UV(Mat2D& U, Mat2D& V, bool ubase) {
     }
   }
 }
-
 
 void flip_Y(const Mat2D& X, Mat2D& Y) {
   for (Eigen::Index i = 0; i < X.cols(); ++i) {
@@ -416,4 +423,60 @@ void write_eigvecs2_beagle(const Mat2D& U, const std::string& fin, const std::st
 double chisq1d(const double x) {
   double p = kf_gammaq(1.0 / 2.0, x / 2.0);  // nan expected
   return std::isnan(p) ? 1.0 : p;            // if nan, then retrun 1.0
+}
+
+// modified from https://github.com/facebook/zstd/blob/dev/examples/streaming_compression.c
+void zstd_compress_file(const std::string& fname, std::string outname, int level = 3) {
+  ZstdCS zbuf;  // zstd compression buffer
+  zbuf.fout = fopenOrDie(outname.c_str(), "wb");
+
+  // compression parameters
+  ZSTD_CCtx_setParameter(zbuf.cctx, ZSTD_c_compressionLevel, level);
+  ZSTD_CCtx_setParameter(zbuf.cctx, ZSTD_c_checksumFlag, 1);  // Add content checksum for integrity
+  ZSTD_CCtx_setParameter(zbuf.cctx, ZSTD_c_nbWorkers, 0);     // single-threaded mode
+
+  size_t const toRead = zbuf.buffInSize;
+  auto buffIn = const_cast<void*>(static_cast<const void*>(zbuf.buffInTmp.c_str()));
+  auto buffOut = const_cast<void*>(static_cast<const void*>(zbuf.buffOutTmp.c_str()));
+
+  FILE* const fin = fopenOrDie(fname.c_str(), "rb");
+
+  // this loop read one buffer chunk, compress it and write out
+  for (;;) {
+    size_t read = freadOrDie(buffIn, toRead, fin);
+    /* Select the flush mode.
+     * If the read may not be finished (read == toRead) we use
+     * ZSTD_e_continue. If this is the last chunk, we use ZSTD_e_end.
+     * Zstd optimizes the case where the first flush mode is ZSTD_e_end,
+     * since it knows it is compressing the entire source in one pass.
+     */
+    int const lastChunk = (read < toRead);
+    ZSTD_EndDirective const mode = lastChunk ? ZSTD_e_end : ZSTD_e_continue;
+    /* Set the input buffer to what we just read.
+     * We compress until the input buffer is empty, each time flushing the
+     * output.
+     */
+    ZSTD_inBuffer input = {buffIn, read, 0};
+    int finished;
+    do {
+      /* Compress into the output buffer and write all of the output to
+       * the file so we can reuse the buffer next iteration.
+       */
+      ZSTD_outBuffer output = {buffOut, zbuf.buffOutSize, 0};
+      zbuf.lastRet = ZSTD_compressStream2(zbuf.cctx, &output, &input, mode);
+      if (ZSTD_isError(zbuf.lastRet)) cao.error("Error: ZSTD compression failed");
+      fwriteOrDie(buffOut, output.pos, zbuf.fout);
+      /* If we're on the last chunk we're finished when zstd returns 0,
+       * which means its consumed all the input AND finished the frame.
+       * Otherwise, we're finished when we've consumed all the input.
+       */
+      finished = lastChunk ? (zbuf.lastRet == 0) : (input.pos == input.size);
+    } while (!finished);
+
+    if (input.pos != input.size)
+      cao.error("Impossible: zstd only returns 0 when the input is completely consumed!");
+    if (lastChunk) break;
+  }
+
+  fcloseOrDie(fin);
 }

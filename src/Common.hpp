@@ -78,50 +78,6 @@ struct Line {
   friend std::istream& operator>>(std::istream& ifs, Line& line) { return std::getline(ifs, line.data); }
 };
 
-// zstd deccompression buffer
-struct ZstdDS {
-  ZstdDS() {
-    buffInTmp.reserve(buffInSize);
-    buffOutTmp.reserve(buffOutSize);
-  }
-  ~ZstdDS() {
-    ZSTD_freeDCtx(dctx);
-    if (fclose(fin)) {
-      perror("fclose error");
-      exit(1);
-    }
-  }
-  FILE* fin = nullptr;
-  size_t const buffInSize = ZSTD_DStreamInSize();
-  size_t const buffOutSize = ZSTD_DStreamOutSize();
-  ZSTD_DCtx* const dctx = ZSTD_createDCtx();
-  size_t lastRet = 1;
-  std::string buffCur = "";
-  std::string buffLine, buffInTmp, buffOutTmp;
-};
-
-// zstd compression buffer
-struct ZstdCS {
-  ZstdCS() {
-    buffInTmp.reserve(buffInSize);
-    buffOutTmp.reserve(buffOutSize);
-  }
-  ~ZstdCS() {
-    ZSTD_freeCCtx(cctx);
-    if (fclose(fout)) {
-      perror("fclose error");
-      exit(1);
-    }
-  }
-  FILE* fout = nullptr;
-  size_t const buffInSize = ZSTD_CStreamInSize();
-  size_t const buffOutSize = ZSTD_CStreamOutSize();
-  ZSTD_CCtx* const cctx = ZSTD_createCCtx();
-  size_t lastRet = 1;
-  std::string buffCur = "";
-  std::string buffLine, buffInTmp, buffOutTmp;
-};
-
 // C++ equivalent of Python's math.isclose function
 // https://github.com/jamadagni/areclose/blob/master/areclose.hpp
 struct AreClose {
