@@ -1,5 +1,5 @@
 #+TITLE: Principal Component Analysis All in One
-#+subtitle: Version 0.5.0
+#+subtitle: Version 0.5.1
 #+author: Zilong Li 
 #+email: zilong.dk@gmail.com
 #+options: toc:2 num:nil email:t -:nil ^:nil
@@ -52,19 +52,20 @@ missingness and uncertainty. The PDF manual can be downloaded [[https://github.c
   - [[#which-svd-method-to-use][Which SVD method to use]]
   - [[#input-formats][Input formats]]
   - [[#output-formats][Output formats]]
-  - [[#memory-efficient-mode][Memory-efficient mode]]
+  - [[#performance-and-memory][Performance and memory]]
   - [[#data-normalization][Data Normalization]]
   - [[#projection][Projection]]
   - [[#hwe-accounting-for-population-structure][HWE accounting for population structure]]
-  - [[#ancestry-adjusted-ld-matrix][Ancestry-Adjusted LD matrix]]
+  - [[#ancestry-adjusted-ld-matrix][Ancestry adjusted LD matrix]]
   - [[#report-ld-statistics][Report LD statistics]]
-  - [[#prunning-based-on-ancestry-adjusted-ld][Prunning based on Ancestry-Adjusted LD]]
-  - [[#clumping-based-on-ancestry-adjusted-ld][Clumping based on Ancestry-Adjusted LD]]
+  - [[#prunning-based-on-ancestry-adjusted-ld][Prunning based on ancestry adjusted LD]]
+  - [[#clumping-based-on-ancestry-adjusted-ld][Clumping based on ancestry adjusted LD]]
 - [[#more-tutorials][More tutorials]]
   - [[#genotype-data-plink][Genotype data (PLINK)]]
   - [[#genotype-dosages-bgen][Genotype dosages (BGEN)]]
   - [[#single-cell-rna-seq-data-csv][Single cell RNA-seq data (CSV)]]
 - [[#acknowledgements][Acknowledgements]]
+- [[#contributing][Contributing]]
 #+END_QUOTE
 
 * Features
@@ -75,7 +76,7 @@ See [[file:CHANGELOG.org][change log]] here.
 - Implements our new fast window based Randomized SVD algorithm for tera-scale dataset.
 - Quite fast with multi-threading support using high performance library [[https://software.intel.com/content/www/us/en/develop/tools/oneapi/components/onemkl.html#gs.8jsfgz][MKL]] or [[https://www.openblas.net/][OpenBLAS]] as backend.
 - Supports the [[https://www.cog-genomics.org/plink/1.9/formats#bed][PLINK]], [[https://www.well.ox.ac.uk/~gav/bgen_format][BGEN]], [[http://www.popgen.dk/angsd/index.php/Input#Beagle_format][Beagle]] genetic data formats.
-- Supports a general comma separated CSV format for single cell RNA-seq or bulk RNA-seq data compressed by [[https://github.com/facebook/zstd][zstd]].
+- Supports the comma separated CSV format with integer/float entries for single cell (or bulk) RNA-seq data compressed by [[https://github.com/facebook/zstd][zstd]].
 - Supports [[https://github.com/Rosemeis/emu][EMU]] algorithm for scenario with large proportion of missingness.
 - Supports [[https://github.com/Rosemeis/pcangsd][PCAngsd]] algorithm for low coverage sequencing scenario with genotype likelihood as input.
 - Novel [[https://www.biorxiv.org/content/10.1101/2024.05.02.592187v1][LD]] prunning and clumping method that accounts for population structure in the data.
@@ -282,8 +283,8 @@ of samples (=N=) and the number of variants / features (=M=) and the top PCs
 | Method          | Scenario                | Accuracy  | Speed                          |
 |-----------------+-------------------------+-----------+--------------------------------|
 | Full SVD (-d 3) | full variance explained | Exact     | slow for big =N= and =M=           |
-| winSVD (-d 2)   | data with =M >> N=        | Very high | fast (only 7 iterations used)  |
-| IRAM (-d 0)     | data with =N < 5000=      | Very high | denpends on =N= and # iterations |
+| winSVD (-d 2)   | =M or N >> 500000=        | Very high | fast (only 7 iterations used)  |
+| IRAM (-d 0)     | speed insensitive       | Very high | denpends on =N= and # iterations |
 | sSVD (-d 1)     | accuracy insensitive    | High      | depends on # iterations        |
 |-----------------+-------------------------+-----------+--------------------------------|
 
@@ -336,16 +337,18 @@ The LD R2 for pairwise SNPs within a window can be outputted to a file
 with suffix =ld.gz= via =--print-r2= option. This file uses the same long
 format as the one [[https://www.cog-genomics.org/plink/1.9/ld#r][plink]] used.
 
-** Memory-efficient mode
+** Performance and memory
 
 PCAone has both *in-core* and *out-of-core* mode for 3 different partial SVD
 algorithms, which are IRAM (=--svd 0=), sSVD (=--svd 1=) and winSVD (=--svd 2=).
 Also, PCAone supports Full SVD (=--svd 3=) but with only *in-core* mode.
 Therefore, there are *7* ways for doing PCA in PCAone. In default PCAone uses
-*in-core* mode, which is the fastest way. However, in case the server runs out
-of memory, you can trigger =out-of-core mode= by specifying the amount of
-memory using =-m/--memory= option with a value greater than 0. Normally, use =-m 2=
-is enough for large dataset and PCAone will allocate more RAM when needed.
+*in-core* mode, which is the fastest way (*NOTE*: you can gain some speedup for
+in-code computation by limiting the =-n threads= to half of the available
+threads of your machine). However, in case the server runs out of memory,
+you can trigger =out-of-core mode= by specifying the amount of memory using
+=-m/--memory= option with a value greater than 0. Normally, use =-m 1= is enough
+for large dataset and PCAone will allocate more RAM when needed.
 
 *** Run winSVD method (default) with in-core mode
 #+begin_src shell
@@ -423,7 +426,7 @@ PCAone -b example/plink \
        -o inbreed
 #+end_src
 
-** Ancestry-Adjusted LD matrix
+** Ancestry adjusted LD matrix
 
 LD patterns vary across diverse ancestry and structured groups, and
 conventional LD statistics, e.g. the implementation in =plink --ld=, failed to
@@ -456,7 +459,7 @@ Currently, the LD R2 for pairwise SNPs within a window can be outputted via =--p
 We provide the [[https://github.com/Zilong-Li/PCAone/blob/main/scripts/calc_decay_bin.R][calc_decay_bin.R]] script to parse the output file =.ld.gz= and calculate the average R2 for each
 bin as well as plotting. We also provide the nextflow [[https://github.com/Zilong-Li/PCAone/blob/main/workflows/ld.nf][ld.nf]] for benchmarking the LD statistics.
 
-** Prunning based on Ancestry-Adjusted LD
+** Prunning based on ancestry adjusted LD
 
 Given the LD binary file =.residuals= and its associated variant file
 =.mbim=, we can do pruning based on user-defined thresholds and windows
@@ -469,7 +472,7 @@ Given the LD binary file =.residuals= and its associated variant file
          -o adj
 #+end_src
 
-** Clumping based on Ancestry-Adjusted LD
+** Clumping based on ancestry adjusted LD
 
 Likewise, we can do clumping based on the Ancestry-Adjusted LD matrix and
 user-defined association results
@@ -539,3 +542,10 @@ option to disable permutation for winSVD.
 PCAone uses [[https://eigen.tuxfamily.org/index.php?title=Main_Page][Eigen]] for linear algebra operation. The IRAM method is based on
 [[https://github.com/yixuan/spectra][yixuan/spectra]]. The bgen lib is ported from [[https://github.com/jeremymcrae/bgen][jeremymcrae/bgen]]. The EMU and
 PCAngsd algorithms are modified from [[https://github.com/Rosemeis][@Jonas]] packages.
+
+* Contributing
+
+PCAone is an open source project, and we welcome quality contributions. If you
+are interested in contributing and have experience with C++ (or LLM :D), feel
+free to reach out with ideas you would like to implement yourself.
+
