@@ -202,7 +202,7 @@ void permute_bgen_thread(std::vector<int> idx, std::string fin, std::string fout
 PermMat permute_bgen(std::string &fin, std::string fout, int nthreads) {
   cao.print(tick.date(), "begin to permute BGEN file");
   bgen::CppBgenReader br(fin, "", true);
-  uint nsnps = br.header.nvariants;
+  uint32_t nsnps = br.header.nvariants;
   std::string out = fout + ".perm.bgen";
   bgen::CppBgenWriter bw(out, br.header.nsamples, br.header.extra, br.header.compression, br.header.layout,
                          br.samples.samples);

@@ -30,20 +30,22 @@ class Data {
   // for blockwise
   void calcu_vt_initial(const Mat2D& T, Mat2D& VT, bool standardize);
   void calcu_vt_update(const Mat2D& T, const Mat2D& U, const Mat1D& svals, Mat2D& VT, bool standardize);
-  // given PCs, predict the missing values, then update in place by block
-  void predict_missing_E(const Mat2D& U,uint64 start_idx, uint64 stop_idx);
+  /// given PCs, predict the missing values, then update in place by block
+  void predict_missing_E(const Mat2D& U, uint64 start_idx, uint64 stop_idx);
 
   const Param& params;
 
-  double readtime = 0;
+  // nsamples and nspns should be init in the constructor of all derived class
+  // also, we use uint32_t with exact bit width so that serialization can work
+  uint32_t nsamples{0}, nsnps{0}; 
+  uint blocksize{0}, nblocks{1}, bandFactor{1};
+  uint nops{0};
+  std::vector<uint> start, stop;
   bool snpmajor = true;
   bool nsamples_ge_nsnps = false;  // if nsamples greater than or equal to nsnps
   bool initialFonly = false;
-  uint blocksize = 0, nsamples = 0, nsnps = 0;
-  uint nblocks = 1;
-  uint bandFactor = 1;
-  uint nops = 0;
-  std::vector<uint> start, stop;
+  double readtime{0};
+
   PermMat perm;  // permuation order of SNPs
   Mat2D G;       // genotype matrix, can be initial E or centered E, which is
                  // nsamples x nsnps;

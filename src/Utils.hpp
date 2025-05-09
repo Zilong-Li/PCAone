@@ -112,7 +112,7 @@ struct ZstdCS {
     fcloseOrDie(fout);
   }
   FILE* fout = nullptr;
-  size_t const buffInSize = ZSTD_CStreamInSize();
+  size_t const buffInSize = ZSTD_CStreamInSize();  // 1<<17, 2^17, 128kb
   size_t const buffOutSize = ZSTD_CStreamOutSize();
   ZSTD_CCtx* const cctx = ZSTD_createCCtx();
   size_t lastRet = 1;

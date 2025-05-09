@@ -6,6 +6,8 @@
 
 #include "FileCsv.hpp"
 
+#include <cstdint>
+
 using namespace std;
 
 void FileCsv::read_all() {
@@ -218,7 +220,7 @@ PermMat shuffle_csvzstd_to_bin(std::string &fin, std::string fout, uint gb, uint
   std::vector<size_t> tidx;
   std::vector<double> libsize;
   double median_libsize;
-  uint nsnps, nsamples;
+  uint32_t nsnps, nsamples;
   const uint ibyte = 4;
   ZstdDS zbuf;
   {
@@ -261,8 +263,10 @@ PermMat shuffle_csvzstd_to_bin(std::string &fin, std::string fout, uint gb, uint
       ofs.write((char *)fg.data(), bytes_per_snp);
     }
   }
-  fin = fout + ".perm.bin";
   ofs2 << indices << "\n";
-  // zstd_compress_file(fin, fin+".zst", 3);
+
+  fin = fout + ".perm.bin";
+  zstd_compress_file(fin, fin + ".zst", 3);
+  fin = fout + ".perm.bin.zst";
   return PermMat(indices);
 }
