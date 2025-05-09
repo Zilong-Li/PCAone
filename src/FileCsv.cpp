@@ -14,6 +14,7 @@ void FileCsv::read_all() {
   size_t read, i, j, e, lastSNP = 0;
   zbuf.fin = fopenOrDie(params.filein.c_str(), "rb");
   zbuf.buffCur = "";
+  std::string buffLine;
   G = Mat2D::Zero(nsamples, nsnps);
   while ((read = freadOrDie(buffIn, zbuf.buffInSize, zbuf.fin))) {
     ZSTD_inBuffer input = {buffIn, read, 0};
@@ -23,19 +24,19 @@ void FileCsv::read_all() {
       if (ZSTD_isError(zbuf.lastRet)) cao.error("Error: ZSTD decompression failed");
       zbuf.buffCur += std::string((char *)buffOut, output.pos);
       while ((e = zbuf.buffCur.find("\n")) != std::string::npos) {
-        zbuf.buffLine = zbuf.buffCur.substr(0, e);
+        buffLine = zbuf.buffCur.substr(0, e);
         zbuf.buffCur.erase(0, e + 1);
-        for (i = 0, j = 1; i < zbuf.buffLine.size(); i++) {
-          if (zbuf.buffLine[i] == ',') {
+        for (i = 0, j = 1; i < buffLine.size(); i++) {
+          if (buffLine[i] == ',') {
             tidx[j] = i + 1;
             j++;
           }
         }
-        tidx[nsamples] = zbuf.buffLine.size() + 1;
+        tidx[nsamples] = buffLine.size() + 1;
 
 #pragma omp parallel for
         for (size_t i = 0; i < nsamples; i++) {
-          G(i, lastSNP) = std::stod(zbuf.buffLine.substr(tidx[i], tidx[i + 1] - tidx[i] - 1));
+          G(i, lastSNP) = std::stod(buffLine.substr(tidx[i], tidx[i + 1] - tidx[i] - 1));
           if (params.scale == 1)
             G(i, lastSNP) = log10(G(i, lastSNP) + 0.01);
           else if (params.scale == 2)
@@ -81,6 +82,7 @@ void parse_csvzstd(ZstdDS &zbuf, uint &nsamples, uint &nsnps, uint scale, std::v
   size_t read, i, j, p, ncol = 0, lastCol = 0;
   int isEmpty = 1;
   nsnps = 0;
+  std::string buffLine;
   while ((read = freadOrDie(buffIn, zbuf.buffInSize, zbuf.fin))) {
     isEmpty = 0;
     ZSTD_inBuffer input = {buffIn, read, 0};
@@ -91,12 +93,12 @@ void parse_csvzstd(ZstdDS &zbuf, uint &nsamples, uint &nsnps, uint scale, std::v
       zbuf.buffCur += std::string((char *)buffOut, output.pos);
       while ((p = zbuf.buffCur.find("\n")) != std::string::npos) {
         nsnps++;
-        zbuf.buffLine = zbuf.buffCur.substr(0, p);
+        buffLine = zbuf.buffCur.substr(0, p);
         zbuf.buffCur.erase(0, p + 1);
         lastCol = ncol;
         ncol = 1;
-        for (i = 0, j = 1; i < zbuf.buffLine.size(); i++) {
-          if (zbuf.buffLine[i] == ',') {
+        for (i = 0, j = 1; i < buffLine.size(); i++) {
+          if (buffLine[i] == ',') {
             ncol++;
             if (nsnps > 1) {
               tidx[j++] = i + 1;
@@ -107,19 +109,19 @@ void parse_csvzstd(ZstdDS &zbuf, uint &nsamples, uint &nsnps, uint scale, std::v
         if (nsnps == 1) {
           libsize.resize(ncol);
           tidx.resize(ncol + 1);
-          for (i = 0, j = 1; i < zbuf.buffLine.size(); i++) {
-            if (zbuf.buffLine[i] == ',') {
+          for (i = 0, j = 1; i < buffLine.size(); i++) {
+            if (buffLine[i] == ',') {
               tidx[j++] = i + 1;
             }
           }
         }
 
-        tidx[ncol] = zbuf.buffLine.size() + 1;
+        tidx[ncol] = buffLine.size() + 1;
         if (scale == 2)  // cpmed
         {
 #pragma omp parallel for
           for (size_t i = 0; i < ncol; i++) {
-            libsize[i] += std::stod(zbuf.buffLine.substr(tidx[i], tidx[i + 1] - tidx[i] - 1));
+            libsize[i] += std::stod(buffLine.substr(tidx[i], tidx[i + 1] - tidx[i] - 1));
           }
         }
         if (nsnps > 2 && (lastCol != ncol)) cao.error("the csv file has unaligned columns");
@@ -135,7 +137,7 @@ void parse_csvzstd(ZstdDS &zbuf, uint &nsamples, uint &nsnps, uint scale, std::v
   if (scale == 2) median_libsize = get_median(libsize);
 }
 
-void read_csvzstd_block(ZstdDS &zbuf, int blocksize, uint64 start_idx, uint64 stop_idx, Mat2D &G,
+void read_csvzstd_block(ZstdDS &zbuf, uint blocksize, uint64 start_idx, uint64 stop_idx, Mat2D &G,
                         uint nsamples, std::vector<double> &libsize, std::vector<size_t> &tidx,
                         double median_libsize, uint scale) {
   const uint actual_block_size = stop_idx - start_idx + 1;
@@ -146,20 +148,21 @@ void read_csvzstd_block(ZstdDS &zbuf, int blocksize, uint64 start_idx, uint64 st
   auto buffIn = const_cast<void *>(static_cast<const void *>(zbuf.buffInTmp.c_str()));
   auto buffOut = const_cast<void *>(static_cast<const void *>(zbuf.buffOutTmp.c_str()));
   size_t read, i, j, e, lastSNP = 0;
+  std::string buffLine;
   if (zbuf.buffCur != "") {
     while (lastSNP < actual_block_size && ((e = zbuf.buffCur.find("\n")) != std::string::npos)) {
-      zbuf.buffLine = zbuf.buffCur.substr(0, e);
+      buffLine = zbuf.buffCur.substr(0, e);
       zbuf.buffCur.erase(0, e + 1);
-      for (i = 0, j = 1; i < zbuf.buffLine.size(); i++) {
-        if (zbuf.buffLine[i] == ',') {
+      for (i = 0, j = 1; i < buffLine.size(); i++) {
+        if (buffLine[i] == ',') {
           tidx[j++] = i + 1;
         }
       }
-      tidx[nsamples] = zbuf.buffLine.size() + 1;
+      tidx[nsamples] = buffLine.size() + 1;
 
 #pragma omp parallel for
       for (size_t i = 0; i < nsamples; i++) {
-        G(i, lastSNP) = std::stod(zbuf.buffLine.substr(tidx[i], tidx[i + 1] - tidx[i] - 1));
+        G(i, lastSNP) = std::stod(buffLine.substr(tidx[i], tidx[i + 1] - tidx[i] - 1));
         if (scale == 1)
           G(i, lastSNP) = log10(G(i, lastSNP) + 0.01);
         else if (scale == 2)
@@ -180,19 +183,19 @@ void read_csvzstd_block(ZstdDS &zbuf, int blocksize, uint64 start_idx, uint64 st
         if (ZSTD_isError(zbuf.lastRet)) cao.error("Error: ZSTD decompression failed");
         zbuf.buffCur += std::string((char *)buffOut, output.pos);
         while (lastSNP < actual_block_size && ((e = zbuf.buffCur.find("\n")) != std::string::npos)) {
-          zbuf.buffLine = zbuf.buffCur.substr(0, e);
+          buffLine = zbuf.buffCur.substr(0, e);
           zbuf.buffCur.erase(0, e + 1);
-          for (i = 0, j = 1; i < zbuf.buffLine.size(); i++) {
-            if (zbuf.buffLine[i] == ',') {
+          for (i = 0, j = 1; i < buffLine.size(); i++) {
+            if (buffLine[i] == ',') {
               tidx[j] = i + 1;
               j++;
             }
           }
-          tidx[nsamples] = zbuf.buffLine.size() + 1;
+          tidx[nsamples] = buffLine.size() + 1;
 
 #pragma omp parallel for
           for (size_t i = 0; i < nsamples; i++) {
-            G(i, lastSNP) = std::stod(zbuf.buffLine.substr(tidx[i], tidx[i + 1] - tidx[i] - 1));
+            G(i, lastSNP) = std::stod(buffLine.substr(tidx[i], tidx[i + 1] - tidx[i] - 1));
             if (scale == 1)
               G(i, lastSNP) = log10(G(i, lastSNP) + 0.01);
             else if (scale == 2)

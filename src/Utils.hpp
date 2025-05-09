@@ -1,11 +1,10 @@
 #ifndef PCAONE_UTILES_
 #define PCAONE_UTILES_
 
-#include "zlib.h"
-
 #include "Common.hpp"
 #include "Logger.hpp"
 #include "Timer.hpp"
+#include "zlib.h"
 
 // MAKE SOME TOOLS FULLY ACCESSIBLE THROUGHOUT THE SOFTWARE
 #ifdef _DECLARE_TOOLBOX_HERE
@@ -15,7 +14,6 @@ Timer tick;  // Timer
 extern Timer tick;
 extern Logger cao;
 #endif
-
 
 /// get the machine information
 std::string get_machine();
@@ -33,6 +31,7 @@ void fcloseOrDie(FILE* file);
 FILE* fopenOrDie(const char* filename, const char* instruction);
 
 size_t freadOrDie(void* buffer, size_t sizeToRead, FILE* file);
+
 size_t fwriteOrDie(const void* buffer, size_t sizeToWrite, FILE* file);
 
 size_t count_lines(const std::string& fpath);
@@ -81,8 +80,7 @@ void write_eigvecs2_beagle(const Mat2D& U, const std::string& fin, const std::st
 double chisq1d(const double x);
 
 /// stream compress a file by zstd
-void zstd_compress_file(const std::string & fname, std::string outname, int level);
-
+void zstd_compress_file(const std::string& fname, std::string outname, int level);
 
 // zstd deccompression buffer
 struct ZstdDS {
@@ -99,8 +97,8 @@ struct ZstdDS {
   size_t const buffOutSize = ZSTD_DStreamOutSize();
   ZSTD_DCtx* const dctx = ZSTD_createDCtx();
   size_t lastRet = 1;
-  std::string buffCur = "";
-  std::string buffLine, buffInTmp, buffOutTmp;
+  std::string buffInTmp, buffOutTmp;
+  std::string buffCur{""};
 };
 
 // zstd compression buffer

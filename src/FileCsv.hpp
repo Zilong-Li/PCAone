@@ -6,7 +6,7 @@
 void parse_csvzstd(ZstdDS& zbuf, uint& nsamples, uint& nsnps, uint scale, std::vector<double>& libsize,
                    std::vector<size_t>& tidx, double& median_libsize);
 
-void read_csvzstd_block(ZstdDS& zbuf, int blocksize, uint64 start_idx, uint64 stop_idx, Mat2D& G,
+void read_csvzstd_block(ZstdDS& zbuf, uint blocksize, uint64 start_idx, uint64 stop_idx, Mat2D& G,
                         uint nsamples, std::vector<double>& libsize, std::vector<size_t>& tidx,
                         double median_libsize, uint scale);
 
