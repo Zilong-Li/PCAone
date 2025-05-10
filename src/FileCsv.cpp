@@ -6,28 +6,33 @@
 
 #include "FileCsv.hpp"
 
-#include <cstdint>
+#include "zstdpp/zstdpp.hpp"
 
 using namespace std;
 
 void FileCsv::read_all() {
-  auto buffIn = const_cast<void *>(static_cast<const void *>(zbuf.buffInTmp.c_str()));
-  auto buffOut = const_cast<void *>(static_cast<const void *>(zbuf.buffOutTmp.c_str()));
-  size_t read, i, j, e, lastSNP = 0;
-  zbuf.fin = fopenOrDie(params.filein.c_str(), "rb");
-  zbuf.buffCur = "";
+  check_file_offset_first_var();
+
+  size_t read;
+  size_t i, j, e, lastSNP = 0;
+
   std::string buffLine;
   G = Mat2D::Zero(nsamples, nsnps);
-  while ((read = freadOrDie(buffIn, zbuf.buffInSize, zbuf.fin))) {
-    ZSTD_inBuffer input = {buffIn, read, 0};
+
+  while (!isEmpty) {
+    read = res.readFrom(ifs);
+    isEmpty = read == 0;
+
+    ZSTD_inBuffer input = {res.getRawInData(), read, 0};
     while (input.pos < input.size) {
-      ZSTD_outBuffer output = {buffOut, zbuf.buffOutSize, 0};
-      zbuf.lastRet = ZSTD_decompressStream(zbuf.dctx, &output, &input);
-      if (ZSTD_isError(zbuf.lastRet)) cao.error("Error: ZSTD decompression failed");
-      zbuf.buffCur += std::string((char *)buffOut, output.pos);
-      while ((e = zbuf.buffCur.find("\n")) != std::string::npos) {
-        buffLine = zbuf.buffCur.substr(0, e);
-        zbuf.buffCur.erase(0, e + 1);
+      ZSTD_outBuffer output = {res.getRawOutData(), res.getToWrite(), 0};
+      lastRet = ctx(input, output);  // perform decompression
+      if (ZSTD_isError(lastRet)) cao.error("Error: ZSTD decompression failed. lastRet:", lastRet);
+      res.writeTo(buffCur, output.pos);
+
+      while ((e = buffCur.find("\n")) != std::string::npos) {
+        buffLine = buffCur.substr(0, e);
+        buffCur.erase(0, e + 1);
         for (i = 0, j = 1; i < buffLine.size(); i++) {
           if (buffLine[i] == ',') {
             tidx[j] = i + 1;
@@ -45,58 +50,63 @@ void FileCsv::read_all() {
             G(i, lastSNP) = log10(G(i, lastSNP) * median_libsize / libsize[i] + 1);
         }
 
-        // G.col(lastSNP).array() -= G.col(lastSNP).mean(); // only do centering
         lastSNP++;
       }
     }
   }
 
-  G.rowwise() -= G.colwise().mean();  // do centering
-
-  if (zbuf.lastRet != 0) cao.error("EOF before end of ZSTD_decompressStream.\n");
+  if (lastRet != 0) cao.error("EOF before end of stream:", lastRet);
 
   // deal with the case there is no "\n" for the last line of file
-  if (lastSNP != nsnps) cao.error("error when parsing csv file\n");
+  if (lastSNP != nsnps) cao.error("when parsing csv file: lastSNP=", lastSNP, ", M=", nsnps);
+
+  G.rowwise() -= G.colwise().mean();  // do centering
 }
 
 void FileCsv::check_file_offset_first_var() {
-  if (zbuf.fin == nullptr) {
-    zbuf.fin = fopenOrDie(params.filein.c_str(), "rb");
-  } else if (feof(zbuf.fin) || zbuf.lastRet == 0) {
-    rewind(zbuf.fin);
-  } else {
-    rewind(zbuf.fin);
-    if (params.verbose) cao.warn("confirm you are running the window-based RSVD (algorithm2)");
+  if (!(isEmpty || ifs.eof() || !ifs.tellg())) {
+    cao.warn("confirm you are running winSVD with advanced settings");
   }
-  zbuf.lastRet = 1;
-  zbuf.buffCur = "";
+  if (lastRet != 0) cao.error("EOF before end of stream:", lastRet);
+  // rewind stream
+  ifs.clear();
+  ifs.seekg(0, std::ios::beg);
+  // reset
+  buffCur = "";
+  isEmpty = 0;
 }
 
 void FileCsv::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize = false) {
-  read_csvzstd_block(zbuf, blocksize, start_idx, stop_idx, G, nsamples, libsize, tidx, median_libsize,
-                     params.scale);
+  read_csvzstd_block(ifs, res, ctx, buffCur, isEmpty, lastRet, blocksize, start_idx, stop_idx, G, nsamples,
+                     libsize, tidx, median_libsize, params.scale);
 }
 
-void parse_csvzstd(ZstdDS &zbuf, uint &nsamples, uint &nsnps, uint scale, std::vector<double> &libsize,
-                   std::vector<size_t> &tidx, double &median_libsize) {
-  auto buffIn = const_cast<void *>(static_cast<const void *>(zbuf.buffInTmp.c_str()));
-  auto buffOut = const_cast<void *>(static_cast<const void *>(zbuf.buffOutTmp.c_str()));
+void parse_csvzstd(const std::string &fin, uint32_t &nsamples, uint32_t &nsnps, uint scale,
+                   std::vector<double> &libsize, std::vector<size_t> &tidx, double &median_libsize) {
+  zstdpp::stream::Resources res{};
+  zstdpp::stream::Context ctx{};
+  // size_t const toRead = res.getToRead();
   size_t read, i, j, p, ncol = 0, lastCol = 0;
-  int isEmpty = 1;
+  int isEmpty{0};     // check if ifstream return nothing, which means EOF
+  size_t lastRet{0};  // check the return value of decompress function
+  std::ifstream ifs(fin, std::ios::binary);
+
   nsnps = 0;
-  std::string buffLine;
-  while ((read = freadOrDie(buffIn, zbuf.buffInSize, zbuf.fin))) {
-    isEmpty = 0;
-    ZSTD_inBuffer input = {buffIn, read, 0};
+  std::string buffLine{""}, buffCur{""};
+  while (!isEmpty) {
+    read = res.readFrom(ifs);
+    isEmpty = read == 0;
+    ZSTD_inBuffer input = {res.getRawInData(), read, 0};
     while (input.pos < input.size) {
-      ZSTD_outBuffer output = {buffOut, zbuf.buffOutSize, 0};
-      zbuf.lastRet = ZSTD_decompressStream(zbuf.dctx, &output, &input);
-      if (ZSTD_isError(zbuf.lastRet)) cao.error("Error: ZSTD decompression failed");
-      zbuf.buffCur += std::string((char *)buffOut, output.pos);
-      while ((p = zbuf.buffCur.find("\n")) != std::string::npos) {
+      ZSTD_outBuffer output = {res.getRawOutData(), res.getToWrite(), 0};
+      lastRet = ctx(input, output);  // perform decompression
+      if (ZSTD_isError(lastRet)) cao.error("Error: ZSTD decompression failed");
+      res.writeTo(buffCur, output.pos);
+
+      while ((p = buffCur.find("\n")) != std::string::npos) {
         nsnps++;
-        buffLine = zbuf.buffCur.substr(0, p);
-        zbuf.buffCur.erase(0, p + 1);
+        buffLine = buffCur.substr(0, p);
+        buffCur.erase(0, p + 1);
         lastCol = ncol;
         ncol = 1;
         for (i = 0, j = 1; i < buffLine.size(); i++) {
@@ -131,30 +141,32 @@ void parse_csvzstd(ZstdDS &zbuf, uint &nsamples, uint &nsnps, uint scale, std::v
     }
   }
 
-  if (isEmpty) cao.error("input file is empty.");
-  if (zbuf.lastRet != 0) cao.error("EOF before end of ZSTD_decompressStream.");
+  /* The last return value from ZSTD_decompressStream did not end on a
+   * frame, but we reached the end of the file! We assume this is an
+   * error, and the input was truncated.
+   */
+  if (lastRet != 0) cao.error("EOF before end of stream:", lastRet);
 
   nsamples = ncol;
-  zbuf.lastRet = 1;
   if (scale == 2) median_libsize = get_median(libsize);
 }
 
-void read_csvzstd_block(ZstdDS &zbuf, uint blocksize, uint64 start_idx, uint64 stop_idx, Mat2D &G,
-                        uint nsamples, std::vector<double> &libsize, std::vector<size_t> &tidx,
+void read_csvzstd_block(std::ifstream &ifs, Resources &res, Context &ctx, std::string &buffCur, int &isEmpty,
+                        size_t &lastRet, uint blocksize, uint64_t start_idx, uint64_t stop_idx, Mat2D &G,
+                        uint32_t nsamples, std::vector<double> &libsize, std::vector<size_t> &tidx,
                         double median_libsize, uint scale) {
   const uint actual_block_size = stop_idx - start_idx + 1;
-
   if (G.cols() < blocksize || (actual_block_size < blocksize)) {
     G = Mat2D::Zero(nsamples, actual_block_size);
   }
-  auto buffIn = const_cast<void *>(static_cast<const void *>(zbuf.buffInTmp.c_str()));
-  auto buffOut = const_cast<void *>(static_cast<const void *>(zbuf.buffOutTmp.c_str()));
-  size_t read, i, j, e, lastSNP = 0;
+
+  size_t i, j, e, lastSNP = 0;
   std::string buffLine;
-  if (zbuf.buffCur != "") {
-    while (lastSNP < actual_block_size && ((e = zbuf.buffCur.find("\n")) != std::string::npos)) {
-      buffLine = zbuf.buffCur.substr(0, e);
-      zbuf.buffCur.erase(0, e + 1);
+
+  if (buffCur != "") {  // we got buffers left to be processed
+    while (lastSNP < actual_block_size && ((e = buffCur.find("\n")) != std::string::npos)) {
+      buffLine = buffCur.substr(0, e);
+      buffCur.erase(0, e + 1);
       for (i = 0, j = 1; i < buffLine.size(); i++) {
         if (buffLine[i] == ',') {
           tidx[j++] = i + 1;
@@ -176,17 +188,22 @@ void read_csvzstd_block(ZstdDS &zbuf, uint blocksize, uint64 start_idx, uint64 s
     }
   }
 
-  if (zbuf.lastRet != 0 && lastSNP < actual_block_size) {
-    while ((read = freadOrDie(buffIn, zbuf.buffInSize, zbuf.fin))) {
-      ZSTD_inBuffer input = {buffIn, read, 0};
+  size_t read;
+  if (lastSNP < actual_block_size) {
+    while (!isEmpty) {
+      read = res.readFrom(ifs);
+      isEmpty = read == 0;
+      ZSTD_inBuffer input = {res.getRawInData(), read, 0};
+
       while (input.pos < input.size) {
-        ZSTD_outBuffer output = {buffOut, zbuf.buffOutSize, 0};
-        zbuf.lastRet = ZSTD_decompressStream(zbuf.dctx, &output, &input);
-        if (ZSTD_isError(zbuf.lastRet)) cao.error("Error: ZSTD decompression failed");
-        zbuf.buffCur += std::string((char *)buffOut, output.pos);
-        while (lastSNP < actual_block_size && ((e = zbuf.buffCur.find("\n")) != std::string::npos)) {
-          buffLine = zbuf.buffCur.substr(0, e);
-          zbuf.buffCur.erase(0, e + 1);
+        ZSTD_outBuffer output = {res.getRawOutData(), res.getToWrite(), 0};
+        lastRet = ctx(input, output);  // perform decompression
+        if (ZSTD_isError(lastRet)) cao.error("Error: ZSTD decompression failed.");
+        res.writeTo(buffCur, output.pos);
+
+        while (lastSNP < actual_block_size && ((e = buffCur.find("\n")) != std::string::npos)) {
+          buffLine = buffCur.substr(0, e);
+          buffCur.erase(0, e + 1);
           for (i = 0, j = 1; i < buffLine.size(); i++) {
             if (buffLine[i] == ',') {
               tidx[j] = i + 1;
@@ -212,22 +229,19 @@ void read_csvzstd_block(ZstdDS &zbuf, uint blocksize, uint64 start_idx, uint64 s
     }
   }
 
-  G.rowwise() -= G.colwise().mean();  // do centering
   if (lastSNP != actual_block_size) cao.error("something wrong when read_block_initial");
+  G.rowwise() -= G.colwise().mean();  // do centering
 }
 
 PermMat shuffle_csvzstd_to_bin(std::string &fin, std::string fout, uint gb, uint scale) {
+  cao.print(tick.date(), "shuffle and convert CSV to binary file");
   std::vector<size_t> tidx;
   std::vector<double> libsize;
   double median_libsize;
   uint32_t nsnps, nsamples;
   const uint ibyte = 4;
-  ZstdDS zbuf;
-  {
-    zbuf.fin = fopenOrDie(fin.c_str(), "rb");
-    parse_csvzstd(zbuf, nsamples, nsnps, scale, libsize, tidx, median_libsize);
-    fcloseOrDie(zbuf.fin);
-  }
+  parse_csvzstd(fin, nsamples, nsnps, scale, libsize, tidx, median_libsize);
+
   uint64 bytes_per_snp = nsamples * ibyte;
   uint blocksize = 1073741824 * gb / bytes_per_snp;
   uint nblocks = (nsnps + blocksize - 1) / blocksize;
@@ -236,9 +250,14 @@ PermMat shuffle_csvzstd_to_bin(std::string &fin, std::string fout, uint gb, uint
   ofs.write((char *)&nsnps, ibyte);
   ofs.write((char *)&nsamples, ibyte);
   uint64 magic = ibyte * 2;
-  zbuf.fin = fopenOrDie(fin.c_str(), "rb");
-  zbuf.lastRet = 1;
-  zbuf.buffCur = "";
+
+  std::ifstream ifs(fin, std::ios::binary);
+  zstdpp::stream::Resources res{};
+  zstdpp::stream::Context ctx{};
+  std::string buffCur{""};
+  int isEmpty{0};     // check if ifstream return nothing, which means EOF
+  size_t lastRet{0};  // check the return value of decompress function
+
   Mat2D G;
   std::vector<int> perm(nsnps);
   std::iota(perm.begin(), perm.end(), 0);
@@ -252,8 +271,8 @@ PermMat shuffle_csvzstd_to_bin(std::string &fin, std::string fout, uint gb, uint
     start_idx = i * blocksize;
     stop_idx = start_idx + blocksize - 1;
     stop_idx = stop_idx >= nsnps ? nsnps - 1 : stop_idx;
-    read_csvzstd_block(zbuf, blocksize, start_idx, stop_idx, G, nsamples, libsize, tidx, median_libsize,
-                       scale);
+    read_csvzstd_block(ifs, res, ctx, buffCur, isEmpty, lastRet, blocksize, start_idx, stop_idx, G, nsamples,
+                       libsize, tidx, median_libsize, scale);
     for (Eigen::Index p = 0; p < G.cols(); p++, ia++) {
       ib = perm[ia];
       indices(ib) = ia;
@@ -263,10 +282,12 @@ PermMat shuffle_csvzstd_to_bin(std::string &fin, std::string fout, uint gb, uint
       ofs.write((char *)fg.data(), bytes_per_snp);
     }
   }
+  if (lastRet != 0) cao.error("EOF before end of stream:", lastRet);
+
   ofs2 << indices << "\n";
 
   fin = fout + ".perm.bin";
-  zstd_compress_file(fin, fin + ".zst", 3);
+  zstdpp::stream_compress(fin, fin + ".zst");
   fin = fout + ".perm.bin.zst";
   return PermMat(indices);
 }
