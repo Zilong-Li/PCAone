@@ -46,8 +46,8 @@ class FileCsv : public Data {
   void read_block_update(uint64, uint64, const Mat2D &, const Mat1D &, const Mat2D &, bool) final {}
 
  private:
-  zstdpp::stream::Resources res{};
-  zstdpp::stream::Context ctx{};
+  Resources res{};
+  Context ctx{};
   std::ifstream ifs;
   std::string buffCur{""};
   int isEmpty{0};     // check if ifstream return nothing, which means EOF
