@@ -5,8 +5,7 @@
 #include <iterator>
 #include <sstream>
 
-typedef unsigned int uint;
-typedef unsigned long long uint64;
+using uint = unsigned int;
 
 enum class FileType { PLINK, CSV, BEAGLE, BINARY, BGEN };
 

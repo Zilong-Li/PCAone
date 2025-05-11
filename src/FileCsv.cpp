@@ -83,8 +83,8 @@ void FileCsv::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
 
 void parse_csvzstd(const std::string &fin, uint32_t &nsamples, uint32_t &nsnps, uint scale,
                    std::vector<double> &libsize, std::vector<size_t> &tidx, double &median_libsize) {
-  zstdpp::stream::Resources res{};
-  zstdpp::stream::Context ctx{};
+  Resources res{};
+  Context ctx{};
   // size_t const toRead = res.getToRead();
   size_t read, i, j, p, ncol = 0, lastCol = 0;
   int isEmpty{0};     // check if ifstream return nothing, which means EOF
@@ -252,8 +252,8 @@ PermMat shuffle_csvzstd_to_bin(std::string &fin, std::string fout, uint gb, uint
   uint64 magic = ibyte * 2;
 
   std::ifstream ifs(fin, std::ios::binary);
-  zstdpp::stream::Resources res{};
-  zstdpp::stream::Context ctx{};
+  Resources res{};
+  Context ctx{};
   std::string buffCur{""};
   int isEmpty{0};     // check if ifstream return nothing, which means EOF
   size_t lastRet{0};  // check the return value of decompress function

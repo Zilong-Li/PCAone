@@ -11,8 +11,6 @@
 using namespace std;
 
 void FileBed::check_file_offset_first_var() {
-  setlocale(LC_ALL, "C");
-  ios_base::sync_with_stdio(false);
   long long offset = 3 + nsnps * bed_bytes_per_snp;
   if (bed_ifstream.tellg() == offset) {
     // reach the end of bed, reset the position to the first variant;
@@ -287,7 +285,6 @@ PermMat permute_plink(std::string &fin, const std::string &fout, uint gb, uint n
     }
   }
 
-  ios_base::sync_with_stdio(false);
   std::ifstream in(fin + ".bed", std::ios::binary);
   std::ofstream out(fout + ".perm.bed", std::ios::binary);
   if (!in.is_open()) cao.error("Cannot open bed file.");

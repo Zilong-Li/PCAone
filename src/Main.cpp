@@ -42,6 +42,8 @@ static void setEnvironmentVariables(int threadCount) {
 }
 
 int main(int argc, char* argv[]) {
+  std::setlocale(LC_ALL, "C");
+  std::ios_base::sync_with_stdio(false);
   Param params(argc, argv);
   cao.cao.open(params.fileout + ".log");
   if (params.verbose > 0) cao.is_screen = true;

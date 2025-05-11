@@ -25,7 +25,7 @@ class FileCsv : public Data {
     ifs.open(params.filein, std::ios::in | std::ios::binary);
 
     if (params.nsnps > 0 && params.nsamples > 0 && !params.cpmed) {
-      if (params.verbose > 2) cao.print(tick.date(), "use numer of samples and features given by user.");
+      if (params.verbose > 1) cao.print(tick.date(), "use numer of samples and features given by user.");
       nsamples = params.nsamples;
       nsnps = params.nsnps;
     } else {
