@@ -6,7 +6,7 @@
 
 #include "Utils.hpp"
 
-#include <sys/utsname.h> // POSIX
+#include <sys/utsname.h>  // POSIX
 
 #include <cstring>  // strtok_r
 #include <fstream>
@@ -388,4 +388,17 @@ void write_eigvecs2_beagle(const Mat2D& U, const std::string& fin, const std::st
 double chisq1d(const double x) {
   double p = kf_gammaq(1.0 / 2.0, x / 2.0);  // nan expected
   return std::isnan(p) ? 1.0 : p;            // if nan, then retrun 1.0
+}
+
+void moveFile(const std::filesystem::path& source, const std::filesystem::path& destination) {
+  try {
+    if (std::filesystem::exists(destination)) {
+      std::filesystem::remove(destination);  // Remove the destination file if it exists
+    }
+    std::filesystem::rename(source, destination);  // Move the file to the new location
+  } catch (const std::filesystem::filesystem_error& e) {
+    cao.error("Filesystem error: ", e.what());
+  } catch (const std::exception& e) {
+    cao.error("Error: ", e.what());
+  }
 }

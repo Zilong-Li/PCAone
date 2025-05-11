@@ -97,12 +97,12 @@ int main(int argc, char* argv[]) {
       data = new FileBgen(params);
       data->perm = perm;
     } else if (params.file_t == FileType::CSV) {
-      auto perm = shuffle_csvzstd_to_bin(params.filein, params.fileout, params.buffer, params.scale);
+      auto perm = normCSV2BIN(params.filein, params.fileout, params.buffer, params.scale, true);
       params.file_t = FileType::BINARY;
       data = new FileBin(params);
       data->perm = perm;
     } else {
-      cao.error("wrong file type used!");
+      cao.error("shuffle binary file is not needed!");
     }
     cao.print(tick.date(), "elapsed time of permuting data:", tick.reltime(), " seconds");
   } else {
@@ -115,7 +115,10 @@ int main(int argc, char* argv[]) {
     } else if (params.file_t == FileType::BINARY) {
       data = new FileBin(params);
     } else if (params.file_t == FileType::CSV) {
-      data = new FileCsv(params);
+      auto perm = normCSV2BIN(params.filein, params.fileout, params.buffer, params.scale, false);
+      params.file_t = FileType::BINARY;
+      data = new FileBin(params);
+      data->perm = perm;
     } else {
       cao.error("invalid input files!");
     }

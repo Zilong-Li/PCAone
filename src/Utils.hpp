@@ -71,5 +71,6 @@ void write_eigvecs2_beagle(const Mat2D& U, const std::string& fin, const std::st
 /// return the p-value of 1-degreed chi-squared
 double chisq1d(const double x);
 
+void moveFile(const std::filesystem::path& source, const std::filesystem::path& destination);
 
 #endif  // PCAONE_UTILES_

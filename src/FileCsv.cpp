@@ -233,61 +233,93 @@ void read_csvzstd_block(std::ifstream &ifs, Resources &res, Context &ctx, std::s
   G.rowwise() -= G.colwise().mean();  // do centering
 }
 
-PermMat shuffle_csvzstd_to_bin(std::string &fin, std::string fout, uint gb, uint scale) {
-  cao.print(tick.date(), "shuffle and convert CSV to binary file");
+PermMat normCSV2BIN(std::string &fin, std::string fout, uint gb, uint scale, bool shuffle = true) {
+  cao.print(tick.date(), "convert and normalize CSV to binary file");
   std::vector<size_t> tidx;
   std::vector<double> libsize;
   double median_libsize;
   uint32_t nsnps, nsamples;
-  const uint ibyte = 4;
-  parse_csvzstd(fin, nsamples, nsnps, scale, libsize, tidx, median_libsize);
+  const size_t ibyte = sizeof(uint32_t);
 
-  uint64 bytes_per_snp = nsamples * ibyte;
+  tick.clock();
+  parse_csvzstd(fin, nsamples, nsnps, scale, libsize, tidx, median_libsize);
+  cao.print(tick.date(), "elapsed time of normalizing data:", tick.reltime(), " seconds");
+
+  std::vector<int> perm(nsnps);
+  std::iota(perm.begin(), perm.end(), 0);
+  std::string outZstdName = fout + ".perm.zst";
+  std::ofstream ofs(outZstdName, std::ios::binary);
+  size_t magic = 2 * sizeof(uint32_t);
+  const std::uint8_t compressLevel = 3;
+
+  if (shuffle) {
+    auto rng = std::default_random_engine{};
+    std::shuffle(perm.begin(), perm.end(), rng);
+    ofs.write((char *)&nsnps, ibyte);
+    ofs.write((char *)&nsamples, ibyte);
+  } else {
+    std::vector<uint8_t> frameData(magic);
+    std::memcpy(frameData.data(), &nsnps, ibyte);
+    std::memcpy(frameData.data() + ibyte, &nsamples, ibyte);
+    auto compressed = zstdpp::compress(frameData, compressLevel);
+    ofs.write(reinterpret_cast<const char *>(compressed.data()), compressed.size());
+  }
+
+  size_t bytes_per_snp = nsamples * ibyte;
   uint blocksize = 1073741824 * gb / bytes_per_snp;
   uint nblocks = (nsnps + blocksize - 1) / blocksize;
-  std::ofstream ofs(fout + ".perm.bin", std::ios::binary);
   std::ofstream ofs2(fout + ".perm.txt");
-  ofs.write((char *)&nsnps, ibyte);
-  ofs.write((char *)&nsamples, ibyte);
-  uint64 magic = ibyte * 2;
 
-  std::ifstream ifs(fin, std::ios::binary);
   Resources res{};
   Context ctx{};
   std::string buffCur{""};
   int isEmpty{0};     // check if ifstream return nothing, which means EOF
   size_t lastRet{0};  // check the return value of decompress function
+  std::ifstream ifs(fin, std::ios::binary);
 
   Mat2D G;
-  std::vector<int> perm(nsnps);
-  std::iota(perm.begin(), perm.end(), 0);
-  auto rng = std::default_random_engine{};
-  std::shuffle(perm.begin(), perm.end(), rng);
   Eigen::VectorXf fg;
   uint64 start_idx, stop_idx, idx;
   int ia{0}, ib{0};
   Eigen::VectorXi indices(nsnps);
+  std::vector<uint8_t> frameData(bytes_per_snp);
+
   for (uint i = 0; i < nblocks; i++) {
     start_idx = i * blocksize;
     stop_idx = start_idx + blocksize - 1;
     stop_idx = stop_idx >= nsnps ? nsnps - 1 : stop_idx;
     read_csvzstd_block(ifs, res, ctx, buffCur, isEmpty, lastRet, blocksize, start_idx, stop_idx, G, nsamples,
                        libsize, tidx, median_libsize, scale);
-    for (Eigen::Index p = 0; p < G.cols(); p++, ia++) {
-      ib = perm[ia];
-      indices(ib) = ia;
-      idx = magic + ib * bytes_per_snp;
-      ofs.seekp(idx, std::ios_base::beg);
-      fg = G.col(p).cast<float>();
-      ofs.write((char *)fg.data(), bytes_per_snp);
+    if (!shuffle) {  // compress stream
+      for (Eigen::Index p = 0; p < G.cols(); p++) {
+        indices(p) = p;
+        fg = G.col(p).cast<float>();
+        std::memcpy(frameData.data(), fg.data(), bytes_per_snp);
+        auto compressed = zstdpp::compress(frameData, compressLevel);
+        ofs.write(reinterpret_cast<const char *>(compressed.data()), compressed.size());
+      }
+    } else {
+      for (Eigen::Index p = 0; p < G.cols(); p++, ia++) {
+        ib = perm[ia];
+        indices(ib) = ia;
+        idx = magic + ib * bytes_per_snp;
+        ofs.seekp(idx, std::ios_base::beg);
+        fg = G.col(p).cast<float>();
+        ofs.write((char *)fg.data(), bytes_per_snp);
+      }
     }
   }
   if (lastRet != 0) cao.error("EOF before end of stream:", lastRet);
-
   ofs2 << indices << "\n";
 
-  fin = fout + ".perm.bin";
-  zstdpp::stream_compress(fin, fin + ".zst");
-  fin = fout + ".perm.bin.zst";
+  if (shuffle) {  // shuffle to plain binary followed by zstd compression
+    std::string tmpZstdName = fout + ".perm.zst.zst";
+    zstdpp::stream_compress(outZstdName, tmpZstdName, compressLevel);
+    moveFile(tmpZstdName, outZstdName);
+  }
+  
+  fin = outZstdName; // redirect input to new file
+  cao.print(tick.date(), "done compressing data with zstd");
+
   return PermMat(indices);
 }

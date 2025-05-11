@@ -15,7 +15,7 @@ void read_csvzstd_block(std::ifstream &ifs, Resources &res, Context &ctx, std::s
                         uint32_t nsamples, std::vector<double> &libsize, std::vector<size_t> &tidx,
                         double median_libsize, uint scale);
 
-PermMat shuffle_csvzstd_to_bin(std::string &fin, std::string fout, uint gb, uint scale);
+PermMat normCSV2BIN(std::string &, std::string, uint, uint, bool);
 
 // for other types, assume data is already noralized only do centering
 class FileCsv : public Data {

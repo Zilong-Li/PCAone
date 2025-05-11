@@ -98,13 +98,14 @@ namespace stream{
             /* Set the compression level, and enable the checksum. */
             ZSTD_CCtx_setParameter(compress_ctx, ZSTD_c_compressionLevel, 3);
             ZSTD_CCtx_setParameter(compress_ctx, ZSTD_c_checksumFlag, 1);
+            ZSTD_CCtx_setParameter(compress_ctx, ZSTD_c_nbWorkers, nThreads);
             
             /* Config if required workers */
-            size_t const r = ZSTD_CCtx_setParameter(compress_ctx, ZSTD_c_nbWorkers, nThreads);
-            if (ZSTD_isError(r)) {
-                std::cerr << "Note: the linked libzstd library doesn't support multithreading. \n"
-                          << "\tReverting to single-thread mode. \n" << std::endl;
-            }
+            // size_t const r = ZSTD_CCtx_setParameter(compress_ctx, ZSTD_c_nbWorkers, nThreads);
+            // if (ZSTD_isError(r)) {
+            //     std::cerr << "Note: the linked libzstd library doesn't support multithreading. \n"
+            //               << "\tReverting to single-thread mode. \n" << std::endl;
+            // }
         }
         
         ~Context(){
