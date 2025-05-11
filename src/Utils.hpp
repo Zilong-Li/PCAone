@@ -26,14 +26,6 @@ std::string get_machine();
  */
 int tgets(gzFile gz, char** buf, uint64* size);
 
-void fcloseOrDie(FILE* file);
-
-FILE* fopenOrDie(const char* filename, const char* instruction);
-
-size_t freadOrDie(void* buffer, size_t sizeToRead, FILE* file);
-
-size_t fwriteOrDie(const void* buffer, size_t sizeToWrite, FILE* file);
-
 size_t count_lines(const std::string& fpath);
 
 std::string timestamp();
@@ -79,44 +71,5 @@ void write_eigvecs2_beagle(const Mat2D& U, const std::string& fin, const std::st
 /// return the p-value of 1-degreed chi-squared
 double chisq1d(const double x);
 
-/// stream compress a file by zstd
-void zstd_compress_file(const std::string& fname, std::string outname, int level);
-
-// zstd deccompression buffer
-struct ZstdDS {
-  ZstdDS() {
-    buffInTmp.reserve(buffInSize);
-    buffOutTmp.reserve(buffOutSize);
-  }
-  ~ZstdDS() {
-    ZSTD_freeDCtx(dctx);
-    fcloseOrDie(fin);
-  }
-  FILE* fin = nullptr;
-  size_t const buffInSize = ZSTD_DStreamInSize();
-  size_t const buffOutSize = ZSTD_DStreamOutSize();
-  ZSTD_DCtx* const dctx = ZSTD_createDCtx();
-  size_t lastRet = 1;
-  std::string buffInTmp, buffOutTmp;
-  std::string buffCur{""};
-};
-
-// zstd compression buffer
-struct ZstdCS {
-  ZstdCS() {
-    buffInTmp.reserve(buffInSize);
-    buffOutTmp.reserve(buffOutSize);
-  }
-  ~ZstdCS() {
-    ZSTD_freeCCtx(cctx);
-    fcloseOrDie(fout);
-  }
-  FILE* fout = nullptr;
-  size_t const buffInSize = ZSTD_CStreamInSize();  // 1<<17, 2^17, 128kb
-  size_t const buffOutSize = ZSTD_CStreamOutSize();
-  ZSTD_CCtx* const cctx = ZSTD_createCCtx();
-  size_t lastRet = 1;
-  std::string buffInTmp, buffOutTmp;
-};
 
 #endif  // PCAONE_UTILES_
