@@ -339,6 +339,6 @@ void run_pca_with_halko(Data* data, const Param& params) {
 
   delete rsvd;
 
-  cao.print(tick.date(), "PCAone - Randomized SVD done");
+  cao.print(tick.date(), "PCAone - winSVD done");
   return;
 }

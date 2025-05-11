@@ -10,10 +10,30 @@ using Context = zstdpp::stream::Context;
 void parse_csvzstd(const std::string &fin, uint32_t &nsamples, uint32_t &nsnps, uint scale,
                    std::vector<double> &libsize, std::vector<size_t> &tidx, double &median_libsize);
 
+template <typename MatrixType>
+typename MatrixType::Scalar parseFromString(const std::string &str) {
+  using Scalar = typename MatrixType::Scalar;
+  try {
+    if constexpr (std::is_same<Scalar, int>::value) {
+      return std::stoi(str);
+    } else if constexpr (std::is_same<Scalar, double>::value) {
+      return std::stod(str);
+    } else if constexpr (std::is_same<Scalar, float>::value) {
+      return std::stof(str);
+    } else {
+      throw std::runtime_error("Unsupported matrix scalar type.");
+    }
+  } catch (const std::invalid_argument &e) {
+    throw std::runtime_error("Invalid argument: " + std::string(e.what()));
+  } catch (const std::out_of_range &e) {
+    throw std::runtime_error("Out of range: " + std::string(e.what()));
+  }
+}
+
+template <typename MatrixType>
 void read_csvzstd_block(std::ifstream &ifs, Resources &res, Context &ctx, std::string &buffCur, int &isEmpty,
-                        size_t &lastRet, uint blocksize, uint64_t start_idx, uint64_t stop_idx, Mat2D &G,
-                        uint32_t nsamples, std::vector<double> &libsize, std::vector<size_t> &tidx,
-                        double median_libsize, uint scale);
+                        size_t &lastRet, uint blocksize, uint64_t start_idx, uint64_t stop_idx,
+                        uint32_t nsamples, std::vector<size_t> &tidx, MatrixType &G);
 
 PermMat normCSV2BIN(std::string &, std::string, uint, uint, bool);
 

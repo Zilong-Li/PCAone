@@ -89,7 +89,7 @@ namespace stream{
         }
         
         /// Compression with specified level
-        Context(compress_level_t compress_level, threads_number_t nThreads)
+        Context(compress_level_t compress_level, threads_number_t nThreads, bool sparse = false)
         : compress_ctx(ZSTD_createCCtx()), decompress_ctx(NULL) {
             if (compress_ctx == NULL) {
                 throw std::runtime_error("ZSTD_createCCtx() failed!");
@@ -101,11 +101,14 @@ namespace stream{
             ZSTD_CCtx_setParameter(compress_ctx, ZSTD_c_nbWorkers, nThreads);
             
             /* Config if required workers */
-            // size_t const r = ZSTD_CCtx_setParameter(compress_ctx, ZSTD_c_nbWorkers, nThreads);
-            // if (ZSTD_isError(r)) {
-            //     std::cerr << "Note: the linked libzstd library doesn't support multithreading. \n"
-            //               << "\tReverting to single-thread mode. \n" << std::endl;
-            // }
+            if (sparse) {
+              ZSTD_CCtx_setParameter(compress_ctx, ZSTD_c_minMatch, 3);  // Minimum match length
+              ZSTD_CCtx_setParameter(compress_ctx, ZSTD_c_targetLength, 3);  // Search length for sparse data
+              ZSTD_CCtx_setParameter(compress_ctx, ZSTD_c_targetCBlockSize, 512 * 1024);  // 512KB blocks for sparse data
+              ZSTD_CCtx_setParameter(compress_ctx, ZSTD_c_hashLog, 18);  // Hash table size
+              ZSTD_CCtx_setParameter(compress_ctx, ZSTD_c_chainLog, 20);  // Chain search depth
+              ZSTD_CCtx_setParameter(compress_ctx, ZSTD_c_strategy, ZSTD_fast);  // Use fast strategy
+            }
         }
         
         ~Context(){
@@ -137,7 +140,7 @@ namespace stream{
             ZSTD_outBuffer& out
         ){ return ZSTD_decompressStream(decompress_ctx, &out , &in); }
         
-        private:
+        // private:
             ZSTD_CCtx* const compress_ctx;
             ZSTD_DCtx* const decompress_ctx;
     };
@@ -146,11 +149,12 @@ namespace stream{
         std::istream& in, 
         std::ostream& out, 
         threads_number_t nThreads = 1,
-        compress_level_t compress_level = 3
+        compress_level_t compress_level = 3,
+        bool sparse = false
     ){
         
         Resources res{};
-        Context ctx(compress_level, nThreads);
+        Context ctx(compress_level, nThreads, sparse);
         
         /* Loop for read chunks & write to output */
         size_t const toRead = res.getToRead();
@@ -270,11 +274,12 @@ inline void stream_compress(
     string_t const& in, 
     string_t const& out, 
     threads_number_t nThreads = 1,
-    compress_level_t compress_level = 3
+    compress_level_t compress_level = 3,
+    bool sparse = false
 ){
     std::ifstream in_file(in, std::ios::binary);
     std::ofstream out_file(out, std::ios::binary);
-    stream::compress(in_file, out_file, nThreads, compress_level);
+    stream::compress(in_file, out_file, nThreads, compress_level, sparse);
 }
 
 inline void stream_decompress(

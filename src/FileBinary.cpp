@@ -36,7 +36,7 @@ void FileBin::read_all() {
   }
 
   G = Mat2D::Zero(nsamples, nsnps);
-  std::vector<float> snpLine(nsamples);  // store samples of current SNP
+  std::vector<int> snpLine(nsamples);  // store samples of current SNP
   size_t lastSNP = 0;
   bool no_magic = false;
   size_t read;
@@ -103,7 +103,7 @@ void FileBin::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
   }
 
   size_t lastSNP = 0;
-  std::vector<float> snpLine(nsamples);  // store samples of current SNP
+  std::vector<int> snpLine(nsamples);  // store samples of current SNP
   bool no_magic = false;
   if (start_idx != 0) no_magic = true;  // no magic if it's not the first block
 
