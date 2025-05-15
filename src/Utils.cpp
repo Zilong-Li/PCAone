@@ -193,19 +193,6 @@ void mev_rmse_byk(const Mat2D& X, const Mat2D& Y, Mat1D& Vm, Mat1D& Vr) {
   }
 }
 
-double get_median(std::vector<double> v) {
-  size_t n = v.size();
-  if (n == 0) {
-    return 0;
-  }
-  std::sort(v.begin(), v.end());
-  if (n % 2 == 0) {
-    return (v[n / 2 - 1] + v[n / 2]) / 2.0;
-  } else {
-    return v[n / 2];
-  }
-}
-
 String1D split_string(const std::string& s, const std::string& separators) {
   String1D ret;
   bool is_seperator[256] = {false};

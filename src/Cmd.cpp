@@ -44,8 +44,8 @@ Param::Param(int argc, char **argv) {
   opts.add<Value<uint>>("k", "pc", "top k principal components (PCs) to be calculated", k, &k);
   opts.add<Value<uint>>("C", "scale", "do scaling for input file. Options are\n"
                                       "0: do just centering;\n"
-                                      "1: do log transformation eg. log(x+0.01) for RNA-seq data;\n"
-                                      "2: do count per median log transformation (CPMED) for scRNAs.", scale,  &scale);
+                                      "1: do log1p transformation;\n"
+                                      "2: do count per median log transformation (CPMED).", scale,  &scale);
   opts.add<Value<uint>>("p", "maxp", "maximum number of power iterations for RSVD algorithm.", maxp, &maxp);
   opts.add<Switch>("S", "no-shuffle", "do not shuffle columns of data for --svd 2 (if not locally correlated).", &noshuffle);
   opts.add<Value<uint>, Attribute::advanced>("w", "batches", "the number of mini-batches used by --svd 2.", bands, &bands);

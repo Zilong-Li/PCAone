@@ -9,11 +9,12 @@
 using namespace std;
 
 void FileCsv::read_all() {
+  check_file_offset_first_var();
+
   auto buffIn = const_cast<void *>(static_cast<const void *>(zbuf.buffInTmp.c_str()));
   auto buffOut = const_cast<void *>(static_cast<const void *>(zbuf.buffOutTmp.c_str()));
   size_t read, i, j, e, lastSNP = 0;
   zbuf.fin = fopenOrDie(params.filein.c_str(), "rb");
-  zbuf.buffCur = "";
   std::string buffLine;
   G = Mat2D::Zero(nsamples, nsnps);
   while ((read = freadOrDie(buffIn, zbuf.buffInSize, zbuf.fin))) {
@@ -22,10 +23,10 @@ void FileCsv::read_all() {
       ZSTD_outBuffer output = {buffOut, zbuf.buffOutSize, 0};
       zbuf.lastRet = ZSTD_decompressStream(zbuf.dctx, &output, &input);
       if (ZSTD_isError(zbuf.lastRet)) cao.error("Error: ZSTD decompression failed");
-      zbuf.buffCur += std::string((char *)buffOut, output.pos);
-      while ((e = zbuf.buffCur.find("\n")) != std::string::npos) {
-        buffLine = zbuf.buffCur.substr(0, e);
-        zbuf.buffCur.erase(0, e + 1);
+      buffCur += std::string((char *)buffOut, output.pos);
+      while ((e = buffCur.find("\n")) != std::string::npos) {
+        buffLine = buffCur.substr(0, e);
+        buffCur.erase(0, e + 1);
         for (i = 0, j = 1; i < buffLine.size(); i++) {
           if (buffLine[i] == ',') {
             tidx[j] = i + 1;
@@ -36,14 +37,15 @@ void FileCsv::read_all() {
 
 #pragma omp parallel for
         for (size_t i = 0; i < nsamples; i++) {
-          G(i, lastSNP) = std::stod(buffLine.substr(tidx[i], tidx[i + 1] - tidx[i] - 1));
-          if (params.scale == 1)
-            G(i, lastSNP) = log10(G(i, lastSNP) + 0.01);
-          else if (params.scale == 2)
-            G(i, lastSNP) = log10(G(i, lastSNP) * median_libsize / libsize[i] + 1);
+          auto entry = std::stof(buffLine.substr(tidx[i], tidx[i + 1] - tidx[i] - 1));
+          if (params.scale == 2)
+            G(i, lastSNP) = log10((double)entry * median_libsize / libsize[i] + 1);
+          else if (params.scale == 1)
+            G(i, lastSNP) = log1p((double)entry);
+          else
+            G(i, lastSNP) = entry;
         }
 
-        // G.col(lastSNP).array() -= G.col(lastSNP).mean(); // only do centering
         lastSNP++;
       }
     }
@@ -67,22 +69,22 @@ void FileCsv::check_file_offset_first_var() {
     if (params.verbose) cao.warn("confirm you are running the window-based RSVD (algorithm2)");
   }
   zbuf.lastRet = 1;
-  zbuf.buffCur = "";
+  buffCur = "";
 }
 
 void FileCsv::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize = false) {
-  read_csvzstd_block(zbuf, blocksize, start_idx, stop_idx, G, nsamples, libsize, tidx, median_libsize,
-                     params.scale);
+  read_csvzstd_block(zbuf, buffCur, blocksize, start_idx, stop_idx, G, nsamples, libsize, tidx,
+                     median_libsize, params.scale);
 }
 
-void parse_csvzstd(ZstdDS &zbuf, uint &nsamples, uint &nsnps, uint scale, std::vector<double> &libsize,
+void parse_csvzstd(ZstdDS &zbuf, uint &nsamples, uint &nsnps, uint scale, std::vector<int> &libsize,
                    std::vector<size_t> &tidx, double &median_libsize) {
   auto buffIn = const_cast<void *>(static_cast<const void *>(zbuf.buffInTmp.c_str()));
   auto buffOut = const_cast<void *>(static_cast<const void *>(zbuf.buffOutTmp.c_str()));
   size_t read, i, j, p, ncol = 0, lastCol = 0;
   int isEmpty = 1;
   nsnps = 0;
-  std::string buffLine;
+  std::string buffLine{""}, buffCur{""};
   while ((read = freadOrDie(buffIn, zbuf.buffInSize, zbuf.fin))) {
     isEmpty = 0;
     ZSTD_inBuffer input = {buffIn, read, 0};
@@ -90,11 +92,11 @@ void parse_csvzstd(ZstdDS &zbuf, uint &nsamples, uint &nsnps, uint scale, std::v
       ZSTD_outBuffer output = {buffOut, zbuf.buffOutSize, 0};
       zbuf.lastRet = ZSTD_decompressStream(zbuf.dctx, &output, &input);
       if (ZSTD_isError(zbuf.lastRet)) cao.error("Error: ZSTD decompression failed");
-      zbuf.buffCur += std::string((char *)buffOut, output.pos);
-      while ((p = zbuf.buffCur.find("\n")) != std::string::npos) {
+      buffCur += std::string((char *)buffOut, output.pos);
+      while ((p = buffCur.find("\n")) != std::string::npos) {
         nsnps++;
-        buffLine = zbuf.buffCur.substr(0, p);
-        zbuf.buffCur.erase(0, p + 1);
+        buffLine = buffCur.substr(0, p);
+        buffCur.erase(0, p + 1);
         lastCol = ncol;
         ncol = 1;
         for (i = 0, j = 1; i < buffLine.size(); i++) {
@@ -121,7 +123,7 @@ void parse_csvzstd(ZstdDS &zbuf, uint &nsamples, uint &nsnps, uint scale, std::v
         {
 #pragma omp parallel for
           for (size_t i = 0; i < ncol; i++) {
-            libsize[i] += std::stod(buffLine.substr(tidx[i], tidx[i + 1] - tidx[i] - 1));
+            libsize[i] += std::stoi(buffLine.substr(tidx[i], tidx[i + 1] - tidx[i] - 1));
           }
         }
         if (nsnps > 2 && (lastCol != ncol)) cao.error("the csv file has unaligned columns");
@@ -137,8 +139,8 @@ void parse_csvzstd(ZstdDS &zbuf, uint &nsamples, uint &nsnps, uint scale, std::v
   if (scale == 2) median_libsize = get_median(libsize);
 }
 
-void read_csvzstd_block(ZstdDS &zbuf, uint blocksize, uint64 start_idx, uint64 stop_idx, Mat2D &G,
-                        uint nsamples, std::vector<double> &libsize, std::vector<size_t> &tidx,
+void read_csvzstd_block(ZstdDS &zbuf, std::string &buffCur, uint blocksize, uint64 start_idx, uint64 stop_idx,
+                        Mat2D &G, uint nsamples, std::vector<int> &libsize, std::vector<size_t> &tidx,
                         double median_libsize, uint scale) {
   const uint actual_block_size = stop_idx - start_idx + 1;
 
@@ -149,10 +151,10 @@ void read_csvzstd_block(ZstdDS &zbuf, uint blocksize, uint64 start_idx, uint64 s
   auto buffOut = const_cast<void *>(static_cast<const void *>(zbuf.buffOutTmp.c_str()));
   size_t read, i, j, e, lastSNP = 0;
   std::string buffLine;
-  if (zbuf.buffCur != "") {
-    while (lastSNP < actual_block_size && ((e = zbuf.buffCur.find("\n")) != std::string::npos)) {
-      buffLine = zbuf.buffCur.substr(0, e);
-      zbuf.buffCur.erase(0, e + 1);
+  if (buffCur != "") {
+    while (lastSNP < actual_block_size && ((e = buffCur.find("\n")) != std::string::npos)) {
+      buffLine = buffCur.substr(0, e);
+      buffCur.erase(0, e + 1);
       for (i = 0, j = 1; i < buffLine.size(); i++) {
         if (buffLine[i] == ',') {
           tidx[j++] = i + 1;
@@ -162,11 +164,13 @@ void read_csvzstd_block(ZstdDS &zbuf, uint blocksize, uint64 start_idx, uint64 s
 
 #pragma omp parallel for
       for (size_t i = 0; i < nsamples; i++) {
-        G(i, lastSNP) = std::stod(buffLine.substr(tidx[i], tidx[i + 1] - tidx[i] - 1));
-        if (scale == 1)
-          G(i, lastSNP) = log10(G(i, lastSNP) + 0.01);
-        else if (scale == 2)
-          G(i, lastSNP) = log10(G(i, lastSNP) * median_libsize / libsize[i] + 1);
+        auto entry = std::stof(buffLine.substr(tidx[i], tidx[i + 1] - tidx[i] - 1));
+        if (scale == 2)
+          G(i, lastSNP) = log10((double)entry * median_libsize / libsize[i] + 1);
+        else if (scale == 1)
+          G(i, lastSNP) = log1p((double)entry);
+        else
+          G(i, lastSNP) = entry;
       }
 
       // G.col(lastSNP).array() -= G.col(lastSNP).mean();  // only do centering
@@ -181,10 +185,10 @@ void read_csvzstd_block(ZstdDS &zbuf, uint blocksize, uint64 start_idx, uint64 s
         ZSTD_outBuffer output = {buffOut, zbuf.buffOutSize, 0};
         zbuf.lastRet = ZSTD_decompressStream(zbuf.dctx, &output, &input);
         if (ZSTD_isError(zbuf.lastRet)) cao.error("Error: ZSTD decompression failed");
-        zbuf.buffCur += std::string((char *)buffOut, output.pos);
-        while (lastSNP < actual_block_size && ((e = zbuf.buffCur.find("\n")) != std::string::npos)) {
-          buffLine = zbuf.buffCur.substr(0, e);
-          zbuf.buffCur.erase(0, e + 1);
+        buffCur += std::string((char *)buffOut, output.pos);
+        while (lastSNP < actual_block_size && ((e = buffCur.find("\n")) != std::string::npos)) {
+          buffLine = buffCur.substr(0, e);
+          buffCur.erase(0, e + 1);
           for (i = 0, j = 1; i < buffLine.size(); i++) {
             if (buffLine[i] == ',') {
               tidx[j] = i + 1;
@@ -195,14 +199,15 @@ void read_csvzstd_block(ZstdDS &zbuf, uint blocksize, uint64 start_idx, uint64 s
 
 #pragma omp parallel for
           for (size_t i = 0; i < nsamples; i++) {
-            G(i, lastSNP) = std::stod(buffLine.substr(tidx[i], tidx[i + 1] - tidx[i] - 1));
-            if (scale == 1)
-              G(i, lastSNP) = log10(G(i, lastSNP) + 0.01);
-            else if (scale == 2)
-              G(i, lastSNP) = log10(G(i, lastSNP) * median_libsize / libsize[i] + 1);
+            auto entry = std::stof(buffLine.substr(tidx[i], tidx[i + 1] - tidx[i] - 1));
+            if (scale == 2)
+              G(i, lastSNP) = log10((double)entry * median_libsize / libsize[i] + 1);
+            else if (scale == 1)
+              G(i, lastSNP) = log1p((double)entry);
+            else
+              G(i, lastSNP) = entry;
           }
 
-          // G.col(lastSNP).array() -= G.col(lastSNP).mean();  // only do centering
           lastSNP++;
         }
       }
@@ -216,7 +221,7 @@ void read_csvzstd_block(ZstdDS &zbuf, uint blocksize, uint64 start_idx, uint64 s
 
 PermMat shuffle_csvzstd_to_bin(std::string &fin, std::string fout, uint gb, uint scale) {
   std::vector<size_t> tidx;
-  std::vector<double> libsize;
+  std::vector<int> libsize;
   double median_libsize;
   uint nsnps, nsamples;
   const uint ibyte = 4;
@@ -236,7 +241,6 @@ PermMat shuffle_csvzstd_to_bin(std::string &fin, std::string fout, uint gb, uint
   uint64 magic = ibyte * 2;
   zbuf.fin = fopenOrDie(fin.c_str(), "rb");
   zbuf.lastRet = 1;
-  zbuf.buffCur = "";
   Mat2D G;
   std::vector<int> perm(nsnps);
   std::iota(perm.begin(), perm.end(), 0);
@@ -246,12 +250,13 @@ PermMat shuffle_csvzstd_to_bin(std::string &fin, std::string fout, uint gb, uint
   uint64 start_idx, stop_idx, idx;
   int ia{0}, ib{0};
   Eigen::VectorXi indices(nsnps);
+  std::string buffCur{""};
   for (uint i = 0; i < nblocks; i++) {
     start_idx = i * blocksize;
     stop_idx = start_idx + blocksize - 1;
     stop_idx = stop_idx >= nsnps ? nsnps - 1 : stop_idx;
-    read_csvzstd_block(zbuf, blocksize, start_idx, stop_idx, G, nsamples, libsize, tidx, median_libsize,
-                       scale);
+    read_csvzstd_block(zbuf, buffCur, blocksize, start_idx, stop_idx, G, nsamples, libsize, tidx,
+                       median_libsize, scale);
     for (Eigen::Index p = 0; p < G.cols(); p++, ia++) {
       ib = perm[ia];
       indices(ib) = ia;
