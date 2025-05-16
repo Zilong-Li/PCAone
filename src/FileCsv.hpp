@@ -6,11 +6,11 @@
 void parse_csvzstd(ZstdDS& zbuf, uint& nsamples, uint& nsnps, uint scale, std::vector<int>& libsize,
                    std::vector<size_t>& tidx, double& median_libsize);
 
-void read_csvzstd_block(ZstdDS &zbuf, std::string & buffCur, uint blocksize, uint64 start_idx, uint64 stop_idx, Mat2D &G,
-                        uint nsamples, std::vector<int> &libsize, std::vector<size_t> &tidx,
-                        double median_libsize, uint scale);
+void read_csvzstd_block(ZstdDS& zbuf, std::string& buffCur, uint blocksize, uint64 start_idx, uint64 stop_idx,
+                        Mat2D& G, uint nsamples, std::vector<int>& libsize, std::vector<size_t>& tidx,
+                        double median_libsize, uint scale, double scaleFactor);
 
-PermMat shuffle_csvzstd_to_bin(std::string& fin, std::string fout, uint gb, uint scale);
+PermMat shuffle_csvzstd_to_bin(std::string& fin, std::string fout, uint gb, uint scale, double scaleFactor);
 
 // for other types, assume data is already noralized only do centering
 class FileCsv : public Data {
@@ -37,7 +37,7 @@ class FileCsv : public Data {
 
   void read_block_initial(uint64, uint64, bool) final;
 
-  void read_block_update(uint64, uint64, const Mat2D &, const Mat1D &, const Mat2D &, bool) final {}
+  void read_block_update(uint64, uint64, const Mat2D&, const Mat1D&, const Mat2D&, bool) final {}
 
  private:
   ZstdDS zbuf;

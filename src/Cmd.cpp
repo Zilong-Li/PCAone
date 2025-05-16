@@ -45,7 +45,8 @@ Param::Param(int argc, char **argv) {
   opts.add<Value<uint>>("C", "scale", "do scaling for input file. Options are\n"
                                       "0: do just centering;\n"
                                       "1: do log1p transformation;\n"
-                                      "2: do count per median log transformation (CPMED).", scale,  &scale);
+                                      "2: do count per median log transformation (CPMED);\n"
+                                      "3: do relative counts.", scale,  &scale);
   opts.add<Value<uint>>("p", "maxp", "maximum number of power iterations for RSVD algorithm.", maxp, &maxp);
   opts.add<Switch>("S", "no-shuffle", "do not shuffle columns of data for --svd 2 (if not locally correlated).", &noshuffle);
   opts.add<Value<uint>, Attribute::advanced>("w", "batches", "the number of mini-batches used by --svd 2.", bands, &bands);
@@ -53,6 +54,7 @@ Param::Param(int argc, char **argv) {
   opts.add<Switch>("", "pcangsd", "use PCAngsd algorithm for genotype likelihood input.", &pcangsd);
   opts.add<Value<uint>, Attribute::advanced>("", "M", "the number of features (eg. SNPs) if already known.", 0, &nsnps);
   opts.add<Value<uint>, Attribute::advanced>("", "N", "the number of samples if already known.", 0, &nsamples);
+  opts.add<Value<double>, Attribute::advanced>("", "scale-factor", "feature counts for each sample are normalized and multiplied by this value", 1.0, &scaleFactor);
   opts.add<Value<uint>, Attribute::advanced>("", "buffer", "memory buffer in GB unit for permuting the data.", buffer, &buffer);
   opts.add<Value<uint>, Attribute::advanced>("", "imaxiter", "maximum number of IRAM iterations.", imaxiter, &imaxiter);
   opts.add<Value<double>, Attribute::advanced>("", "itol", "stopping tolerance for IRAM algorithm.", itol, &itol);

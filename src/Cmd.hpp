@@ -30,6 +30,8 @@ class Param {
   uint threads = 12;
   uint bands = 64;
   bool pca = true;
+  // for normalization
+  double scaleFactor = 1;
   // for emu iteration
   uint maxiter = 100;
   double alpha = 0.001;

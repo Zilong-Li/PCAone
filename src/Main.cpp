@@ -95,7 +95,7 @@ int main(int argc, char* argv[]) {
       data = new FileBgen(params);
       data->perm = perm;
     } else if (params.file_t == FileType::CSV) {
-      auto perm = shuffle_csvzstd_to_bin(params.filein, params.fileout, params.buffer, params.scale);
+      auto perm = shuffle_csvzstd_to_bin(params.filein, params.fileout, params.buffer, params.scale, params.scaleFactor);
       params.file_t = FileType::BINARY;
       data = new FileBin(params);
       data->perm = perm;

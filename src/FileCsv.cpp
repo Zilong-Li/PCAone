@@ -41,7 +41,9 @@ void FileCsv::read_all() {
           if (params.scale == 2)
             G(i, lastSNP) = log10((double)entry * median_libsize / libsize[i] + 1);
           else if (params.scale == 1)
-            G(i, lastSNP) = log1p((double)entry);
+            G(i, lastSNP) = log1p((double)entry / libsize[i] * params.scaleFactor);
+          else if (params.scale == 3)
+            G(i, lastSNP) = (double)entry / libsize[i] * params.scaleFactor;
           else
             G(i, lastSNP) = entry;
         }
@@ -74,7 +76,7 @@ void FileCsv::check_file_offset_first_var() {
 
 void FileCsv::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize = false) {
   read_csvzstd_block(zbuf, buffCur, blocksize, start_idx, stop_idx, G, nsamples, libsize, tidx,
-                     median_libsize, params.scale);
+                     median_libsize, params.scale, params.scaleFactor);
 }
 
 void parse_csvzstd(ZstdDS &zbuf, uint &nsamples, uint &nsnps, uint scale, std::vector<int> &libsize,
@@ -141,7 +143,7 @@ void parse_csvzstd(ZstdDS &zbuf, uint &nsamples, uint &nsnps, uint scale, std::v
 
 void read_csvzstd_block(ZstdDS &zbuf, std::string &buffCur, uint blocksize, uint64 start_idx, uint64 stop_idx,
                         Mat2D &G, uint nsamples, std::vector<int> &libsize, std::vector<size_t> &tidx,
-                        double median_libsize, uint scale) {
+                        double median_libsize, uint scale, double scaleFactor) {
   const uint actual_block_size = stop_idx - start_idx + 1;
 
   if (G.cols() < blocksize || (actual_block_size < blocksize)) {
@@ -168,7 +170,9 @@ void read_csvzstd_block(ZstdDS &zbuf, std::string &buffCur, uint blocksize, uint
         if (scale == 2)
           G(i, lastSNP) = log10((double)entry * median_libsize / libsize[i] + 1);
         else if (scale == 1)
-          G(i, lastSNP) = log1p((double)entry);
+          G(i, lastSNP) = log1p((double)entry / libsize[i] * scaleFactor);
+        else if (scale == 3)
+          G(i, lastSNP) = (double)entry / libsize[i] * scaleFactor;
         else
           G(i, lastSNP) = entry;
       }
@@ -203,7 +207,9 @@ void read_csvzstd_block(ZstdDS &zbuf, std::string &buffCur, uint blocksize, uint
             if (scale == 2)
               G(i, lastSNP) = log10((double)entry * median_libsize / libsize[i] + 1);
             else if (scale == 1)
-              G(i, lastSNP) = log1p((double)entry);
+              G(i, lastSNP) = log1p((double)entry / libsize[i] * scaleFactor);
+            else if (scale == 3)
+              G(i, lastSNP) = (double)entry / libsize[i] * scaleFactor;
             else
               G(i, lastSNP) = entry;
           }
@@ -219,7 +225,7 @@ void read_csvzstd_block(ZstdDS &zbuf, std::string &buffCur, uint blocksize, uint
   if (lastSNP != actual_block_size) cao.error("something wrong when read_block_initial");
 }
 
-PermMat shuffle_csvzstd_to_bin(std::string &fin, std::string fout, uint gb, uint scale) {
+PermMat shuffle_csvzstd_to_bin(std::string &fin, std::string fout, uint gb, uint scale, double scaleFactor) {
   std::vector<size_t> tidx;
   std::vector<int> libsize;
   double median_libsize;
@@ -256,7 +262,7 @@ PermMat shuffle_csvzstd_to_bin(std::string &fin, std::string fout, uint gb, uint
     stop_idx = start_idx + blocksize - 1;
     stop_idx = stop_idx >= nsnps ? nsnps - 1 : stop_idx;
     read_csvzstd_block(zbuf, buffCur, blocksize, start_idx, stop_idx, G, nsamples, libsize, tidx,
-                       median_libsize, scale);
+                       median_libsize, scale, scaleFactor);
     for (Eigen::Index p = 0; p < G.cols(); p++, ia++) {
       ib = perm[ia];
       indices(ib) = ia;
