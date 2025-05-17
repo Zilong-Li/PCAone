@@ -40,9 +40,9 @@ void FileCsv::read_all() {
           auto entry = std::stof(buffLine.substr(tidx[i], tidx[i + 1] - tidx[i] - 1));
           if (params.scale == 2)
             G(i, lastSNP) = log10((double)entry * median_libsize / libsize[i] + 1);
-          else if (params.scale == 1)
-            G(i, lastSNP) = log1p((double)entry / libsize[i] * params.scaleFactor);
           else if (params.scale == 3)
+            G(i, lastSNP) = log1p((double)entry / libsize[i] * params.scaleFactor);
+          else if (params.scale == 4)
             G(i, lastSNP) = (double)entry / libsize[i] * params.scaleFactor;
           else
             G(i, lastSNP) = entry;
@@ -53,7 +53,7 @@ void FileCsv::read_all() {
     }
   }
 
-  G.rowwise() -= G.colwise().mean();  // do centering
+  if(params.scale > 0) G.rowwise() -= G.colwise().mean();  // do centering
 
   if (zbuf.lastRet != 0) cao.error("EOF before end of ZSTD_decompressStream.\n");
 
@@ -169,15 +169,14 @@ void read_csvzstd_block(ZstdDS &zbuf, std::string &buffCur, uint blocksize, uint
         auto entry = std::stof(buffLine.substr(tidx[i], tidx[i + 1] - tidx[i] - 1));
         if (scale == 2)
           G(i, lastSNP) = log10((double)entry * median_libsize / libsize[i] + 1);
-        else if (scale == 1)
-          G(i, lastSNP) = log1p((double)entry / libsize[i] * scaleFactor);
         else if (scale == 3)
+          G(i, lastSNP) = log1p((double)entry / libsize[i] * scaleFactor);
+        else if (scale == 4)
           G(i, lastSNP) = (double)entry / libsize[i] * scaleFactor;
         else
           G(i, lastSNP) = entry;
       }
 
-      // G.col(lastSNP).array() -= G.col(lastSNP).mean();  // only do centering
       lastSNP++;
     }
   }
@@ -206,9 +205,9 @@ void read_csvzstd_block(ZstdDS &zbuf, std::string &buffCur, uint blocksize, uint
             auto entry = std::stof(buffLine.substr(tidx[i], tidx[i + 1] - tidx[i] - 1));
             if (scale == 2)
               G(i, lastSNP) = log10((double)entry * median_libsize / libsize[i] + 1);
-            else if (scale == 1)
-              G(i, lastSNP) = log1p((double)entry / libsize[i] * scaleFactor);
             else if (scale == 3)
+              G(i, lastSNP) = log1p((double)entry / libsize[i] * scaleFactor);
+            else if (scale == 4)
               G(i, lastSNP) = (double)entry / libsize[i] * scaleFactor;
             else
               G(i, lastSNP) = entry;
@@ -221,7 +220,7 @@ void read_csvzstd_block(ZstdDS &zbuf, std::string &buffCur, uint blocksize, uint
     }
   }
 
-  G.rowwise() -= G.colwise().mean();  // do centering
+  if(scale > 0) G.rowwise() -= G.colwise().mean();  // do centering
   if (lastSNP != actual_block_size) cao.error("something wrong when read_block_initial");
 }
 
