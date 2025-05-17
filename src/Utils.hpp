@@ -18,6 +18,8 @@ extern Logger cao;
 /// get the machine information
 std::string get_machine();
 
+void standardize(Mat2D& X, double tol = 1e-10);
+
 /* @brief gets a line of gzfile
  * @param gz   file hander returned by gzopen
  * @param buf  buffer used for storing data

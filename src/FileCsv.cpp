@@ -53,7 +53,7 @@ void FileCsv::read_all() {
     }
   }
 
-  if(params.scale > 0) G.rowwise() -= G.colwise().mean();  // do centering
+  if (params.scale > 0) standardize(G);  // standardization
 
   if (zbuf.lastRet != 0) cao.error("EOF before end of ZSTD_decompressStream.\n");
 
@@ -220,7 +220,7 @@ void read_csvzstd_block(ZstdDS &zbuf, std::string &buffCur, uint blocksize, uint
     }
   }
 
-  if(scale > 0) G.rowwise() -= G.colwise().mean();  // do centering
+  if (scale > 0) standardize(G);  // standardization
   if (lastSNP != actual_block_size) cao.error("something wrong when read_block_initial");
 }
 

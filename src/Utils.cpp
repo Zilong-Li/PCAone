@@ -31,6 +31,17 @@ std::string get_machine() {
          "\nOperating system version: " + version + "\nOperating system name: " + sysname + "\n";
 }
 
+void standardize(Mat2D& X, double tol) {
+  double sqrt_rdf = sqrt(X.rows() - 1.0);
+  // if X is centered, then we can convert norm to sd
+  for (size_t j = 0; j < X.cols(); j++) {
+    double mean = X.col(j).mean();
+    X.col(j).array() -= mean;
+    double sd = X.col(j).norm() / sqrt_rdf;  // sd
+    if (sd > tol) X.col(j) /= sd;
+  }
+}
+
 int tgets(gzFile gz, char** buf, uint64* size) {
   int rlen = 0;
   char* tok = gzgets(gz, *buf + rlen, *size - rlen);  // return buf or NULL
