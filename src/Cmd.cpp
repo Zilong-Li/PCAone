@@ -44,7 +44,7 @@ Param::Param(int argc, char **argv) {
   opts.add<Value<uint>>("k", "pc", "top k principal components (PCs) to be calculated", k, &k);
   opts.add<Value<uint>>("C", "scale", "do scaling for input file. Options are\n"
                                       "0: do nothing and proceed to SVD;\n"
-                                      "1: do just centering;\n"
+                                      "1: do only standardization;\n"
                                       "2: do count per median log transformation (CPMED);\n"
                                       "3: do log1p transformation;\n"
                                       "4: do relative counts.", scale,  &scale);

@@ -1,3 +1,8 @@
+- v0.5.1
+  - bug fix: there is no standardization step for CSV
+  - feat: more options for scaling data via =--scale=
+  - feat: new =--scale-factor= option for adjusting scale
+
 - v0.5.0
   - optimization: reducing the binary size
   - fix Makefile: use clang and Accelerate framework on MacOS (faster than any other solutions)
