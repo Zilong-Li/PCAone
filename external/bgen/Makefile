@@ -14,11 +14,11 @@
 OBJECTS      = $(patsubst %.cpp,%.o,$(wildcard *.cpp))
 INC          = -I../zstd/lib
 
-bgenlib.a: ${OBJECTS}
+bgenlib.a: $(OBJECTS)
 	ar -rcs $@ $^
 
 %.o: %.cpp
-	${CXX} ${CFLAGS} ${CXXFLAGS} -o $@ -c $< ${INC}
+	$(CXX) $(CFLAGS) $(CXXFLAGS) -o $@ -c $< $(INC) $(CPPFLAGS) $(LDFLAGS)
 
 clean:
 	rm -f *.o *.a

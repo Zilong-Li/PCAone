@@ -32,7 +32,7 @@ program       = PCAone
 CXX           ?= g++    # use default g++ only if not set in env
 CXXSTD         = c++17
 CXXFLAGS	  += -O3 -Wall -std=$(CXXSTD) -m64
-MYFLAGS        = -DVERSION=\"$(VERSION)\"
+MYFLAGS        = -DVERSION=\"$(VERSION)\" -DNDEBUG
 # CURRENT_DIR   = $(shell pwd)
 INC           = -I./external -I./external/zstd/lib
 PCALIB = libpcaone.a
@@ -124,17 +124,17 @@ OBJ = src/Arnoldi.o src/Halko.o src/Data.o src/Utils.o src/Cmd.o \
 
 SLIBS += ./external/bgen/bgenlib.a ./external/zstd/lib/libzstd.a
 
-LIBS += ${SLIBS} ${DLIBS} -lpthread -ldl -lm
+LIBS += $(SLIBS) $(DLIBS) -lpthread -ldl -lm
 
 .PHONY: all clean ld_matrix ld_r2 ld_prune ld_clump ld_tests
 
 all: ${program}
 
 ${program}: zstdlib bgenlib pcaonelib src/Main.o
-	$(CXX) $(CXXFLAGS) -o $(program) src/Main.o ${PCALIB} ${LPATHS} ${LIBS} ${LDFLAGS}
+	$(CXX) $(CXXFLAGS) -o $(program) src/Main.o $(PCALIB) $(LPATHS) $(LIBS) $(LDFLAGS)
 
 %.o: %.cpp
-	${CXX} ${CXXFLAGS} ${MYFLAGS} -o $@ -c $< ${INC} ${CPPFLAGS}
+	$(CXX) $(CXXFLAGS) $(MYFLAGS) -o $@ -c $< $(INC) $(CPPFLAGS)
 
 zstdlib:
 	$(MAKE) -C external/zstd/lib lib-nomt
