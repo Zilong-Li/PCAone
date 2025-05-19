@@ -1,6 +1,6 @@
 ######################### configure ################
 
-VERSION=0.5.1
+VERSION=0.5.2
 # detect OS architecture and add flags
 Platform     := $(shell uname -s)
 
@@ -137,10 +137,10 @@ ${program}: zstdlib bgenlib pcaonelib src/Main.o
 	${CXX} ${CXXFLAGS} ${MYFLAGS} -o $@ -c $< ${INC} ${CPPFLAGS}
 
 zstdlib:
-	(cd ./external/zstd/lib/; $(MAKE) lib-nomt)
+	$(MAKE) -C external/zstd/lib lib-nomt
 
 bgenlib:
-	(cd ./external/bgen/; $(MAKE))
+	$(MAKE) -C external/bgen CFLAGS='$(CFLAGS)' CXXFLAGS='$(CXXFLAGS)'
 
 pcaonelib:$(OBJ)
 	ar -rcs $(PCALIB) $?
