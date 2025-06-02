@@ -2,6 +2,7 @@
 #include <zlib.h>
 #include <string>
 #include <functional>
+#include <sstream>
 #include <iostream>
 #include <map>
 
@@ -46,32 +47,27 @@ int main (int argc, char** argv) {
     if(args[i] == "-i") in = args[++i];
   }
 
-  bool is_seperator[256] = {false};
-  char ch = '\t';
-  is_seperator[(unsigned int)ch] = true;
-  int n = 0; // the n-th line
+
   std::map<int, std::pair<double, int>> iChr;
   // std::vector<std::map<int, std::pair<double, int>>> res;
 
   int dA{0}, dB{0}, d{0}, num{0};
   double r2{0};
+  int n = 0; // the n-th line
+  std::istringstream iss;
+  std::string tok;
   
   parseGzipLineByLine(in, [&](const std::string& line) {
     n++;
     if(n==1) return;
-    size_t begin = 0;
     int j = 0;  // the j-th column
-    for (size_t i = 0; i <= line.size(); i++) {
-      if (is_seperator[(uint8_t)line[i]] || i == line.size()) {
-        if(j == 6) {
-          r2 = std::stod(std::string(line.begin() + begin, line.begin() + i));
-          // std::cout << r2 << "\n";
-        }
-        if(j == 1) dA = std::stoi(std::string(line.begin() + begin, line.begin() + i));
-        if(j == 4) dB = std::stoi(std::string(line.begin() + begin, line.begin() + i));
-        begin = i + 1;
-        j++;
-      }
+    iss.clear();
+    iss.str(line);
+    while (iss >> tok) {
+      if(j == 6) r2 = std::stod(tok);
+      if(j == 1) dA = std::stoi(tok);
+      if(j == 4) dB = std::stoi(tok);
+      j++;
     }
     d = dB - dA;
     iChr[d].first += r2;
