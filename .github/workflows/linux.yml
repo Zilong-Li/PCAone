@@ -43,7 +43,7 @@ jobs:
         distro: ubuntu22.04
         run: |
           apt-get update
-          apt-get -y install libzstd-dev
+          apt-get -y install libzstd-dev build-essential
           make -j4
           make data
           make example_tests
