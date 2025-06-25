@@ -49,7 +49,10 @@ ifeq ($(Platform), Darwin)
 	CXXFLAGS += -march=native
 else
 	ifeq ($(strip $(AVX)),)
-		CXXFLAGS += -march=native
+		# Only apply -march=native on x86_64
+		ifeq ($(ARCH), x86_64)
+			CXXFLAGS += -march=native
+		endif
 	else ifeq ($(strip $(AVX)),1)
 		# Only add AVX flags on x86_64, as they are not valid on aarch64
 		ifeq ($(ARCH), x86_64)
