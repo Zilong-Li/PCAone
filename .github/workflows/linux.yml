@@ -1,16 +1,12 @@
 name: Linux
+
 on:
   push:
     branches: [ main, dev, ld ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
-    inputs:
-      run_tests:
-        description: 'Run additional tests'
-        required: false
-        default: 'true'
-        type: boolean
+
 jobs:
   build:
     runs-on: ubuntu-22.04
