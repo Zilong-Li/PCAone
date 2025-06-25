@@ -42,9 +42,8 @@ jobs:
         arch: aarch64
         distro: ubuntu22.04
         run: |
-          sudo apt update
-          sudo apt-get update
-          sudo apt-get -y install libzstd-dev
+          apt-get update
+          apt-get -y install libzstd-dev
           make -j4
           make data
           make example_tests
