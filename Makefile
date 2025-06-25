@@ -1,40 +1,48 @@
 ######################### configure ################
 
 VERSION=0.5.2
-# detect OS architecture and add flags
-Platform     := $(shell uname -s)
+# Detect OS and CPU architecture to add flags conditionally
+Platform       := $(shell uname -s)
+ARCH           := $(shell uname -m)
 
-$(info "building PCAone on ${Platform} -- version ${VERSION}")
+$(info "building PCAone on ${Platform} (${ARCH}) -- version ${VERSION}")
 
-# MKLROOT=/opt/intel/oneapi/mkl/latest 
+# MKLROOT=/opt/intel/oneapi/mkl/latest
 MKLROOT            =
 # /opt/intel/oneapi/compiler/latest/lib/
-ONEAPI_COMPILER   := ${MKLROOT}
-ONEAPI_OMP5       := $(ONEAPI_COMPILER)/lib/libiomp5.a
+ONEAPI_COMPILER    := ${MKLROOT}
+ONEAPI_OMP5        := $(ONEAPI_COMPILER)/lib/libiomp5.a
 # make sure libiomp5 can be found on mac
 # ln -s /opt/intel/oneapi/compiler/latest/mac/compiler/lib/libiomp5.dylib /opt/intel/oneapi/mkl/latest/lib/
 
 # for MacOS use accelerate framework in default
 # install openblas lapack on mac with brew install openblas lapack
-OPENBLAS  =
+OPENBLAS   =
 
 
-STATIC        = 0  # by default dynamical linking
-IOMP5         = 1  # use libiomp5 for mkl
-DEBUG         = 0  # debug
-AVX           =    # 1: enable avx2 fma, 0: do nothing
+STATIC         = 0  # by default dynamical linking
+IOMP5          = 1  # use libiomp5 for mkl
+DEBUG          = 0  # debug
+AVX            =    # 1: enable avx2 fma, 0: do nothing
 
 ########################### end ###########################
 
 
 ####### INC, LPATHS, LIBS, MYFLAGS
-program       = PCAone
-CXX           ?= g++    # use default g++ only if not set in env
+program        = PCAone
+CXX            ?= g++    # use default g++ only if not set in env
 CXXSTD         = c++17
-CXXFLAGS	  += -O3 -Wall -std=$(CXXSTD) -m64
-MYFLAGS        = -DVERSION=\"$(VERSION)\" -DNDEBUG
-# CURRENT_DIR   = $(shell pwd)
-INC           = -I./external -I./external/zstd/lib
+# Base compiler flags, applied to all architectures
+CXXFLAGS        += -O3 -Wall -std=$(CXXSTD)
+
+# Apply the -m64 flag only on the x86_64 architecture.
+# This flag is not valid on aarch64.
+ifeq ($(ARCH), x86_64)
+	CXXFLAGS += -m64
+endif
+
+MYFLAGS         = -DVERSION=\"$(VERSION)\" -DNDEBUG
+INC             = -I./external -I./external/zstd/lib
 PCALIB = libpcaone.a
 
 ifeq ($(Platform), Darwin)
@@ -43,7 +51,10 @@ else
 	ifeq ($(strip $(AVX)),)
 		CXXFLAGS += -march=native
 	else ifeq ($(strip $(AVX)),1)
-		CXXFLAGS += -mavx2 -mfma
+		# Only add AVX flags on x86_64, as they are not valid on aarch64
+		ifeq ($(ARCH), x86_64)
+			CXXFLAGS += -mavx2 -mfma
+		endif
 	endif
 endif
 
@@ -83,13 +94,13 @@ else ifeq ($(Platform),Darwin)
 	ifneq ($(strip $(OPENBLAS)),)
 		MYFLAGS += -DWITH_OPENBLAS -DEIGEN_USE_BLAS -DEIGEN_USE_LAPACKE
 		ifeq ($(strip $(STATIC)),1)
-			# SLIBS += /usr/local/opt/gcc/lib/gcc/11/libgomp.a  # gcc need libgomp.a	
-			SLIBS += /opt/homebrew/opt/openblas/lib/libopenblas.a /opt/homebrew/opt/libomp/lib/libomp.a -L/opt/homebrew/opt/gcc/lib/gcc/14/ -lgfortran 
+			# SLIBS += /usr/local/opt/gcc/lib/gcc/11/libgomp.a  # gcc need libgomp.a
+			SLIBS += /opt/homebrew/opt/openblas/lib/libopenblas.a /opt/homebrew/opt/libomp/lib/libomp.a -L/opt/homebrew/opt/gcc/lib/gcc/14/ -lgfortran
 		else
-			DLIBS   += -lopenblas -lomp 
+			DLIBS   += -lopenblas -lomp
 		endif
 
-	else 	
+	else
 		MYFLAGS += -DEIGEN_USE_BLAS
 		ifeq ($(strip $(STATIC)),1)
 			SLIBS += /opt/homebrew/opt/libomp/lib/libomp.a -framework Accelerate
@@ -107,7 +118,9 @@ ifeq ($(strip $(STATIC)),1)
 		SLIBS += /opt/homebrew/opt/zlib/lib/libz.a
 		# CXXFLAGS += -stdlib=libc++
 	else
-		SLIBS    += /usr/lib/x86_64-linux-gnu/libz.a # /usr/lib64/libz.a # 
+		# Previous path: /usr/lib/x86_64-linux-gnu/libz.a
+		# Default dynamic link below (-lz)
+		SLIBS    += -lz
 		CXXFLAGS += -static
 		# CXXFLAGS += -static-libgcc -static-libstdc++
 	endif
@@ -115,8 +128,6 @@ else
 	DLIBS    += -lz
 endif
 
-# OBJ = $(patsubst %.cpp, %.o, $(wildcard ./src/*.cpp))
-# tar OBJ as libpcaone.a
 OBJ = src/Arnoldi.o src/Halko.o src/Data.o src/Utils.o src/Cmd.o \
 		src/FileBeagle.o src/FileCsv.o src/FileBgen.o src/FilePlink.o \
 		src/FileBinary.o src/FileUSV.o src/LD.o src/Projection.o src/Inbreeding.o \
@@ -172,7 +183,7 @@ hwe:
 	rm -f inbreed* pcaone.*
 
 ld_matrix:
-	./PCAone -b example/plink -k 3 --ld -o adj -d 2 
+	./PCAone -b example/plink -k 3 --ld -o adj -d 2
 	./PCAone -b example/plink -k 3 --ld -o pcaone -d 2 -m 2
 	diff adj.mbim pcaone.mbim
 	cut -f1 adj.mbim | sort -cn  ## check if sorted
@@ -189,7 +200,7 @@ ld_prune:
 	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
 
 ld_clump:
-	./PCAone -B adj.residuals --match-bim adj.mbim --clump example/plink.pheno0.assoc --clump-p1 0.01 --clump-p2 0.05 --clump-r2 0.1 --clump-bp 10000000 -m 0 -o adj_clump_m0 
+	./PCAone -B adj.residuals --match-bim adj.mbim --clump example/plink.pheno0.assoc --clump-p1 0.01 --clump-p2 0.05 --clump-r2 0.1 --clump-bp 10000000 -m 0 -o adj_clump_m0
 	./PCAone -B adj.residuals --match-bim adj.mbim --clump example/plink.pheno0.assoc --clump-p1 0.01 --clump-p2 0.05 --clump-r2 0.1 --clump-bp 10000000 -m 1 -o adj_clump_m1
 	diff adj_clump_m0.p0.clump adj_clump_m1.p0.clump > /dev/null
 
@@ -218,4 +229,3 @@ ld_tests:
 	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0
 	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 2
 	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
-
