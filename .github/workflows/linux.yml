@@ -1,33 +1,32 @@
 name: Linux
-
 on:
   push:
     branches: [ main, dev, ld ]
   pull_request:
     branches: [ main ]
-
+  workflow_dispatch:
+    inputs:
+      run_tests:
+        description: 'Run additional tests'
+        required: false
+        default: 'true'
+        type: boolean
 jobs:
   build:
-
     runs-on: ubuntu-22.04
-
     steps:
     - uses: actions/checkout@v3
-
     - name: install dependency
       run: |
         sudo apt update
         sudo apt-get update
         sudo apt-get -y install libzstd-dev
-
     - name: make
       run: make -j4
-
     - name: download and test example data
       run: |
         make data
         make example_tests
-
     - name: test LD module
       run: |
         make hwe
