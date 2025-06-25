@@ -11,7 +11,7 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: install dependency
       run: |
         sudo apt update
@@ -30,3 +30,26 @@ jobs:
         make ld_r2
         make ld_clump
         make ld_tests
+
+  build-aarch64:
+    name: Build on Linux (aarch64)
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v4
+    - name: Run aarch64 build and tests
+      uses: uraimo/run-on-arch-action@v3
+      with:
+        arch: aarch64
+        distro: ubuntu22.04
+        run: |
+          sudo apt update
+          sudo apt-get update
+          sudo apt-get -y install libzstd-dev
+          make -j4
+          make data
+          make example_tests
+          make hwe
+          make ld_matrix
+          make ld_r2
+          make ld_clump
+          make ld_tests
