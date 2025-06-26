@@ -16,19 +16,10 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get -y install build-essential libzstd-dev zlib1g-dev wget
-    - name: make
-      run: make -j4
-    - name: download and test example data
+    - name: Build and run full test suite
       run: |
-        make data
-        make example_tests
-    - name: test LD module
-      run: |
-        make hwe
-        make ld_matrix
-        make ld_r2
-        make ld_clump
-        make ld_tests
+        make -j4
+        make test_full
 
   build-aarch64:
     name: Build on Linux (aarch64)
@@ -44,10 +35,4 @@ jobs:
           apt-get update
           apt-get -y install build-essential libzstd-dev zlib1g-dev wget
           make -j4
-          make data
-          make example_tests
-          make hwe
-          make ld_matrix
-          make ld_r2
-          make ld_clump
-          make ld_tests
+          make test_aarch64
