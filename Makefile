@@ -2,8 +2,8 @@
 
 VERSION=0.5.2
 # Detect OS and CPU architecture to add flags conditionally
-Platform       := $(shell uname -s)
-ARCH           := $(shell uname -m)
+Platform        := $(shell uname -s)
+ARCH            := $(shell uname -m)
 
 $(info "building PCAone on ${Platform} (${ARCH}) -- version ${VERSION}")
 
@@ -17,21 +17,21 @@ ONEAPI_OMP5        := $(ONEAPI_COMPILER)/lib/libiomp5.a
 
 # for MacOS use accelerate framework in default
 # install openblas lapack on mac with brew install openblas lapack
-OPENBLAS   =
+OPENBLAS    =
 
 
-STATIC         = 0  # by default dynamical linking
-IOMP5          = 1  # use libiomp5 for mkl
-DEBUG          = 0  # debug
-AVX            =    # 1: enable avx2 fma, 0: do nothing
+STATIC          = 0  # by default dynamical linking
+IOMP5           = 1  # use libiomp5 for mkl
+DEBUG           = 0  # debug
+AVX             =    # 1: enable avx2 fma, 0: do nothing
 
 ########################### end ###########################
 
 
 ####### INC, LPATHS, LIBS, MYFLAGS
-program        = PCAone
-CXX            ?= g++    # use default g++ only if not set in env
-CXXSTD         = c++17
+program         = PCAone
+CXX             ?= g++    # use default g++ only if not set in env
+CXXSTD          = c++17
 # Base compiler flags, applied to all architectures
 CXXFLAGS        += -O3 -Wall -std=$(CXXSTD)
 
@@ -140,7 +140,7 @@ SLIBS += ./external/bgen/bgenlib.a ./external/zstd/lib/libzstd.a
 
 LIBS += $(SLIBS) $(DLIBS) -lpthread -ldl -lm
 
-.PHONY: all clean ld_matrix ld_r2 ld_prune ld_clump ld_tests
+.PHONY: all clean ld_matrix ld_r2 ld_prune ld_clump ld_tests test_full test_aarch64
 
 all: ${program}
 
@@ -232,3 +232,23 @@ ld_tests:
 	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0
 	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 2
 	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
+
+#################################################################
+# CI/CD Test Suites
+# Use 'make test_full' for complete testing (e.g., on x86_64)
+# Use 'make test_aarch64' for a faster suite to avoid timeouts
+#################################################################
+
+# Define a faster version of example_tests that excludes the long-running CSV test
+example_tests_fast:
+	./PCAone -g example/test.bgen -n4 -o m0
+	./PCAone -g example/test.bgen -n4 -m0.1 -o m1
+	diff m0.eigvals m1.eigvals
+
+# The fast test suite for aarch64
+test_aarch64: data example_tests_fast hwe ld_matrix ld_r2 ld_clump ld_tests
+	@echo "SUCCESS: aarch64 fast test suite completed."
+
+# The complete test suite for other architectures like x86_64
+test_full: data example_tests hwe ld_matrix ld_r2 ld_clump ld_tests
+	@echo "SUCCESS: Full test suite completed."
