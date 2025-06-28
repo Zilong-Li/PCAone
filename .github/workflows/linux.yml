@@ -1,33 +1,27 @@
-name: Linux
+name: Linux (x86_64)
 
 on:
   push:
     branches: [ main, dev, ld ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
-
+    name: Build on Linux (x86_64)
     runs-on: ubuntu-22.04
 
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-    - name: install dependency
+    - name: Install dependencies
       run: |
-        sudo apt update
         sudo apt-get update
-        sudo apt-get -y install libzstd-dev
+        sudo apt-get -y install build-essential libzstd-dev wget
 
-    - name: make
-      run: make -j4
-
-    - name: download and test example data
+    - name: Build and run full test suite
       run: |
-        make data
-        make example_tests
-
-    - name: test LD module
-      run: |
+        make -j4
         make test_full
