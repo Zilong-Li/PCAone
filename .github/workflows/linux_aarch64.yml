@@ -1,4 +1,4 @@
-name: Linux (x86_64)
+name: Linux (AArch64)
 
 on:
   push:
@@ -8,10 +8,9 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    name: Build on Linux (x86_64)
-    runs-on: ubuntu-22.04
-
+  build-aarch64:
+    name: Build on Linux (AArch64)
+    runs-on: ubuntu-22.04-arm
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -19,9 +18,9 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get -y install build-essential libzstd-dev wget
+        sudo apt-get -y install build-essential libzstd-dev zlib1g-dev wget
 
-    - name: Build and run full test suite
+    - name: Build and run test suite
       run: |
         make -j4
-        make test_full
+        make test_aarch64
