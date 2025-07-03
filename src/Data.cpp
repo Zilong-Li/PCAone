@@ -167,11 +167,18 @@ void Data::calcu_vt_update(const Mat2D &T, const Mat2D &U, const Mat1D &svals, M
   return;
 }
 
-void Data::write_eigs_files(const Mat1D &S, const Mat2D &U, const Mat2D &V) {
-  std::ofstream outs(params.fileout + ".eigvals");
+// S: signular values
+// E: eigen values
+void Data::write_eigs_files(const Mat1D &E, const Mat1D &S, const Mat2D &U, const Mat2D &V) {
+  std::ofstream outs(params.fileout + ".sigvals");
+  std::ofstream oute(params.fileout + ".eigvals");
   std::ofstream outu(params.fileout + ".eigvecs");
   Eigen::IOFormat fmt(6, Eigen::DontAlignCols, "\t", "\n");
-  if (outs.is_open()) outs << (S * params.ploidy).format(fmt) << '\n';
+  if (outs.is_open()) {
+    outs << '#' << U.rows() << ',' << V.rows() << '\n';
+    outs << S.format(fmt) << '\n';
+  }
+  if (oute.is_open()) oute << (E * params.ploidy).format(fmt) << '\n';
   if (outu.is_open()) outu << U.format(fmt) << '\n';
   if (params.project == 0 && params.printv) {
     save_snps_in_bim();

@@ -79,6 +79,8 @@ bool isZstdCompressed(const char* filename);
 
 Mat2D read_usv(const std::string& path);
 
+void read_sigvals(const std::string& path, uint& N, uint& M, Mat1D& S);
+
 Mat1D read_eigvals(const std::string& path);
 
 Mat2D read_eigvecs(const std::string& path, int n, int k);

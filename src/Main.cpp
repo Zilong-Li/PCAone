@@ -131,7 +131,7 @@ int main(int argc, char* argv[]) {
     if (params.file_t == FileType::PLINK || params.file_t == FileType::BGEN) data->standardize_E();
     cao.print(tick.date(), "running the Full SVD with in-core mode.");
     Eigen::JacobiSVD<Mat2D> svd(data->G, Eigen::ComputeThinU | Eigen::ComputeThinV);
-    data->write_eigs_files(svd.singularValues().array().square() / data->nsnps, svd.matrixU(), svd.matrixV());
+    data->write_eigs_files(svd.singularValues().array().square() / data->nsnps, svd.singularValues(), svd.matrixU(), svd.matrixV());
   } else {
     cao.error("unsupported PCA method!");
   }

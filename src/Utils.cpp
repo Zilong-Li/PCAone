@@ -8,9 +8,12 @@
 
 #include <sys/utsname.h>
 
+#include <cstddef>
 #include <cstring>  // strtok_r
 #include <fstream>
+#include <tuple>
 
+#include "Common.hpp"
 #include "kfunc.h"
 #include "zlib.h"
 
@@ -283,6 +286,25 @@ Mat2D read_usv(const std::string& path) {
     j++;
   }
   return Eigen::Map<Mat2D>(V.data(), j, k);
+}
+
+// parse .sigvals file
+void read_sigvals(const std::string& path, uint& N, uint& M, Mat1D& S) {
+  double val;
+  Double1D V;
+  std::ifstream fin(path);
+  std::string line;
+  getline(fin, line);
+  // parse line #nsamples,nsnps
+  size_t comma = line.find(',');
+  N = std::stoi(line.substr(1, comma - 1));
+  M = std::stoi(line.substr(comma + 1));
+  // parse the rest
+  while (getline(fin, line)) {
+    val = std::stod(line);
+    V.push_back(val);
+  }
+  S = Eigen::Map<Mat1D>(V.data(), V.size());
 }
 
 // parse .eigvals file

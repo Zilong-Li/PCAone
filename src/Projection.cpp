@@ -59,5 +59,5 @@ void run_projection(Data* data, const Param& params) {
     cao.error("have not implemented yet");
   }
 
-  data->write_eigs_files(S.array().square() / data->nsnps, U, V);
+  data->write_eigs_files(S.array().square() / data->nsnps, S, U, V);
 }

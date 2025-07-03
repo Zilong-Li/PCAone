@@ -8,25 +8,15 @@ class FileUSV : public Data {
  public:
   FileUSV(const Param &params_) : Data(params_) {
     cao.print(tick.date(), "start parsing U:", params.fileU, ", S:", params.fileS, ", V:", params.fileV);
-    S = read_eigvals(params.fileS);
+    read_sigvals(params.fileS, nsamples, nsnps, S); // could not structual bindings
     if (S.size() != params.k) cao.warn("the value of -k not equal the number of rows in " + params.fileS);
     K = fmin(S.size(), params.k);
-    cao.print(tick.date(), "start parsing mbim:", params.filebim, "and read allele frequency of SNPs");
+    cao.print(tick.date(), "start parsing mbim and read allele frequency of SNPs from", params.filebim);
     F = read_frq(params.filebim);
-    nsnps = F.size();
-    if (params.nsnps > 0 && params.nsamples > 0) {
-      cao.print(tick.date(), "use nsamples and nsnps given by user");
-      nsamples = params.nsamples;
-      if (nsnps != params.nsnps) cao.error("the number of snps not matching!");
-      V = read_eigvecs(params.fileV, nsnps, K);
-      U = read_eigvecs(params.fileU, nsamples, K);
-    } else {
-      V = read_eigvecs(params.fileV, nsnps, K);
-      U = read_usv(params.fileU);
-      nsamples = U.rows();
-    }
-    // get the original diagnoal back
-    S = (S * nsnps / params.ploidy).array().sqrt();
+    if (F.size() != nsnps) cao.error("the number of sites in mbim not matching the header line of .sigvals");
+    cao.print(tick.date(), "N (# samples):", nsamples, ", M (# SNPs):", nsnps);
+    V = read_eigvecs(params.fileV, nsnps, K);
+    U = read_eigvecs(params.fileU, nsamples, K);
   }
 
   ~FileUSV() override = default;

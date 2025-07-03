@@ -118,7 +118,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
       }
     }
     // write to files;
-    data->write_eigs_files(evals, U, V);
+    data->write_eigs_files(evals, svals, U, V);
     // NOTE: pcangsd only gives us evals of covariance matrix
     if (params.ld && !params.pcangsd) data->write_residuals(svals, U, V.transpose());
   } else {
@@ -193,7 +193,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
       evals.noalias() = eigs->eigenvalues() / data->nsnps;
     }
 
-    data->write_eigs_files(evals, op->U, op->VT.transpose());
+    data->write_eigs_files(evals, op->S, op->U, op->VT.transpose());
     if (params.ld && !params.pcangsd) data->write_residuals(op->S, op->U, op->VT);
 
     delete op;

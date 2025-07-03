@@ -332,9 +332,9 @@ void run_pca_with_halko(Data* data, const Param& params) {
   }
   // output PI
   if (params.perm)
-    data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, data->perm * rsvd->V);
+    data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->S, rsvd->U, data->perm * rsvd->V);
   else
-    data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->U, rsvd->V);
+    data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->S, rsvd->U, rsvd->V);
   if (params.ld) data->write_residuals(rsvd->S, rsvd->U, rsvd->V.transpose());
 
   delete rsvd;

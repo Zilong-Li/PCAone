@@ -78,7 +78,7 @@ Param::Param(int argc, char **argv) {
   auto usvprefix = opts.add<Value<std::string>>("", "USV", "prefix of PCAone .eigvecs/.eigvals/.loadings/.mbim.");
   opts.add<Value<std::string>, Attribute::hidden>("", "read-U", "path of file with left singular vectors (.eigvecs).", "", &fileU);
   opts.add<Value<std::string>, Attribute::hidden>("", "read-V", "path of file with right singular vectors (.loadings).", "", &fileV);
-  opts.add<Value<std::string>, Attribute::hidden>("", "read-S", "path of file with eigen values (.eigvals).", "", &fileS);
+  opts.add<Value<std::string>, Attribute::hidden>("", "read-S", "path of file with sigular values (.sigvals).", "", &fileS);
   
   opts.add<Value<std::string>, Attribute::headline>("","OUTPUT","Output options:");
   opts.add<Value<std::string>>("o", "out", "prefix of output files. default [pcaone].", fileout, &fileout);
@@ -156,7 +156,7 @@ Param::Param(int argc, char **argv) {
     // handle PI, i.e U,S,V
     if (usvprefix->is_set()) {
       if (fileU.empty()) fileU = usvprefix->value() + ".eigvecs";
-      if (fileS.empty()) fileS = usvprefix->value() + ".eigvals";
+      if (fileS.empty()) fileS = usvprefix->value() + ".sigvals";
       if (fileV.empty()) fileV = usvprefix->value() + ".loadings";
       if (filebim.empty()) filebim = usvprefix->value() + ".mbim";
     }
