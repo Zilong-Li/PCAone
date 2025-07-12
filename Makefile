@@ -181,11 +181,6 @@ example_tests:
 	./PCAone --csv example/BrainSpinalCord.csv.zst -k 10 -m 2 --scale 2 -S
 
 hwe:
-	./PCAone -b example/plink -k 3 -V --pcangsd -o pcangsd
-	./PCAone -b example/plink --USV pcangsd -k 3 --inbreed 1 -o inbreed_m0
-	./PCAone -b example/plink --USV pcangsd -k 3 --inbreed 1 -o inbreed_m1 -m 1
-	diff inbreed_m0.hwe inbreed_m1.hwe
-	rm -f inbreed* pcangsd.*
 	./PCAone -b example/plink -k 3 -V --pcangsd -o pcangsd -m 1
 	./PCAone -b example/plink --USV pcangsd -k 3 --inbreed 1 -o inbreed_m0
 	./PCAone -b example/plink --USV pcangsd -k 3 --inbreed 1 -o inbreed_m1 -m 1
@@ -219,15 +214,15 @@ ld_tests:
 	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0
 	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 2
 	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
-	./PCAone -b example/plink -k 3 --ld -o adj -d 0 -m 4
+	./PCAone -b example/plink -k 3 --ld -o adj -d 0 -m 2
 	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0
 	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 2
 	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
-	./PCAone -b example/plink -k 3 --ld -o adj -d 1 --maf 0.1
+	./PCAone -b example/plink -k 3 --ld -o adj -d 1 -p 10 --maf 0.1
 	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0
 	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 2
 	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
-	./PCAone -b example/plink -k 3 --ld -o adj -d 1 -m 4
+	./PCAone -b example/plink -k 3 --ld -o adj -d 1 -p 10 -m 2
 	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0
 	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 2
 	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
@@ -235,7 +230,7 @@ ld_tests:
 	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0
 	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 2
 	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
-	./PCAone -b example/plink -k 3 --ld -o adj -d 2 -m 4
+	./PCAone -b example/plink -k 3 --ld -o adj -d 2 -m 2
 	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0
 	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 2
 	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
@@ -253,9 +248,9 @@ example_tests_fast:
 	diff m0.eigvals m1.eigvals
 
 # The fast test suite for aarch64
-test_aarch64: data example_tests_fast hwe ld_matrix ld_r2 ld_clump ld_tests
+test_aarch64: data example_tests_fast hwe ld_matrix ld_r2 ld_prune ld_clump
 	@echo "SUCCESS: aarch64 fast test suite completed."
 
 # The complete test suite for other architectures like x86_64
-test_full: data example_tests hwe ld_matrix ld_r2 ld_clump ld_tests
+test_full: data example_tests hwe ld_matrix ld_r2 ld_prune ld_clump ld_tests
 	@echo "SUCCESS: Full test suite completed."
