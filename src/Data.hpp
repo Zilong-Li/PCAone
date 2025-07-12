@@ -45,8 +45,7 @@ class Data {
   uint nops = 0;
   std::vector<uint> start, stop;
   PermMat perm;  // permuation order of SNPs
-  Mat2D G;       // genotype matrix, can be initial E or centered E, which is
-                 // nsamples x nsnps;
+  Mat2D G;       // genotype matrix, can be initial E or centered E, which is nsamples x nsnps;
   Mat2D P;       // normalized genotype likelihoods, (nsamples x 2) x nsnps.
   Mat1D F;       // observed or estimated population allele frequency
   Mat1D Dc;      // diagnal vector of covariance matrix

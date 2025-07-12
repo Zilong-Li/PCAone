@@ -6,6 +6,7 @@
 
 #include "FilePlink.hpp"
 
+#include "Common.hpp"
 #include "Utils.hpp"
 
 using namespace std;
@@ -68,7 +69,9 @@ void FileBed::read_all() {
   }
 
   G = Mat2D::Zero(nsamples, nsnps);  // fill in G with new size
-  if (params.impute) C = ArrBool::Zero(nsnps * nsamples);
+  if (params.pcangsd) P = Mat2D::Zero(nsamples * 2, nsnps);
+  if (params.emu) C = ArrBool::Zero(nsnps * nsamples);
+
 #pragma omp parallel for private(i, j, b, c, k, buf)
   for (i = 0; i < nsnps; ++i) {
     uint s = params.keepsnp ? keepSNPs[i] : i;
@@ -78,12 +81,27 @@ void FileBed::read_all() {
         if (j < nsamples) {
           G(j, i) = BED2GENO[buf & 3];
           buf >>= 2;
-          if (params.impute) {
+          if (params.emu) {
             // 1 indicate G(i,j) need to be predicted and updated.
             if (G(j, i) != BED_MISSING_VALUE)
               C[i * nsamples + j] = 0;
             else
               C[i * nsamples + j] = 1;
+          }
+          if (params.pcangsd) {
+            if (G(j, i) == 0.0) {
+              P(2 * j + 0, i) = 1.0;
+              P(2 * j + 1, i) = 0.0;
+            } else if (G(j, i) == 0.5) {
+              P(2 * j + 0, i) = 0.0;
+              P(2 * j + 1, i) = 1.0;
+            } else if (G(j, i) == 1.0) {
+              P(2 * j + 0, i) = 0.0;
+              P(2 * j + 1, i) = 0.0;
+            } else {
+              P(2 * j + 0, i) = 1.0 / 3.0;
+              P(2 * j + 1, i) = 1.0 / 3.0;
+            }
           }
         }
       }
@@ -99,13 +117,15 @@ void FileBed::read_all() {
     }
   }
 
+  // read bed to matrix G done and close bed_ifstream
+  inbed.clear();
+  inbed.shrink_to_fit();
+
   if (C.size()) {
     double p_miss = (double)C.count() / (double)C.size();
     cao.print(tick.date(), "the proportion of missingness  is", p_miss);
   }
-  // read bed to matrix G done and close bed_ifstream
-  inbed.clear();
-  inbed.shrink_to_fit();
+
 }
 
 void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize) {

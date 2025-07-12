@@ -201,12 +201,12 @@ Param::Param(int argc, char **argv) {
     if (pca && file_t == FileType::BEAGLE) pcangsd = true;
     if (emu || pcangsd) {
       impute = true;
-      if (svd_t == SvdType::PCAoneAlg2)
-        throw std::invalid_argument("fancy EM-PCA with --svd 2 is on the way!");
+      // if (svd_t == SvdType::PCAoneAlg2)
+      //   throw std::invalid_argument("fancy EM-PCA with --svd 2 is on the way!");
     } else if (pca) {
       maxiter = 0;
     }
-    if (out_of_core && pca && pcangsd)
+    if (out_of_core && pcangsd && (file_t == FileType::BEAGLE))
       throw std::invalid_argument("not supporting -m option for PCAngsd with BEAGLE file yet!");
     if (bands < 4 || bands % 2 != 0)
       throw std::invalid_argument("the -w/--batches must be a power of 2 and the minimun is 4.");

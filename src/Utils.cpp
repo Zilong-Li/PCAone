@@ -11,11 +11,8 @@
 #include <cstddef>
 #include <cstring>  // strtok_r
 #include <fstream>
-#include <tuple>
 
-#include "Common.hpp"
 #include "kfunc.h"
-#include "zlib.h"
 
 using namespace std;
 

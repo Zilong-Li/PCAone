@@ -19,22 +19,22 @@ void calc_inbreed_coef(Mat1D& D, Mat1D& F, const Mat2D& PI, const Mat2D& GL, con
   if (type != 1 && type != 2) cao.error("type must be 1 or 2");
 #pragma omp parallel for
   for (int j = 0; j < nsnps; j++) {
-    double obsH = 0.0, expH = 0.0, Fadj, p0, p1, p2, pSum, pp0, pp1, pp2, ppSum;
+    double obsH = 0.0, expH = 0.0, Fadj, p0, p1, p2, pSum, pp0, pp1, pp2;
     int jj = j + start;
     for (int i = 0; i < nsamples; i++) {
       // Fadj = (1-pi)*pi*F;
       Fadj = (1.0 - PI(i, j)) * PI(i, j) * F(jj);
       // (1-pi)^2 + pi(1-pi)*F
-      p0 = fmax(1e-4, (1.0 - PI(i, j) * (1.0 - PI(i, j)) + Fadj));
+      p0 = fmax(1e-4, (1.0 - PI(i, j)) * (1.0 - PI(i, j)) + Fadj);
       // 2pi(1-pi)(1-F)
-      p1 = fmax(1e-4, 2.0 * PI(i, j) * (1.0 - PI(i, j)) - 2.0 * Fadj);
+      p1 = fmax(1e-4, 2.0 * PI(i, j) * (1.0 - PI(i, j)) * (1.0 - F(jj)));
       // pi^2 + pi(1-pi)*F
       p2 = fmax(1e-4, PI(i, j) * PI(i, j) + Fadj);
       // normalize
-      pSum = p0 + p1 + p2;
-      p0 /= pSum;
-      p1 /= pSum;
-      p2 /= pSum;
+      pSum = 1.0 / (p0 + p1 + p2);
+      p0 *= pSum;
+      p1 *= pSum;
+      p2 *= pSum;
 
       // posterior
       if (type == 1) {
@@ -53,18 +53,15 @@ void calc_inbreed_coef(Mat1D& D, Mat1D& F, const Mat2D& PI, const Mat2D& GL, con
         pp1 = GL(2 * i + 1, j) * p1;
         pp2 = (1.0 - GL(2 * i + 0, j) - GL(2 * i + 1, j)) * p2;
       }
-      ppSum = pp0 + pp1 + pp2;
+      pSum = pp0 + pp1 + pp2;
 
       // sum over indiiduals
-      obsH += pp1 / ppSum;
+      obsH += pp1 / pSum;
       // count heterozygotes
       expH += 2.0 * PI(i, j) * (1.0 - PI(i, j));
     }
-    // ANGSD procedure
-    obsH = fmax(1e-4, obsH / (double)nsamples);
     // Update the inbreeding coefficient
-    double f = 1.0 - ((double)nsamples * obsH / expH);
-    f = fmin(fmax(-1.0, f), 1.0);
+    double f = fmin(fmax(-1.0, 1.0 - (obsH / expH)), 1.0);
     D(jj) = f - F(jj);  // Fnew - Fold
     F(jj) = f;          // update with Fnew
   }
@@ -83,16 +80,16 @@ void calc_inbreed_site_lrt(Mat1D& T, const Mat1D& F, const Mat2D& PI, const Mat2
       // Fadj = (1-pi)*pi*F;
       Fadj = (1.0 - PI(i, j)) * PI(i, j) * F(jj);
       // (1-pi)^2 + pi(1-pi)*F
-      p0 = fmax(1e-4, (1.0 - PI(i, j) * (1.0 - PI(i, j)) + Fadj));
+      p0 = fmax(1e-4, (1.0 - PI(i, j)) * (1.0 - PI(i, j)) + Fadj);
       // 2pi(1-pi)(1-F)
-      p1 = fmax(1e-4, 2.0 * PI(i, j) * (1.0 - PI(i, j)) - 2.0 * Fadj);
+      p1 = fmax(1e-4, 2.0 * PI(i, j) * (1.0 - PI(i, j)) * (1.0 - F(jj)));
       // pi^2 + pi(1-pi)*F
       p2 = fmax(1e-4, PI(i, j) * PI(i, j) + Fadj);
       // normalize
-      pSum = p0 + p1 + p2;
-      p0 /= pSum;
-      p1 /= pSum;
-      p2 /= pSum;
+      pSum = 1.0 / (p0 + p1 + p2);
+      p0 *= pSum;
+      p1 *= pSum;
+      p2 *= pSum;
 
       // posterior // Likelihood*prior
       if (type == 1) {
@@ -145,15 +142,16 @@ void write_hwe_per_site(const std::string& fout, const std::string& fbim, const 
 void run_inbreeding_em(int type, const Mat2D& GL, const Mat2D& PI, const Param& params) {
   if (type != 1 && type != 2) cao.error("type must be 1 or 2");
   const int nsnps = PI.cols();
-  Mat1D F = Mat1D::Zero(nsnps);  // init inbreeding coef
-  Mat1D F0(nsnps), D1(nsnps), D2(nsnps);
+  Mat1D F = Mat1D::Zero(nsnps), F0(nsnps);  // init inbreeding coef
+  Mat1D D1(nsnps), D2(nsnps);               // store the diff between Fnew - Fold
   double sr2, sv2, alpha, diff;
   AreClose areClose;
+  calc_inbreed_coef(D1, F, PI, GL, type, nsnps, 0);  // init F
   for (uint it = 0; it < params.maxiter; it++) {
     F0 = F;                                            // copy the initial F
-    calc_inbreed_coef(D1, F, PI, GL, type, nsnps, 0);  // F is F1
+    calc_inbreed_coef(D1, F, PI, GL, type, nsnps, 0);  // F is F1, D1 = F1 - F0
     sr2 = D1.array().square().sum();
-    calc_inbreed_coef(D2, F, PI, GL, type, nsnps, 0);  // F is F2
+    calc_inbreed_coef(D2, F, PI, GL, type, nsnps, 0);  // F is F2, D2 = F2 - F1
     sv2 = (D2 - D1).array().square().sum();
     // safety break
     if (areClose(sv2, 0.0)) {
@@ -161,7 +159,7 @@ void run_inbreeding_em(int type, const Mat2D& GL, const Mat2D& PI, const Param& 
       cao.print(tick.date(), "EM inbreeding coefficient coverged");
       break;
     }
-    alpha = fmax(1.0, sqrt(sr2 / sv2));
+    alpha = fmin(fmax(1.0, sqrt(sr2 / sv2)), 256.0);
     if (params.verbose > 1) cao.print("alpha:", alpha, ", sr2:", sr2, ", sv2:", sv2);
     F = F0 + 2 * alpha * D1 + alpha * alpha * (D2 - D1);  // F is F3
     // map to domain [-1, 1]
@@ -179,7 +177,7 @@ void run_inbreeding_em(int type, const Mat2D& GL, const Mat2D& PI, const Param& 
   }
   cao.print(tick.date(), "compute the LRT test");
   calc_inbreed_site_lrt(D1, F, PI, GL, type, nsnps, 0);
-#pragma omp parallel for
+// #pragma omp parallel for
   for (int j = 0; j < F.size(); j++) {
     D2(j) = chisq1d(D1(j));
   }
@@ -198,7 +196,7 @@ void run_inbreeding(Data* Pi, const Param& params) {
   }
   data->prepare();
   assert(data->blocksize == Pi->blocksize);
-  
+
   cao.print(tick.date(), "run inbreeding coefficient estimator");
   if (!params.out_of_core) {
     if (params.file_t == FileType::PLINK) run_inbreeding_em(1, data->G, Pi->G, params);
@@ -242,7 +240,7 @@ void run_inbreeding(Data* Pi, const Param& params) {
     sv2 = (D2 - D1).array().square().sum();
     // safety break
     if (areClose(sv2, 0.0)) {
-      cao.print(tick.date(), "Inbreeding coefficients estimated, iter =", it + 1, "RMSE = 0.0");
+      cao.print(tick.date(), "Inbreeding coefficients estimated, iter =", it + 1, ", RMSE = 0.0");
       cao.print(tick.date(), "EM inbreeding coefficient coverged");
       break;
     }

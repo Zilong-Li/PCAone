@@ -15,7 +15,7 @@ void FileUSV::read_all() {
 #pragma omp parallel for
     for (int i = 0; i < F.size(); i++) {
       for (int j = 0; j < G.rows(); j++) {
-        G(j, i) = (G(j, i) + 2.0 * F(i)) / 2.0;
+        G(j, i) = (G(j, i) + 2.0 * F(i)) * 0.5;
         G(j, i) = fmin(fmax(G(j, i), 1e-4), 1.0 - 1e-4);
       }
     }
@@ -39,7 +39,7 @@ void FileUSV::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
       }
       if (params.inbreed) {
         //  map to domain
-        G(j, i) = (G(j, i) + 2.0 * F(snp_idx)) / 2.0;
+        G(j, i) = (G(j, i) + 2.0 * F(snp_idx)) * 0.5;
         G(j, i) = fmin(fmax(G(j, i), 1e-4), 1.0 - 1e-4);
       }
     }

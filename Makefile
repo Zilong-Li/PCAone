@@ -41,7 +41,13 @@ ifeq ($(ARCH), x86_64)
 	CXXFLAGS += -m64
 endif
 
-MYFLAGS         = -DVERSION=\"$(VERSION)\" -DNDEBUG
+ifeq ($(strip $(DEBUG)),1)
+	CXXFLAGS += -g
+else
+	CXXFLAGS += -DNDEBUG
+endif
+
+MYFLAGS         = -DVERSION=\"$(VERSION)\"
 INC             = -I./external -I./external/zstd/lib
 PCALIB = libpcaone.a
 
@@ -59,10 +65,6 @@ else
 			CXXFLAGS += -mavx2 -mfma
 		endif
 	endif
-endif
-
-ifeq ($(strip $(DEBUG)),1)
-	MYFLAGS += -DDEBUG
 endif
 
 
@@ -179,11 +181,16 @@ example_tests:
 	./PCAone --csv example/BrainSpinalCord.csv.zst -k 10 -m 2 --scale 2 -S
 
 hwe:
-	./PCAone -b example/plink -k 3 -V
-	./PCAone -b example/plink --USV pcaone --inbreed 1 -o inbreed_m0
-	./PCAone -b example/plink --USV pcaone --inbreed 1 -o inbreed_m1 -m 1
+	./PCAone -b example/plink -k 3 -V --pcangsd -o pcangsd
+	./PCAone -b example/plink --USV pcangsd -k 3 --inbreed 1 -o inbreed_m0
+	./PCAone -b example/plink --USV pcangsd -k 3 --inbreed 1 -o inbreed_m1 -m 1
 	diff inbreed_m0.hwe inbreed_m1.hwe
-	rm -f inbreed* pcaone.*
+	rm -f inbreed* pcangsd.*
+	./PCAone -b example/plink -k 3 -V --pcangsd -o pcangsd -m 1
+	./PCAone -b example/plink --USV pcangsd -k 3 --inbreed 1 -o inbreed_m0
+	./PCAone -b example/plink --USV pcangsd -k 3 --inbreed 1 -o inbreed_m1 -m 1
+	diff inbreed_m0.hwe inbreed_m1.hwe
+	rm -f inbreed* pcangsd.*
 
 ld_matrix:
 	./PCAone -b example/plink -k 3 --ld -o adj -d 2

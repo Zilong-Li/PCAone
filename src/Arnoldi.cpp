@@ -64,6 +64,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
     V = svds.matrix_V(params.k);
     svals = svds.singular_values();
     evals.noalias() = svals.array().square().matrix() / data->nsnps;
+    // impute information via EM-PCA
     if (params.impute) {
       flip_UV(U, V);
       cao.print(tick.date(), "do EM-PCA algorithms for data with uncertainty.");
@@ -84,7 +85,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
         }
       }
 
-      if (params.pcangsd) {
+      if (params.pcangsd && (params.file_t == FileType::BEAGLE)) {
         data->pcangsd_standardize_E(U, svals, V.transpose());
         evals.noalias() = svals.array().square().matrix() / data->nsnps;
         Mat2D C = data->G * data->G.transpose();
@@ -95,18 +96,6 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
         Eigen::JacobiSVD<Mat2D> svd(C, Eigen::ComputeThinU | Eigen::ComputeThinV);
         // output real eigenvectors of covariance in eigvecs2
         write_eigvecs2_beagle(svd.matrixU(), params.filein, params.fileout + ".eigvecs2");
-
-        // DenseSymMatProd<double> op2(C);
-        // SymEigsSolver<DenseSymMatProd<double>> eigs2(op2, params.k, params.ncv);
-        // eigs2.init();
-        // nconv = eigs2.compute(SortRule::LargestAlge, params.imaxiter, params.itol);
-        // assert(eigs2.info() == CompInfo::Successful);
-        // output real eigenvectors of covariance in eigvecs2
-        // nu = min(params.k, nconv);
-        // U = eigs2.eigenvectors().leftCols(nu);
-        // V = eigs2.eigenvectors().leftCols(nu);
-        // evals = eigs2.eigenvalues();
-        // write_eigvecs2_beagle(eigs2.eigenvectors(), params.filein, params.fileout + ".eigvecs2");
       } else {
         data->standardize_E();
         svds.compute(params.imaxiter, params.itol);
@@ -148,6 +137,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
     op->VT = Mat2D::Zero(U.rows(), data->nsnps);
     data->calcu_vt_initial(U, op->VT, true);
     evals.noalias() = eigs->eigenvalues() / data->nsnps;
+    // impute information via EM-PCA
     if (params.impute) {
       cao.print(tick.date(), "starts EM iteration");
       data->calcu_vt_initial(U, op->VT, false);

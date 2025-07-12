@@ -310,7 +310,7 @@ void run_pca_with_halko(Data* data, const Param& params) {
       }
     }
 
-    if (params.pcangsd) {
+    if (params.pcangsd && (params.file_t == FileType::BEAGLE)) {
       cao.print(tick.date(), "estimate GRM for pcangsd");
       data->pcangsd_standardize_E(rsvd->U, rsvd->S, rsvd->V.transpose());
       // TODO: use matrix-free method e.g Arnoldi to decompose the cov

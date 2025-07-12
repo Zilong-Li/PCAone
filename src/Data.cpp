@@ -92,7 +92,7 @@ void Data::filter_snps_resize_F() {
 // initially only works with plink inputs
 // but can work with beagle file as long as there is beagle.gz.bim file
 void Data::save_snps_in_bim() {
-  cao.print(tick.date(), "save matched sites in .mbim file and params.perm is", params.perm);
+  cao.print(tick.date(), "save matched sites in .mbim file and permutation mode is", params.perm);
   // could be permuted
   std::ifstream ifs_bim(params.filein + ".bim");
   if (!ifs_bim.is_open()) cao.error(params.filein + ".bim not exists!");
@@ -242,7 +242,7 @@ void Data::write_residuals(const Mat1D &S, const Mat2D &U, const Mat2D &VT) {
 void Data::update_batch_E(const Mat2D &U, const Mat1D &svals, const Mat2D &VT) {
   uint ks = svals.size();
   if (params.pcangsd) {
-// for gp
+// for pcangsd
 #pragma omp parallel for
     for (uint j = 0; j < nsnps; ++j) {
       double p0, p1, p2;
@@ -263,7 +263,7 @@ void Data::update_batch_E(const Mat2D &U, const Mat1D &svals, const Mat2D &VT) {
       }
     }
   } else {
-// for gt
+// for emu
 #pragma omp parallel for
     for (uint i = 0; i < nsnps; ++i) {
       for (uint j = 0; j < nsamples; ++j) {
@@ -292,7 +292,7 @@ void Data::standardize_E() {
 }
 
 void Data::pcangsd_standardize_E(const Mat2D &U, const Mat1D &svals, const Mat2D &VT) {
-  cao.print(tick.date(), "begin to standardize the matrix for pcangsd");
+  cao.print(tick.date(), "begin to standardize the matrix for pcangsd procedure");
   uint nk = svals.size();
   Dc = Mat1D::Zero(nsamples);
 #pragma omp parallel

@@ -75,11 +75,11 @@ class Param {
   bool groff = false;
   bool cpmed = false;
   bool printv = false;
-  bool impute = false;
+  bool impute = false;    // enable EM-PCA for data with uncertainty. impute information!
   bool noshuffle = false;
   bool emu = false;
-  bool pcangsd = false;  // read GP field for PCAngsd instead of GT.
-  bool fancyem = false; // true if emu/pcangsd + svd 2
+  bool pcangsd = false;  // enable pcangsd procedure
+  bool fancyem = false;  // true if emu/pcangsd + svd 2
   bool mev = true;
   bool out_of_core = false;  // otherwise load all matrix into RAM.
   int ploidy = 2;
