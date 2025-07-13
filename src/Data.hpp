@@ -38,7 +38,7 @@ class Data {
   double readtime = 0;
   bool snpmajor = true;
   bool nsamples_ge_nsnps = false;  // if nsamples greater than or equal to nsnps
-  bool initialFonly = false;
+  bool impute = false;  // true if emu is enabled and there are missing values
   uint blocksize = 0, nsamples = 0, nsnps = 0;
   uint nblocks = 1;
   uint bandFactor = 1;

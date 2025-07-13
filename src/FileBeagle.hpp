@@ -7,6 +7,7 @@ class FileBeagle : public Data {
  public:
   FileBeagle(const Param &params_) : Data(params_) {
     cao.print(tick.date(), "start parsing BEAGLE format");
+    impute = true; // always imputing imcomplete information
     original = buffer = (char *)calloc(bufsize, sizeof(char));
     if (params.nsnps > 0 && params.nsamples > 0) {
       cao.print(tick.date(), "use nsamples and nsnps given by user");

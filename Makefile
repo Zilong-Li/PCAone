@@ -181,9 +181,9 @@ example_tests:
 	./PCAone --csv example/BrainSpinalCord.csv.zst -k 10 -m 2 --scale 2 -S
 
 hwe:
-	./PCAone -b example/plink -k 3 -V --pcangsd -o pcangsd -m 1
-	./PCAone -b example/plink --USV pcangsd -k 3 --inbreed 1 -o inbreed_m0
-	./PCAone -b example/plink --USV pcangsd -k 3 --inbreed 1 -o inbreed_m1 -m 1
+	./PCAone -b example/plink -k 3 -V -m 1
+	./PCAone -b example/plink --USV pcaone -k 3 --inbreed 1 -o inbreed_m0
+	./PCAone -b example/plink --USV pcaone -k 3 --inbreed 1 -o inbreed_m1 -m 1
 	diff inbreed_m0.hwe inbreed_m1.hwe
 	rm -f inbreed* pcangsd.*
 

@@ -51,8 +51,7 @@ Param::Param(int argc, char **argv) {
   opts.add<Value<uint>>("p", "maxp", "maximum number of power iterations for RSVD algorithm.", maxp, &maxp);
   opts.add<Switch>("S", "no-shuffle", "do not shuffle columns of data for --svd 2 (if not locally correlated).", &noshuffle);
   opts.add<Value<uint>, Attribute::advanced>("w", "batches", "the number of mini-batches used by --svd 2.", bands, &bands);
-  opts.add<Switch>("", "emu", "use EMU algorithm for genotype input with missingness.", &emu);
-  opts.add<Switch>("", "pcangsd", "use PCAngsd algorithm for genotype likelihood input.", &pcangsd);
+  opts.add<Switch>("", "pi", "enable EM-PCA to estimate the individual allele frequencies.", &estpi);
   opts.add<Value<uint>, Attribute::advanced>("", "M", "the number of features (eg. SNPs) if already known.", 0, &nsnps);
   opts.add<Value<uint>, Attribute::advanced>("", "N", "the number of samples if already known.", 0, &nsamples);
   opts.add<Value<double>, Attribute::advanced>("", "scale-factor", "feature counts for each sample are normalized and multiplied by this value", 1.0, &scaleFactor);
@@ -163,7 +162,7 @@ Param::Param(int argc, char **argv) {
 
     // handle LD
     if (print_r2 || ld_bp > 0 || ld_r2 > 0 || !clump.empty()) {
-      pca = false;
+      pca = false;    // we always want to center the G for calculating R2
       memory /= 2.0;  // adjust memory estimator
     }
 
@@ -198,15 +197,14 @@ Param::Param(int argc, char **argv) {
       throw std::invalid_argument("does not support --maf filters for out-of-core mode yet! ");
 
     // handle EM-PCA
-    if (pca && file_t == FileType::BEAGLE) pcangsd = true;
+    if (estpi && pca && file_t == FileType::BEAGLE) pcangsd = true;
+    if (estpi && pca && file_t == FileType::PLINK) emu = true;
     if (emu || pcangsd) {
       impute = true;
-      // if (svd_t == SvdType::PCAoneAlg2)
-      //   throw std::invalid_argument("fancy EM-PCA with --svd 2 is on the way!");
     } else if (pca) {
       maxiter = 0;
     }
-    if (out_of_core && pcangsd && (file_t == FileType::BEAGLE))
+    if (out_of_core && pcangsd)
       throw std::invalid_argument("not supporting -m option for PCAngsd with BEAGLE file yet!");
     if (bands < 4 || bands % 2 != 0)
       throw std::invalid_argument("the -w/--batches must be a power of 2 and the minimun is 4.");
