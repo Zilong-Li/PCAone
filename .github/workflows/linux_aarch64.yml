@@ -2,7 +2,7 @@ name: Linux (AArch64)
 
 on:
   push:
-    branches: [ main, dev, ld ]
+    branches: [ main, dev]
   pull_request:
     branches: [ main ]
   workflow_dispatch:

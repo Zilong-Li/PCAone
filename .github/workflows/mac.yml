@@ -25,5 +25,5 @@ jobs:
 
     - name: test
       run: |
-        make data
-        make example_tests
+        make full_tests
+        make hwe
