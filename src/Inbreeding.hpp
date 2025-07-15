@@ -11,6 +11,9 @@
 void calc_inbreed_coef(Mat1D& D, Mat1D& F, const Mat2D& PI, const Mat2D& GL, const int type, const int size,
                        const uint start);
 
+// out of core version
+void calc_inbreed_coef_outofcore(Mat1D& D1, Mat1D& F, Data* data, Data* Pi, const Param& params);
+
 // log-likelihoods test per site
 // F is the estimated inbreeding coef
 // T is output

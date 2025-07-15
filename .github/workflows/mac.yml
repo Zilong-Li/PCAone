@@ -25,5 +25,4 @@ jobs:
 
     - name: test
       run: |
-        make full_tests
-        make hwe
+        make test_full

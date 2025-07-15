@@ -177,11 +177,26 @@ void run_inbreeding_em(int type, const Mat2D& GL, const Mat2D& PI, const Param& 
   }
   cao.print(tick.date(), "compute the LRT test");
   calc_inbreed_site_lrt(D1, F, PI, GL, type, nsnps, 0);
-// #pragma omp parallel for
+  // #pragma omp parallel for
   for (int j = 0; j < F.size(); j++) {
     D2(j) = chisq1d(D1(j));
   }
   write_hwe_per_site(params.fileout + ".hwe", params.filebim, D2, D1, F);
+}
+
+void calc_inbreed_coef_outofcore(Mat1D& D1, Mat1D& F, Data* data, Data* Pi, const Param& params) {
+  data->check_file_offset_first_var();
+  for (uint b = 0; b < data->nblocks; b++) {
+    data->read_block_initial(data->start[b], data->stop[b], false);
+    Pi->read_block_initial(Pi->start[b], Pi->stop[b], false);
+    if (params.file_t == FileType::PLINK) {
+      calc_inbreed_coef(D1, F, Pi->G, data->G, 1, Pi->stop[b] - Pi->start[b] + 1,
+                        Pi->start[b]);  // init F
+    } else {
+      calc_inbreed_coef(D1, F, Pi->G, data->P, 2, Pi->stop[b] - Pi->start[b] + 1,
+                        Pi->start[b]);  // init F
+    }
+  }
 }
 
 void run_inbreeding(Data* Pi, const Param& params) {
@@ -210,33 +225,12 @@ void run_inbreeding(Data* Pi, const Param& params) {
   Mat1D F0(nsnps), D1(nsnps), D2(nsnps);
   double sr2, sv2, alpha, diff;
   AreClose areClose;
+  calc_inbreed_coef_outofcore(D1, F, data, Pi, params);  // init F
   for (uint it = 0; it < params.maxiter; it++) {
-    F0 = F;  // copy the initial F
-    data->check_file_offset_first_var();
-    for (uint b = 0; b < data->nblocks; b++) {
-      data->read_block_initial(data->start[b], data->stop[b], false);
-      Pi->read_block_initial(Pi->start[b], Pi->stop[b], false);
-      if (params.file_t == FileType::PLINK) {
-        calc_inbreed_coef(D1, F, Pi->G, data->G, 1, Pi->stop[b] - Pi->start[b] + 1,
-                          Pi->start[b]);  // F is F1
-      } else {
-        calc_inbreed_coef(D1, F, Pi->G, data->P, 2, Pi->stop[b] - Pi->start[b] + 1,
-                          Pi->start[b]);  // F is F1
-      }
-    }
+    F0 = F;                                                // copy the initial F
+    calc_inbreed_coef_outofcore(D1, F, data, Pi, params);  // F is F1
     sr2 = D1.array().square().sum();
-    data->check_file_offset_first_var();
-    for (uint b = 0; b < data->nblocks; b++) {
-      data->read_block_initial(data->start[b], data->stop[b], false);
-      Pi->read_block_initial(Pi->start[b], Pi->stop[b], false);
-      if (params.file_t == FileType::PLINK) {
-        calc_inbreed_coef(D2, F, Pi->G, data->G, 1, Pi->stop[b] - Pi->start[b] + 1,
-                          Pi->start[b]);  // F is F2
-      } else {
-        calc_inbreed_coef(D2, F, Pi->G, data->P, 2, Pi->stop[b] - Pi->start[b] + 1,
-                          Pi->start[b]);  // F is F2
-      }
-    }
+    calc_inbreed_coef_outofcore(D2, F, data, Pi, params);  // F is F2
     sv2 = (D2 - D1).array().square().sum();
     // safety break
     if (areClose(sv2, 0.0)) {
@@ -244,25 +238,14 @@ void run_inbreeding(Data* Pi, const Param& params) {
       cao.print(tick.date(), "EM inbreeding coefficient coverged");
       break;
     }
-    alpha = fmax(1.0, sqrt(sr2 / sv2));
+    alpha = fmin(fmax(1.0, sqrt(sr2 / sv2)), 256.0);
     if (params.verbose > 1) cao.print("alpha:", alpha, ", sr2:", sr2, ", sv2:", sv2);
     F = F0 + 2 * alpha * D1 + alpha * alpha * (D2 - D1);  // F is F3
     // map to domain [-1, 1]
     F = (F.array() < -1.0).select(-1.0, F);
     F = (F.array() > 1.0).select(1.0, F);
     // Stabilization step and convergence check
-    data->check_file_offset_first_var();
-    for (uint b = 0; b < data->nblocks; b++) {
-      data->read_block_initial(data->start[b], data->stop[b], false);
-      Pi->read_block_initial(Pi->start[b], Pi->stop[b], false);
-      if (params.file_t == FileType::PLINK) {
-        calc_inbreed_coef(D1, F, Pi->G, data->G, 1, Pi->stop[b] - Pi->start[b] + 1,
-                          Pi->start[b]);  // F is F4
-      } else {
-        calc_inbreed_coef(D1, F, Pi->G, data->P, 2, Pi->stop[b] - Pi->start[b] + 1,
-                          Pi->start[b]);  // F is F4
-      }
-    }
+    calc_inbreed_coef_outofcore(D1, F, data, Pi, params);  // F is F4
     diff = rmse1d(F0, F);
     cao.print(tick.date(), "Inbreeding coefficients estimated, iter =", it + 1, ", RMSE =", diff);
     if (diff < params.tolem) {

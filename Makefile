@@ -252,5 +252,5 @@ test_aarch64: data example_tests_fast hwe ld_matrix ld_r2 ld_prune ld_clump
 	@echo "SUCCESS: aarch64 fast test suite completed."
 
 # The complete test suite for other architectures like x86_64
-test_full: data example_tests ld_matrix ld_r2 ld_prune ld_clump ld_tests
+test_full: data example_tests hwe ld_matrix ld_r2 ld_prune ld_clump ld_tests
 	@echo "SUCCESS: Full test suite completed."
