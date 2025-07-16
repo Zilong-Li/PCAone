@@ -13,6 +13,7 @@ using namespace std;
 
 void RsvdOpData::initOmg() {
   auto rng = std::default_random_engine{};
+  rng.seed(data->params.seed);
   if (data->params.rand)
     Omg = PCAone::StandardNormalRandom<Mat2D, std::default_random_engine>(cols(), size(), rng);
   else

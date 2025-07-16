@@ -51,7 +51,7 @@ missingness and uncertainty. The PDF manual can be downloaded [[https://github.c
   - [[#options][Options]]
   - [[#which-svd-method-to-use][Which SVD method to use]]
   - [[#input-formats][Input formats]]
-  - [[#output-formats][Output formats]]
+  - [[#output-files][Output files]]
   - [[#performance-and-memory][Performance and memory]]
   - [[#data-normalization][Data Normalization]]
   - [[#projection][Projection]]
@@ -296,16 +296,17 @@ population structure. such as [[https://www.cog-genomics.org/plink/1.9/formats#b
 a comma delimited CSV format compressed by zstd, which is useful for other
 datasets requiring specific normalization such as single cell RNAs data.
 
-** Output formats
+** Output files
 *** Eigen vectors
 
 Eigen vectors are saved in file with suffix =.eigvecs=. Each row represents
 a sample and each col represents a PC.
 
-*** Eigen values
+*** Eigen/Singular values
 
-Eigen values are saved in file with suffix =.eigvals=. Each row represents
-the eigenvalue of corresponding PC.
+Eigenvalues and signularvalues are saved in file with suffix =.eigvals= and
+=.sigvals= respectively. Each row represents the eigenvalue/singularvalue of
+corresponding PC.
 
 *** Features loadings
 
@@ -317,7 +318,7 @@ represents a feature and each column represents a corresponding PC. Use
 
 A plink-like bim file named with =.mbim= is used to store the variants list
 with extra infomation. Currently, the =mbim= file has 7 columns with the 7th
-being the allele frequency. And PCAone only outputs this file whenever it's
+being the allele frequency. PCAone only outputs this file whenever it's
 necessary to downstrean analyses.
 
 *** LD matrix

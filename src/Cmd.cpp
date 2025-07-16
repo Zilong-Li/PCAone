@@ -29,7 +29,7 @@ Param::Param(int argc, char **argv) {
   auto help_opt = opts.add<Switch>("h", "help", "print all options including hidden advanced options");
   opts.add<Value<double>>("m", "memory", "RAM usage in GB unit for out-of-core mode. default is in-core mode", memory, &memory);
   opts.add<Value<uint>>("n", "threads", "the number of threads to be used", threads, &threads);
-  opts.add<Value<uint>>("v", "verbose", "verbosity level for logs. any level x includes messages for all levels (1...x). Options are\n"
+  opts.add<Value<uint>>("v", "verbose", "verbosity level for logs. Options are\n"
                                         "0: silent, no messages on screen;\n"
                                         "1: concise messages to screen;\n"
                                         "2: more verbose information;\n"
@@ -51,7 +51,9 @@ Param::Param(int argc, char **argv) {
   opts.add<Value<uint>>("p", "maxp", "maximum number of power iterations for RSVD algorithm.", maxp, &maxp);
   opts.add<Switch>("S", "no-shuffle", "do not shuffle columns of data for --svd 2 (if not locally correlated).", &noshuffle);
   opts.add<Value<uint>, Attribute::advanced>("w", "batches", "the number of mini-batches used by --svd 2.", bands, &bands);
-  opts.add<Switch>("", "pi", "enable EM-PCA to estimate the individual allele frequencies.", &estpi);
+  opts.add<Value<int>>("", "seed", "seeds for reproducing results.\n", seed, &seed);
+  opts.add<Switch>("", "emu", "use EMU algorithm for genotype input with missingness.", &emu);
+  opts.add<Switch>("", "pcangsd", "use PCAngsd algorithm for genotype likelihood input.", &pcangsd);
   opts.add<Value<uint>, Attribute::advanced>("", "M", "the number of features (eg. SNPs) if already known.", 0, &nsnps);
   opts.add<Value<uint>, Attribute::advanced>("", "N", "the number of samples if already known.", 0, &nsamples);
   opts.add<Value<double>, Attribute::advanced>("", "scale-factor", "feature counts for each sample are normalized and multiplied by this value", 1.0, &scaleFactor);
@@ -189,7 +191,7 @@ Param::Param(int argc, char **argv) {
     if (haploid && (file_t == FileType::PLINK || file_t == FileType::BGEN)) ploidy = 1;
     if (memory > 0 && svd_t != SvdType::FULL) out_of_core = true;
     if (maf > 0.5) {
-      std::cerr << "warning: you specify '--maf' a value greater than 0.5.\n";
+      std::cerr << "warning: '--maf' with a value greater than 0.5 will be converted to 1 - maf.\n";
       maf = 1 - maf;
     }
     keepsnp = maf > 0 ? true : false;
@@ -197,15 +199,14 @@ Param::Param(int argc, char **argv) {
       throw std::invalid_argument("does not support --maf filters for out-of-core mode yet! ");
 
     // handle EM-PCA
-    if (estpi && pca && file_t == FileType::BEAGLE) pcangsd = true;
-    if (estpi && pca && file_t == FileType::PLINK) emu = true;
+    if (pca && file_t == FileType::BEAGLE) pcangsd = true;
     if (emu || pcangsd) {
       impute = true;
     } else if (pca) {
       maxiter = 0;
     }
-    if (out_of_core && pcangsd)
-      throw std::invalid_argument("not supporting -m option for PCAngsd with BEAGLE file yet!");
+    if (out_of_core && pcangsd && (file_t == FileType::BEAGLE))
+      throw std::invalid_argument("not supporting -m option (out-of-core) for PCAngsd and BEAGLE input yet!");
     if (bands < 4 || bands % 2 != 0)
       throw std::invalid_argument("the -w/--batches must be a power of 2 and the minimun is 4.");
 

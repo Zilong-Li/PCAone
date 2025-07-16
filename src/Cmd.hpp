@@ -83,10 +83,11 @@ class Param {
   bool mev = true;
   bool out_of_core = false;  // otherwise load all matrix into RAM.
   int ploidy = 2;
+  int seed = 101; // seeding 
   bool keepsnp = false;
   bool center = true; // false if G is raw data likelihood
   bool estaf = true; // false if project,inbreed enabled
-  bool estpi = false; // true if output pi is needed
+  // bool estpi = false; // true if output pi is needed
 
   std::ostringstream ss;
 };

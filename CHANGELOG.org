@@ -1,7 +1,6 @@
 - v0.5.4
   - *fix HWE! There is a bug in the previous release for HWE*
-  - add option =--pi=
-  - remove option =--emu,--pcangsd=
+  - add option =--seed=
 
 - v0.5.3
   - add support for linux aarch64 system. PR [[https://github.com/Zilong-Li/PCAone/pull/10][#10]] contributed by [[https://github.com/SauersML][@SauersML]]
