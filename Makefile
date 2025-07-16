@@ -184,7 +184,6 @@ hwe:
 	./PCAone -b example/plink -k 3 -V -m 1
 	./PCAone -b example/plink --USV pcaone -k 3 --inbreed 1 -o inbreed_m0
 	./PCAone -b example/plink --USV pcaone -k 3 --inbreed 1 -o inbreed_m1 -m 1
-	comm inbreed_m0.hwe inbreed_m1.hwe 
 	rm -f inbreed* pcangsd.*
 
 ld_matrix:
