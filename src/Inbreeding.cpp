@@ -177,7 +177,7 @@ void run_inbreeding_em(int type, const Mat2D& GL, const Mat2D& PI, const Param& 
   }
   cao.print(tick.date(), "compute the LRT test");
   calc_inbreed_site_lrt(D1, F, PI, GL, type, nsnps, 0);
-  // #pragma omp parallel for
+#pragma omp parallel for
   for (int j = 0; j < F.size(); j++) {
     D2(j) = chisq1d(D1(j));
   }

@@ -1,5 +1,5 @@
 #+TITLE: Principal Component Analysis All in One
-#+subtitle: Version 0.5.1
+#+subtitle: Version 0.5.4
 #+author: Zilong Li 
 #+email: zilong.dk@gmail.com
 #+options: toc:2 num:nil email:t -:nil ^:nil
@@ -407,6 +407,8 @@ PCAone -b new_samples \
 #+end_src
 
 ** HWE accounting for population structure
+
+*WIP: this is working in progress.*
 
 To test Hardy-Weinberg equilibrium in presence of population structure like [[https://github.com/Rosemeis/pcangsd/tree/master][pcangsd]], we
 need to work on the so-called individual allele frequencies matrix \(\Pi\),
