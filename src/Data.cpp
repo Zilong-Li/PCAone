@@ -6,6 +6,7 @@
 
 #include "Data.hpp"
 
+#include "Cmd.hpp"
 #include "Eigen/src/Core/util/Meta.h"
 #include "LD.hpp"
 #include "Utils.hpp"
@@ -239,10 +240,10 @@ void Data::write_residuals(const Mat1D &S, const Mat2D &U, const Mat2D &VT) {
   cao.print(tick.date(), "the LD matrix and SNPs info are saved");
 }
 
-void Data::update_batch_E(const Mat2D &U, const Mat1D &svals, const Mat2D &VT) {
+void Data::fit_with_pi(const Mat2D &U, const Mat1D &svals, const Mat2D &VT) {
   uint ks = svals.size();
   if (params.pcangsd) {
-// for pcangsd
+    // for pcangsd with beagle input
 #pragma omp parallel for
     for (uint j = 0; j < nsnps; ++j) {
       double p0, p1, p2;
@@ -259,10 +260,12 @@ void Data::update_batch_E(const Mat2D &U, const Mat1D &svals, const Mat2D &VT) {
         p0 = P(2 * i + 0, s) * (1.0 - pt) * (1.0 - pt);
         p1 = P(2 * i + 1, s) * 2 * pt * (1.0 - pt);
         p2 = (1 - P(2 * i + 0, s) - P(2 * i + 1, s)) * pt * pt;
-        G(i, j) = (p1 + 2 * p2) / (p0 + p1 + p2) - 2.0 * F(j);
+        G(i, j) = (p1 + 2.0 * p2) / (p0 + p1 + p2) - 2.0 * F(j);
       }
     }
-  } else {
+  }
+
+  if (params.emu) {
 // for emu
 #pragma omp parallel for
     for (uint i = 0; i < nsnps; ++i) {
@@ -273,7 +276,7 @@ void Data::update_batch_E(const Mat2D &U, const Mat1D &svals, const Mat2D &VT) {
           for (uint k = 0; k < ks; ++k) {
             G(j, i) += U(j, k) * svals(k) * VT(k, i);
           }
-          G(j, i) = fmin(fmax(G(j, i), -F(i)), 1 - F(i));
+          G(j, i) = fmax(1e-4, fmin(G(j, i), 1.0 - 1e-4)) - F(i);
         }
       }
     }
@@ -284,7 +287,7 @@ void Data::standardize_E() {
 #pragma omp parallel for
   for (uint i = 0; i < nsnps; ++i) {
     for (uint j = 0; j < nsamples; ++j) {
-      double sd = sqrt(F(i) * (1 - F(i)));
+      double sd = sqrt(2.0 * F(i) * (1 - F(i)));
       // in case denominator is too small.
       if (sd > VAR_TOL) G(j, i) /= sd;
     }

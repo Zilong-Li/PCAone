@@ -103,7 +103,7 @@ void NormalRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
   if (!data->params.out_of_core) {
     if (pi == 0) {
       if (update) {
-        data->update_batch_E(U, S, V.transpose());
+        data->fit_with_pi(U, S, V.transpose());
       }
       if (standardize) {
         if (data->params.pcangsd) {
@@ -162,7 +162,7 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
   if (!data->params.out_of_core) {
     if (pi == 0) {
       if (update) {
-        data->update_batch_E(U, S, V.transpose());
+        data->fit_with_pi(U, S, V.transpose());
       }
       if (standardize) {
         if (data->params.pcangsd) {
@@ -269,7 +269,6 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
 
 void run_pca_with_halko(Data* data, const Param& params) {
   Mat2D Vpre;
-  Mat1D S;
   RsvdOpData* rsvd;
   if (params.svd_t == SvdType::PCAoneAlg2) {
     cao.print(tick.date(), "initialize window-based RSVD (winSVD) with", params.out_of_core ? "out-of-core" : "in-core");
@@ -294,7 +293,7 @@ void run_pca_with_halko(Data* data, const Param& params) {
     rsvd->computeUSV(params.maxp, params.tol);
     // flip_UV(rsvd->U, rsvd->V, false);
     double diff;
-    cao.print(tick.date(), "run EM-PCA for data with uncertainty. maxiter =", params.maxiter);
+    cao.print(tick.date(), "run EM-PCA. maxiter =", params.maxiter);
     for (uint i = 0; i < params.maxiter; ++i) {
       rsvd->setFlags(true, false, !params.fancyem);
       Vpre = rsvd->V;
@@ -325,7 +324,8 @@ void run_pca_with_halko(Data* data, const Param& params) {
       Eigen::JacobiSVD<Mat2D> svd(C, Eigen::ComputeThinU | Eigen::ComputeThinV);
       // output real eigenvectors of covariance in eigvecs2
       write_eigvecs2_beagle(svd.matrixU(), params.filein, params.fileout + ".eigvecs2");
-    } else {
+    }
+    if (params.emu) {
       cao.print(tick.date(), "standardize the final matrix for EMU");
       rsvd->setFlags(true, true, !params.fancyem);
       rsvd->computeUSV(params.maxp, params.tol);

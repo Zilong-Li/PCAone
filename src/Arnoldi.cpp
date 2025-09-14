@@ -9,6 +9,7 @@
 #include <Spectra/SymEigsSolver.h>
 #include <Spectra/contrib/PartialSVDSolver.h>
 
+#include "Cmd.hpp"
 #include "Utils.hpp"
 
 using namespace std;
@@ -67,9 +68,9 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
     // impute information via EM-PCA
     if (params.impute) {
       flip_UV(U, V);
-      cao.print(tick.date(), "do EM-PCA algorithms for data with uncertainty.");
+      cao.print(tick.date(), "run EM-PCA. maxiter =", params.maxiter);
       for (uint i = 1; i <= params.maxiter; ++i) {
-        data->update_batch_E(U, svals, V.transpose());
+        data->fit_with_pi(U, svals, V.transpose());
         nconv = svds.compute(params.imaxiter, params.itol);
         svals = svds.singular_values();
         U = svds.matrix_U(params.k);
@@ -85,18 +86,24 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
         }
       }
 
-      if (params.pcangsd && (params.file_t == FileType::BEAGLE)) {
+      if (params.pcangsd) {
+        cao.print(tick.date(), "estimate GRM for pcangsd");
         data->pcangsd_standardize_E(U, svals, V.transpose());
         evals.noalias() = svals.array().square().matrix() / data->nsnps;
-        Mat2D C = data->G * data->G.transpose();
-        C.array() /= (double)data->nsnps;
-        C.diagonal() = data->Dc.array() / (double)data->nsnps;
-        std::ofstream fcov(params.fileout + ".cov");
-        if (fcov.is_open()) fcov << C << "\n";
-        Eigen::JacobiSVD<Mat2D> svd(C, Eigen::ComputeThinU | Eigen::ComputeThinV);
-        // output real eigenvectors of covariance in eigvecs2
-        write_eigvecs2_beagle(svd.matrixU(), params.filein, params.fileout + ".eigvecs2");
-      } else {
+        if (params.file_t == FileType::BEAGLE) {
+          Mat2D C = data->G * data->G.transpose();
+          C.array() /= (double)data->nsnps;
+          C.diagonal() = data->Dc.array() / (double)data->nsnps;
+          std::ofstream fcov(params.fileout + ".cov");
+          if (fcov.is_open()) fcov << C << "\n";
+          Eigen::JacobiSVD<Mat2D> svd(C, Eigen::ComputeThinU | Eigen::ComputeThinV);
+          // output real eigenvectors of covariance in eigvecs2
+          write_eigvecs2_beagle(svd.matrixU(), params.filein, params.fileout + ".eigvecs2");
+        }
+      }
+
+      if (params.emu) {
+        cao.print(tick.date(), "standardize the final matrix");
         data->standardize_E();
         svds.compute(params.imaxiter, params.itol);
         svals = svds.singular_values();

@@ -24,7 +24,7 @@ class Data {
   void filter_snps_resize_F();
   void save_snps_in_bim();
   void pcangsd_standardize_E(const Mat2D& U, const Mat1D& svals, const Mat2D& VT);
-  void update_batch_E(const Mat2D& U, const Mat1D& svals, const Mat2D& VT);
+  void fit_with_pi(const Mat2D& U, const Mat1D& svals, const Mat2D& VT);
   void write_eigs_files(const Mat1D& E, const Mat1D& S, const Mat2D& U, const Mat2D& V);
   void write_residuals(const Mat1D& S, const Mat2D& U, const Mat2D& VT);
   // for blockwise

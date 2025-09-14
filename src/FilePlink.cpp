@@ -69,7 +69,8 @@ void FileBed::read_all() {
   }
 
   G = Mat2D::Zero(nsamples, nsnps);  // fill in G with new size
-  if (params.impute) C = ArrBool::Zero(nsnps * nsamples);
+  if (params.emu) C = ArrBool::Zero(nsnps * nsamples);
+  if (params.pcangsd) P = Mat2D::Zero(nsamples * 2, nsnps);
 
 #pragma omp parallel for private(i, j, b, c, k, buf)
   for (i = 0; i < nsnps; ++i) {
@@ -80,13 +81,30 @@ void FileBed::read_all() {
         if (j < nsamples) {
           G(j, i) = BED2GENO[buf & 3];
           buf >>= 2;
-          if (params.impute) {
+          if (params.emu) {
             // 1 indicate G(i,j) need to be predicted and updated.
             if (G(j, i) != BED_MISSING_VALUE)
               C[i * nsamples + j] = 0;
             else
               C[i * nsamples + j] = 1;
           }
+        }
+      }
+    }
+    if (params.pcangsd) {
+      for (j = 0; j < nsamples; ++j) {
+        if (G(j, i) == BED2GENO[0]) {  // AA
+          P(2 * j + 0, i) = 1.00;
+          P(2 * j + 1, i) = 0.00;
+        } else if (G(j, i) == BED2GENO[2]) {  // RA
+          P(2 * j + 0, i) = 0.00;
+          P(2 * j + 1, i) = 1.00;
+        } else if (G(j, i) == BED2GENO[3]) {  // RR
+          P(2 * j + 0, i) = 0.00;
+          P(2 * j + 1, i) = 0.00;
+        } else {
+          P(2 * j + 0, i) = 0.333333;
+          P(2 * j + 1, i) = 0.333333;
         }
       }
     }
@@ -108,9 +126,8 @@ void FileBed::read_all() {
   if (C.size()) {
     double p_miss = (double)C.count() / (double)C.size();
     cao.print(tick.date(), "the proportion of missingness  is", p_miss);
-    if(p_miss==0.0) impute=false;
+    if (p_miss == 0.0) impute = false;
   }
-
 }
 
 void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize) {
@@ -142,7 +159,7 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
               if (standardize) {
                 double sd = sqrt(F(snp_idx) * (1 - F(snp_idx)));
                 if (sd > VAR_TOL) G(j, i) /= sd;
-              } 
+              }
             } else {
               G(j, i) = BED2GENO[buf & 3];
             }
@@ -195,7 +212,7 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
             if (standardize) {
               double sd = sqrt(F(snp_idx) * (1 - F(snp_idx)));
               if (sd > VAR_TOL) G(j, i) /= sd;
-            } 
+            }
             buf >>= 2;
           }
         }
@@ -244,7 +261,7 @@ void FileBed::read_block_update(uint64 start_idx, uint64 stop_idx, const Mat2D &
           if (standardize) {
             double sd = sqrt(F(snp_idx) * (1 - F(snp_idx)));
             if (sd > VAR_TOL) G(j, i) /= sd;
-          } 
+          }
           // shift packed data and throw away genotype just processed.
           buf >>= 2;
         }
