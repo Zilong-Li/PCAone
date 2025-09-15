@@ -150,7 +150,6 @@ void run_inbreeding_em(int type, const Mat2D& GL, const Mat2D& PI, const Param& 
   Mat1D D1(nsnps), D2(nsnps);               // store the diff between Fnew - Fold
   double sr2, sv2, alpha, diff;
   AreClose areClose;
-  // calc_inbreed_coef(D1, F, PI, GL, type, nsnps, 0);  // init F
   for (uint it = 0; it < params.maxiter; it++) {
     F0 = F;                                            // copy the initial F
     calc_inbreed_coef(D1, F, PI, GL, type, nsnps, 0);  // F is F1, D1 = F1 - F0
@@ -159,8 +158,8 @@ void run_inbreeding_em(int type, const Mat2D& GL, const Mat2D& PI, const Param& 
     sv2 = (D2 - D1).array().square().sum();
     // safety break
     if (areClose(sv2, 0.0)) {
-      cao.print(tick.date(), "sv2 is close to 0,Inbreeding coefficients estimated, iter =", it + 1, ", RMSE = 0.0");
-      cao.print(tick.date(), "EM inbreeding coefficient coverged");
+      cao.print(tick.date(), "Inbreeding coefficients estimated, iter =", it + 1, ", RMSE = 0");
+      cao.print(tick.date(), "EM inbreeding coefficient coverged!");
       break;
     }
     alpha = fmin(fmax(1.0, sqrt(sr2 / sv2)), 256.0);
@@ -229,7 +228,6 @@ void run_inbreeding(Data* Pi, const Param& params) {
   Mat1D F0(nsnps), D1(nsnps), D2(nsnps);
   double sr2, sv2, alpha, diff;
   AreClose areClose;
-  calc_inbreed_coef_outofcore(D1, F, data, Pi, params);  // init F
   for (uint it = 0; it < params.maxiter; it++) {
     F0 = F;                                                // copy the initial F
     calc_inbreed_coef_outofcore(D1, F, data, Pi, params);  // F is F1
@@ -238,8 +236,8 @@ void run_inbreeding(Data* Pi, const Param& params) {
     sv2 = (D2 - D1).array().square().sum();
     // safety break
     if (areClose(sv2, 0.0)) {
-      cao.print(tick.date(), "Inbreeding coefficients estimated, iter =", it + 1, ", RMSE = 0.0");
-      cao.print(tick.date(), "EM inbreeding coefficient coverged");
+      cao.print(tick.date(), "Inbreeding coefficients estimated, iter =", it + 1, ", RMSE = 0");
+      cao.print(tick.date(), "EM inbreeding coefficient coverged!");
       break;
     }
     alpha = fmin(fmax(1.0, sqrt(sr2 / sv2)), 256.0);

@@ -28,6 +28,7 @@ class Data {
   void write_eigs_files(const Mat1D& E, const Mat1D& S, const Mat2D& U, const Mat2D& V);
   void write_residuals(const Mat1D& S, const Mat2D& U, const Mat2D& VT);
   // for blockwise
+  // void fit_with_pi_block(const Mat2D& U, const Mat1D& svals, const Mat2D& VT);
   void calcu_vt_initial(const Mat2D& T, Mat2D& VT, bool standardize);
   void calcu_vt_update(const Mat2D& T, const Mat2D& U, const Mat1D& svals, Mat2D& VT, bool standardize);
   // given PCs, predict the missing values, then update in place by block

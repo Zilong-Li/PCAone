@@ -124,7 +124,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
     // SymEigsSolver< double, LARGEST_ALGE, ArnoldiOpData >(op, params.k,
     // params.ncv);
     SymEigsSolver<ArnoldiOpData>* eigs = new SymEigsSolver<ArnoldiOpData>(*op, params.k, params.ncv);
-    if (!params.impute) op->setFlags(false, true, false);
+    if (!params.impute) op->setFlags(false, true);
     eigs->init();
     nconv = eigs->compute(SortRule::LargestAlge, params.imaxiter, params.itol);
     if (nconv < params.k) cao.error("the nconv is not equal to k");
@@ -149,7 +149,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
       cao.print(tick.date(), "starts EM iteration");
       data->calcu_vt_initial(U, op->VT, false);
       flip_UV(op->U, op->VT);
-      op->setFlags(true, false, params.pcangsd);
+      op->setFlags(true, false);
       for (uint i = 1; i <= params.maxiter; ++i) {
         V = op->VT;
         eigs->init();
@@ -174,7 +174,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
         }
       }
 
-      op->setFlags(true, true, params.pcangsd);
+      op->setFlags(true, true);
       eigs->init();
       nconv = eigs->compute(SortRule::LargestAlge, params.imaxiter, params.itol);
       if (nconv < params.k) cao.error("the nconv is not equal to k.");
