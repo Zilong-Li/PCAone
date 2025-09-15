@@ -287,7 +287,7 @@ void Data::standardize_E() {
 #pragma omp parallel for
   for (uint i = 0; i < nsnps; ++i) {
     for (uint j = 0; j < nsamples; ++j) {
-      double sd = sqrt(2.0 * F(i) * (1 - F(i)));
+      double sd = sqrt(F(i) * (1 - F(i)));
       // in case denominator is too small.
       if (sd > VAR_TOL) G(j, i) /= sd;
     }

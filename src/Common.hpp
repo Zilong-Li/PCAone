@@ -52,7 +52,7 @@ using UMapIntPds = std::unordered_map<int, Pds>;
  * 00 ->  2 (copies of A1)
  * 10 ->  1 (copy of A1)
  * 11 ->  0 (copy of A1)
- * 01 ->  3 (missing)
+ * 01 ->  -9 (missing)
  */
 const double BED_MISSING_VALUE = -9;
 const double BED2GENO[4] = {1, BED_MISSING_VALUE, 0.5, 0};

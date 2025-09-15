@@ -6,6 +6,7 @@
 #include "Inbreeding.hpp"
 
 #include "Cmd.hpp"
+#include "Common.hpp"
 #include "FileBeagle.hpp"
 #include "FilePlink.hpp"
 #include "Utils.hpp"
@@ -39,14 +40,16 @@ void calc_inbreed_coef(Mat1D& D, Mat1D& F, const Mat2D& PI, const Mat2D& GL, con
       // posterior
       if (type == 1) {
         // should check genotype missingness
-        if (GL(i, j) == 0.0) {
-          pp0 = p0, pp1 = 0, pp2 = 0;
-        } else if (GL(i, j) == 0.5) {
-          pp0 = 0, pp1 = p1, pp2 = 0;
-        } else if (GL(i, j) == 1.0) {
-          pp0 = 0, pp1 = 0, pp2 = p2;
+        if (GL(i, j) == BED2GENO[3]) {
+          pp0 = p0; pp1 = 0; pp2 = 0;
+        } else if (GL(i, j) == BED2GENO[2]) {
+          pp0 = 0; pp1 = p1; pp2 = 0;
+        } else if (GL(i, j) == BED2GENO[0]) {
+          pp0 = 0; pp1 = 0; pp2 = p2;
         } else {
-          cao.error("missing genotypes found");
+          pp0 = 0.333333 * p0;
+          pp1 = 0.333333 * p1;
+          pp2 = 0.333333 * p2;
         }
       } else {
         pp0 = GL(2 * i + 0, j) * p0;
@@ -82,7 +85,8 @@ void calc_inbreed_site_lrt(Mat1D& T, const Mat1D& F, const Mat2D& PI, const Mat2
       // (1-pi)^2 + pi(1-pi)*F
       p0 = fmax(1e-4, (1.0 - PI(i, j)) * (1.0 - PI(i, j)) + Fadj);
       // 2pi(1-pi)(1-F)
-      p1 = fmax(1e-4, 2.0 * PI(i, j) * (1.0 - PI(i, j)) * (1.0 - F(jj)));
+      // p1 = fmax(1e-4, 2.0 * PI(i, j) * (1.0 - PI(i, j)) * (1.0 - F(jj)));
+      p1 = fmax(1e-4, 2.0 * PI(i, j) * (1.0 - PI(i, j)) -  (2.0 * Fadj));
       // pi^2 + pi(1-pi)*F
       p2 = fmax(1e-4, PI(i, j) * PI(i, j) + Fadj);
       // normalize
@@ -93,13 +97,13 @@ void calc_inbreed_site_lrt(Mat1D& T, const Mat1D& F, const Mat2D& PI, const Mat2
 
       // posterior // Likelihood*prior
       if (type == 1) {
-        if (GL(i, j) == 0.0) {
+        if (GL(i, j) == BED2GENO[3]) {
           logAlt += log(p0);
           logNull += log((1.0 - PI(i, j)) * (1.0 - PI(i, j)));
-        } else if (GL(i, j) == 0.5) {
+        } else if (GL(i, j) == BED2GENO[2]) {
           logAlt += log(p1);
           logNull += log(2.0 * PI(i, j) * (1.0 - PI(i, j)));
-        } else if (GL(i, j) == 1.0) {
+        } else if (GL(i, j) == BED2GENO[0]) {
           logAlt += log(p2);
           logNull += log(PI(i, j) * PI(i, j));
         } else {
@@ -146,7 +150,7 @@ void run_inbreeding_em(int type, const Mat2D& GL, const Mat2D& PI, const Param& 
   Mat1D D1(nsnps), D2(nsnps);               // store the diff between Fnew - Fold
   double sr2, sv2, alpha, diff;
   AreClose areClose;
-  calc_inbreed_coef(D1, F, PI, GL, type, nsnps, 0);  // init F
+  // calc_inbreed_coef(D1, F, PI, GL, type, nsnps, 0);  // init F
   for (uint it = 0; it < params.maxiter; it++) {
     F0 = F;                                            // copy the initial F
     calc_inbreed_coef(D1, F, PI, GL, type, nsnps, 0);  // F is F1, D1 = F1 - F0
@@ -155,7 +159,7 @@ void run_inbreeding_em(int type, const Mat2D& GL, const Mat2D& PI, const Param& 
     sv2 = (D2 - D1).array().square().sum();
     // safety break
     if (areClose(sv2, 0.0)) {
-      cao.print(tick.date(), "Inbreeding coefficients estimated, iter =", it + 1, ", RMSE = 0.0");
+      cao.print(tick.date(), "sv2 is close to 0,Inbreeding coefficients estimated, iter =", it + 1, ", RMSE = 0.0");
       cao.print(tick.date(), "EM inbreeding coefficient coverged");
       break;
     }

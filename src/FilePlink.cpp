@@ -93,13 +93,13 @@ void FileBed::read_all() {
     }
     if (params.pcangsd) {
       for (j = 0; j < nsamples; ++j) {
-        if (G(j, i) == BED2GENO[0]) {  // AA
+        if (G(j, i) == BED2GENO[3]) {  // RR
           P(2 * j + 0, i) = 1.00;
           P(2 * j + 1, i) = 0.00;
         } else if (G(j, i) == BED2GENO[2]) {  // RA
           P(2 * j + 0, i) = 0.00;
           P(2 * j + 1, i) = 1.00;
-        } else if (G(j, i) == BED2GENO[3]) {  // RR
+        } else if (G(j, i) == BED2GENO[0]) {  // AA
           P(2 * j + 0, i) = 0.00;
           P(2 * j + 1, i) = 0.00;
         } else {
