@@ -96,7 +96,10 @@ void Data::save_snps_in_bim() {
   cao.print(tick.date(), "save matched sites in .mbim file and permutation mode is", params.perm);
   // could be permuted
   std::ifstream ifs_bim(params.filein + ".bim");
-  if (!ifs_bim.is_open()) cao.error(params.filein + ".bim not exists!");
+  if (!ifs_bim.is_open()) {
+    cao.warn(params.filein + ".bim not exists!");
+    return;
+  } 
   std::ofstream ofs_bim(params.fileout + ".mbim");
   std::string line;
   int i, j;

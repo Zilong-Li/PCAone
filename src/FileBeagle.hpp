@@ -7,6 +7,7 @@ class FileBeagle : public Data {
  public:
   FileBeagle(const Param &params_) : Data(params_) {
     cao.print(tick.date(), "start parsing BEAGLE format");
+    // TODO: ask user to use --pcangsd explicitly
     impute = true; // always imputing imcomplete information
     original = buffer = (char *)calloc(bufsize, sizeof(char));
     if (params.nsnps > 0 && params.nsamples > 0) {
@@ -25,6 +26,7 @@ class FileBeagle : public Data {
       // NOTE:  assume the columns are alignd. maybe check it first.
       buffer = original;
       nsnps = 0;
+      // TODO: output beagle.gz.bim for downstream analysis
       // continue getting the number of sites
       while (tgets(fp, &buffer, &bufsize)) nsnps++;
     }
