@@ -96,12 +96,12 @@ void FileBed::read_all() {
         if (G(j, i) == BED2GENO[3]) {  // RR
           P(2 * j + 0, i) = 1.00;
           P(2 * j + 1, i) = 0.00;
-        } else if (G(j, i) == BED2GENO[2]) {  // RA
-          P(2 * j + 0, i) = 0.00;
-          P(2 * j + 1, i) = 1.00;
         } else if (G(j, i) == BED2GENO[0]) {  // AA
           P(2 * j + 0, i) = 0.00;
           P(2 * j + 1, i) = 0.00;
+        } else if (G(j, i) == BED2GENO[2]) {  // RA
+          P(2 * j + 0, i) = 0.00;
+          P(2 * j + 1, i) = 1.00;
         } else {
           P(2 * j + 0, i) = 0.333333;
           P(2 * j + 1, i) = 0.333333;
@@ -157,7 +157,7 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
             if (params.center) {
               G(j, i) = centered_geno_lookup(buf & 3, snp_idx);
               if (standardize) {
-                double sd = sqrt(F(snp_idx) * (1 - F(snp_idx)));
+                double sd = sqrt((double)params.ploidy * F(snp_idx) * (1 - F(snp_idx)));
                 if (sd > VAR_TOL) G(j, i) /= sd;
               }
             } else {
@@ -210,7 +210,7 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
           if (j < nsamples) {
             G(j, i) = centered_geno_lookup(buf & 3, snp_idx);
             if (standardize) {
-              double sd = sqrt(F(snp_idx) * (1 - F(snp_idx)));
+              double sd = sqrt((double)params.ploidy * F(snp_idx) * (1 - F(snp_idx)));
               if (sd > VAR_TOL) G(j, i) /= sd;
             }
             buf >>= 2;
@@ -250,7 +250,8 @@ void FileBed::read_block_update(uint64 start_idx, uint64 stop_idx, const Mat2D &
       for (ki = 0; ki < 4; ++ki, ++j) {
         if (j < nsamples) {
           G(j, i) = centered_geno_lookup(buf & 3, snp_idx);
-          if (BED2GENO[buf & 3] == BED_MISSING_VALUE) {
+          // EMU procedure
+          if (params.emu && BED2GENO[buf & 3] == BED_MISSING_VALUE) {
             G(j, i) = 0.0;
             for (k = 0; k < ks; ++k) {
               G(j, i) += U(j, k) * svals(k) * VT(k, snp_idx);
@@ -258,8 +259,31 @@ void FileBed::read_block_update(uint64 start_idx, uint64 stop_idx, const Mat2D &
             // map to domain(0,1)
             G(j, i) = fmin(fmax(G(j, i), -F(snp_idx)), 1 - F(snp_idx));
           }
+          if (params.pcangsd) {
+            double pt, p1, p2, p0;
+            pt = 0.0;
+            for (k = 0; k < ks; ++k) {
+              pt += U(j, k) * svals(k) * VT(k, snp_idx);
+            }
+            pt = (pt + 2.0 * F(snp_idx)) / 2.0;
+            pt = fmin(fmax(pt, 1e-4), 1.0 - 1e-4);
+            if (BED2GENO[buf & 3] == BED2GENO[3]) { 
+              // RR: p0 = 1, p1 = 0, p2 = 0
+              p0 = 1.00; p1 = 0.00; p2 = 0.00;
+            } else if (BED2GENO[buf & 3] == BED2GENO[0]) {
+              p0 = 0.00; p1 = 0.00; p2 = 1.00;
+            } else if (BED2GENO[buf & 3] == BED2GENO[2]) {
+              p0 = 0.00; p1 = 1.00; p2 = 0.00;
+            } else {
+              p0 = 0.333333; p1 = 0.333333; p2 = 0.333333;
+            }
+            p0 *= (1.0 - pt) * (1.0 - pt);
+            p1 *= 2 * pt * (1.0 - pt);
+            p2 *= pt * pt;
+            G(j, i) = (p1 + 2.0 * p2) / (p0 + p1 + p2) - 2.0 * F(snp_idx);
+          }
           if (standardize) {
-            double sd = sqrt(F(snp_idx) * (1 - F(snp_idx)));
+            double sd = sqrt((double)params.ploidy * F(snp_idx) * (1 - F(snp_idx)));
             if (sd > VAR_TOL) G(j, i) /= sd;
           }
           // shift packed data and throw away genotype just processed.

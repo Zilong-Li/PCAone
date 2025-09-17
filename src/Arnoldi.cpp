@@ -16,7 +16,7 @@ using namespace std;
 using namespace Spectra;
 
 void ArnoldiOpData::perform_op(const double* x_in, double* y_out) const {
-  if (data->params.verbose) cao.print(tick.date(), "Arnoldi Matrix Operation =", data->nops);
+  if (data->params.verbose > 1) cao.print(tick.date(), "Arnoldi Matrix Operation =", data->nops);
   Eigen::Map<const Mat1D> x(x_in, n);
   Eigen::Map<Mat1D> y(y_out, n);
   tick.clock();
@@ -68,7 +68,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
     // impute information via EM-PCA
     if (params.impute) {
       flip_UV(U, V);
-      cao.print(tick.date(), "run EM-PCA. maxiter =", params.maxiter);
+      cao.print(tick.date(), "starts EM iteration. maxiter =", params.maxiter);
       for (uint i = 1; i <= params.maxiter; ++i) {
         data->fit_with_pi(U, svals, V.transpose());
         nconv = svds.compute(params.imaxiter, params.itol);
@@ -146,7 +146,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
     evals.noalias() = eigs->eigenvalues() / data->nsnps;
     // impute information via EM-PCA
     if (params.impute) {
-      cao.print(tick.date(), "starts EM iteration");
+      cao.print(tick.date(), "starts EM iteration. maxiter =", params.maxiter);
       data->calcu_vt_initial(U, op->VT, false);
       flip_UV(op->U, op->VT);
       op->setFlags(true, false);

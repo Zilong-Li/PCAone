@@ -19,6 +19,7 @@ class FileBeagle : public Data {
       tgets(fp, &buffer, &bufsize);
       int nCol = 1;
       if (buffer != original) original = buffer;
+      const char *delims = "\t \n";
       strtok_r(buffer, delims, &buffer);
       while (strtok_r(NULL, delims, &buffer)) nCol++;
       if (nCol % 3) cao.error("Number of columns should be a multiple of 3.");
@@ -26,9 +27,10 @@ class FileBeagle : public Data {
       // NOTE:  assume the columns are alignd. maybe check it first.
       buffer = original;
       nsnps = 0;
-      // TODO: output beagle.gz.bim for downstream analysis
       // continue getting the number of sites
-      while (tgets(fp, &buffer, &bufsize)) nsnps++;
+      while (tgets(fp, &buffer, &bufsize)) {
+        nsnps++;
+      } 
     }
 
     if (params.pca) {  // initial F
@@ -55,7 +57,6 @@ class FileBeagle : public Data {
   gzFile fp = nullptr;
   char *original, *buffer;
   uint64 bufsize = (uint64)128 * 1024 * 1024;
-  const char *delims = "\t \n";
 };
 
 #endif  // PCAONE_FILEBEAGLE_

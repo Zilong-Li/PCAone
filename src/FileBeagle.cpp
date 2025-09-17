@@ -76,6 +76,7 @@ void FileBeagle::read_block_initial(uint64 start_idx, uint64 stop_idx, bool stan
   if (G.cols() < blocksize || (actual_block_size < blocksize)) {
     P = Mat2D::Zero(nsamples * 2, actual_block_size);
   }
+  const char *delims = "\t \n";
   char* tok;
   // read all GL data into P
   for (uint j = 0; j < actual_block_size; ++j) {

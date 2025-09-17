@@ -92,6 +92,7 @@ void Data::filter_snps_resize_F() {
 
 // initially only works with plink inputs
 // but can work with beagle file as long as there is beagle.gz.bim file
+// TODO: always output mbim even though there is no beagle.gz.bim file
 void Data::save_snps_in_bim() {
   cao.print(tick.date(), "save matched sites in .mbim file and permutation mode is", params.perm);
   // could be permuted
@@ -290,7 +291,7 @@ void Data::standardize_E() {
 #pragma omp parallel for
   for (uint i = 0; i < nsnps; ++i) {
     for (uint j = 0; j < nsamples; ++j) {
-      double sd = sqrt(F(i) * (1 - F(i)));
+      double sd = sqrt((double)params.ploidy * F(i) * (1 - F(i)));
       // in case denominator is too small.
       if (sd > VAR_TOL) G(j, i) /= sd;
     }
