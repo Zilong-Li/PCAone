@@ -107,7 +107,8 @@ void calc_inbreed_site_lrt(Mat1D& T, const Mat1D& F, const Mat2D& PI, const Mat2
           logAlt += log(p2);
           logNull += log(PI(i, j) * PI(i, j));
         } else {
-          cao.error("missing genotypes found");
+          logAlt += log(0.333333 * (p0 + p1 + p2));
+          logNull += log(0.333333 * ((1.0 - PI(i, j)) * (1.0 - PI(i, j)) +  2.0 * PI(i, j) * (1.0 - PI(i, j)) + PI(i, j) * PI(i, j)));
         }
       } else {
         l0 = GL(2 * i + 0, j) * p0;
