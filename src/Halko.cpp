@@ -46,7 +46,7 @@ void RsvdOpData::computeUSV(int p, double tol) {
   const Index nk{ranks()};
   const Index nrow{rows()};  // nsnps
   const Index ncol{cols()};  // nsamples
-  Mat2D Upre, H(ncol, size()), G(nrow, size()), B(size(), ncol), R(size(), size()), Rt(size(), size());
+  Mat2D Upre, Ucur, H(ncol, size()), G(nrow, size()), B(size(), ncol), R(size(), size()), Rt(size(), size());
   double diff;
   for (int pi = 0; pi <= p; ++pi) {
     computeGandH(G, H, pi);
@@ -66,30 +66,32 @@ void RsvdOpData::computeUSV(int p, double tol) {
     // R.T * B = H.T
     B.noalias() = R.transpose().fullPivHouseholderQr().solve(H.transpose());
     Eigen::JacobiSVD<Mat2D> svd(B, Eigen::ComputeThinU | Eigen::ComputeThinV);
-    U = svd.matrixV().leftCols(nk);
+    Ucur = svd.matrixV().leftCols(nk);
     if (pi > 0) {
       if (data->params.mev)
-        diff = 1 - mev(U, Upre);
+        diff = 1 - mev(Ucur, Upre);
       else
-        diff = minSSE(U, Upre).sum() / Upre.cols();
+        diff = minSSE(Ucur, Upre).sum() / Upre.cols();
       if (data->params.verbose) cao.print(tick.date(), "running of epoch =", pi, ", diff =", diff);
       if (diff < tol || pi == p) {
         if (data->params.svd_t == SvdType::PCAoneAlg2 && std::pow(2, pi) < data->params.bands) {
           cao.print("PCAone winSVD converged but continues running to get S and V.");
           p = std::log2(data->params.bands);
         } else {
+          U = Ucur;
           V.noalias() = G * svd.matrixU().leftCols(nk);
           S = svd.singularValues().head(nk);
           if (data->params.verbose) cao.print(tick.date(), "stops at epoch =", pi + 1);
           break;
         }
       } else {
-        Upre = U;
+        Upre = Ucur;
       }
     } else {
-      Upre = U;
+      Upre = Ucur;
     }
   }
+  U = Ucur;
 }
 
 void NormalRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
@@ -271,10 +273,12 @@ void run_pca_with_halko(Data* data, const Param& params) {
   Mat2D Vpre;
   RsvdOpData* rsvd;
   if (params.svd_t == SvdType::PCAoneAlg2) {
-    cao.print(tick.date(), "initialize window-based RSVD (winSVD) with", params.out_of_core ? "out-of-core" : "in-core");
+    cao.print(tick.date(), "initialize window-based RSVD (winSVD) with",
+              params.out_of_core ? "out-of-core" : "in-core");
     rsvd = new FancyRsvdOpData(data, params.k, params.oversamples);
   } else {
-    cao.print(tick.date(), "initialize single-pass RSVD (sSVD) with", params.out_of_core ? "out-of-core" : "in-core");
+    cao.print(tick.date(), "initialize single-pass RSVD (sSVD) with",
+              params.out_of_core ? "out-of-core" : "in-core");
     rsvd = new NormalRsvdOpData(data, params.k, params.oversamples);
   }
   if (!params.impute) {
@@ -289,13 +293,13 @@ void run_pca_with_halko(Data* data, const Param& params) {
     rsvd->computeUSV(params.maxp, params.tol);
   } else {
     // for EM iteration
-    rsvd->setFlags(false, false, !params.fancyem);
+    rsvd->setFlags(false, false);
     rsvd->computeUSV(params.maxp, params.tol);
     // flip_UV(rsvd->U, rsvd->V, false);
     double diff;
     cao.print(tick.date(), "run EM-PCA. maxiter =", params.maxiter);
     for (uint i = 0; i < params.maxiter; ++i) {
-      rsvd->setFlags(true, false, !params.fancyem);
+      rsvd->setFlags(true, false);
       Vpre = rsvd->V;
       rsvd->computeUSV(params.maxp, params.tol);
       // flip_UV(rsvd->U, rsvd->V, false);
@@ -327,7 +331,7 @@ void run_pca_with_halko(Data* data, const Param& params) {
     }
     if (params.emu) {
       cao.print(tick.date(), "standardize the final matrix for EMU");
-      rsvd->setFlags(true, true, !params.fancyem);
+      rsvd->setFlags(true, true);
       rsvd->computeUSV(params.maxp, params.tol);
     }
   }

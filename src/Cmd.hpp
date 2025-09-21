@@ -79,7 +79,7 @@ class Param {
   bool noshuffle = false;
   bool emu = false;
   bool pcangsd = false;  // enable pcangsd procedure
-  bool fancyem = false;  // true if emu/pcangsd + svd 2
+  // bool fancyem = false;  // true if emu/pcangsd + svd 2
   bool mev = true;
   bool out_of_core = false;  // otherwise load all matrix into RAM.
   int ploidy = 2;

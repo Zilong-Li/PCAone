@@ -8,7 +8,7 @@ class RsvdOpData {
  public:
   Data* data;
   using Index = Eigen::Index;
-  bool update = false, standardize = false, reset = true;
+  bool update = false, standardize = false;
   Mat2D U, Omg, Omg2;  // nsamples x nk
   Mat2D V;       // nsnps x nk
   Mat1D S;       // nk x 1
@@ -28,11 +28,10 @@ class RsvdOpData {
 
   /// update: whether to update the data in place
   /// standardize: whether to standardize the data in place
-  /// reset: whether to reset the random matrix Omg
-  inline void setFlags(bool is_update, bool is_standardize, bool reset_omg = true) {
+  /// reset_omg: whether to reset the random matrix Omg
+  inline void setFlags(bool is_update, bool is_standardize) {
     update = is_update;
     standardize = is_standardize;
-    reset = reset_omg;
   }
 
   void computeUSV(int p, double tol);
