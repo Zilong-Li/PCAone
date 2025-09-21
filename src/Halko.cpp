@@ -98,7 +98,7 @@ void NormalRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
   }
 
   // reset omg to random
-  if (pi == 0 && reset) initOmg();
+  if (pi == 0) initOmg();
 
   if (!data->params.out_of_core) {
     if (pi == 0) {
@@ -137,10 +137,10 @@ void NormalRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
     stop_idx = data->stop[i];
     actual_block_size = stop_idx - start_idx + 1;
     tick.clock();
-    if (update) {
-      data->read_block_update(start_idx, stop_idx, U, S, V.transpose(), standardize);
-    } else {
+    if (!update) {
       data->read_block_initial(start_idx, stop_idx, standardize);
+    } else {
+      data->read_block_update(start_idx, stop_idx, U, S, V.transpose(), standardize);
     }
     data->readtime += tick.reltime();
     G.middleRows(start_idx, actual_block_size).noalias() = data->G.transpose() * Omg;
@@ -153,9 +153,9 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
   if (H.cols() != size || H.rows() != cols() || G.cols() != size || G.rows() != rows()) {
     cao.error("the size of G or H doesn't match with each other.");
   }
-  if (pi == 0 && reset) initOmg();
+  if (pi == 0) initOmg();
   if (std::pow(2, pi) >= data->params.bands) {
-    // reset H1, H2 to zero
+    // init H1, H2 to zero
     H1.setZero();
     H2.setZero();
   }
@@ -233,10 +233,10 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
     stop_idx = data->stop[b];
     actual_block_size = stop_idx - start_idx + 1;
     tick.clock();
-    if (update) {
-      data->read_block_update(start_idx, stop_idx, U, S, V.transpose(), standardize);
-    } else {
+    if (!update) {
       data->read_block_initial(start_idx, stop_idx, standardize);
+    } else {
+      data->read_block_update(start_idx, stop_idx, U, S, V.transpose(), standardize);
     }
     data->readtime += tick.reltime();
     G.middleRows(start_idx, actual_block_size).noalias() = data->G.transpose() * Omg;

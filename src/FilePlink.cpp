@@ -55,18 +55,13 @@ void FileBed::read_all() {
       else
         F(i) /= c;
       // should remove sites with F=0 and 1.0
-      if (F(i) == 0.0 || F(i) == 1.0) cao.error("sites with MAF=0 found! remove them first!");
+      if (F(i) == 0.0 || F(i) == 1.0) cao.warn("sites with MAF=0 found! remove them first!");
       // in LD r2,F=0.5 means sample standard deviation is 0
       if (params.ld && params.verbose > 1 && F(i) == 0.5)
         cao.warn("MAF for site ", i, "is 0.5. NaN values expected in calculating LD R2.");
     }
     filter_snps_resize_F();  // filter and resize nsnps
-  } else if (params.project > 0) {
-    // read frq from original set
-    cao.print(tick.date(), "read frequency of SNPs from the extended bim (.mbim)");
-    F = read_frq(params.filebim);
-    if (F.size() != nsnps) cao.error("the number of sites doesn't match each other");
-  }
+  } 
 
   G = Mat2D::Zero(nsamples, nsnps);  // fill in G with new size
   if (params.emu) C = ArrBool::Zero(nsnps * nsamples);
@@ -145,7 +140,7 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
   uchar buf;
   // inbed.resize(bed_bytes_per_snp * actual_block_size);
   bed_ifstream.read(reinterpret_cast<char *>(&inbed[0]), bed_bytes_per_snp * actual_block_size);
-  if (!params.center) frequency_was_estimated = true;
+  if (!params.estaf) frequency_was_estimated = true;
   if (frequency_was_estimated) {
 #pragma omp parallel for private(i, j, b, k, snp_idx, buf)
     for (i = 0; i < actual_block_size; ++i) {
@@ -194,7 +189,7 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
         F(snp_idx) /= c;
       }
       // should remove sites with F=0 and 1.0
-      if (F(snp_idx) == 0.0 || F(snp_idx) == 1.0) cao.error("sites with MAF=0 found! remove them first!");
+      if (F(snp_idx) == 0.0 || F(snp_idx) == 1.0) cao.warn("sites with MAF=0 found! remove them first!");
       // in LD r2,F=0.5 means sample standard deviation is 0
       if (params.ld && params.verbose > 1 && F(snp_idx) == 0.5)
         cao.warn("MAF for site ", snp_idx, "is 0.5. NaN values expected in calculating LD R2.");
@@ -237,11 +232,11 @@ void FileBed::read_block_update(uint64 start_idx, uint64 stop_idx, const Mat2D &
       cao.error("something wrong with read_snp_block!");
     }
   }
+  bed_ifstream.read(reinterpret_cast<char *>(&inbed[0]), bed_bytes_per_snp * actual_block_size);
   uint64 b, i, j, snp_idx;
   uint ks = svals.rows();
   uint ki, k;
   uchar buf;
-  bed_ifstream.read(reinterpret_cast<char *>(&inbed[0]), bed_bytes_per_snp * actual_block_size);
 #pragma omp parallel for private(i, j, b, ki, k, snp_idx, buf)
   for (i = 0; i < actual_block_size; ++i) {
     snp_idx = start_idx + i;
@@ -251,7 +246,7 @@ void FileBed::read_block_update(uint64 start_idx, uint64 stop_idx, const Mat2D &
         if (j < nsamples) {
           G(j, i) = centered_geno_lookup(buf & 3, snp_idx);
           // EMU procedure
-          if (params.emu && BED2GENO[buf & 3] == BED_MISSING_VALUE) {
+          if (params.emu && ((buf & 3) == 1)) {
             G(j, i) = 0.0;
             for (k = 0; k < ks; ++k) {
               G(j, i) += U(j, k) * svals(k) * VT(k, snp_idx);
@@ -267,19 +262,18 @@ void FileBed::read_block_update(uint64 start_idx, uint64 stop_idx, const Mat2D &
             }
             pt = (pt + 2.0 * F(snp_idx)) / 2.0;
             pt = fmin(fmax(pt, 1e-4), 1.0 - 1e-4);
-            if (BED2GENO[buf & 3] == BED2GENO[3]) { 
-              // RR: p0 = 1, p1 = 0, p2 = 0
+            if ((buf & 3) == 3) { 
               p0 = 1.00; p1 = 0.00; p2 = 0.00;
-            } else if (BED2GENO[buf & 3] == BED2GENO[0]) {
+            } else if ((buf & 3) == 0) {
               p0 = 0.00; p1 = 0.00; p2 = 1.00;
-            } else if (BED2GENO[buf & 3] == BED2GENO[2]) {
+            } else if ((buf & 3) == 2) {
               p0 = 0.00; p1 = 1.00; p2 = 0.00;
             } else {
               p0 = 0.333333; p1 = 0.333333; p2 = 0.333333;
             }
             p0 *= (1.0 - pt) * (1.0 - pt);
-            p1 *= 2 * pt * (1.0 - pt);
-            p2 *= pt * pt;
+            p1 *=  2.0 * pt * (1.0 - pt);
+            p2 *=  pt * pt;
             G(j, i) = (p1 + 2.0 * p2) / (p0 + p1 + p2) - 2.0 * F(snp_idx);
           }
           if (standardize) {

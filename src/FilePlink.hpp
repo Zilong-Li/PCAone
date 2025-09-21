@@ -24,9 +24,15 @@ class FileBed : public Data {
     bed_ifstream.read(reinterpret_cast<char *>(&header[0]), 3);
     if ((header[0] != 0x6c) || (header[1] != 0x1b) || (header[2] != 0x01))
       cao.error("Incorrect magic number in plink bed file.");
-    if (params.pca) {
+    if (params.center) {
       centered_geno_lookup = Arr2D::Zero(4, nsnps);
       F = Mat1D::Zero(nsnps);
+    }
+    if (params.project > 0) {
+      // read frq from original set
+      cao.print(tick.date(), "read frequency of SNPs from the extended bim (.mbim)");
+      F = read_frq(params.filebim);
+      if (F.size() != nsnps) cao.error("the number of sites doesn't match each other");
     }
   }
 
