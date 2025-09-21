@@ -84,33 +84,8 @@ void FileBgen::read_all() {
     }
     assert(j == nsnps);
     cao.print(tick.date(), "begin to estimate allele frequencies using GP");
-    Mat1D Ft(nsnps);
     F = Mat1D::Constant(nsnps, 0.25);
-    // run EM to estimate allele frequencies
-    double diff;
-    for (uint it = 0; it < params.maxiter; it++) {
-#pragma omp parallel for
-      for (uint j = 0; j < nsnps; j++) {
-        Ft(j) = F(j);
-        double p0, p1, p2, pt = 0.0;
-        for (uint i = 0; i < nsamples; i++) {
-          p0 = P(2 * i + 0, j) * (1.0 - F(j)) * (1.0 - F(j));
-          p1 = P(2 * i + 1, j) * 2 * F(j) * (1.0 - F(j));
-          p2 = (1 - P(2 * i + 0, j) - P(2 * i + 1, j)) * F(j) * F(j);
-          pt += (p1 + 2 * p2) / (2 * (p0 + p1 + p2));
-        }
-        F(j) = pt / (double)nsamples;
-      }
-      // calculate differences between iterations
-      diff = sqrt((F - Ft).array().square().sum() / nsnps);
-      // Check for convergence
-      if (diff < params.tolmaf) {
-        cao.print(tick.date(), "EM (MAF) converged at iteration:", it + 1);
-        break;
-      } else if (it == (params.maxiter - 1)) {
-        cao.print(tick.date(), "EM (MAF) not converged");
-      }
-    }
+    emMAF_with_GL(F, P, params.maxiter, params.tolmaf);
     filter_snps_resize_F();
     // initial E which is G
     G = Mat2D::Zero(nsamples, nsnps);

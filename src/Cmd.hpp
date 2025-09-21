@@ -36,7 +36,7 @@ class Param {
   uint maxiter = 100;
   double alpha = 0.001;
   // can be tol_emu or tol_pcangsd
-  double tolem = 1e-6;
+  double tolem = 1e-5;
   double tolmaf = 1e-6;
   double maf = 0.0;
   // for arnoldi
