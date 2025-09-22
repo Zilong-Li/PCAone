@@ -178,7 +178,7 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
       blocksize = (unsigned int)ceil((double)data->nsnps / data->params.bands);
       if (blocksize < data->params.bands)
         cao.warn("block size < window size. please consider the IRAM method with --svd 0");
-      if (data->params.perm) {
+      if ((!update) && data->params.perm) {
         cao.print(tick.date(), "permuting data matrix by columns in place");
         PCAone::permute_matrix(data->G, data->perm);
       }
