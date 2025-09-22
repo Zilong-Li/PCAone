@@ -1,3 +1,6 @@
+- v0.6.0
+  - *fix HWE! Rework pcangsd and emu plugins*
+    
 - v0.5.4
   - *fix HWE! There is a bug in the previous release for HWE*
   - add option =--seed=

@@ -124,10 +124,10 @@ void FileBed::read_all() {
     if (p_miss == 0.0) impute = false;
   }
 
-  if (params.pcangsd) {
-    F = Mat1D::Constant(nsnps, 0.25);
-    emMAF_with_GL(F, P, params.maxiter, params.tolmaf);
-  }
+  // if (params.pcangsd) {
+  //   F = Mat1D::Constant(nsnps, 0.25);
+  //   emMAF_with_GL(F, P, params.maxiter, params.tolmaf);
+  // }
 }
 
 void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize) {
