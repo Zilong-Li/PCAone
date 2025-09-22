@@ -101,6 +101,9 @@ double chisq1d(const double x);
 /// stream compress a file by zstd
 void zstd_compress_file(const std::string& fname, std::string outname, int level);
 
+/// estimate population allele frequency with genotype likelihoods
+void emMAF_with_GL(Mat1D& F, const Mat2D& P, int maxiter, double tolmaf);
+
 // zstd deccompression buffer
 struct ZstdDS {
   ZstdDS() {

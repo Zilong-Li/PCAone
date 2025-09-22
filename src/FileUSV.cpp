@@ -8,12 +8,12 @@
 
 using namespace std;
 
-// get \PI and store it in G
 void FileUSV::read_all() {
   G = U * S.asDiagonal() * V.transpose();
-  if (params.inbreed) {  // genotype likelihoods
+  if (params.inbreed) {
+// get \PI and store it in G
 #pragma omp parallel for
-    for (int i = 0; i < F.size(); i++) {
+    for (int i = 0; i < G.cols(); i++) {
       for (int j = 0; j < G.rows(); j++) {
         G(j, i) = (G(j, i) + 2.0 * F(i)) * 0.5;
         G(j, i) = fmin(fmax(G(j, i), 1e-4), 1.0 - 1e-4);

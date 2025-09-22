@@ -36,7 +36,7 @@ class Param {
   uint maxiter = 100;
   double alpha = 0.001;
   // can be tol_emu or tol_pcangsd
-  double tolem = 1e-6;
+  double tolem = 1e-5;
   double tolmaf = 1e-6;
   double maf = 0.0;
   // for arnoldi
@@ -79,7 +79,7 @@ class Param {
   bool noshuffle = false;
   bool emu = false;
   bool pcangsd = false;  // enable pcangsd procedure
-  bool fancyem = false;  // true if emu/pcangsd + svd 2
+  // bool fancyem = false;  // true if emu/pcangsd + svd 2
   bool mev = true;
   bool out_of_core = false;  // otherwise load all matrix into RAM.
   int ploidy = 2;

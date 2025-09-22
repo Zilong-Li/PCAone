@@ -9,13 +9,14 @@
 #include <Spectra/SymEigsSolver.h>
 #include <Spectra/contrib/PartialSVDSolver.h>
 
+#include "Cmd.hpp"
 #include "Utils.hpp"
 
 using namespace std;
 using namespace Spectra;
 
 void ArnoldiOpData::perform_op(const double* x_in, double* y_out) const {
-  if (data->params.verbose) cao.print(tick.date(), "Arnoldi Matrix Operation =", data->nops);
+  if (data->params.verbose > 1) cao.print(tick.date(), "Arnoldi Matrix Operation =", data->nops);
   Eigen::Map<const Mat1D> x(x_in, n);
   Eigen::Map<Mat1D> y(y_out, n);
   tick.clock();
@@ -67,9 +68,9 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
     // impute information via EM-PCA
     if (params.impute) {
       flip_UV(U, V);
-      cao.print(tick.date(), "do EM-PCA algorithms for data with uncertainty.");
+      cao.print(tick.date(), "starts EM iteration. maxiter =", params.maxiter);
       for (uint i = 1; i <= params.maxiter; ++i) {
-        data->update_batch_E(U, svals, V.transpose());
+        data->fit_with_pi(U, svals, V.transpose());
         nconv = svds.compute(params.imaxiter, params.itol);
         svals = svds.singular_values();
         U = svds.matrix_U(params.k);
@@ -85,18 +86,24 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
         }
       }
 
-      if (params.pcangsd && (params.file_t == FileType::BEAGLE)) {
+      if (params.pcangsd) {
+        cao.print(tick.date(), "estimate GRM for pcangsd");
         data->pcangsd_standardize_E(U, svals, V.transpose());
         evals.noalias() = svals.array().square().matrix() / data->nsnps;
-        Mat2D C = data->G * data->G.transpose();
-        C.array() /= (double)data->nsnps;
-        C.diagonal() = data->Dc.array() / (double)data->nsnps;
-        std::ofstream fcov(params.fileout + ".cov");
-        if (fcov.is_open()) fcov << C << "\n";
-        Eigen::JacobiSVD<Mat2D> svd(C, Eigen::ComputeThinU | Eigen::ComputeThinV);
-        // output real eigenvectors of covariance in eigvecs2
-        write_eigvecs2_beagle(svd.matrixU(), params.filein, params.fileout + ".eigvecs2");
-      } else {
+        if (params.file_t == FileType::BEAGLE) {
+          Mat2D C = data->G * data->G.transpose();
+          C.array() /= (double)data->nsnps;
+          C.diagonal() = data->Dc.array() / (double)data->nsnps;
+          std::ofstream fcov(params.fileout + ".cov");
+          if (fcov.is_open()) fcov << C << "\n";
+          Eigen::JacobiSVD<Mat2D> svd(C, Eigen::ComputeThinU | Eigen::ComputeThinV);
+          // output real eigenvectors of covariance in eigvecs2
+          write_eigvecs2_beagle(svd.matrixU(), params.filein, params.fileout + ".eigvecs2");
+        }
+      }
+
+      if (params.emu) {
+        cao.print(tick.date(), "standardize the final matrix");
         data->standardize_E();
         svds.compute(params.imaxiter, params.itol);
         svals = svds.singular_values();
@@ -117,7 +124,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
     // SymEigsSolver< double, LARGEST_ALGE, ArnoldiOpData >(op, params.k,
     // params.ncv);
     SymEigsSolver<ArnoldiOpData>* eigs = new SymEigsSolver<ArnoldiOpData>(*op, params.k, params.ncv);
-    if (!params.impute) op->setFlags(false, true, false);
+    if (!params.impute) op->setFlags(false, true);
     eigs->init();
     nconv = eigs->compute(SortRule::LargestAlge, params.imaxiter, params.itol);
     if (nconv < params.k) cao.error("the nconv is not equal to k");
@@ -139,10 +146,10 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
     evals.noalias() = eigs->eigenvalues() / data->nsnps;
     // impute information via EM-PCA
     if (params.impute) {
-      cao.print(tick.date(), "starts EM iteration");
+      cao.print(tick.date(), "starts EM iteration. maxiter =", params.maxiter);
       data->calcu_vt_initial(U, op->VT, false);
       flip_UV(op->U, op->VT);
-      op->setFlags(true, false, params.pcangsd);
+      op->setFlags(true, false);
       for (uint i = 1; i <= params.maxiter; ++i) {
         V = op->VT;
         eigs->init();
@@ -167,7 +174,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
         }
       }
 
-      op->setFlags(true, true, params.pcangsd);
+      op->setFlags(true, true);
       eigs->init();
       nconv = eigs->compute(SortRule::LargestAlge, params.imaxiter, params.itol);
       if (nconv < params.k) cao.error("the nconv is not equal to k.");

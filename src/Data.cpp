@@ -6,6 +6,7 @@
 
 #include "Data.hpp"
 
+#include "Cmd.hpp"
 #include "Eigen/src/Core/util/Meta.h"
 #include "LD.hpp"
 #include "Utils.hpp"
@@ -50,7 +51,7 @@ void Data::prepare() {
             ", factor =", bandFactor);
   if (nblocks == 1) cao.error("only one block exists. please remove -m option");
   if (params.pca && params.svd_t == SvdType::PCAoneAlg2) {
-    // decrease blocksize to fit the fancy halko
+    // decrease blocksize for the winSVD
     if (nblocks < params.bands) {
       blocksize = (unsigned int)ceil((double)nsnps / params.bands);
     } else {
@@ -91,11 +92,15 @@ void Data::filter_snps_resize_F() {
 
 // initially only works with plink inputs
 // but can work with beagle file as long as there is beagle.gz.bim file
+// TODO: always output mbim even though there is no beagle.gz.bim file
 void Data::save_snps_in_bim() {
   cao.print(tick.date(), "save matched sites in .mbim file and permutation mode is", params.perm);
   // could be permuted
   std::ifstream ifs_bim(params.filein + ".bim");
-  if (!ifs_bim.is_open()) cao.error(params.filein + ".bim not exists!");
+  if (!ifs_bim.is_open()) {
+    cao.warn(params.filein + ".bim not exists!");
+    return;
+  } 
   std::ofstream ofs_bim(params.fileout + ".mbim");
   std::string line;
   int i, j;
@@ -239,10 +244,10 @@ void Data::write_residuals(const Mat1D &S, const Mat2D &U, const Mat2D &VT) {
   cao.print(tick.date(), "the LD matrix and SNPs info are saved");
 }
 
-void Data::update_batch_E(const Mat2D &U, const Mat1D &svals, const Mat2D &VT) {
+void Data::fit_with_pi(const Mat2D &U, const Mat1D &svals, const Mat2D &VT) {
   uint ks = svals.size();
   if (params.pcangsd) {
-// for pcangsd
+    // for pcangsd with beagle input
 #pragma omp parallel for
     for (uint j = 0; j < nsnps; ++j) {
       double p0, p1, p2;
@@ -259,15 +264,17 @@ void Data::update_batch_E(const Mat2D &U, const Mat1D &svals, const Mat2D &VT) {
         p0 = P(2 * i + 0, s) * (1.0 - pt) * (1.0 - pt);
         p1 = P(2 * i + 1, s) * 2 * pt * (1.0 - pt);
         p2 = (1 - P(2 * i + 0, s) - P(2 * i + 1, s)) * pt * pt;
-        G(i, j) = (p1 + 2 * p2) / (p0 + p1 + p2) - 2.0 * F(j);
+        G(i, j) = (p1 + 2.0 * p2) / (p0 + p1 + p2) - 2.0 * F(j);
       }
     }
-  } else {
+  }
+
+  if (params.emu) {
 // for emu
 #pragma omp parallel for
     for (uint i = 0; i < nsnps; ++i) {
       for (uint j = 0; j < nsamples; ++j) {
-        if (C[i * nsamples + j])  // no bool & 1
+        if (C[perm.indices()[i] * nsamples + j])  // no bool & 1
         {                         // sites need to be predicted
           G(j, i) = 0.0;
           for (uint k = 0; k < ks; ++k) {
@@ -284,7 +291,7 @@ void Data::standardize_E() {
 #pragma omp parallel for
   for (uint i = 0; i < nsnps; ++i) {
     for (uint j = 0; j < nsamples; ++j) {
-      double sd = sqrt(F(i) * (1 - F(i)));
+      double sd = sqrt((double)params.ploidy * F(i) * (1 - F(i)));
       // in case denominator is too small.
       if (sd > VAR_TOL) G(j, i) /= sd;
     }

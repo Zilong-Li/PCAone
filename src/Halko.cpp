@@ -46,7 +46,7 @@ void RsvdOpData::computeUSV(int p, double tol) {
   const Index nk{ranks()};
   const Index nrow{rows()};  // nsnps
   const Index ncol{cols()};  // nsamples
-  Mat2D Upre, H(ncol, size()), G(nrow, size()), B(size(), ncol), R(size(), size()), Rt(size(), size());
+  Mat2D Upre, Ucur, H(ncol, size()), G(nrow, size()), B(size(), ncol), R(size(), size()), Rt(size(), size());
   double diff;
   for (int pi = 0; pi <= p; ++pi) {
     computeGandH(G, H, pi);
@@ -66,30 +66,32 @@ void RsvdOpData::computeUSV(int p, double tol) {
     // R.T * B = H.T
     B.noalias() = R.transpose().fullPivHouseholderQr().solve(H.transpose());
     Eigen::JacobiSVD<Mat2D> svd(B, Eigen::ComputeThinU | Eigen::ComputeThinV);
-    U = svd.matrixV().leftCols(nk);
+    Ucur = svd.matrixV().leftCols(nk);
     if (pi > 0) {
       if (data->params.mev)
-        diff = 1 - mev(U, Upre);
+        diff = 1 - mev(Ucur, Upre);
       else
-        diff = minSSE(U, Upre).sum() / Upre.cols();
+        diff = minSSE(Ucur, Upre).sum() / Upre.cols();
       if (data->params.verbose) cao.print(tick.date(), "running of epoch =", pi, ", diff =", diff);
       if (diff < tol || pi == p) {
         if (data->params.svd_t == SvdType::PCAoneAlg2 && std::pow(2, pi) < data->params.bands) {
           cao.print("PCAone winSVD converged but continues running to get S and V.");
           p = std::log2(data->params.bands);
         } else {
+          U = Ucur;
           V.noalias() = G * svd.matrixU().leftCols(nk);
           S = svd.singularValues().head(nk);
           if (data->params.verbose) cao.print(tick.date(), "stops at epoch =", pi + 1);
           break;
         }
       } else {
-        Upre = U;
+        Upre = Ucur;
       }
     } else {
-      Upre = U;
+      Upre = Ucur;
     }
   }
+  U = Ucur;
 }
 
 void NormalRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
@@ -98,12 +100,12 @@ void NormalRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
   }
 
   // reset omg to random
-  if (pi == 0 && reset) initOmg();
+  if (pi == 0) initOmg();
 
   if (!data->params.out_of_core) {
     if (pi == 0) {
       if (update) {
-        data->update_batch_E(U, S, V.transpose());
+        data->fit_with_pi(U, S, V.transpose());
       }
       if (standardize) {
         if (data->params.pcangsd) {
@@ -137,10 +139,10 @@ void NormalRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
     stop_idx = data->stop[i];
     actual_block_size = stop_idx - start_idx + 1;
     tick.clock();
-    if (update) {
-      data->read_block_update(start_idx, stop_idx, U, S, V.transpose(), standardize);
-    } else {
+    if (!update) {
       data->read_block_initial(start_idx, stop_idx, standardize);
+    } else {
+      data->read_block_update(start_idx, stop_idx, U, S, V.transpose(), standardize);
     }
     data->readtime += tick.reltime();
     G.middleRows(start_idx, actual_block_size).noalias() = data->G.transpose() * Omg;
@@ -153,16 +155,16 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
   if (H.cols() != size || H.rows() != cols() || G.cols() != size || G.rows() != rows()) {
     cao.error("the size of G or H doesn't match with each other.");
   }
-  if (pi == 0 && reset) initOmg();
+  if (pi == 0) initOmg();
   if (std::pow(2, pi) >= data->params.bands) {
-    // reset H1, H2 to zero
+    // init H1, H2 to zero
     H1.setZero();
     H2.setZero();
   }
   if (!data->params.out_of_core) {
     if (pi == 0) {
       if (update) {
-        data->update_batch_E(U, S, V.transpose());
+        data->fit_with_pi(U, S, V.transpose());
       }
       if (standardize) {
         if (data->params.pcangsd) {
@@ -176,7 +178,7 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
       blocksize = (unsigned int)ceil((double)data->nsnps / data->params.bands);
       if (blocksize < data->params.bands)
         cao.warn("block size < window size. please consider the IRAM method with --svd 0");
-      if (data->params.perm) {
+      if (data->params.perm && !(update && data->params.emu)) {
         cao.print(tick.date(), "permuting data matrix by columns in place");
         PCAone::permute_matrix(data->G, data->perm);
       }
@@ -233,10 +235,10 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
     stop_idx = data->stop[b];
     actual_block_size = stop_idx - start_idx + 1;
     tick.clock();
-    if (update) {
-      data->read_block_update(start_idx, stop_idx, U, S, V.transpose(), standardize);
-    } else {
+    if (!update) {
       data->read_block_initial(start_idx, stop_idx, standardize);
+    } else {
+      data->read_block_update(start_idx, stop_idx, U, S, V.transpose(), standardize);
     }
     data->readtime += tick.reltime();
     G.middleRows(start_idx, actual_block_size).noalias() = data->G.transpose() * Omg;
@@ -269,13 +271,14 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
 
 void run_pca_with_halko(Data* data, const Param& params) {
   Mat2D Vpre;
-  Mat1D S;
   RsvdOpData* rsvd;
   if (params.svd_t == SvdType::PCAoneAlg2) {
-    cao.print(tick.date(), "initialize window-based RSVD (winSVD) with", params.out_of_core ? "out-of-core" : "in-core");
+    cao.print(tick.date(), "initialize window-based RSVD (winSVD) with",
+              params.out_of_core ? "out-of-core" : "in-core");
     rsvd = new FancyRsvdOpData(data, params.k, params.oversamples);
   } else {
-    cao.print(tick.date(), "initialize single-pass RSVD (sSVD) with", params.out_of_core ? "out-of-core" : "in-core");
+    cao.print(tick.date(), "initialize single-pass RSVD (sSVD) with",
+              params.out_of_core ? "out-of-core" : "in-core");
     rsvd = new NormalRsvdOpData(data, params.k, params.oversamples);
   }
   if (!params.impute) {
@@ -290,13 +293,13 @@ void run_pca_with_halko(Data* data, const Param& params) {
     rsvd->computeUSV(params.maxp, params.tol);
   } else {
     // for EM iteration
-    rsvd->setFlags(false, false, !params.fancyem);
+    rsvd->setFlags(false, false);
     rsvd->computeUSV(params.maxp, params.tol);
     // flip_UV(rsvd->U, rsvd->V, false);
     double diff;
-    cao.print(tick.date(), "run EM-PCA for data with uncertainty. maxiter =", params.maxiter);
+    cao.print(tick.date(), "run EM-PCA. maxiter =", params.maxiter);
     for (uint i = 0; i < params.maxiter; ++i) {
-      rsvd->setFlags(true, false, !params.fancyem);
+      rsvd->setFlags(true, false);
       Vpre = rsvd->V;
       rsvd->computeUSV(params.maxp, params.tol);
       // flip_UV(rsvd->U, rsvd->V, false);
@@ -325,9 +328,10 @@ void run_pca_with_halko(Data* data, const Param& params) {
       Eigen::JacobiSVD<Mat2D> svd(C, Eigen::ComputeThinU | Eigen::ComputeThinV);
       // output real eigenvectors of covariance in eigvecs2
       write_eigvecs2_beagle(svd.matrixU(), params.filein, params.fileout + ".eigvecs2");
-    } else {
+    }
+    if (params.emu) {
       cao.print(tick.date(), "standardize the final matrix for EMU");
-      rsvd->setFlags(true, true, !params.fancyem);
+      rsvd->setFlags(true, true);
       rsvd->computeUSV(params.maxp, params.tol);
     }
   }
