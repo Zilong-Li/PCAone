@@ -1,6 +1,6 @@
 ######################### configure ################
 
-VERSION=0.5.4
+VERSION=0.6.0
 # Detect OS and CPU architecture to add flags conditionally
 Platform        := $(shell uname -s)
 ARCH            := $(shell uname -m)

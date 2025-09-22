@@ -51,7 +51,7 @@ void Data::prepare() {
             ", factor =", bandFactor);
   if (nblocks == 1) cao.error("only one block exists. please remove -m option");
   if (params.pca && params.svd_t == SvdType::PCAoneAlg2) {
-    // decrease blocksize to fit the fancy halko
+    // decrease blocksize for the winSVD
     if (nblocks < params.bands) {
       blocksize = (unsigned int)ceil((double)nsnps / params.bands);
     } else {
@@ -274,13 +274,13 @@ void Data::fit_with_pi(const Mat2D &U, const Mat1D &svals, const Mat2D &VT) {
 #pragma omp parallel for
     for (uint i = 0; i < nsnps; ++i) {
       for (uint j = 0; j < nsamples; ++j) {
-        if (C[i * nsamples + j])  // no bool & 1
+        if (C[perm.indices()[i] * nsamples + j])  // no bool & 1
         {                         // sites need to be predicted
           G(j, i) = 0.0;
           for (uint k = 0; k < ks; ++k) {
             G(j, i) += U(j, k) * svals(k) * VT(k, i);
           }
-          G(j, i) = fmax(1e-4, fmin(G(j, i), 1.0 - 1e-4)) - F(i);
+          G(j, i) = fmin(fmax(G(j, i), -F(i)), 1 - F(i));
         }
       }
     }
