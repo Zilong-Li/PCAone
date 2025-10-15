@@ -4,9 +4,10 @@
 #include <iostream>
 #include <iterator>
 #include <sstream>
+#include <cstdint>
 
-typedef unsigned int uint;
-typedef unsigned long long uint64;
+using uint = std::uint32_t;
+using uint64 = std::uint64_t;
 
 enum class FileType { PLINK, CSV, BEAGLE, BINARY, BGEN };
 

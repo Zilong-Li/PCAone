@@ -34,7 +34,7 @@ std::string get_machine() {
 void standardize(Mat2D& X, double tol) {
   double sqrt_rdf = sqrt(X.rows() - 1.0);
   // if X is centered, then we can convert norm to sd
-  for (size_t j = 0; j < X.cols(); j++) {
+  for (Eigen::Index j = 0; j < X.cols(); j++) {
     double mean = X.col(j).mean();
     X.col(j).array() -= mean;
     double sd = X.col(j).norm() / sqrt_rdf;  // sd
@@ -505,7 +505,7 @@ void emMAF_with_GL(Mat1D& F, const Mat2D& P, int maxiter, double tolmaf) {
   double scale = 1.0 / (2.0 * nsamples);
   double diff;
   // run EM to estimate allele frequencies
-  for (uint it = 0; it < maxiter; it++) {
+  for (int it = 0; it < maxiter; it++) {
 #pragma omp parallel for
     for (uint j = 0; j < nsnps; j++) {
       Ft(j) = F(j);

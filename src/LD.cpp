@@ -356,7 +356,7 @@ void ld_clump_single_pheno(const std::string& fileout, const std::string& head, 
         for (auto op : clumped) opp.push_back(pvals_per_chr[c].at(op).first);
         k = 0;
         for (auto oi : sortidx(opp)) {
-          if (k == opp.size() - 1)
+          if (k == (int)opp.size() - 1)
             ofs << clumped[oi];
           else
             ofs << clumped[oi] << ",";

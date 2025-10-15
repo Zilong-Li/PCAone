@@ -13,7 +13,7 @@
 
 // type 1: Genotype input, {1, -9, 0.5, 0}, GL is N x M
 // type 2: Genotype likelihood input, GL is (N x 2) x M
-void calc_inbreed_coef(Mat1D& D, Mat1D& F, const Mat2D& PI, const Mat2D& GL, const int type, const int size,
+void inbreed_coef_site(Mat1D& D, Mat1D& F, const Mat2D& PI, const Mat2D& GL, const int type, const int size,
                        const uint start) {
   const int nsnps = size;
   const int nsamples = PI.rows();
@@ -41,11 +41,17 @@ void calc_inbreed_coef(Mat1D& D, Mat1D& F, const Mat2D& PI, const Mat2D& GL, con
       if (type == 1) {
         // should check genotype missingness
         if (GL(i, j) == BED2GENO[3]) {
-          pp0 = p0; pp1 = 0; pp2 = 0;
+          pp0 = p0;
+          pp1 = 0;
+          pp2 = 0;
         } else if (GL(i, j) == BED2GENO[2]) {
-          pp0 = 0; pp1 = p1; pp2 = 0;
+          pp0 = 0;
+          pp1 = p1;
+          pp2 = 0;
         } else if (GL(i, j) == BED2GENO[0]) {
-          pp0 = 0; pp1 = 0; pp2 = p2;
+          pp0 = 0;
+          pp1 = 0;
+          pp2 = p2;
         } else {
           pp0 = 0.333333 * p0;
           pp1 = 0.333333 * p1;
@@ -86,7 +92,7 @@ void calc_inbreed_site_lrt(Mat1D& T, const Mat1D& F, const Mat2D& PI, const Mat2
       p0 = fmax(1e-4, (1.0 - PI(i, j)) * (1.0 - PI(i, j)) + Fadj);
       // 2pi(1-pi)(1-F)
       // p1 = fmax(1e-4, 2.0 * PI(i, j) * (1.0 - PI(i, j)) * (1.0 - F(jj)));
-      p1 = fmax(1e-4, 2.0 * PI(i, j) * (1.0 - PI(i, j)) -  (2.0 * Fadj));
+      p1 = fmax(1e-4, 2.0 * PI(i, j) * (1.0 - PI(i, j)) - (2.0 * Fadj));
       // pi^2 + pi(1-pi)*F
       p2 = fmax(1e-4, PI(i, j) * PI(i, j) + Fadj);
       // normalize
@@ -108,7 +114,8 @@ void calc_inbreed_site_lrt(Mat1D& T, const Mat1D& F, const Mat2D& PI, const Mat2
           logNull += log(PI(i, j) * PI(i, j));
         } else {
           logAlt += log(0.333333 * (p0 + p1 + p2));
-          logNull += log(0.333333 * ((1.0 - PI(i, j)) * (1.0 - PI(i, j)) +  2.0 * PI(i, j) * (1.0 - PI(i, j)) + PI(i, j) * PI(i, j)));
+          logNull += log(0.333333 * ((1.0 - PI(i, j)) * (1.0 - PI(i, j)) + 2.0 * PI(i, j) * (1.0 - PI(i, j)) +
+                                     PI(i, j) * PI(i, j)));
         }
       } else {
         l0 = GL(2 * i + 0, j) * p0;
@@ -153,9 +160,9 @@ void run_inbreeding_em(int type, const Mat2D& GL, const Mat2D& PI, const Param& 
   AreClose areClose;
   for (uint it = 0; it < params.maxiter; it++) {
     F0 = F;                                            // copy the initial F
-    calc_inbreed_coef(D1, F, PI, GL, type, nsnps, 0);  // F is F1, D1 = F1 - F0
+    inbreed_coef_site(D1, F, PI, GL, type, nsnps, 0);  // F is F1, D1 = F1 - F0
     sr2 = D1.array().square().sum();
-    calc_inbreed_coef(D2, F, PI, GL, type, nsnps, 0);  // F is F2, D2 = F2 - F1
+    inbreed_coef_site(D2, F, PI, GL, type, nsnps, 0);  // F is F2, D2 = F2 - F1
     sv2 = (D2 - D1).array().square().sum();
     // safety break
     if (areClose(sv2, 0.0)) {
@@ -170,7 +177,7 @@ void run_inbreeding_em(int type, const Mat2D& GL, const Mat2D& PI, const Param& 
     F = (F.array() < -1.0).select(-1.0, F);
     F = (F.array() > 1.0).select(1.0, F);
     // Stabilization step and convergence check
-    calc_inbreed_coef(D1, F, PI, GL, type, nsnps, 0);  // F is F4
+    inbreed_coef_site(D1, F, PI, GL, type, nsnps, 0);  // F is F4
     diff = rmse1d(F0, F);
     cao.print(tick.date(), "Inbreeding coefficients estimated, iter =", it + 1, ", RMSE =", diff);
     if (diff < params.tolem) {
@@ -194,10 +201,10 @@ void calc_inbreed_coef_outofcore(Mat1D& D1, Mat1D& F, Data* data, Data* Pi, cons
     data->read_block_initial(data->start[b], data->stop[b], false);
     Pi->read_block_initial(Pi->start[b], Pi->stop[b], false);
     if (params.file_t == FileType::PLINK) {
-      calc_inbreed_coef(D1, F, Pi->G, data->G, 1, Pi->stop[b] - Pi->start[b] + 1,
+      inbreed_coef_site(D1, F, Pi->G, data->G, 1, Pi->stop[b] - Pi->start[b] + 1,
                         Pi->start[b]);  // init F
     } else {
-      calc_inbreed_coef(D1, F, Pi->G, data->P, 2, Pi->stop[b] - Pi->start[b] + 1,
+      inbreed_coef_site(D1, F, Pi->G, data->P, 2, Pi->stop[b] - Pi->start[b] + 1,
                         Pi->start[b]);  // init F
     }
   }
