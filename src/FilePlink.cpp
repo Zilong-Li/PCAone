@@ -55,10 +55,10 @@ void FileBed::read_all() {
       else
         F(i) /= c;
       // should remove sites with F=0 and 1.0
-      if (F(i) == 0.0 || F(i) == 1.0) cao.warn("sites with MAF=0 found! remove them first!");
+      if (F(i) == 0.0 || F(i) == 1.0) cao.warn("sites with MAF=0 found! remove them first! SNP index:", i);
       // in LD r2,F=0.5 means sample standard deviation is 0
       if (params.ld && params.verbose > 1 && F(i) == 0.5)
-        cao.warn("MAF for site ", i, "is 0.5. NaN values expected in calculating LD R2.");
+        cao.warn("sites with MAF=0.5 found in LD estimation. NaN values expected! SNP index:", i);
     }
     filter_snps_resize_F();  // filter and resize nsnps
   } 
