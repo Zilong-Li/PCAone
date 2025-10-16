@@ -1,6 +1,6 @@
 ######################### configure ################
 
-VERSION=0.6.0
+VERSION=0.7.0
 # Detect OS and CPU architecture to add flags conditionally
 Platform        := $(shell uname -s)
 ARCH            := $(shell uname -m)
@@ -135,7 +135,8 @@ endif
 
 OBJ = src/Arnoldi.o src/Halko.o src/Data.o src/Utils.o src/Cmd.o \
 		src/FileBeagle.o src/FileCsv.o src/FileBgen.o src/FilePlink.o \
-		src/FileBinary.o src/FileUSV.o src/LD.o src/Projection.o src/Inbreeding.o \
+		src/FileBinary.o src/FileUSV.o src/LD.o src/Projection.o \
+		src/InbredSites.o src/InbredSamples.o \
 		src/kfunc.o
 
 SLIBS += ./external/bgen/bgenlib.a ./external/zstd/lib/libzstd.a

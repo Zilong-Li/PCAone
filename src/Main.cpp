@@ -15,7 +15,8 @@
 #include "FilePlink.hpp"
 #include "FileUSV.hpp"
 #include "Halko.hpp"
-#include "Inbreeding.hpp"
+#include "InbredSites.hpp"
+#include "InbredSamples.hpp"
 #include "LD.hpp"
 #include "Projection.hpp"
 
@@ -53,10 +54,18 @@ int main(int argc, char* argv[]) {
   cao.print(tick.date(), "program started");
   Data* data = nullptr;
 
-  // particular case for inbreeding
-  if (params.inbreed > 0) {
+  // particular case for inbreeding sites
+  if (params.inbreed == 1) {
     data = new FileUSV(params);
-    run_inbreeding(data, params);
+    run_inbreed_coef_site(data, params);
+    delete data;
+    return bye();
+  }
+
+  // particular case for inbreeding samples
+  if (params.inbreed == 2) {
+    data = new FileUSV(params);
+    run_inbreed_coef_sample(data, params);
     delete data;
     return bye();
   }
