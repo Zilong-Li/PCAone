@@ -7,6 +7,7 @@
 #include "LD.hpp"
 
 #include <zlib.h>
+
 #include <cstddef>
 
 #include "Cmd.hpp"
@@ -138,6 +139,24 @@ void divide_pos_by_window(SNPld& snp, const int ld_window_bp) {
   }
 }
 
+void write_pruned_snp_ids(const std::string& filebim, const std::string& fileout, const ArrBool& keep) {
+  std::ifstream fin(filebim);
+  if (!fin.is_open()) cao.error("can not open " + filebim);
+  std::ofstream ofs_out(fileout + ".ld.prune.out");
+  std::ofstream ofs_in(fileout + ".ld.prune.in");
+  std::string line, sep{" \t"};
+  int i = 0;
+  while (getline(fin, line)) {
+    // only output rsids, i.e the second column
+    const auto fields = split_string(line, sep);
+    if (keep(i))
+      ofs_in << fields[1] << std::endl;
+    else
+      ofs_out << fields[1] << std::endl;
+    i++;
+  }
+}
+
 void ld_prune_small(Data* data, const std::string& fileout, const std::string& filebim, const SNPld& snp,
                     const double r2_tol) {
   const bool pick_random_one = snp.af.size() > 0 ? false : true;
@@ -184,19 +203,7 @@ void ld_prune_small(Data* data, const std::string& fileout, const std::string& f
       }
     }
   }
-  std::ifstream fin(filebim);
-  if (!fin.is_open()) cao.error("can not open " + filebim);
-  std::ofstream ofs_out(fileout + ".ld.prune.out");
-  std::ofstream ofs_in(fileout + ".ld.prune.in");
-  std::string line;
-  int i = 0;
-  while (getline(fin, line)) {
-    if (keep(i))
-      ofs_in << line << std::endl;
-    else
-      ofs_out << line << std::endl;
-    i++;
-  }
+  write_pruned_snp_ids(filebim, fileout, keep);
 }
 
 void ld_prune_big(const Mat2D& G, const SNPld& snp, double r2_tol, const std::string& fileout,
@@ -226,19 +233,7 @@ void ld_prune_big(const Mat2D& G, const SNPld& snp, double r2_tol, const std::st
       }
     }
   }
-  std::ifstream fin(filebim);
-  if (!fin.is_open()) cao.error("can not open " + filebim);
-  std::ofstream ofs_out(fileout + ".ld.prune.out");
-  std::ofstream ofs_in(fileout + ".ld.prune.in");
-  std::string line;
-  int i = 0;
-  while (getline(fin, line)) {
-    if (keep(i))
-      ofs_in << line << std::endl;
-    else
-      ofs_out << line << std::endl;
-    i++;
-  }
+  write_pruned_snp_ids(filebim, fileout, keep);
 }
 
 Int1D valid_assoc_file(const std::string& fileassoc, const std::string& colnames) {

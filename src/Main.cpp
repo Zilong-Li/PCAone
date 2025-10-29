@@ -94,12 +94,12 @@ int main(int argc, char* argv[]) {
   }
 
   // particular case for Selection 
-  if ((params.selection > 0) && (params.file_t == FileType::PLINK)) {
-    data = new FileBed(params);
-    run_selection(data, params);
-    delete data;
-    return bye();
-  }
+  // if ((params.selection > 0) && (params.file_t == FileType::PLINK)) {
+  //   data = new FileBed(params);
+  //   run_selection(data, params);
+  //   delete data;
+  //   return bye();
+  // }
 
   if (params.perm && params.out_of_core) {
     tick.clock();
