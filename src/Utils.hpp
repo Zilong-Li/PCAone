@@ -140,4 +140,6 @@ struct ZstdCS {
   std::string buffInTmp, buffOutTmp;
 };
 
+void galinsky_selection_scan(Mat2D& V);
+
 #endif  // PCAONE_UTILES_

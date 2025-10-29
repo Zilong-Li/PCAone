@@ -97,6 +97,10 @@ Param::Param(int argc, char **argv) {
   opts.add<Value<int>>("", "inbreed", "compute the inbreeding coefficient accounting for population structure. Options are\n"
                                       "0: disabled;\n"
                                       "1: compute per-site inbreeding coefficient and HWE test.\n", inbreed, &inbreed);
+  opts.add<Value<int>>("", "selection", "compute selection statistics. Options are\n"
+                                      "0: disabled;\n"
+                                      "1: perform genome-wide selection scale using Galinsky et al method;\n"
+                                      "2: perform genome-wide selection scale using PCAdapt method.\n", selection, &selection);
   opts.add<Value<double>>("", "ld-r2", "R2 cutoff for LD-based pruning (usually 0.2).", ld_r2, &ld_r2);
   opts.add<Value<uint>>("", "ld-bp", "physical distance threshold in bases for LD window (usually 1000000).", ld_bp, &ld_bp);
   opts.add<Value<int>>("", "ld-stats", "statistics to compute LD R2 for pairwise SNPs. Options are\n"

@@ -12,6 +12,7 @@
 #include <cstring>  // strtok_r
 #include <fstream>
 
+#include "Common.hpp"
 #include "kfunc.h"
 
 using namespace std;
@@ -526,6 +527,33 @@ void emMAF_with_GL(Mat1D& F, const Mat2D& P, int maxiter, double tolmaf) {
       break;
     } else if (it == (maxiter - 1)) {
       cao.print(tick.date(), "EM (MAF) did not converge");
+    }
+  }
+}
+
+void galinsky_selection_scan(Mat2D& V) {
+#pragma omp parallel for
+  for (int i = 0; i < V.cols(); i++) {
+    V.col(i) *= V.col(i) * V.rows();
+  }
+// get p-value
+#pragma omp parallel for
+  for (int i = 0; i < V.cols(); i++) {
+    for (int j = 0; j < V.rows(); j++) {
+      V(j, i) = chisq1d(V(j, i));
+    }
+  }
+}
+
+void pcadapt_selection_scan(Mat2D& V, const Mat2D& U, const Mat1D& S) {
+#pragma omp parallel for
+  for (int j = 0; j < V.rows(); ++j) {
+    double res = 0.0;
+    for (int i = 0; i < U.rows(); ++i) {
+      double rec = 0.0;
+      for (int k = 0; k < U.cols(); ++k) {
+        rec += U(i, k) * S(k) * V(j, k);
+      }
     }
   }
 }

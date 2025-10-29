@@ -174,7 +174,7 @@ void Data::calcu_vt_update(const Mat2D &T, const Mat2D &U, const Mat1D &svals, M
 
 // S: signular values
 // E: eigen values
-void Data::write_eigs_files(const Mat1D &E, const Mat1D &S, const Mat2D &U, const Mat2D &V) {
+void Data::write_eigs_files(const Mat1D& E, const Mat1D& S, const Mat2D& U, const Mat2D& V) {
   std::ofstream outs(params.fileout + ".sigvals");
   std::ofstream oute(params.fileout + ".eigvals");
   std::ofstream outu(params.fileout + ".eigvecs");

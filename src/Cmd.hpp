@@ -69,6 +69,8 @@ class Param {
   int project = 0;
   // for inbreeding
   int inbreed = 0;
+  // for selection. 1: Galinsky et al. 2. pcadapt
+  int selection = 0;
 
   // general
   uint verbose = 1; // verbose level. 0: no verbose; 1: output to screen; 2: debug info 
