@@ -273,6 +273,7 @@ void run_pca_with_halko(Data* data, const Param& params) {
   Mat2D Vpre;
   RsvdOpData* rsvd;
   if (params.svd_t == SvdType::PCAoneAlg2) {
+    if(params.ld) cao.warn("You are recommended to use --svd 1 for outputting the LD residual matrix");
     cao.print(tick.date(), "initialize window-based RSVD (winSVD) with",
               params.out_of_core ? "out-of-core" : "in-core");
     rsvd = new FancyRsvdOpData(data, params.k, params.oversamples);

@@ -140,6 +140,7 @@ void divide_pos_by_window(SNPld& snp, const int ld_window_bp) {
 }
 
 void write_pruned_snp_ids(const std::string& filebim, const std::string& fileout, const ArrBool& keep) {
+  cao.print(tick.date(), keep.count(), " sites will be kept");
   std::ifstream fin(filebim);
   if (!fin.is_open()) cao.error("can not open " + filebim);
   std::ofstream ofs_out(fileout + ".ld.prune.out");

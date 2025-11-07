@@ -17,15 +17,17 @@
 void run_projection(Data* data, const Param& params) {
   check_bim_vs_mbim(params.filein + ".bim", params.filebim);
   cao.print(tick.date(), "run projection");
-
   data->prepare();
   data->standardize_E();
   double p_miss = (double)data->C.count() / (double)data->C.size();
-  // Singular = sqrt(Eigen * M)
-  Mat1D S = (read_eigvals(params.fileS) * data->nsnps / params.ploidy).array().sqrt();
-  const int pcs = S.size();
-  Mat2D V = read_eigvecs(params.fileV, data->nsnps, pcs);  // M x K
-  Mat2D U(data->nsamples, pcs);
+  Mat1D S;
+  Mat2D V;
+  cao.print(tick.date(), "start parsing U:", params.fileU, ", S:", params.fileS, ", V:", params.fileV);
+  uint nsamples, nsnps;
+  read_sigvals(params.fileS, nsamples, nsnps, S); 
+  int K = fmin(S.size(), params.k);
+  V = read_eigvecs(params.fileV, nsnps, K);
+  Mat2D U(data->nsamples, K);
 
   if (params.project == 1) {
     if (p_miss > 0) cao.warn("there are missing genotypes. recommend using --project 2 or 3.");

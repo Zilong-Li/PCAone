@@ -7,7 +7,6 @@
 #include "Data.hpp"
 
 #include "Cmd.hpp"
-#include "Eigen/src/Core/util/Meta.h"
 #include "LD.hpp"
 #include "Utils.hpp"
 
