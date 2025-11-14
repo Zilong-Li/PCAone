@@ -19,6 +19,7 @@
 #include "InbredSamples.hpp"
 #include "LD.hpp"
 #include "Projection.hpp"
+#include "Selection.hpp"
 
 #ifdef WITH_OPENBLAS
 #include "lapacke.h"
@@ -89,6 +90,14 @@ int main(int argc, char* argv[]) {
   if ((params.project > 0) && (params.file_t == FileType::PLINK)) {
     data = new FileBed(params);
     run_projection(data, params);
+    delete data;
+    return bye();
+  }
+
+  // particular case for Selection
+  if ((params.selection > 0) && (params.file_t == FileType::PLINK)) {
+    data = new FileBed(params);
+    run_selection(data, params);
     delete data;
     return bye();
   }

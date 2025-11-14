@@ -328,14 +328,14 @@ Mat2D read_eigvecs(const std::string& path, int n, int k) {
   std::ifstream fin(path);
   std::string line;
   while (std::getline(fin, line)) {
-    for (begin = 0, k1 = 0, i = 0; i <= (int)line.size(); i++) {
+    for (begin = 0, k1 = 0, i = 0; k1 < k; i++) {
       if (is_seperator[(uint8_t)line[i]] || i == (int)line.size()) {
         M(j, k1) = std::stod(std::string(line.begin() + begin, line.begin() + i));
         begin = i + 1;
         k1++;
       }
     }
-    if (k1 != k) cao.error("the columns are not aligned!\n =>" + path);
+    if (k1 != k) cao.error("the number of columns is not alignd with K!\n =>" + path);
     j++;
   }
 
@@ -346,7 +346,7 @@ Mat2D read_eigvecs(const std::string& path, int n, int k) {
 
 // parse AF
 Mat1D read_frq(const std::string& path) {
-  const std::string sep{"\t"};
+  const std::string sep{" \t"};
   double val;
   Double1D V;
   std::ifstream fin(path);

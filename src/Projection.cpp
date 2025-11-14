@@ -21,12 +21,11 @@ void run_projection(Data* data, const Param& params) {
   data->standardize_E();
   double p_miss = (double)data->C.count() / (double)data->C.size();
   Mat1D S;
-  Mat2D V;
   cao.print(tick.date(), "start parsing U:", params.fileU, ", S:", params.fileS, ", V:", params.fileV);
   uint nsamples, nsnps;
   read_sigvals(params.fileS, nsamples, nsnps, S); 
   int K = fmin(S.size(), params.k);
-  V = read_eigvecs(params.fileV, nsnps, K);
+  Mat2D V = read_eigvecs(params.fileV, nsnps, K);
   Mat2D U(data->nsamples, K);
 
   if (params.project == 1) {

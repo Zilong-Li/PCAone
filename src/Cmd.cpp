@@ -102,7 +102,7 @@ Param::Param(int argc, char **argv) {
                                       "1: perform genome-wide selection scale using Galinsky et al method;\n"
                                       "2: perform genome-wide selection scale using PCAdapt method.\n", selection, &selection);
   opts.add<Value<double>>("", "ld-r2", "R2 cutoff for LD-based pruning (usually 0.2).", ld_r2, &ld_r2);
-  opts.add<Value<uint>>("", "ld-bp", "physical distance threshold in bases for LD window (usually 1000000).", ld_bp, &ld_bp);
+  opts.add<Value<uint>>("", "ld-bp", "physical distance threshold in bases for LD window.", ld_bp, &ld_bp);
   opts.add<Value<int>>("", "ld-stats", "statistics to compute LD R2 for pairwise SNPs. Options are\n"
                                        "0: the ancestry adjusted, i.e. correlation between residuals;\n"
                                        "1: the standard, i.e. correlation between two alleles.\n", ld_stats, &ld_stats);
@@ -167,7 +167,7 @@ Param::Param(int argc, char **argv) {
     }
 
     // handle LD
-    if (print_r2 || ld_bp > 0 || ld_r2 > 0 || !clump.empty()) {
+    if (print_r2 || ld_r2 > 0 || !clump.empty()) {
       pca = false;    // we always want to center the G for calculating R2
       memory /= 2.0;  // adjust memory estimator
     }
