@@ -122,8 +122,8 @@ void FileBgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standa
           G(j, i) = dosages[j] / 2.0 - F(snp_idx);
         }
         if (standardize) {
-          double sd = sqrt((double)params.ploidy * F(snp_idx) * (1 - F(snp_idx)));
-          if (sd > VAR_TOL) G(j, i) /= sd;
+          double sd = sqrt(F(snp_idx) * (1 - F(snp_idx)));
+          if (sd > VAR_TOL) G(j, i) = (G(j, i) * sqrt((double) params.ploidy)) / sd;
         }
       }
     }
@@ -157,8 +157,8 @@ void FileBgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standa
           G(j, i) -= F(snp_idx);
         }
         if (standardize) {
-          double sd = sqrt((double)params.ploidy * F(snp_idx) * (1 - F(snp_idx)));
-          if (sd > VAR_TOL) G(j, i) /= sd;
+          double sd = sqrt(F(snp_idx) * (1 - F(snp_idx)));
+          if (sd > VAR_TOL) G(j, i) = (G(j, i) * sqrt((double) params.ploidy)) / sd;
         }
       }
     }

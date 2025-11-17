@@ -182,7 +182,7 @@ void Data::write_eigs_files(const Mat1D& E, const Mat1D& S, const Mat2D& U, cons
     outs << '#' << U.rows() << ',' << V.rows() << '\n';
     outs << S.format(fmt) << '\n';
   }
-  if (oute.is_open()) oute << (E * params.ploidy).format(fmt) << '\n';
+  if (oute.is_open()) oute << E.format(fmt) << '\n';
   if (outu.is_open()) outu << U.format(fmt) << '\n';
   if (params.project == 0 && params.printv) {
     save_snps_in_bim();
@@ -290,9 +290,9 @@ void Data::standardize_E() {
 #pragma omp parallel for
   for (uint i = 0; i < nsnps; ++i) {
     for (uint j = 0; j < nsamples; ++j) {
-      double sd = sqrt((double)params.ploidy * F(i) * (1 - F(i)));
+      double sd = sqrt(F(i) * (1 - F(i)));
       // in case denominator is too small.
-      if (sd > VAR_TOL) G(j, i) /= sd;
+      if (sd > VAR_TOL) G(j, i) = (G(j, i) * sqrt((double) params.ploidy)) / sd;
     }
   }
 }

@@ -158,8 +158,8 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
             if (params.center) {
               G(j, i) = centered_geno_lookup(buf & 3, snp_idx);
               if (standardize) {
-                double sd = sqrt((double)params.ploidy * F(snp_idx) * (1 - F(snp_idx)));
-                if (sd > VAR_TOL) G(j, i) /= sd;
+                double sd = sqrt(F(snp_idx) * (1 - F(snp_idx)));
+                if (sd > VAR_TOL) G(j, i) = (G(j, i) * sqrt((double) params.ploidy)) / sd;
               }
             } else {
               G(j, i) = BED2GENO[buf & 3];
@@ -211,8 +211,8 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
           if (j < nsamples) {
             G(j, i) = centered_geno_lookup(buf & 3, snp_idx);
             if (standardize) {
-              double sd = sqrt((double)params.ploidy * F(snp_idx) * (1 - F(snp_idx)));
-              if (sd > VAR_TOL) G(j, i) /= sd;
+              double sd = sqrt(F(snp_idx) * (1 - F(snp_idx)));
+              if (sd > VAR_TOL) G(j, i) = (G(j, i) * sqrt((double) params.ploidy)) / sd;
             }
             buf >>= 2;
           }
@@ -291,8 +291,8 @@ void FileBed::read_block_update(uint64 start_idx, uint64 stop_idx, const Mat2D &
             G(j, i) = (p1 + 2.0 * p2) / (p0 + p1 + p2) - 2.0 * F(snp_idx);
           }
           if (standardize) {
-            double sd = sqrt((double)params.ploidy * F(snp_idx) * (1 - F(snp_idx)));
-            if (sd > VAR_TOL) G(j, i) /= sd;
+            double sd = sqrt(F(snp_idx) * (1 - F(snp_idx)));
+            if (sd > VAR_TOL) G(j, i) = (G(j, i) * sqrt((double) params.ploidy)) / sd;
           }
           // shift packed data and throw away genotype just processed.
           buf >>= 2;
