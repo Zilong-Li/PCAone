@@ -61,10 +61,10 @@ void FileBed::read_all() {
         cao.warn("sites with MAF=0.5 found in LD estimation. NaN values expected! SNP index:", i);
     }
     filter_snps_resize_F();  // filter and resize nsnps
-  } 
+  }
 
   G = Mat2D::Zero(nsamples, nsnps);  // fill in G with new size
-  if (params.emu) C = ArrBool::Zero(nsnps * nsamples);
+  C = ArrBool::Zero(nsnps * nsamples);
   if (params.pcangsd) P = Mat2D::Zero(nsamples * 2, nsnps);
 
 #pragma omp parallel for private(i, j, b, c, k, buf)
@@ -118,11 +118,12 @@ void FileBed::read_all() {
   inbed.clear();
   inbed.shrink_to_fit();
 
-  if (C.size()) {
-    double p_miss = (double)C.count() / (double)C.size();
-    cao.print(tick.date(), "the proportion of missingness  is", p_miss);
-    if (p_miss == 0.0) impute = false;
-  }
+  double p_miss = (double)C.count() / (double)C.size();
+  cao.print(tick.date(), "the proportion of missingness  is", p_miss);
+  if (p_miss == 0.0) {
+    impute = false;
+    C.resize(0); // clear 
+  } 
 
   // if (params.pcangsd) {
   //   F = Mat1D::Constant(nsnps, 0.25);
@@ -267,18 +268,26 @@ void FileBed::read_block_update(uint64 start_idx, uint64 stop_idx, const Mat2D &
             }
             pt = (pt + 2.0 * F(snp_idx)) / 2.0;
             pt = fmin(fmax(pt, 1e-4), 1.0 - 1e-4);
-            if ((buf & 3) == 3) { 
-              p0 = 1.00; p1 = 0.00; p2 = 0.00;
+            if ((buf & 3) == 3) {
+              p0 = 1.00;
+              p1 = 0.00;
+              p2 = 0.00;
             } else if ((buf & 3) == 0) {
-              p0 = 0.00; p1 = 0.00; p2 = 1.00;
+              p0 = 0.00;
+              p1 = 0.00;
+              p2 = 1.00;
             } else if ((buf & 3) == 2) {
-              p0 = 0.00; p1 = 1.00; p2 = 0.00;
+              p0 = 0.00;
+              p1 = 1.00;
+              p2 = 0.00;
             } else {
-              p0 = 0.333333; p1 = 0.333333; p2 = 0.333333;
+              p0 = 0.333333;
+              p1 = 0.333333;
+              p2 = 0.333333;
             }
             p0 *= (1.0 - pt) * (1.0 - pt);
-            p1 *=  2.0 * pt * (1.0 - pt);
-            p2 *=  pt * pt;
+            p1 *= 2.0 * pt * (1.0 - pt);
+            p2 *= pt * pt;
             G(j, i) = (p1 + 2.0 * p2) / (p0 + p1 + p2) - 2.0 * F(snp_idx);
           }
           if (standardize) {
@@ -295,6 +304,7 @@ void FileBed::read_block_update(uint64 start_idx, uint64 stop_idx, const Mat2D &
 
 // structured permutation with cached buffer
 // TODO: support MAF filters
+// TODO: support --exclude
 PermMat permute_plink(std::string &fin, const std::string &fout, uint gb, uint nbands) {
   uint nsnps = count_lines(fin + ".bim");
   uint nsamples = count_lines(fin + ".fam");

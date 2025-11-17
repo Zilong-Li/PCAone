@@ -13,31 +13,30 @@
  * 1: simple, assume no missingness
  * 2: like smartPCA, solving g=Vx, can take missing genotypes
  * 3: OADP, laser2, can take missing genotypes
+   // NOTE: we don't support out-of-memory for projection.
  */
 void run_projection(Data* data, const Param& params) {
   check_bim_vs_mbim(params.filein + ".bim", params.filebim);
   cao.print(tick.date(), "run projection");
   data->prepare();
   data->standardize_E();
-  double p_miss = (double)data->C.count() / (double)data->C.size();
-  Mat1D S;
   cao.print(tick.date(), "start parsing U:", params.fileU, ", S:", params.fileS, ", V:", params.fileV);
   uint nsamples, nsnps;
+  Mat1D S;
   read_sigvals(params.fileS, nsamples, nsnps, S); 
   int K = fmin(S.size(), params.k);
   Mat2D V = read_eigvecs(params.fileV, nsnps, K);
   Mat2D U(data->nsamples, K);
 
   if (params.project == 1) {
-    if (p_miss > 0) cao.warn("there are missing genotypes. recommend using --project 2 or 3.");
+    if (data->p_miss > 0) cao.warn("there are missing genotypes. recommend using --project 2 or 3.");
     // get 1 / Singular = sqrt(Eigen * M)
     V = V * (S.array().inverse().matrix().asDiagonal());
     // G V = U D
     U = data->G * V;
   } else if (params.project == 2) {
     V = V * S.asDiagonal();
-    if (p_miss == 0.0) {
-      cao.warn("there is no missing genotypes");
+    if (data->p_miss == 0.0) {
       Eigen::ColPivHouseholderQR<Mat2D> qr(V);
 #pragma omp parallel for
       for (uint i = 0; i < data->nsamples; i++) {
