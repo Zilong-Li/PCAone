@@ -5,17 +5,17 @@
 void run_selection(Data* data, const Param& params) {
   cao.print(tick.date(), "run selection");
   data->prepare();
-  cao.print(tick.date(), "start parsing U:", params.fileU, ", S:", params.fileS);
-  Mat2D U = read_eigvecs(params.fileU, data->nsamples, params.k);
-  Mat2D V(data->nsnps, params.k);
-
-  Eigen::ColPivHouseholderQR<Mat2D> qr(U);
+  cao.print(tick.date(), "start parsing U:", params.fileU, ", E:", params.fileE);
+  Mat1D E = read_eigvals(params.fileE);
+  int K = fmin(E.size(), params.k);
+  Mat2D U = read_eigvecs(params.fileU, data->nsamples, K);
+  Mat2D V(data->nsnps, K);
 
   if (!params.out_of_core) {
     data->standardize_E();
 #pragma omp parallel for
     for (uint j = 0; j < data->nsnps; j++) {
-      V.row(j) = qr.solve(data->G.col(j));
+      V.row(j) = U.transpose() * data->G.col(j);
     }
   } else {
     data->check_file_offset_first_var();
@@ -24,12 +24,19 @@ void run_selection(Data* data, const Param& params) {
       uint64 actual_block_size = data->stop[b] - data->start[b] + 1;
 #pragma omp parallel for
       for (uint j = 0; j < actual_block_size; j++) {
-        V.row(j + data->start[b]) = qr.solve(data->G.col(j));
+        V.row(j + data->start[b]) = U.transpose() * data->G.col(j);
       }
     }
   }
 
   Eigen::IOFormat fmt(6, Eigen::DontAlignCols, "\t", "\n");
-  std::ofstream out(params.fileout + ".zscore");
+  std::ofstream out(params.fileout + ".pcadapt");
   if (out.is_open()) out << V.format(fmt) << '\n';
+  std::ofstream out2(params.fileout + ".galinsky");
+  E = E.head(K) * V.rows();
+  if (out2.is_open()) {
+    V.array().rowwise() /= E.transpose().array().sqrt();
+    out2 << V.format(fmt) << '\n';
+  } 
+
 }

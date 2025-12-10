@@ -161,6 +161,7 @@ Param::Param(int argc, char **argv) {
     // handle PI, i.e U,S,V
     if (usvprefix->is_set()) {
       if (fileU.empty()) fileU = usvprefix->value() + ".eigvecs";
+      if (fileE.empty()) fileE = usvprefix->value() + ".eigvals";
       if (fileS.empty()) fileS = usvprefix->value() + ".sigvals";
       if (fileV.empty()) fileV = usvprefix->value() + ".loadings";
       if (filebim.empty()) filebim = usvprefix->value() + ".mbim";
@@ -175,11 +176,17 @@ Param::Param(int argc, char **argv) {
     // handle projection
     if (project > 0) {
       if (fileV.empty() || fileS.empty())
-        throw std::invalid_argument(
-            "please use --read-S and --read-V together with --project, or simply --USV");
+        throw std::invalid_argument("please use --USV together with --project");
       if (project > 2) throw std::invalid_argument("more projection methods are coming. stay tuned!");
       estaf = false, impute = true, out_of_core = false, pca = false;
       memory = 0;
+    }
+
+    // handle selection
+    if (selection > 0) {
+      if (fileU.empty() || fileE.empty())
+        throw std::invalid_argument("please use --USV together with --project");
+      pca = false;
     }
 
     // handle inbreeding

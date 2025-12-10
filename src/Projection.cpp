@@ -12,7 +12,7 @@
  * options:
  * 1: simple, assume no missingness
  * 2: like smartPCA, solving g=Vx, can take missing genotypes
- * 3: OADP, laser2, can take missing genotypes
+ * 3: OADP, online Augmentation Decomposition Procrusters transformation, but can take missing genotypes
    // NOTE: we don't support out-of-memory for projection.
  */
 void run_projection(Data* data, const Param& params) {
@@ -20,7 +20,7 @@ void run_projection(Data* data, const Param& params) {
   cao.print(tick.date(), "run projection");
   data->prepare();
   data->standardize_E();
-  cao.print(tick.date(), "start parsing U:", params.fileU, ", S:", params.fileS, ", V:", params.fileV);
+  cao.print(tick.date(), "start parsing V:", params.fileV, ", S:", params.fileS);
   uint nsamples, nsnps;
   Mat1D S;
   read_sigvals(params.fileS, nsamples, nsnps, S); 
@@ -61,3 +61,4 @@ void run_projection(Data* data, const Param& params) {
 
   data->write_eigs_files(S.array().square() / data->nsnps, S, U, V);
 }
+

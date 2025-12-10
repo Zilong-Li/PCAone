@@ -20,7 +20,7 @@ class Param {
 
   FileType file_t;  // PLINK, CSV, BEAGLE, BGEN
   SvdType svd_t;
-  std::string fileU, fileS, fileV;
+  std::string fileU, fileS, fileE, fileV;
   std::string filein;
   std::string fileout = "pcaone";
   double memory = 0;  // 0 for disable
