@@ -25,4 +25,4 @@ jobs:
 
     - name: test
       run: |
-        make test_full
+        make test_aarch64

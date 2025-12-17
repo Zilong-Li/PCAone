@@ -42,12 +42,13 @@ Param::Param(int argc, char **argv) {
                                                    "2: the accurate window-based Randomized SVD method (PCAone);\n"
                                                    "3: the full Singular Value Decomposition.", 2);
   opts.add<Value<uint>>("k", "pc", "top k principal components (PCs) to be calculated", k, &k);
-  opts.add<Value<uint>>("C", "scale", "do scaling for input file. Options are\n"
-                                      "0: do nothing and proceed to SVD;\n"
-                                      "1: do only standardization;\n"
-                                      "2: do count per median log transformation (CPMED);\n"
-                                      "3: do log1p transformation;\n"
-                                      "4: do relative counts.", scale,  &scale);
+  opts.add<Value<int>>("C", "scale", "do normalization or scaling for input file. Options are\n"
+                                     "-9: do sqrt(ploidy*f(1-f)) for genetic data;\n"
+                                     " 0: do nothing and proceed to SVD;\n"
+                                     " 1: do direct standardization, as the scale(x, center=TRUE, scale=TRUE) function in R;\n"
+                                     " 2: do first count per median log transformation (CPMED), then standardization;\n"
+                                     " 3: do first log1p transformation, then standardization;\n"
+                                     " 4: do first relative counts, then standardization.", scale,  &scale);
   opts.add<Value<uint>>("p", "maxp", "maximum number of power iterations for RSVD algorithm.", maxp, &maxp);
   opts.add<Switch>("S", "no-shuffle", "do not shuffle columns of data for --svd 2 (if not locally correlated).", &noshuffle);
   opts.add<Value<uint>, Attribute::advanced>("w", "batches", "the number of mini-batches used by --svd 2.", bands, &bands);

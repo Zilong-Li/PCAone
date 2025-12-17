@@ -157,7 +157,7 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
           if (j < nsamples) {
             if (params.center) {
               G(j, i) = centered_geno_lookup(buf & 3, snp_idx);
-              if (standardize) {
+              if (standardize && params.scale == -9) {
                 double sd = sqrt(F(snp_idx) * (1 - F(snp_idx)));
                 if (sd > VAR_TOL) G(j, i) = (G(j, i) * sqrt((double) params.ploidy)) / sd;
               }
@@ -210,7 +210,7 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
         for (k = 0; k < 4; ++k, ++j) {
           if (j < nsamples) {
             G(j, i) = centered_geno_lookup(buf & 3, snp_idx);
-            if (standardize) {
+            if (standardize && params.scale == -9) {
               double sd = sqrt(F(snp_idx) * (1 - F(snp_idx)));
               if (sd > VAR_TOL) G(j, i) = (G(j, i) * sqrt((double) params.ploidy)) / sd;
             }
@@ -290,7 +290,7 @@ void FileBed::read_block_update(uint64 start_idx, uint64 stop_idx, const Mat2D &
             p2 *= pt * pt;
             G(j, i) = (p1 + 2.0 * p2) / (p0 + p1 + p2) - 2.0 * F(snp_idx);
           }
-          if (standardize) {
+          if (standardize && params.scale == -9) {
             double sd = sqrt(F(snp_idx) * (1 - F(snp_idx)));
             if (sd > VAR_TOL) G(j, i) = (G(j, i) * sqrt((double) params.ploidy)) / sd;
           }

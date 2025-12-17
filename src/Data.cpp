@@ -287,6 +287,7 @@ void Data::fit_with_pi(const Mat2D &U, const Mat1D &svals, const Mat2D &VT) {
 }
 
 void Data::standardize_E() {
+  if(params.scale != -9) return;
 #pragma omp parallel for
   for (uint i = 0; i < nsnps; ++i) {
     for (uint j = 0; j < nsamples; ++j) {
@@ -298,6 +299,7 @@ void Data::standardize_E() {
 }
 
 void Data::pcangsd_standardize_E(const Mat2D &U, const Mat1D &svals, const Mat2D &VT) {
+  if(params.scale != -9) return;
   cao.print(tick.date(), "begin to standardize the matrix for pcangsd procedure");
   uint nk = svals.size();
   Dc = Mat1D::Zero(nsamples);

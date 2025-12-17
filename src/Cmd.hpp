@@ -74,7 +74,7 @@ class Param {
 
   // general
   uint verbose = 1; // verbose level. 0: no verbose; 1: output to screen; 2: debug info 
-  uint scale = 0;  // do scaling. 0: just centering. 1: log scaling. 2: cpmed
+  int scale = -9;  // do scaling. 9: sqrt(2f(1-f)); 0: just centering. 1: log scaling. 2: cpmed
   bool groff = false;
   bool cpmed = false;
   bool printv = false;

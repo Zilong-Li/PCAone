@@ -544,16 +544,3 @@ void galinsky_selection_scan(Mat2D& V) {
     }
   }
 }
-
-void pcadapt_selection_scan(Mat2D& V, const Mat2D& U, const Mat1D& S) {
-#pragma omp parallel for
-  for (int j = 0; j < V.rows(); ++j) {
-    double res = 0.0;
-    for (int i = 0; i < U.rows(); ++i) {
-      double rec = 0.0;
-      for (int k = 0; k < U.cols(); ++k) {
-        rec += U(i, k) * S(k) * V(j, k);
-      }
-    }
-  }
-}

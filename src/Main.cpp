@@ -64,12 +64,12 @@ int main(int argc, char* argv[]) {
   }
 
   // particular case for inbreeding samples
-  if (params.inbreed == 2) {
-    data = new FileUSV(params);
-    run_inbreed_coef_sample(data, params);
-    delete data;
-    return bye();
-  }
+  // if (params.inbreed == 2) {
+  //   data = new FileUSV(params);
+  //   run_inbreed_coef_sample(data, params);
+  //   delete data;
+  //   return bye();
+  // }
 
   // particular case for LD
   if (((params.file_t == FileType::BINARY || ((params.file_t == FileType::PLINK) && !params.fileU.empty())) &&

@@ -151,9 +151,9 @@ void write_pruned_snp_ids(const std::string& filebim, const std::string& fileout
     // only output rsids, i.e the second column
     const auto fields = split_string(line, sep);
     if (keep(i))
-      ofs_in << fields[1] << std::endl;
+      ofs_in << fields[0] << "\t" << fields[1] << "\t" << fields[2] << "\t" << fields[3] << "\t" << fields[4] << "\t" << fields[5] << std::endl;
     else
-      ofs_out << fields[1] << std::endl;
+      ofs_out << fields[0] << "\t" << fields[1] << "\t" << fields[2] << "\t" << fields[3] << "\t" << fields[4] << "\t" << fields[5] << std::endl;
     i++;
   }
 }
@@ -193,7 +193,6 @@ void ld_prune_small(Data* data, const std::string& fileout, const std::string& f
         r = calc_cor(G.col(i - data->start[b - 1]), G.col(k - data->start[b - 1]), df);
       } else if (i >= data->start[b] && k <= data->stop[b]) {
         r = calc_cor(data->G.col(i - data->start[b]), data->G.col(k - data->start[b]), df);
-
       } else {
         r = calc_cor(G.col(i - data->start[b - 1]), data->G.col(k - data->start[b]), df);
       }
