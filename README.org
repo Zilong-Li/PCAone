@@ -217,7 +217,7 @@ General options:
   -h, --help                     print all options including hidden advanced options
   -m, --memory arg (=0)          RAM usage in GB unit for out-of-core mode. default is in-core mode
   -n, --threads arg (=12)        the number of threads to be used
-  -v, --verbose arg (=1)         verbosity level for logs. any level x includes messages for all levels (1...x). Options are
+  -v, --verbose arg (=1)         verbosity level for logs. Options are
                                  0: silent, no messages on screen;
                                  1: concise messages to screen;
                                  2: more verbose information;
@@ -230,12 +230,16 @@ PCA algorithms:
                                  2: the accurate window-based Randomized SVD method (PCAone);
                                  3: the full Singular Value Decomposition.
   -k, --pc arg (=10)             top k principal components (PCs) to be calculated
-  -C, --scale arg (=0)           do scaling for input file. Options are
-                                 0: do just centering;
-                                 1: do log transformation eg. log(x+0.01) for RNA-seq data;
-                                 2: do count per median log transformation (CPMED) for scRNAs.
-  -p, --maxp arg (=40)           maximum number of power iterations for RSVD algorithm.
+  -C, --scale arg (=-9)          do normalization or scaling for input file. Options are
+                                 -9: do sqrt(ploidy*f(1-f)) for genetic data;
+                                  0: do nothing and proceed to SVD;
+                                  1: do direct standardization, as the scale(x, center=TRUE, scale=TRUE) function in R;
+                                  2: do first count per median log transformation (CPMED), then standardization;
+                                  3: do first log1p transformation, then standardization;
+                                  4: do first relative counts, then standardization.
+  -p, --maxp arg (=20)           maximum number of power iterations for RSVD algorithm.
   -S, --no-shuffle               do not shuffle columns of data for --svd 2 (if not locally correlated).
+  --seed arg (=101)              seeds for reproducing results.
   --emu                          use EMU algorithm for genotype input with missingness.
   --pcangsd                      use PCAngsd algorithm for genotype likelihood input.
 
@@ -245,8 +249,8 @@ Input options:
   -c, --csv arg                  path of comma seperated CSV file compressed by zstd.
   -g, --bgen arg                 path of BGEN file compressed by gzip/zstd.
   -G, --beagle arg               path of BEAGLE file compressed by gzip.
-  -f, --match-bim arg            the .mbim file to be matched, where the 7th column is allele frequency.
-  --USV arg                      prefix of PCAone .eigvecs/.eigvals/.loadings/.mbim.
+  -F, --match-bim arg            the .mbim file to be matched, where the 7th column is allele frequency.
+  -P, --USV arg                  prefix of PCAone .eigvecs/.eigvals/.loadings/.mbim.
 
 Output options:
   -o, --out arg (=pcaone)        prefix of output files. default [pcaone].
@@ -264,11 +268,21 @@ Misc options:
   --inbreed arg (=0)             compute the inbreeding coefficient accounting for population structure. Options are
                                  0: disabled;
                                  1: compute per-site inbreeding coefficient and HWE test.
+  --selection arg (=0)           compute selection statistics. Options are
+                                 0: disabled;
+                                 1: perform genome-wide selection scale using Galinsky et al method;
+                                 2: perform genome-wide selection scale using PCAdapt method.
   --ld-r2 arg (=0)               R2 cutoff for LD-based pruning (usually 0.2).
-  --ld-bp arg (=0)               physical distance threshold in bases for LD window (usually 1000000).
+  --ld-bp arg (=1000000)         physical distance threshold in bases for LD window.
   --ld-stats arg (=0)            statistics to compute LD R2 for pairwise SNPs. Options are
                                  0: the ancestry adjusted, i.e. correlation between residuals;
                                  1: the standard, i.e. correlation between two alleles.
+  --clump arg                    assoc-like file with target variants and pvalues for clumping.
+  --clump-names arg (=CHR,BP,P)  column names in assoc-like file for locating chr, pos and pvalue.
+  --clump-p1 arg (=0.0001)       significance threshold for index SNPs.
+  --clump-p2 arg (=0.01)         secondary significance threshold for clumped SNPs.
+  --clump-r2 arg (=0.5)          r2 cutoff for LD-based clumping.
+  --clump-bp arg (=250000)       physical distance threshold in bases for clumping.
 #+end_src
 
 \newpage
@@ -374,15 +388,11 @@ for large dataset and PCAone will allocate more RAM when needed.
 
 ** Data Normalization
 
-PCAone will automatically apply the standard normalization for genetic data.
-Additionally, there are 3 different normalization method implemented with
-=--scale= option.
-
-- 0: do just centering by substracting the mean
-- 1: do log transformation (usually for count data, such as bulk RNA-seq data)
-- 2: do count per median log transformation (usually for single cell RNA-seq data)
-  
-One should choose proper normalization method for specific type of data.
+Note that data will be always first center for PCA. Additionally, there are
+several different normalization method implemented with =--scale= option. One
+should choose proper normalization method for specific type of data. In
+default, PCAone will automatically apply the standard normalization for
+genetic data.
 
 ** Projection
 
