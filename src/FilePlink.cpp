@@ -76,7 +76,7 @@ void FileBed::read_all() {
         if (j < nsamples) {
           G(j, i) = BED2GENO[buf & 3];
           buf >>= 2;
-          if (params.emu) {
+          if (params.emu || (params.project > 0)) {
             // 1 indicate G(i,j) need to be predicted and updated.
             if (G(j, i) != BED_MISSING_VALUE)
               C[i * nsamples + j] = 0;
