@@ -77,6 +77,18 @@ double kf_betai(double a, double b, double x);
  */
 double kt_fisher_exact(int n11, int n12, int n21, int n22, double *_left, double *_right, double *two);
 
+// Chi-square CDF: P(X <= x) where X ~ chi-sq(df)
+// chi-sq CDF = regularized lower incomplete gamma P(df/2, x/2)
+// pchisq(x, df, lower_tail=true)  = kf_gammap(df/2, x/2)
+// pchisq(x, df, lower_tail=false) = kf_gammaq(df/2, x/2)
+double pchisq(double x, int df, bool lower_tail);
+
+// Chi-square quantile function via Newton's method
+// Find x such that P(X <= x) = p, where X ~ chi-sq(df)
+// Uses the chi-square PDF for the Newton update:
+//   f(x) = x^(df/2-1) * exp(-x/2) / (2^(df/2) * Gamma(df/2))
+double qchisq(double p, int df);
+
 #ifdef __cplusplus
 }
 #endif

@@ -30,13 +30,15 @@ void run_selection(Data* data, const Param& params) {
   }
 
   Eigen::IOFormat fmt(6, Eigen::DontAlignCols, "\t", "\n");
-  std::ofstream out(params.fileout + ".pcadapt");
-  if (out.is_open()) out << V.format(fmt) << '\n';
-  std::ofstream out2(params.fileout + ".galinsky");
-  E = E.head(K) * V.rows();
-  if (out2.is_open()) {
+  std::ofstream outz(params.fileout + ".zscore");
+  if (outz.is_open()) outz << V.format(fmt) << '\n';
+  if (params.selection == 1) {
+    std::ofstream out(params.fileout + ".galinsky");
+    E = E.head(K) * V.rows();
     V.array().rowwise() /= E.transpose().array().sqrt();
-    out2 << V.format(fmt) << '\n';
-  } 
+    galinsky_selection_scan(V);
+    out << "#Pvalue of each site for each PC with galinksky selection test\n";
+    out << V.format(fmt) << '\n';
+  }
 
 }
