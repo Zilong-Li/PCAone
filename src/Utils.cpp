@@ -531,16 +531,77 @@ void emMAF_with_GL(Mat1D& F, const Mat2D& P, int maxiter, double tolmaf) {
   }
 }
 
-void galinsky_selection_scan(Mat2D& V) {
-#pragma omp parallel for
-  for (int i = 0; i < V.cols(); i++) {
-    V.col(i) *= V.col(i) * V.rows();
+double qchisq(double p, int df) {
+  if (p <= 0.0) return 0.0;
+  if (p >= 1.0) return std::numeric_limits<double>::infinity();
+
+  double s = df / 2.0;
+
+  // Initial guess using Wilson-Hilferty approximation
+  // For chi-sq(df), approximate quantile:
+  //   x ≈ df * (1 - 2/(9*df) + z_p * sqrt(2/(9*df)))^3
+  // where z_p is the standard normal quantile of p.
+  // Approximate z_p using rational approximation (Abramowitz & Stegun 26.2.23)
+  double t;
+  if (p < 0.5) {
+    t = std::sqrt(-2.0 * std::log(p));
+    t = t -
+        (2.515517 + t * (0.802853 + t * 0.010328)) / (1.0 + t * (1.432788 + t * (0.189269 + t * 0.001308)));
+    t = -t;  // negative side
+  } else {
+    t = std::sqrt(-2.0 * std::log(1.0 - p));
+    t = t -
+        (2.515517 + t * (0.802853 + t * 0.010328)) / (1.0 + t * (1.432788 + t * (0.189269 + t * 0.001308)));
   }
+
+  double a = 2.0 / (9.0 * df);
+  double x = df * std::pow(1.0 - a + t * std::sqrt(a), 3.0);
+  if (x <= 0.0) x = 0.01;  // fallback
+
+  // Log of chi-sq PDF normalization: log(2^(df/2) * Gamma(df/2))
+  double log_norm = s * std::log(2.0) + std::lgamma(s);
+
+  // Newton-Raphson iteration
+  for (int iter = 0; iter < 100; ++iter) {
+    double cdf = kf_gammap(s, x / 2.0);
+    double err = cdf - p;
+
+    // chi-sq PDF at x: f(x) = x^(s-1) * exp(-x/2) / (2^s * Gamma(s))
+    double log_pdf = (s - 1.0) * std::log(x) - x / 2.0 - log_norm;
+    double pdf = std::exp(log_pdf);
+
+    if (pdf < 1e-300) break;  // avoid division by zero
+
+    double delta = err / pdf;
+    x -= delta;
+
+    if (x <= 0.0) x = 1e-10;  // keep positive
+
+    if (std::fabs(delta) < 1e-12 * x) break;
+  }
+
+  return x;
+}
+
+double pchisq(double x, int df, bool lower_tail = false) {
+  if (x < 0.0) return lower_tail ? 0.0 : 1.0;
+  if (x == 0.0) return lower_tail ? 0.0 : 1.0;
+  double s = df / 2.0;
+  double z = x / 2.0;
+  if (lower_tail) {
+    return kf_gammap(s, z);
+  } else {
+    return kf_gammaq(s, z); // nan expected
+  }
+}
+
+void galinsky_selection_scan(Mat2D& V) {
 // get p-value
 #pragma omp parallel for
   for (int i = 0; i < V.cols(); i++) {
     for (int j = 0; j < V.rows(); j++) {
-      V(j, i) = chisq1d(V(j, i));
+      V(j, i) = V(j, i) * V(j, i) * V.rows();
+      V(j, i) = pchisq(V(j, i), 1, false);
     }
   }
 }
