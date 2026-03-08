@@ -532,6 +532,7 @@ void emMAF_with_GL(Mat1D& F, const Mat2D& P, int maxiter, double tolmaf) {
 }
 
 double qchisq(double p, int df) {
+  if (df <= 0) return std::numeric_limits<double>::quiet_NaN();  // ADD THIS
   if (p <= 0.0) return 0.0;
   if (p >= 1.0) return std::numeric_limits<double>::infinity();
 
@@ -570,28 +571,47 @@ double qchisq(double p, int df) {
     double log_pdf = (s - 1.0) * std::log(x) - x / 2.0 - log_norm;
     double pdf = std::exp(log_pdf);
 
+    // acceptable if converged, but should check |err| first
     if (pdf < 1e-300) break;  // avoid division by zero
 
     double delta = err / pdf;
+    delta = std::max(delta, -x * 0.9);  // don't step to negative
     x -= delta;
 
     if (x <= 0.0) x = 1e-10;  // keep positive
 
-    if (std::fabs(delta) < 1e-12 * x) break;
+    if (std::fabs(delta) < 1e-12 * (1.0 + x)) break;  // +1 for small x
   }
 
   return x;
 }
 
-double pchisq(double x, int df, bool lower_tail = false) {
-  if (x < 0.0) return lower_tail ? 0.0 : 1.0;
-  if (x == 0.0) return lower_tail ? 0.0 : 1.0;
+double pchisq(double x, int df, bool lower_tail = true) {
+  // Validate degrees of freedom
+  if (df <= 0) return std::numeric_limits<double>::quiet_NaN();
+
+  // Handle edge cases
+  if (std::isnan(x)) return std::numeric_limits<double>::quiet_NaN();
+  if (x <= 0.0) return lower_tail ? 0.0 : 1.0;
+  if (std::isinf(x)) return lower_tail ? 1.0 : 0.0;
+
   double s = df / 2.0;
   double z = x / 2.0;
-  if (lower_tail) {
-    return kf_gammap(s, z);
+
+  // Use the complementary function for numerical stability:
+  // - When p is close to 1 (large x), kf_gammap loses precision
+  // - When p is close to 0 (small x), kf_gammaq loses precision
+  // Switch based on which tail is smaller to get best precision,
+  // then flip if needed.
+  double result;
+  bool use_lower = (x < df + 1.0);  // heuristic: switch near mode
+
+  if (use_lower) {
+    result = kf_gammap(s, z);  // lower incomplete gamma
+    return lower_tail ? result : 1.0 - result;
   } else {
-    return kf_gammaq(s, z); // nan expected
+    result = kf_gammaq(s, z);  // upper incomplete gamma
+    return lower_tail ? 1.0 - result : result;
   }
 }
 
