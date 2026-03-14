@@ -1,0 +1,63 @@
+/*******************************************************************************
+ * @file        https://github.com/Zilong-Li/PCAone/src/FilePgen.hpp
+ * @author      Zilong Li
+ * Copyright (C) 2022-2024. Use of this code is governed by the LICENSE file.
+ ******************************************************************************/
+#ifndef PCAONE_FILEPGEN_
+#define PCAONE_FILEPGEN_
+
+#include "Data.hpp"
+#include "Utils.hpp"
+#include "pgenlib/pgenlibr.h"
+
+class FilePgen : public Data {
+ public:
+  FilePgen(const Param& params_) : Data(params_) {
+    cao.print(tick.date(), "start parsing PLINK2 PGEN format");
+    std::string fpsam = params.filein + ".psam";
+    std::string fpgen = params.filein + ".pgen";
+    // Count samples from .psam (data lines do not start with '#')
+    {
+      std::ifstream fin(fpsam);
+      if (!fin.is_open()) cao.error("Cannot open psam file: " + fpsam);
+      std::string line;
+      while (std::getline(fin, line))
+        if (!line.empty() && line[0] != '#') ++nsamples;
+    }
+    reader.Load(fpgen, nsamples, {}, 1);
+    nsnps = reader.GetVariantCt();
+    cao.print(tick.date(), "N (# samples):", nsamples, ", M (# SNPs):", nsnps);
+    snpmajor = true;
+    buf.resize(nsamples);
+    if (params.center) {
+      centered_geno_lookup = Arr2D::Zero(4, nsnps);
+      F = Mat1D::Zero(nsnps);
+    }
+    if (params.project > 0) {
+      cao.print(tick.date(), "read frequency of SNPs from the extended bim (.mbim)");
+      F = read_frq(params.filebim);
+      if (F.size() != nsnps) cao.error("the number of sites doesn't match each other");
+    }
+  }
+
+  ~FilePgen() override = default;
+
+  void read_all() final;
+  // PgenReader supports random access; no file-offset state to reset.
+  void check_file_offset_first_var() final {}
+  void read_block_initial(uint64, uint64, bool) final;
+  void read_block_update(uint64, uint64, const Mat2D&, const Mat1D&, const Mat2D&, bool) final;
+
+ private:
+  PgenReader reader;
+  std::vector<double> buf;
+  bool frequency_was_estimated = false;
+  // ReadHardcalls returns 0.0/1.0/2.0/-3.0; map to lookup index 0/1/2/3
+  static int pgen_code(double v) { return (v == -3.0) ? 3 : static_cast<int>(v); }
+};
+
+/// Compute a band-interleaving permutation for PGEN logical (no-I/O) permutation.
+/// Equivalent to the index math in permute_plink but without any file writes.
+PermMat compute_pgen_perm(uint nsnps, uint nbands);
+
+#endif  // PCAONE_FILEPGEN_
