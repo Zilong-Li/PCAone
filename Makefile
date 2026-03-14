@@ -48,7 +48,7 @@ else
 endif
 
 MYFLAGS         = -DVERSION=\"$(VERSION)\"
-INC             = -I./external -I./external/zstd/lib
+INC             = -I./external -I./external/zstd/lib -I./external/pgenlib
 PCALIB = libpcaone.a
 
 ifeq ($(Platform), Darwin)
@@ -134,12 +134,14 @@ else
 endif
 
 OBJ = src/Arnoldi.o src/Halko.o src/Data.o src/Utils.o src/Cmd.o \
-		src/FileBeagle.o src/FileCsv.o src/FileBgen.o src/FilePlink.o \
+		src/FileBeagle.o src/FileCsv.o src/FileBgen.o src/FilePlink.o src/FilePgen.o \
 		src/FileBinary.o src/FileUSV.o src/LD.o src/Projection.o \
 		src/InbredSites.o src/InbredSamples.o src/Selection.o \
 		src/kfunc.o
 
-SLIBS += ./external/bgen/bgenlib.a ./external/zstd/lib/libzstd.a
+PGENLIB = external/pgenlib/libpgenlib.a
+
+SLIBS += ./external/bgen/bgenlib.a ./external/zstd/lib/libzstd.a $(PGENLIB)
 
 LIBS += $(SLIBS) $(DLIBS) -lpthread -ldl -lm
 
@@ -147,7 +149,7 @@ LIBS += $(SLIBS) $(DLIBS) -lpthread -ldl -lm
 
 all: ${program}
 
-${program}: zstdlib bgenlib pcaonelib src/Main.o
+${program}: zstdlib bgenlib pgenlib pcaonelib src/Main.o
 	$(CXX) $(CXXFLAGS) -o $(program) src/Main.o $(PCALIB) $(LPATHS) $(LIBS) $(LDFLAGS)
 
 %.o: %.cpp
@@ -158,6 +160,19 @@ zstdlib:
 
 bgenlib:
 	$(MAKE) -C external/bgen CFLAGS='$(CFLAGS)' CXXFLAGS='$(CXXFLAGS)'
+
+pgenlib:
+	$(CXX) $(CXXFLAGS) -c -o external/pgenlib/plink2_base.o external/pgenlib/include/plink2_base.cc
+	$(CXX) $(CXXFLAGS) -c -o external/pgenlib/plink2_bits.o external/pgenlib/include/plink2_bits.cc
+	$(CXX) $(CXXFLAGS) -c -o external/pgenlib/pgenlib_misc.o external/pgenlib/include/pgenlib_misc.cc
+	$(CXX) $(CXXFLAGS) -c -o external/pgenlib/pgenlib_read.o external/pgenlib/include/pgenlib_read.cc
+	$(CXX) $(CXXFLAGS) -c -o external/pgenlib/pvar_ffi_support.o external/pgenlib/pvar_ffi_support.cc
+	$(CXX) $(CXXFLAGS) -c -o external/pgenlib/pgenlib_ffi_support.o external/pgenlib/pgenlib_ffi_support.cpp
+	$(CXX) $(CXXFLAGS) -c -o external/pgenlib/pgenlibr.o external/pgenlib/pgenlibr.cpp
+	ar -rcs $(PGENLIB) external/pgenlib/plink2_base.o external/pgenlib/plink2_bits.o \
+		external/pgenlib/pgenlib_misc.o external/pgenlib/pgenlib_read.o \
+		external/pgenlib/pvar_ffi_support.o external/pgenlib/pgenlib_ffi_support.o \
+		external/pgenlib/pgenlibr.o
 
 pcaonelib:$(OBJ)
 	ar -rcs $(PCALIB) $?
@@ -170,6 +185,7 @@ clean:
 	(rm -f src/*.o $(program))
 	(cd ./external/bgen/; $(MAKE) clean)
 	(cd ./external/zstd/lib/; $(MAKE) clean)
+	rm -f external/pgenlib/*.o $(PGENLIB)
 
 data:
 	wget http://popgen.dk/zilong/datahub/pca/example.tar.gz

@@ -9,7 +9,7 @@
 using uint = std::uint32_t;
 using uint64 = std::uint64_t;
 
-enum class FileType { PLINK, CSV, BEAGLE, BINARY, BGEN };
+enum class FileType { PLINK, CSV, BEAGLE, BINARY, BGEN, PGEN };
 
 enum class SvdType { IRAM, PCAoneAlg1, PCAoneAlg2, FULL };
 

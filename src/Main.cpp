@@ -12,6 +12,7 @@
 #include "FileBgen.hpp"
 #include "FileBinary.hpp"
 #include "FileCsv.hpp"
+#include "FilePgen.hpp"
 #include "FilePlink.hpp"
 #include "FileUSV.hpp"
 #include "Halko.hpp"
@@ -140,6 +141,8 @@ int main(int argc, char* argv[]) {
       data = new FileBin(params);
     } else if (params.file_t == FileType::CSV) {
       data = new FileCsv(params);
+    } else if (params.file_t == FileType::PGEN) {
+      data = new FilePgen(params);
     } else {
       cao.error("invalid input files!");
     }
@@ -169,6 +172,9 @@ int main(int argc, char* argv[]) {
   if (params.file_t == FileType::PLINK)
     make_plink2_eigenvec_file(params.k, params.fileout + ".eigvecs2", params.fileout + ".eigvecs",
                               params.filein + ".fam");
+  else if (params.file_t == FileType::PGEN)
+    make_plink2_eigenvec_from_psam(params.k, params.fileout + ".eigvecs2", params.fileout + ".eigvecs",
+                                   params.filein + ".psam");
 
   // remove temp files if verbose < 3
   if (params.perm && params.out_of_core && params.verbose < 3) {

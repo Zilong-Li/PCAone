@@ -76,6 +76,7 @@ Param::Param(int argc, char **argv) {
   auto csvfile = opts.add<Value<std::string>>("c", "csv", "path of comma seperated CSV file compressed by zstd.", "", &filein);
   auto bgenfile = opts.add<Value<std::string>>("g", "bgen", "path of BGEN file compressed by gzip/zstd.", "", &filein);
   auto beaglefile = opts.add<Value<std::string>>("G", "beagle", "path of BEAGLE file compressed by gzip.", "", &filein);
+  auto pgenfile = opts.add<Value<std::string>>("", "pgen", "prefix of PLINK2 .pgen/.pvar/.psam files.", "", &filein);
   opts.add<Value<std::string>>("F", "match-bim", "the .mbim file to be matched, where the 7th column is allele frequency.", "", &filebim);
   auto usvprefix = opts.add<Value<std::string>>("P", "USV", "prefix of PCAone .eigvecs/.eigvals/.loadings/.mbim.");
   opts.add<Value<std::string>, Attribute::hidden>("", "read-U", "path of file with left singular vectors (.eigvecs).", "", &fileU);
@@ -152,6 +153,8 @@ Param::Param(int argc, char **argv) {
       file_t = FileType::BEAGLE;
     else if (csvfile->is_set())
       file_t = FileType::CSV;
+    else if (pgenfile->is_set())
+      file_t = FileType::PGEN;
     else if (help_opt->count() == 1) {
       std::cout << opts.help(Attribute::advanced) << "\n";
       exit(EXIT_SUCCESS);

@@ -74,6 +74,8 @@ auto get_median(std::vector<T> v) {
 }
 
 void make_plink2_eigenvec_file(int K, std::string fout, const std::string& fin, const std::string& fam);
+void make_plink2_eigenvec_from_psam(int K, const std::string& fout, const std::string& fin,
+                                    const std::string& fpsam);
 
 bool isZstdCompressed(const char* filename);
 

@@ -236,6 +236,34 @@ void make_plink2_eigenvec_file(int K, std::string fout, const std::string& fin, 
   }
 }
 
+void make_plink2_eigenvec_from_psam(int K, const std::string& fout, const std::string& fin,
+                                    const std::string& fpsam) {
+  std::ifstream ipsam(fpsam);
+  std::ifstream ifin(fin);
+  std::ofstream ofs(fout);
+  ofs << "#FID\tIID";
+  for (int i = 0; i < K; i++) ofs << "\tPC" << i + 1;
+  ofs << "\n";
+  std::string header, line1, line2, sep{" \t"};
+  // skip ## comment lines, stop at column header (starts with single '#')
+  while (std::getline(ipsam, header))
+    if (header.size() >= 1 && header[0] == '#' && (header.size() < 2 || header[1] != '#')) break;
+  bool has_fid = (header.size() >= 4 && header.substr(0, 4) == "#FID");
+  while (std::getline(ipsam, line1)) {
+    if (line1.empty() || line1[0] == '#') continue;
+    auto tokens = split_string(line1, sep);
+    std::getline(ifin, line2);
+    std::string fid = "0", iid;
+    if (has_fid && tokens.size() >= 2) {
+      fid = tokens[0];
+      iid = tokens[1];
+    } else if (!tokens.empty()) {
+      iid = tokens[0];
+    }
+    ofs << fid << "\t" << iid << "\t" << line2 << "\n";
+  }
+}
+
 bool isZstdCompressed(const char* filename) {
   FILE* file = fopen(filename, "rb");
   if (!file) return false;
