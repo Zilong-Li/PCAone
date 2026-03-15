@@ -26,8 +26,9 @@ class FilePgen : public Data {
     }
     reader.Load(fpgen, nsamples, {}, 1);
     nsnps = reader.GetVariantCt();
-    dosage_present = reader.DosagePresent();
-    cao.print(tick.date(), "N (# samples):", nsamples, ", M (# SNPs):", nsnps, ". dosage_present:", dosage_present);
+    dosage_mode = params.dosage && reader.DosagePresent();
+    cao.print(tick.date(), "N (# samples):", nsamples, ", M (# SNPs):", nsnps, ". dosage_mode:", dosage_mode);
+    
     snpmajor = true;
     buf.resize(nsamples);
     if (params.center) {
@@ -53,7 +54,7 @@ class FilePgen : public Data {
   PgenReader reader;
   std::vector<double> buf;
   bool frequency_was_estimated = false;
-  bool dosage_present = false;
+  bool dosage_mode = false;
   // ReadHardcalls returns 0.0/1.0/2.0/-3.0; map to lookup index 0/1/2/3
   static int pgen_code(double v) { return (v == -3.0) ? 3 : static_cast<int>(v); }
 };

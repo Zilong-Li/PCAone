@@ -72,11 +72,12 @@ Param::Param(int argc, char **argv) {
   opts.add<Value<std::string>, Attribute::headline>("","INPUT","Input options:");
   auto plinkfile = opts.add<Value<std::string>>("b", "bfile", "prefix of PLINK .bed/.bim/.fam files.", "", &filein);
   opts.add<Switch, Attribute::advanced>("", "haploid", "the plink format represents haploid data.", &haploid);
+  auto pgenfile = opts.add<Value<std::string>>("p", "pgen", "prefix of PLINK2 .pgen/.pvar/.psam files.", "", &filein);
+  opts.add<Switch, Attribute::advanced>("", "dosage", "use genotype dosage instead of hard call genotypes.", &dosage);
   auto binfile = opts.add<Value<std::string>>("B", "binary", "path of binary file.", "", &filein);
   auto csvfile = opts.add<Value<std::string>>("c", "csv", "path of comma seperated CSV file compressed by zstd.", "", &filein);
   auto bgenfile = opts.add<Value<std::string>>("g", "bgen", "path of BGEN file compressed by gzip/zstd.", "", &filein);
   auto beaglefile = opts.add<Value<std::string>>("G", "beagle", "path of BEAGLE file compressed by gzip.", "", &filein);
-  auto pgenfile = opts.add<Value<std::string>>("p", "pgen", "prefix of PLINK2 .pgen/.pvar/.psam files.", "", &filein);
   opts.add<Value<std::string>>("F", "match-bim", "the .mbim file to be matched, where the 7th column is allele frequency.", "", &filebim);
   auto usvprefix = opts.add<Value<std::string>>("P", "USV", "prefix of PCAone .eigvecs/.eigvals/.loadings/.mbim.");
   opts.add<Value<std::string>, Attribute::hidden>("", "read-U", "path of file with left singular vectors (.eigvecs).", "", &fileU);

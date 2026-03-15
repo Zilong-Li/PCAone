@@ -32,6 +32,7 @@ class Param {
   uint bands = 64;
   bool genetic;  // bifle,pgen,bgen
   bool pca = true;
+  bool perm = false;  // wheather data is permuted
   // for normalization
   double scaleFactor = 1;
   // for emu iteration
@@ -50,7 +51,6 @@ class Param {
   double tol = 1e-4;
   uint buffer = 2;
   uint rand = 1;
-  bool perm = false;  // wheather data is permuted
   // for ld stuff
   bool print_r2 = false;
   // for ld pruning
@@ -76,6 +76,7 @@ class Param {
   // general
   uint verbose = 1; // verbose level. 0: no verbose; 1: output to screen; 2: debug info 
   int scale = -9;  // do scaling. 9: sqrt(2f(1-f)); 0: just centering. 1: log scaling. 2: cpmed
+  bool dosage = false;
   bool groff = false;
   bool cpmed = false;
   bool printv = false;

@@ -8,7 +8,6 @@
 
 #include "Common.hpp"
 #include "Utils.hpp"
-#include "popl/popl.hpp"
 
 using namespace std;
 
@@ -25,7 +24,7 @@ void FilePgen::read_all() {
   if (params.estaf) {
     F = Mat1D::Zero(nsnps);
     for (i = 0; i < nsnps; ++i) {
-      if (dosage_present) {        
+      if (dosage_mode) {        
         reader.Read(buf.data(), nsamples, 0, i, 1);
       } else {
         reader.ReadHardcalls(buf.data(), nsamples, 0, i, 1);
@@ -51,7 +50,7 @@ void FilePgen::read_all() {
 
   for (i = 0; i < nsnps; ++i) {
     uint s = params.keepsnp ? keepSNPs[i] : i;
-    if (dosage_present) {        
+    if (dosage_mode) {        
       reader.Read(buf.data(), nsamples, 0, s, 1);
     } else {
       reader.ReadHardcalls(buf.data(), nsamples, 0, s, 1);
@@ -139,7 +138,12 @@ void FilePgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standa
     for (i = 0; i < actual_block_size; ++i) {
       snp_idx = start_idx + i;
       uint64 pgen_idx = params.perm ? (uint64)perm.indices()(snp_idx) : snp_idx;
-      reader.ReadHardcalls(buf.data(), nsamples, 0, pgen_idx, 1);
+      if (dosage_mode) {        
+        reader.Read(buf.data(), nsamples, 0, pgen_idx, 1);
+      } else {
+        reader.ReadHardcalls(buf.data(), nsamples, 0, pgen_idx, 1);
+      }
+
 #pragma omp parallel for private(j)
       for (j = 0; j < nsamples; ++j) {
         G(j, i) = centered_geno_lookup(pgen_code(buf[j]), snp_idx);
@@ -153,7 +157,12 @@ void FilePgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standa
     for (i = 0; i < actual_block_size; ++i) {
       snp_idx = start_idx + i;
       uint64 pgen_idx = params.perm ? (uint64)perm.indices()(snp_idx) : snp_idx;
-      reader.ReadHardcalls(buf.data(), nsamples, 0, pgen_idx, 1);
+      if (dosage_mode) {        
+        reader.Read(buf.data(), nsamples, 0, pgen_idx, 1);
+      } else {
+        reader.ReadHardcalls(buf.data(), nsamples, 0, pgen_idx, 1);
+      }
+
       uint64 c = 0;
       double sum = 0.0;
       for (j = 0; j < nsamples; ++j) {
@@ -198,7 +207,12 @@ void FilePgen::read_block_update(uint64 start_idx, uint64 stop_idx, const Mat2D&
   for (i = 0; i < actual_block_size; ++i) {
     snp_idx = start_idx + i;
     uint64 pgen_idx = params.perm ? (uint64)perm.indices()(snp_idx) : snp_idx;
-    reader.ReadHardcalls(buf.data(), nsamples, 0, pgen_idx, 1);
+    if (dosage_mode) {        
+      reader.Read(buf.data(), nsamples, 0, pgen_idx, 1);
+    } else {
+      reader.ReadHardcalls(buf.data(), nsamples, 0, pgen_idx, 1);
+    }
+
 #pragma omp parallel for private(j, k)
     for (j = 0; j < nsamples; ++j) {
       int code = pgen_code(buf[j]);
