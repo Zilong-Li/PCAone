@@ -49,7 +49,7 @@ Param::Param(int argc, char **argv) {
                                      " 2: do first count per median log transformation (CPMED), then standardization;\n"
                                      " 3: do first log1p transformation, then standardization;\n"
                                      " 4: do first relative counts, then standardization.", scale,  &scale);
-  opts.add<Value<uint>>("p", "maxp", "maximum number of power iterations for RSVD algorithm.", maxp, &maxp);
+  opts.add<Value<uint>>("", "maxp", "maximum number of power iterations for RSVD algorithm.", maxp, &maxp);
   opts.add<Switch>("S", "no-shuffle", "do not shuffle columns of data for --svd 2 (if not locally correlated).", &noshuffle);
   opts.add<Value<uint>, Attribute::advanced>("w", "batches", "the number of mini-batches used by --svd 2.", bands, &bands);
   opts.add<Value<int>>("", "seed", "seeds for reproducing results.\n", seed, &seed);
@@ -76,7 +76,7 @@ Param::Param(int argc, char **argv) {
   auto csvfile = opts.add<Value<std::string>>("c", "csv", "path of comma seperated CSV file compressed by zstd.", "", &filein);
   auto bgenfile = opts.add<Value<std::string>>("g", "bgen", "path of BGEN file compressed by gzip/zstd.", "", &filein);
   auto beaglefile = opts.add<Value<std::string>>("G", "beagle", "path of BEAGLE file compressed by gzip.", "", &filein);
-  auto pgenfile = opts.add<Value<std::string>>("", "pgen", "prefix of PLINK2 .pgen/.pvar/.psam files.", "", &filein);
+  auto pgenfile = opts.add<Value<std::string>>("p", "pgen", "prefix of PLINK2 .pgen/.pvar/.psam files.", "", &filein);
   opts.add<Value<std::string>>("F", "match-bim", "the .mbim file to be matched, where the 7th column is allele frequency.", "", &filebim);
   auto usvprefix = opts.add<Value<std::string>>("P", "USV", "prefix of PCAone .eigvecs/.eigvals/.loadings/.mbim.");
   opts.add<Value<std::string>, Attribute::hidden>("", "read-U", "path of file with left singular vectors (.eigvecs).", "", &fileU);
