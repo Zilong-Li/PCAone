@@ -8,6 +8,7 @@
 
 #include "Common.hpp"
 #include "Utils.hpp"
+#include "popl/popl.hpp"
 
 using namespace std;
 
@@ -24,7 +25,11 @@ void FilePgen::read_all() {
   if (params.estaf) {
     F = Mat1D::Zero(nsnps);
     for (i = 0; i < nsnps; ++i) {
-      reader.ReadHardcalls(buf.data(), nsamples, 0, i, 1);
+      if (dosage_present) {        
+        reader.Read(buf.data(), nsamples, 0, i, 1);
+      } else {
+        reader.ReadHardcalls(buf.data(), nsamples, 0, i, 1);
+      }
       uint64 c = 0;
       double sum = 0.0;
       for (j = 0; j < nsamples; ++j) {
@@ -46,7 +51,11 @@ void FilePgen::read_all() {
 
   for (i = 0; i < nsnps; ++i) {
     uint s = params.keepsnp ? keepSNPs[i] : i;
-    reader.ReadHardcalls(buf.data(), nsamples, 0, s, 1);
+    if (dosage_present) {        
+      reader.Read(buf.data(), nsamples, 0, s, 1);
+    } else {
+      reader.ReadHardcalls(buf.data(), nsamples, 0, s, 1);
+    }
     for (j = 0; j < nsamples; ++j) {
       G(j, i) = pgen2dosage(buf[j]);
       if (params.emu || (params.project > 0))
