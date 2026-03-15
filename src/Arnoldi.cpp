@@ -57,7 +57,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
   if (!params.out_of_core) {
     // SpMatrix sG = data->G.sparseView();
     PartialSVDSolver<Mat2D> svds(data->G, params.k, params.ncv);
-    if (!params.ld && !params.impute && (params.file_t == FileType::PLINK || params.file_t == FileType::BGEN))
+    if (!params.ld && !params.impute && params.genetic)
       data->standardize_E();
     nconv = svds.compute(params.imaxiter, params.itol);
     if (nconv != params.k) cao.error("the nconv is not equal to k.");

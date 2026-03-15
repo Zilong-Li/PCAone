@@ -162,6 +162,7 @@ Param::Param(int argc, char **argv) {
       std::cout << opts << "\n";
       exit(EXIT_SUCCESS);
     }
+    genetic = (file_t == FileType::PLINK || file_t == FileType::BGEN || file_t == FileType::PGEN);
     // handle PI, i.e U,S,V
     if (usvprefix->is_set()) {
       if (fileU.empty()) fileU = usvprefix->value() + ".eigvecs";
@@ -203,7 +204,7 @@ Param::Param(int argc, char **argv) {
     // handle memory and misc options
     ncv = 20 > (2 * k + 1) ? 20 : (2 * k + 1);
     oversamples = oversamples > k ? oversamples : k;
-    if (haploid && (file_t == FileType::PLINK || file_t == FileType::BGEN)) ploidy = 1;
+    if (haploid && genetic) ploidy = 1;
     if (memory > 0 && svd_t != SvdType::FULL) out_of_core = true;
     if (maf > 0.5) {
       std::cerr << "warning: '--maf' with a value greater than 0.5 will be converted to 1 - maf.\n";

@@ -30,6 +30,7 @@ class Param {
   uint maxp = 20;  // maximum number of power iterations
   uint threads = 12;
   uint bands = 64;
+  bool genetic;  // bifle,pgen,bgen
   bool pca = true;
   // for normalization
   double scaleFactor = 1;

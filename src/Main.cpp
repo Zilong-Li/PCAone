@@ -2,6 +2,7 @@
 #define _DECLARE_TOOLBOX_HERE
 
 #include <omp.h>
+
 #include <thread>
 
 #include "Arnoldi.hpp"
@@ -16,8 +17,8 @@
 #include "FilePlink.hpp"
 #include "FileUSV.hpp"
 #include "Halko.hpp"
-#include "InbredSites.hpp"
 #include "InbredSamples.hpp"
+#include "InbredSites.hpp"
 #include "LD.hpp"
 #include "Projection.hpp"
 #include "Selection.hpp"
@@ -103,7 +104,7 @@ int main(int argc, char* argv[]) {
     return bye();
   }
 
-  // particular case for Selection 
+  // particular case for Selection
   // if ((params.selection > 0) && (params.file_t == FileType::PLINK)) {
   //   data = new FileBed(params);
   //   run_selection(data, params);
@@ -117,12 +118,17 @@ int main(int argc, char* argv[]) {
       auto perm = permute_plink(params.filein, params.fileout, params.buffer, params.bands);
       data = new FileBed(params);
       data->perm = perm;
+    } else if (params.file_t == FileType::PGEN) {
+      // Logical permutation: no file rewrite needed; PgenReader supports random access.
+      data = new FilePgen(params);
+      data->perm = compute_pgen_perm(data->nsnps, params.bands);
     } else if (params.file_t == FileType::BGEN) {
       auto perm = permute_bgen(params.filein, params.fileout, params.threads);
       data = new FileBgen(params);
       data->perm = perm;
     } else if (params.file_t == FileType::CSV) {
-      auto perm = shuffle_csvzstd_to_bin(params.filein, params.fileout, params.buffer, params.scale, params.scaleFactor);
+      auto perm = shuffle_csvzstd_to_bin(params.filein, params.fileout, params.buffer, params.scale,
+                                         params.scaleFactor);
       params.file_t = FileType::BINARY;
       data = new FileBin(params);
       data->perm = perm;
@@ -137,6 +143,8 @@ int main(int argc, char* argv[]) {
   } else {
     if (params.file_t == FileType::PLINK) {
       data = new FileBed(params);
+    } else if (params.file_t == FileType::PGEN) {
+      data = new FilePgen(params);
     } else if (params.file_t == FileType::BGEN) {
       data = new FileBgen(params);
     } else if (params.file_t == FileType::BEAGLE) {
@@ -145,8 +153,6 @@ int main(int argc, char* argv[]) {
       data = new FileBin(params);
     } else if (params.file_t == FileType::CSV) {
       data = new FileCsv(params);
-    } else if (params.file_t == FileType::PGEN) {
-      data = new FilePgen(params);
     } else {
       cao.error("invalid input files!");
     }
@@ -164,7 +170,8 @@ int main(int argc, char* argv[]) {
     if (params.file_t == FileType::PLINK || params.file_t == FileType::BGEN) data->standardize_E();
     cao.print(tick.date(), "running the Full SVD with in-core mode.");
     Eigen::JacobiSVD<Mat2D> svd(data->G, Eigen::ComputeThinU | Eigen::ComputeThinV);
-    data->write_eigs_files(svd.singularValues().array().square() / data->nsnps, svd.singularValues(), svd.matrixU(), svd.matrixV());
+    data->write_eigs_files(svd.singularValues().array().square() / data->nsnps, svd.singularValues(),
+                           svd.matrixU(), svd.matrixV());
   } else {
     cao.error("unsupported PCA method!");
   }
