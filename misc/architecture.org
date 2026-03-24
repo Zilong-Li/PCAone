@@ -28,11 +28,14 @@ abstract class Data {
   +void {abstract} read_block()
 }
 Data <|-- FilePlink
+Data <|-- FilePgen
 Data <|-- FileBeagle
 Data <|-- FileBgen
 Data <|-- FileCSV
-Data <|-- OtherFormats
 class FilePlink {
+  +normalization()
+}
+class FilePgen {
   +normalization()
 }
 class FileBeagle {
@@ -42,9 +45,6 @@ class FileBgen {
   +normalization()
 }
 class FileCSV {
-  +normalization()
-}
-class OtherFormats {
   +normalization()
 }
 package "PCA methods" as PCA {
@@ -66,18 +66,19 @@ package "PCA methods" as PCA {
 }
 
 class "PCA Related" as PCAem {
-  +EMU
-  +PCAngsd
-  +Projection
   +LD
   +HWE
+  +Projection
+  +Selection
+  +EMU
+  +PCAngsd
 }
 FullSVD <-- Data: <:astonished:>
 IRAM <-- Data: <:smile:>
 RSVD <-- Data: <:nerd_face:>
 PCAone <-- Data: <:sunglasses:> 
-PCA -left-> PCAem 
 Data -left[dashed]-> PCAem: <:boom:> 
+PCA -left-> PCAem
 #+end_src
 
 #+RESULTS:

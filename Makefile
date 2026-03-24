@@ -196,6 +196,8 @@ example_tests:
 	./PCAone -g example/test.bgen -n4 -m0.1 -o m1
 	diff m0.eigvals m1.eigvals
 	./PCAone --csv example/BrainSpinalCord.csv.zst -k 10 -m 2 --scale 2 -S
+	./PCAone -p example/plink2 -n 4 -m 1 -o m1
+	./PCAone -p example/plink2 -n 4 -o m0
 
 hwe:
 	./PCAone -b example/plink -k 3 -V -m 1
@@ -234,7 +236,7 @@ ld_tests:
 	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0
 	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 2
 	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
-	./PCAone -b example/plink -k 3 --ld -o adj -d 1 -p 10 --maf 0.1
+	./PCAone -b example/plink -k 3 --ld -o adj -d 1 --maxp 10 --maf 0.1
 	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0
 	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 2
 	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
