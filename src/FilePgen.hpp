@@ -24,13 +24,14 @@ class FilePgen : public Data {
       while (std::getline(fin, line))
         if (!line.empty() && line[0] != '#') ++nsamples;
     }
-    reader.Load(fpgen, nsamples, {}, 1);
+    reader_threads = std::max(1u, params.threads);
+    reader.Load(fpgen, nsamples, {}, reader_threads);
     nsnps = reader.GetVariantCt();
     dosage_mode = params.dosage && reader.DosagePresent();
     cao.print(tick.date(), "N (# samples):", nsamples, ", M (# SNPs):", nsnps, ". dosage_mode:", dosage_mode);
     
     snpmajor = true;
-    buf.resize(nsamples);
+    thread_bufs.resize(reader_threads, std::vector<double>(nsamples));
     if (params.center) {
       centered_geno_lookup = Arr2D::Zero(4, nsnps);
       F = Mat1D::Zero(nsnps);
@@ -52,7 +53,8 @@ class FilePgen : public Data {
 
  private:
   PgenReader reader;
-  std::vector<double> buf;
+  uint reader_threads = 1;
+  std::vector<std::vector<double>> thread_bufs;
   bool frequency_was_estimated = false;
   bool dosage_mode = false;
   // ReadHardcalls returns 0.0/1.0/2.0/-3.0; map to lookup index 0/1/2/3

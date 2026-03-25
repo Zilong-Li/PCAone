@@ -8,6 +8,7 @@
 
 #include "Common.hpp"
 #include "Utils.hpp"
+#include <omp.h>
 
 using namespace std;
 
@@ -29,11 +30,14 @@ void FilePgen::read_all() {
   if (params.estaf) {
     F = Mat1D::Zero(nsnps);
     C = ArrBool::Zero(nsnps * nsamples);
+ #pragma omp parallel for private(i, j) schedule(static)
     for (i = 0; i < nsnps; ++i) {
+      int thr = omp_get_thread_num();
+      double* buf = thread_bufs[thr].data();
       if (dosage_mode) {        
-        reader.Read(buf.data(), nsamples, 0, i, 1);
+        reader.Read(buf, nsamples, thr, i, 1);
       } else {
-        reader.ReadHardcalls(buf.data(), nsamples, 0, i, 1);
+        reader.ReadHardcalls(buf, nsamples, thr, i, 1);
       }
       uint64 c = 0;
       double sum = 0.0;
@@ -62,12 +66,15 @@ void FilePgen::read_all() {
 
   G = Mat2D::Zero(nsamples, nsnps);
 
+ #pragma omp parallel for private(i, j) schedule(static)
   for (i = 0; i < nsnps; ++i) {
+    int thr = omp_get_thread_num();
+    double* buf = thread_bufs[thr].data();
     uint s = params.filterSNP ? keepSNPs[i] : i;
     if (dosage_mode) {        
-      reader.Read(buf.data(), nsamples, 0, s, 1);
+      reader.Read(buf, nsamples, thr, s, 1);
     } else {
-      reader.ReadHardcalls(buf.data(), nsamples, 0, s, 1);
+      reader.ReadHardcalls(buf, nsamples, thr, s, 1);
     }
     for (j = 0; j < nsamples; ++j) {
       G(j, i) = pgen2dosage(buf[j]);
@@ -141,16 +148,17 @@ void FilePgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standa
 
   if (!params.estaf) frequency_was_estimated = true;
   if (frequency_was_estimated) {
+ #pragma omp parallel for private(i, j, snp_idx) schedule(static)
     for (i = 0; i < actual_block_size; ++i) {
+      int thr = omp_get_thread_num();
+      double* buf = thread_bufs[thr].data();
       snp_idx = start_idx + i;
       uint64 pgen_idx = params.perm ? (uint64)perm.indices()(snp_idx) : snp_idx;
       if (dosage_mode) {        
-        reader.Read(buf.data(), nsamples, 0, pgen_idx, 1);
+        reader.Read(buf, nsamples, thr, pgen_idx, 1);
       } else {
-        reader.ReadHardcalls(buf.data(), nsamples, 0, pgen_idx, 1);
+        reader.ReadHardcalls(buf, nsamples, thr, pgen_idx, 1);
       }
-
-#pragma omp parallel for private(j)
       for (j = 0; j < nsamples; ++j) {
         if (dosage_mode) {
           G(j, i) = centered_pgen_value(buf[j], F(snp_idx));
@@ -164,13 +172,16 @@ void FilePgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standa
       }
     }
   } else {
+ #pragma omp parallel for private(i, j, snp_idx) schedule(static)
     for (i = 0; i < actual_block_size; ++i) {
+      int thr = omp_get_thread_num();
+      double* buf = thread_bufs[thr].data();
       snp_idx = start_idx + i;
       uint64 pgen_idx = params.perm ? (uint64)perm.indices()(snp_idx) : snp_idx;
       if (dosage_mode) {        
-        reader.Read(buf.data(), nsamples, 0, pgen_idx, 1);
+        reader.Read(buf, nsamples, thr, pgen_idx, 1);
       } else {
-        reader.ReadHardcalls(buf.data(), nsamples, 0, pgen_idx, 1);
+        reader.ReadHardcalls(buf, nsamples, thr, pgen_idx, 1);
       }
 
       uint64 c = 0;
@@ -193,7 +204,6 @@ void FilePgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standa
         centered_geno_lookup(1, snp_idx) = 0.5 - F(snp_idx);       // Het
         centered_geno_lookup(2, snp_idx) = 1.0 - F(snp_idx);       // HomAlt
       }
-#pragma omp parallel for private(j)
       for (j = 0; j < nsamples; ++j) {
         if (dosage_mode) {
           G(j, i) = centered_pgen_value(buf[j], F(snp_idx));
@@ -221,16 +231,17 @@ void FilePgen::read_block_update(uint64 start_idx, uint64 stop_idx, const Mat2D&
   uint64 snp_idx;
   uint ks = svals.rows();
 
+ #pragma omp parallel for private(i, j, k, snp_idx) schedule(static)
   for (i = 0; i < actual_block_size; ++i) {
+    int thr = omp_get_thread_num();
+    double* buf = thread_bufs[thr].data();
     snp_idx = start_idx + i;
     uint64 pgen_idx = params.perm ? (uint64)perm.indices()(snp_idx) : snp_idx;
     if (dosage_mode) {        
-      reader.Read(buf.data(), nsamples, 0, pgen_idx, 1);
+      reader.Read(buf, nsamples, thr, pgen_idx, 1);
     } else {
-      reader.ReadHardcalls(buf.data(), nsamples, 0, pgen_idx, 1);
+      reader.ReadHardcalls(buf, nsamples, thr, pgen_idx, 1);
     }
-
-#pragma omp parallel for private(j, k)
     for (j = 0; j < nsamples; ++j) {
       bool is_missing = (buf[j] == PGEN_MISSING);
       if (dosage_mode) {
