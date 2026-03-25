@@ -163,11 +163,17 @@ int main(int argc, char* argv[]) {
   } else if (params.svd_t == SvdType::PCAoneAlg1 || params.svd_t == SvdType::PCAoneAlg2) {
     run_pca_with_halko(data, params);
   } else if (params.svd_t == SvdType::FULL) {
-    if (params.file_t == FileType::PLINK || params.file_t == FileType::BGEN) data->standardize_E();
+    if (params.file_t == FileType::PLINK || params.file_t == FileType::BGEN || params.file_t == FileType::PGEN)
+      data->standardize_E();
     cao.print(tick.date(), "running the Full SVD with in-core mode.");
     Eigen::JacobiSVD<Mat2D> svd(data->G, Eigen::ComputeThinU | Eigen::ComputeThinV);
-    data->write_eigs_files(svd.singularValues().array().square() / data->nsnps, svd.singularValues(),
-                           svd.matrixU(), svd.matrixV());
+    const Eigen::Index ncomp = std::min<Eigen::Index>(params.k, svd.singularValues().size());
+    Mat1D svals = svd.singularValues().head(ncomp);
+    Mat1D evals = svals.array().square() / data->nsnps;
+    Mat2D U = svd.matrixU().leftCols(ncomp);
+    Mat2D V = svd.matrixV().leftCols(ncomp);
+    flip_UV(U, V);
+    data->write_eigs_files(evals, svals, U, V);
   } else {
     cao.error("unsupported PCA method!");
   }
