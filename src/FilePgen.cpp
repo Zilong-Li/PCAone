@@ -52,7 +52,7 @@ void FilePgen::read_all() {
     }
     if (C.count() > 0) {
       impute = true;
-      double p_miss = (double)C.count() / (double)C.size();
+      p_miss = (double)C.count() / (double)C.size();
       cao.print(tick.date(), "the proportion of missingness  is", p_miss);
     } else {
       C.resize(0); // clear 
