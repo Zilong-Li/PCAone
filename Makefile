@@ -191,6 +191,9 @@ data:
 	wget http://popgen.dk/zilong/datahub/pca/example.tar.gz
 	tar -xzf example.tar.gz && rm -f example.tar.gz
 
+###################################################################
+#####                   EXAMPLE TESTS
+###################################################################
 example_tests:
 	./PCAone -g example/test.bgen -n4 -o m0
 	./PCAone -g example/test.bgen -n4 -m0.1 -o m1
@@ -198,6 +201,7 @@ example_tests:
 	./PCAone --csv example/BrainSpinalCord.csv.zst -k 10 -m 2 --scale 2 -S
 	./PCAone -p example/plink2 -n 4 -m 1 -o m1
 	./PCAone -p example/plink2 -n 4 -o m0
+	./PCAone -p example/plink2 -n 4 -o m0 --dosage
 
 hwe:
 	./PCAone -b example/plink -k 3 -V -m 1
@@ -207,7 +211,7 @@ hwe:
 
 ld_matrix:
 	./PCAone -b example/plink -k 3 --ld -o adj -d 2
-	./PCAone -b example/plink -k 3 --ld -o pcaone -d 2 -m 2
+	./PCAone -b example/plink -k 3 --ld -o pcaone -d 2 -m 1
 	diff adj.mbim pcaone.mbim
 	cut -f1 adj.mbim | sort -cn  ## check if sorted
 	awk '$$1==3' adj.mbim | cut -f4 | sort -cn
@@ -230,27 +234,27 @@ ld_clump:
 ld_tests:
 	./PCAone -b example/plink -k 3 --ld -o adj -d 0 --maf 0.1
 	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0
-	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 2
+	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 1
 	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
 	./PCAone -b example/plink -k 3 --ld -o adj -d 0 -m 2
 	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0
-	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 2
+	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 1
 	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
 	./PCAone -b example/plink -k 3 --ld -o adj -d 1 --maxp 10 --maf 0.1
 	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0
-	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 2
+	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 1
 	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
 	./PCAone -b example/plink -k 3 --ld -o adj -d 1 -p 10 -m 2
 	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0
-	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 2
+	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 1
 	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
 	./PCAone -b example/plink -k 3 --ld -o adj -d 2 --maf 0.1
 	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0
-	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 2
+	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 1
 	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
-	./PCAone -b example/plink -k 3 --ld -o adj -d 2 -m 2
+	./PCAone -b example/plink -k 3 --ld -o adj -d 2 -m 1
 	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0
-	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 2
+	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 1
 	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
 
 #################################################################
@@ -264,6 +268,8 @@ example_tests_fast:
 	./PCAone -g example/test.bgen -n4 -o m0
 	./PCAone -g example/test.bgen -n4 -m0.1 -o m1
 	diff m0.eigvals m1.eigvals
+	./PCAone -p example/plink2 -n 4 -o m0
+	./PCAone -p example/plink2 -n 4 -o m0 --dosage
 
 # The fast test suite for aarch64
 test_aarch64: data example_tests_fast hwe ld_matrix ld_r2 ld_prune ld_clump
