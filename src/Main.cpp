@@ -132,10 +132,6 @@ int main(int argc, char* argv[]) {
       params.file_t = FileType::BINARY;
       data = new FileBin(params);
       data->perm = perm;
-    } else if (params.file_t == FileType::PGEN) {
-      // Logical permutation: no file rewrite needed; PgenReader supports random access.
-      data = new FilePgen(params);
-      data->perm = compute_pgen_perm(data->nsnps, params.bands);
     } else {
       cao.error("wrong file type used!");
     }

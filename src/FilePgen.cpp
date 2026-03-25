@@ -19,6 +19,11 @@ static inline double pgen2dosage(double v) {
   return (v == PGEN_MISSING) ? BED_MISSING_VALUE : v / 2.0;
 }
 
+static inline double centered_pgen_value(double v, double af) {
+  double dosage = pgen2dosage(v);
+  return (dosage == BED_MISSING_VALUE) ? 0.0 : dosage - af;
+}
+
 void FilePgen::read_all() {
   uint i, j;
   if (params.estaf) {
@@ -147,7 +152,11 @@ void FilePgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standa
 
 #pragma omp parallel for private(j)
       for (j = 0; j < nsamples; ++j) {
-        G(j, i) = centered_geno_lookup(pgen_code(buf[j]), snp_idx);
+        if (dosage_mode) {
+          G(j, i) = centered_pgen_value(buf[j], F(snp_idx));
+        } else {
+          G(j, i) = centered_geno_lookup(pgen_code(buf[j]), snp_idx);
+        }
         if (standardize && params.scale == -9) {
           double sd = sqrt(F(snp_idx) * (1.0 - F(snp_idx)));
           if (sd > VAR_TOL) G(j, i) = G(j, i) * sqrt((double)params.ploidy) / sd;
@@ -167,8 +176,9 @@ void FilePgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standa
       uint64 c = 0;
       double sum = 0.0;
       for (j = 0; j < nsamples; ++j) {
-        if (buf[j] != PGEN_MISSING) {
-          sum += buf[j] / 2.0;
+        double dosage = pgen2dosage(buf[j]);
+        if (dosage != BED_MISSING_VALUE) {
+          sum += dosage;
           ++c;
         }
       }
@@ -176,14 +186,20 @@ void FilePgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standa
       if (F(snp_idx) == 0.0 || F(snp_idx) == 1.0) cao.warn("sites with MAF=0 found! remove them first!");
       if (params.ld && params.verbose > 1 && F(snp_idx) == 0.5)
         cao.warn("MAF for site ", snp_idx, " is 0.5. NaN values expected in calculating LD R2.");
-      // centered_geno_lookup: rows 0=HomRef, 1=Het, 2=HomAlt, 3=missing
-      centered_geno_lookup(3, snp_idx) = 0.0;                    // missing: impute to mean
-      centered_geno_lookup(0, snp_idx) = 0.0 - F(snp_idx);       // HomRef
-      centered_geno_lookup(1, snp_idx) = 0.5 - F(snp_idx);       // Het
-      centered_geno_lookup(2, snp_idx) = 1.0 - F(snp_idx);       // HomAlt
+      if (!dosage_mode) {
+        // centered_geno_lookup: rows 0=HomRef, 1=Het, 2=HomAlt, 3=missing
+        centered_geno_lookup(3, snp_idx) = 0.0;                    // missing: impute to mean
+        centered_geno_lookup(0, snp_idx) = 0.0 - F(snp_idx);       // HomRef
+        centered_geno_lookup(1, snp_idx) = 0.5 - F(snp_idx);       // Het
+        centered_geno_lookup(2, snp_idx) = 1.0 - F(snp_idx);       // HomAlt
+      }
 #pragma omp parallel for private(j)
       for (j = 0; j < nsamples; ++j) {
-        G(j, i) = centered_geno_lookup(pgen_code(buf[j]), snp_idx);
+        if (dosage_mode) {
+          G(j, i) = centered_pgen_value(buf[j], F(snp_idx));
+        } else {
+          G(j, i) = centered_geno_lookup(pgen_code(buf[j]), snp_idx);
+        }
         if (standardize && params.scale == -9) {
           double sd = sqrt(F(snp_idx) * (1.0 - F(snp_idx)));
           if (sd > VAR_TOL) G(j, i) = G(j, i) * sqrt((double)params.ploidy) / sd;
@@ -216,9 +232,13 @@ void FilePgen::read_block_update(uint64 start_idx, uint64 stop_idx, const Mat2D&
 
 #pragma omp parallel for private(j, k)
     for (j = 0; j < nsamples; ++j) {
-      int code = pgen_code(buf[j]);
-      G(j, i) = centered_geno_lookup(code, snp_idx);
-      if (params.emu && code == 3) {  // missing: predict via EMU
+      bool is_missing = (buf[j] == PGEN_MISSING);
+      if (dosage_mode) {
+        G(j, i) = centered_pgen_value(buf[j], F(snp_idx));
+      } else {
+        G(j, i) = centered_geno_lookup(pgen_code(buf[j]), snp_idx);
+      }
+      if (params.emu && is_missing) {  // missing: predict via EMU
         G(j, i) = 0.0;
         for (k = 0; k < ks; ++k) G(j, i) += U(j, k) * svals(k) * VT(k, snp_idx);
         G(j, i) = fmin(fmax(G(j, i), -F(snp_idx)), 1.0 - F(snp_idx));
