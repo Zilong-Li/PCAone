@@ -7,7 +7,6 @@
 #include "Data.hpp"
 
 #include "Cmd.hpp"
-#include "LD.hpp"
 #include "Utils.hpp"
 
 using namespace std;
@@ -24,7 +23,7 @@ void Data::prepare() {
   }
 
   // some common settings for out-of-core
-  if (params.pca) {
+  if (params.dopca) {
     if (params.svd_t == SvdType::IRAM) {
       // ram of arnoldi = n * b * 8 / 1024 kb
       blocksize = (uint)ceil((double)params.memory * 134217728 / nsamples);
@@ -49,7 +48,7 @@ void Data::prepare() {
   cao.print(tick.date(), "initial setting by -m/--memory: blocksize =", blocksize, ", nblocks =", nblocks,
             ", factor =", bandFactor);
   if (nblocks == 1) cao.error("only one block exists. please remove -m option");
-  if (params.pca && params.svd_t == SvdType::PCAoneAlg2) {
+  if (params.dopca && params.svd_t == SvdType::PCAoneAlg2) {
     // decrease blocksize for the winSVD
     if (nblocks < params.bands) {
       blocksize = (unsigned int)ceil((double)nsnps / params.bands);
@@ -71,7 +70,7 @@ void Data::prepare() {
 }
 
 void Data::filter_snps_resize_F() {
-  if (params.keepsnp && params.maf > 0 &&
+  if (params.filterSNP && params.maf > 0 &&
       params.maf <= 0.5) {  // filter snps, update keepSNPs, reassign nsnps;
     Mat1D Fnew(F.size());   // make a temp F
     int i, j;
@@ -122,7 +121,7 @@ void Data::save_snps_in_bim() {
   } else {  // plink.bim is not permuted
     j = 0, i = 0;
     while (getline(ifs_bim, line)) {
-      if (params.keepsnp) {
+      if (params.filterSNP) {
         if (keepSNPs[i] == j) {
           ofs_bim << line << "\t" << F(i) << "\n";
           i++;
@@ -252,7 +251,7 @@ void Data::fit_with_pi(const Mat2D &U, const Mat1D &svals, const Mat2D &VT) {
 #pragma omp parallel for
     for (uint j = 0; j < nsnps; ++j) {
       double p0, p1, p2;
-      uint s = params.keepsnp ? keepSNPs[j] : j;
+      uint s = params.filterSNP ? keepSNPs[j] : j;
       for (uint i = 0; i < nsamples; ++i) {
         // Rescale individual allele frequencies
         double pt = 0.0;
@@ -312,7 +311,7 @@ void Data::pcangsd_standardize_E(const Mat2D &U, const Mat1D &svals, const Mat2D
     for (uint j = 0; j < nsnps; j++) {
       double p0, p1, p2, pt, pSum, tmp;
       double norm = sqrt(2.0 * F(j) * (1.0 - F(j)));
-      uint s = params.keepsnp ? keepSNPs[j] : j;
+      uint s = params.filterSNP ? keepSNPs[j] : j;
       for (uint i = 0; i < nsamples; i++) {
         // Rescale individual allele frequencies
         pt = 0.0;

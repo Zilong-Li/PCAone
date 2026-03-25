@@ -49,7 +49,7 @@ void FilePgen::read_all() {
   C = ArrBool::Zero(nsnps * nsamples);
 
   for (i = 0; i < nsnps; ++i) {
-    uint s = params.keepsnp ? keepSNPs[i] : i;
+    uint s = params.filterSNP ? keepSNPs[i] : i;
     if (dosage_mode) {        
       reader.Read(buf.data(), nsamples, 0, s, 1);
     } else {

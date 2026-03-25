@@ -1,8 +1,6 @@
 #ifndef CMD_H_
 #define CMD_H_
 
-#include <iostream>
-#include <iterator>
 #include <sstream>
 #include <cstdint>
 
@@ -30,8 +28,8 @@ class Param {
   uint maxp = 20;  // maximum number of power iterations
   uint threads = 12;
   uint bands = 64;
-  bool genetic;  // bifle,pgen,bgen
-  bool pca = true;
+  bool genetic = true;  // bifle,pgen,bgen
+  bool dopca = true;
   bool perm = false;  // wheather data is permuted
   // for normalization
   double scaleFactor = 1;
@@ -78,9 +76,8 @@ class Param {
   int scale = -9;  // do scaling. 9: sqrt(2f(1-f)); 0: just centering. 1: log scaling. 2: cpmed
   bool dosage = false;
   bool groff = false;
-  bool cpmed = false;
   bool printv = false;
-  bool impute = false;    // enable EM-PCA for data with uncertainty. impute information!
+  bool miss = false; // keep track of missing information
   bool noshuffle = false;
   bool emu = false;
   bool pcangsd = false;  // enable pcangsd procedure
@@ -88,8 +85,8 @@ class Param {
   bool mev = true;
   bool out_of_core = false;  // otherwise load all matrix into RAM.
   int ploidy = 2;
-  int seed = 101; // seeding 
-  bool keepsnp = false;
+  int seed = 112; // seeding 
+  bool filterSNP = false; // filter snps
   bool center = true; // false if G is raw data likelihood
   bool estaf = true; // false if project,inbreed enabled
   // bool estpi = false; // true if output pi is needed

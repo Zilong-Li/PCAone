@@ -5,6 +5,7 @@
  ******************************************************************************/
 
 #include "FileBgen.hpp"
+#include "bgen/writer.h"
 
 #include <thread>
 
@@ -17,7 +18,7 @@ void FileBgen::read_all() {
   if (!params.pcangsd) {
     F = Mat1D::Zero(nsnps);
     G = Mat2D::Zero(nsamples, nsnps);
-    if (params.impute) C = ArrBool::Zero(nsnps * nsamples);
+    if (params.miss) C = ArrBool::Zero(nsnps * nsamples);
     for (j = 0, k = 0; j < nsnps; j++) {
       try {
         auto var = bg->next_var();
@@ -44,10 +45,10 @@ void FileBgen::read_all() {
 #pragma omp parallel for
         for (i = 0; i < nsamples; i++) {
           if (std::isnan(dosages[i])) {
-            if (params.impute) C[k * nsamples + i] = 1;
+            if (params.miss) C[k * nsamples + i] = 1;
             G(i, k) = 0;
           } else {
-            if (params.impute) C[k * nsamples + i] = 0;
+            if (params.miss) C[k * nsamples + i] = 0;
             G(i, j) = dosages[i] / 2.0 - F(k);  // map to [0, 1];
           }
         }
@@ -92,7 +93,7 @@ void FileBgen::read_all() {
 #pragma omp parallel for
     for (j = 0; j < nsnps; j++) {
       double p0, p1, p2;
-      uint s = params.keepsnp ? keepSNPs[j] : j;
+      uint s = params.filterSNP ? keepSNPs[j] : j;
       for (i = 0; i < nsamples; i++) {
         p0 = P(2 * i + 0, s) * (1.0 - F(j)) * (1.0 - F(j));
         p1 = P(2 * i + 1, s) * 2 * F(j) * (1.0 - F(j));

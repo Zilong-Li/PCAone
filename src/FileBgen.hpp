@@ -3,7 +3,7 @@
 
 #include "Data.hpp"
 #include "bgen/reader.h"
-#include "bgen/writer.h"
+#include "Utils.hpp"
 
 // const double GENOTYPE_THRESHOLD = 0.9;
 // const double BGEN_MISSING_VALUE = -9;

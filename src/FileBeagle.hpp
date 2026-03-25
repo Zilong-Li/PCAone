@@ -2,6 +2,7 @@
 #define PCAONE_FILEBEAGLE_
 
 #include "Data.hpp"
+#include "Utils.hpp"
 
 class FileBeagle : public Data {
  public:
@@ -33,7 +34,7 @@ class FileBeagle : public Data {
       } 
     }
 
-    if (params.pca) {  // initial F
+    if (params.dopca) {  // initial F
       F = Mat1D::Zero(nsnps);
     }
     cao.print(tick.date(), "N (# samples):", nsamples, ", M (# SNPs):", nsnps);

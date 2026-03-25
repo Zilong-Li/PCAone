@@ -13,7 +13,7 @@ void FileBeagle::read_all() {
   P = Mat2D::Zero(nsamples * 2, nsnps);
   fp = gzopen(params.filein.c_str(), "r");
   parse_beagle_file(P, fp, nsamples, nsnps);
-  if (!params.pca) return;
+  if (!params.dopca) return;
   cao.print(tick.date(), "begin to estimate allele frequencies");
   F = Mat1D::Constant(nsnps, 0.25);
   emMAF_with_GL(F, P, params.maxiter, params.tolmaf);
@@ -25,7 +25,7 @@ void FileBeagle::read_all() {
 #pragma omp parallel for
   for (uint j = 0; j < nsnps; j++) {
     double p0, p1, p2;
-    uint s = params.keepsnp ? keepSNPs[j] : j;
+    uint s = params.filterSNP ? keepSNPs[j] : j;
     for (uint i = 0; i < nsamples; i++) {
       p0 = P(2 * i + 0, s) * (1.0 - F(j)) * (1.0 - F(j));
       p1 = P(2 * i + 1, s) * 2 * F(j) * (1.0 - F(j));
@@ -43,7 +43,7 @@ void FileBeagle::check_file_offset_first_var() {
 }
 
 void FileBeagle::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize = false) {
-  if (params.pca) cao.error("doesn't support out-of-core PCAngsd algorithm");
+  if (params.dopca) cao.error("doesn't support out-of-core PCAngsd algorithm");
   uint actual_block_size = stop_idx - start_idx + 1;
   if (G.cols() < blocksize || (actual_block_size < blocksize)) {
     P = Mat2D::Zero(nsamples * 2, actual_block_size);

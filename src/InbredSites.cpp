@@ -192,7 +192,7 @@ void inbreed_coef_site_ooc(Mat1D& D1, Mat1D& F, Data* data, Data* Pi, const Para
   }
 }
 
-void run_inbreed_coef_site(Data* Pi, const Param& params) {
+void run_inbred_sites(Data* Pi, const Param& params) {
   Pi->prepare();
   Data* data = nullptr;
   if (params.file_t == FileType::PLINK) {

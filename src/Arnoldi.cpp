@@ -57,7 +57,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
   if (!params.out_of_core) {
     // SpMatrix sG = data->G.sparseView();
     PartialSVDSolver<Mat2D> svds(data->G, params.k, params.ncv);
-    if (!params.ld && !params.impute && params.genetic)
+    if (!params.ld && !params.miss && params.genetic)
       data->standardize_E();
     nconv = svds.compute(params.imaxiter, params.itol);
     if (nconv != params.k) cao.error("the nconv is not equal to k.");
@@ -66,7 +66,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
     svals = svds.singular_values();
     evals.noalias() = svals.array().square().matrix() / data->nsnps;
     // impute information via EM-PCA
-    if (params.impute) {
+    if (params.miss) {
       flip_UV(U, V);
       cao.print(tick.date(), "starts EM iteration. maxiter =", params.maxiter);
       for (uint i = 1; i <= params.maxiter; ++i) {
@@ -123,7 +123,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
     // SymEigsSolver< double, LARGEST_ALGE, ArnoldiOpData >(op, params.k,
     // params.ncv);
     SymEigsSolver<ArnoldiOpData>* eigs = new SymEigsSolver<ArnoldiOpData>(*op, params.k, params.ncv);
-    if (!params.impute) op->setFlags(false, true);
+    if (!params.miss) op->setFlags(false, true);
     eigs->init();
     nconv = eigs->compute(SortRule::LargestAlge, params.imaxiter, params.itol);
     if (nconv < params.k) cao.error("the nconv is not equal to k");
@@ -144,7 +144,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
     data->calcu_vt_initial(U, op->VT, true);
     evals.noalias() = eigs->eigenvalues() / data->nsnps;
     // impute information via EM-PCA
-    if (params.impute) {
+    if (params.miss) {
       cao.print(tick.date(), "starts EM iteration. maxiter =", params.maxiter);
       data->calcu_vt_initial(U, op->VT, false);
       flip_UV(op->U, op->VT);

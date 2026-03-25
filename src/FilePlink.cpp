@@ -6,8 +6,6 @@
 
 #include "FilePlink.hpp"
 
-#include "Common.hpp"
-#include "Utils.hpp"
 
 using namespace std;
 
@@ -69,7 +67,7 @@ void FileBed::read_all() {
 
 #pragma omp parallel for private(i, j, b, c, k, buf)
   for (i = 0; i < nsnps; ++i) {
-    uint s = params.keepsnp ? keepSNPs[i] : i;
+    uint s = params.filterSNP ? keepSNPs[i] : i;
     for (b = 0, c = 0, j = 0; b < bed_bytes_per_snp; ++b) {
       buf = inbed[s * bed_bytes_per_snp + b];
       for (k = 0; k < 4; ++k, ++j) {

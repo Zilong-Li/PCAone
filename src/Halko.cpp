@@ -8,6 +8,7 @@
 
 #include "Common.hpp"
 #include "Utils.hpp"
+#include "RSVD.hpp"
 
 using namespace std;
 
@@ -282,7 +283,7 @@ void run_pca_with_halko(Data* data, const Param& params) {
               params.out_of_core ? "out-of-core" : "in-core");
     rsvd = new NormalRsvdOpData(data, params.k, params.oversamples);
   }
-  if (!params.impute) {
+  if (!params.miss) {
     if (params.genetic) {
       if (params.ld)
         rsvd->setFlags(false, false);

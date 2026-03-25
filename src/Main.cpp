@@ -60,7 +60,7 @@ int main(int argc, char* argv[]) {
   // particular case for inbreeding sites
   if (params.inbreed == 1) {
     data = new FileUSV(params);
-    run_inbreed_coef_site(data, params);
+    run_inbred_sites(data, params);
     delete data;
     return bye();
   }

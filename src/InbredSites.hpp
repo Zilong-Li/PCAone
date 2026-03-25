@@ -25,6 +25,6 @@ void write_hwe_per_site(const std::string& fout, const std::string& fbim, const 
 
 void inbreed_coef_site_em(int type, const Mat2D& GL, const Mat2D& PI, const Param& params);
 
-void run_inbreed_coef_site(Data* Pi, const Param& params);
+void run_inbred_sites(Data* Pi, const Param& params);
 
 #endif  // PCAONE_INBREDSITES_
