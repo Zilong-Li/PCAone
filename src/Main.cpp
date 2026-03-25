@@ -165,13 +165,40 @@ int main(int argc, char* argv[]) {
   } else if (params.svd_t == SvdType::FULL) {
     if (params.file_t == FileType::PLINK || params.file_t == FileType::BGEN || params.file_t == FileType::PGEN)
       data->standardize_E();
-    cao.print(tick.date(), "running the Full SVD with in-core mode.");
-    Eigen::JacobiSVD<Mat2D> svd(data->G, Eigen::ComputeThinU | Eigen::ComputeThinV);
-    const Eigen::Index ncomp = std::min<Eigen::Index>(params.k, svd.singularValues().size());
-    Mat1D svals = svd.singularValues().head(ncomp);
-    Mat1D evals = svals.array().square() / data->nsnps;
-    Mat2D U = svd.matrixU().leftCols(ncomp);
-    Mat2D V = svd.matrixV().leftCols(ncomp);
+    cao.print(tick.date(), "running exact PCA with in-core Gram eigendecomposition (PLINK-like).");
+    const Eigen::Index ncomp =
+        std::min<Eigen::Index>(params.k, std::min<Eigen::Index>(data->G.rows(), data->G.cols()));
+    Mat1D evals(ncomp), svals(ncomp);
+    Mat2D U(data->nsamples, ncomp), V(data->nsnps, ncomp);
+    if (data->nsamples <= data->nsnps) {
+      Mat2D K = (data->G * data->G.transpose()) / data->nsnps;
+      Eigen::SelfAdjointEigenSolver<Mat2D> eig(K);
+      if (eig.info() != Eigen::Success) cao.error("failed eigendecomposition of the sample covariance matrix.");
+      for (Eigen::Index i = 0; i < ncomp; ++i) {
+        Eigen::Index idx = eig.eigenvalues().size() - 1 - i;
+        evals(i) = std::max(0.0, eig.eigenvalues()(idx));
+        U.col(i) = eig.eigenvectors().col(idx);
+      }
+      svals = (evals.array() * data->nsnps).sqrt();
+      V.noalias() = data->G.transpose() * U;
+      for (Eigen::Index i = 0; i < ncomp; ++i) {
+        if (svals(i) > 0) V.col(i) /= svals(i);
+      }
+    } else {
+      Mat2D K = (data->G.transpose() * data->G) / data->nsnps;
+      Eigen::SelfAdjointEigenSolver<Mat2D> eig(K);
+      if (eig.info() != Eigen::Success) cao.error("failed eigendecomposition of the feature covariance matrix.");
+      for (Eigen::Index i = 0; i < ncomp; ++i) {
+        Eigen::Index idx = eig.eigenvalues().size() - 1 - i;
+        evals(i) = std::max(0.0, eig.eigenvalues()(idx));
+        V.col(i) = eig.eigenvectors().col(idx);
+      }
+      svals = (evals.array() * data->nsnps).sqrt();
+      U.noalias() = data->G * V;
+      for (Eigen::Index i = 0; i < ncomp; ++i) {
+        if (svals(i) > 0) U.col(i) /= svals(i);
+      }
+    }
     flip_UV(U, V);
     data->write_eigs_files(evals, svals, U, V);
   } else {
