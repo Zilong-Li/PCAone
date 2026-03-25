@@ -2,6 +2,7 @@
 #define PCAONE_FILECSV_
 
 #include "Data.hpp"
+#include "Utils.hpp"
 
 void parse_csvzstd(ZstdDS& zbuf, uint& nsamples, uint& nsnps, uint scale, std::vector<int>& libsize,
                    std::vector<size_t>& tidx, double& median_libsize);

@@ -23,6 +23,7 @@ void FilePgen::read_all() {
   uint i, j;
   if (params.estaf) {
     F = Mat1D::Zero(nsnps);
+    C = ArrBool::Zero(nsnps * nsamples);
     for (i = 0; i < nsnps; ++i) {
       if (dosage_mode) {        
         reader.Read(buf.data(), nsamples, 0, i, 1);
@@ -35,6 +36,8 @@ void FilePgen::read_all() {
         if (buf[j] != PGEN_MISSING) {
           sum += buf[j] / 2.0;
           ++c;
+        } else {
+          C[i * nsamples + j] = 1;
         }
       }
       F(i) = (c > 0) ? sum / c : 0.0;
@@ -42,11 +45,17 @@ void FilePgen::read_all() {
       if (params.ld && params.verbose > 1 && F(i) == 0.5)
         cao.warn("sites with MAF=0.5 found in LD estimation. NaN values expected! SNP index:", i);
     }
-    filter_snps_resize_F();
+    if (C.count() > 0) {
+      impute = true;
+      double p_miss = (double)C.count() / (double)C.size();
+      cao.print(tick.date(), "the proportion of missingness  is", p_miss);
+    } else {
+      C.resize(0); // clear 
+      filter_snps_resize_F();
+    }
   }
 
   G = Mat2D::Zero(nsamples, nsnps);
-  C = ArrBool::Zero(nsnps * nsamples);
 
   for (i = 0; i < nsnps; ++i) {
     uint s = params.filterSNP ? keepSNPs[i] : i;
@@ -57,8 +66,6 @@ void FilePgen::read_all() {
     }
     for (j = 0; j < nsamples; ++j) {
       G(j, i) = pgen2dosage(buf[j]);
-      if (params.emu || (params.project > 0))
-        C[i * nsamples + j] = (G(j, i) == BED_MISSING_VALUE) ? 1 : 0;
     }
     if (params.center) {
       for (j = 0; j < nsamples; ++j) {
@@ -70,12 +77,6 @@ void FilePgen::read_all() {
     }
   }
 
-  double p_miss = (double)C.count() / (double)C.size();
-  cao.print(tick.date(), "the proportion of missingness is", p_miss);
-  if (p_miss == 0.0) {
-    impute = false;
-    C.resize(0);
-  }
 }
 
 PermMat compute_pgen_perm(uint nsnps, uint nbands) {

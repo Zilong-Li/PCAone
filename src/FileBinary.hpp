@@ -2,6 +2,7 @@
 #define FILEBINARY_H_
 
 #include "Data.hpp"
+#include "Utils.hpp"
 
 class FileBin : public Data {
  public:

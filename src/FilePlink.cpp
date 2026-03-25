@@ -33,6 +33,7 @@ void FileBed::read_all() {
   uchar buf;
   if (params.estaf) {
     F = Mat1D::Zero(nsnps);
+    C = ArrBool::Zero(nsnps * nsamples);
     // estimate allele frequency first
 #pragma omp parallel for private(i, j, b, c, k, buf)
     for (i = 0; i < nsnps; ++i) {
@@ -43,6 +44,8 @@ void FileBed::read_all() {
             if (BED2GENO[buf & 3] != BED_MISSING_VALUE) {
               F(i) += BED2GENO[buf & 3];
               c++;
+            } else {
+              C[i * nsamples + j] = 1;
             }
             buf >>= 2;
           }
@@ -58,11 +61,17 @@ void FileBed::read_all() {
       if (params.ld && params.verbose > 1 && F(i) == 0.5)
         cao.warn("sites with MAF=0.5 found in LD estimation. NaN values expected! SNP index:", i);
     }
-    filter_snps_resize_F();  // filter and resize nsnps
+    if (C.count() > 0) {
+      impute = true;
+      double p_miss = (double)C.count() / (double)C.size();
+      cao.print(tick.date(), "the proportion of missingness  is", p_miss);
+    } else {
+      C.resize(0); // clear 
+      filter_snps_resize_F();  // filter and resize nsnps
+    }
   }
 
   G = Mat2D::Zero(nsamples, nsnps);  // fill in G with new size
-  C = ArrBool::Zero(nsnps * nsamples);
   if (params.pcangsd) P = Mat2D::Zero(nsamples * 2, nsnps);
 
 #pragma omp parallel for private(i, j, b, c, k, buf)
@@ -74,13 +83,6 @@ void FileBed::read_all() {
         if (j < nsamples) {
           G(j, i) = BED2GENO[buf & 3];
           buf >>= 2;
-          if (params.emu || (params.project > 0)) {
-            // 1 indicate G(i,j) need to be predicted and updated.
-            if (G(j, i) != BED_MISSING_VALUE)
-              C[i * nsamples + j] = 0;
-            else
-              C[i * nsamples + j] = 1;
-          }
         }
       }
     }
@@ -115,13 +117,6 @@ void FileBed::read_all() {
   // read bed to matrix G done and close bed_ifstream
   inbed.clear();
   inbed.shrink_to_fit();
-
-  double p_miss = (double)C.count() / (double)C.size();
-  cao.print(tick.date(), "the proportion of missingness  is", p_miss);
-  if (p_miss == 0.0) {
-    impute = false;
-    C.resize(0); // clear 
-  } 
 
   // if (params.pcangsd) {
   //   F = Mat1D::Constant(nsnps, 0.25);

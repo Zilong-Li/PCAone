@@ -2,6 +2,7 @@
 #define PCAONE_FILEUSV
 
 #include "Data.hpp"
+#include "Utils.hpp"
 
 // To get \Pi mainly
 class FileUSV : public Data {
