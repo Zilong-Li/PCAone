@@ -4,6 +4,8 @@
  * Copyright (C) 2022-2024. Use of this code is governed by the LICENSE file.
  ******************************************************************************/
 
+#include <iterator>
+
 #include "Cmd.hpp"
 
 #include "popl/popl.hpp"
