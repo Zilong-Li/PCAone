@@ -122,7 +122,7 @@ void Data::save_snps_in_bim() {
     j = 0, i = 0;
     while (getline(ifs_bim, line)) {
       if (params.filterSNP) {
-        if (keepSNPs[i] == j) {
+        if (i < (int)keepSNPs.size() && keepSNPs[i] == j) {
           ofs_bim << line << "\t" << F(i) << "\n";
           i++;
         }

@@ -49,7 +49,7 @@ void FileBgen::read_all() {
             G(i, k) = 0;
           } else {
             if (params.miss) C[k * nsamples + i] = 0;
-            G(i, j) = dosages[i] / 2.0 - F(k);  // map to [0, 1];
+            G(i, k) = dosages[i] / 2.0 - F(k);  // map to [0, 1];
           }
         }
         k++;

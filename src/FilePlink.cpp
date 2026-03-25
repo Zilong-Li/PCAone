@@ -27,8 +27,8 @@ void FileBed::check_file_offset_first_var() {
 void FileBed::read_all() {
   check_file_offset_first_var();
   // Begin to decode the plink bed
-  inbed.reserve(bed_bytes_per_snp * nsnps);
-  bed_ifstream.read(reinterpret_cast<char *>(&inbed[0]), bed_bytes_per_snp * nsnps);
+  inbed.resize(bed_bytes_per_snp * nsnps);
+  bed_ifstream.read(reinterpret_cast<char *>(inbed.data()), bed_bytes_per_snp * nsnps);
   uint64 c, i, j, b, k;
   uchar buf;
   if (params.estaf) {
@@ -133,12 +133,12 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
   // if actual_block_size is smaller than blocksize, don't resize G;
   if (G.cols() < blocksize || (actual_block_size < blocksize)) {
     G = Mat2D::Zero(nsamples, actual_block_size);
-    inbed.reserve(bed_bytes_per_snp * blocksize);
+    inbed.resize(bed_bytes_per_snp * blocksize);
   }
   uint64 c, b, i, j, k, snp_idx;
   uchar buf;
   // inbed.resize(bed_bytes_per_snp * actual_block_size);
-  bed_ifstream.read(reinterpret_cast<char *>(&inbed[0]), bed_bytes_per_snp * actual_block_size);
+  bed_ifstream.read(reinterpret_cast<char *>(inbed.data()), bed_bytes_per_snp * actual_block_size);
   if (!params.estaf) frequency_was_estimated = true;
   if (frequency_was_estimated) {
 #pragma omp parallel for private(i, j, b, k, snp_idx, buf)
@@ -222,7 +222,7 @@ void FileBed::read_block_update(uint64 start_idx, uint64 stop_idx, const Mat2D &
   uint actual_block_size = stop_idx - start_idx + 1;
   if (G.cols() < blocksize || (actual_block_size < blocksize)) {
     G = Mat2D::Zero(nsamples, actual_block_size);
-    inbed.reserve(bed_bytes_per_snp * blocksize);
+    inbed.resize(bed_bytes_per_snp * blocksize);
   }
   // check where we are
   if (params.verbose) {
@@ -231,7 +231,7 @@ void FileBed::read_block_update(uint64 start_idx, uint64 stop_idx, const Mat2D &
       cao.error("something wrong with read_snp_block!");
     }
   }
-  bed_ifstream.read(reinterpret_cast<char *>(&inbed[0]), bed_bytes_per_snp * actual_block_size);
+  bed_ifstream.read(reinterpret_cast<char *>(inbed.data()), bed_bytes_per_snp * actual_block_size);
   uint64 b, i, j, snp_idx;
   uint ks = svals.rows();
   uint ki, k;

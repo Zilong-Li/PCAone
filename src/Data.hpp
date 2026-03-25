@@ -51,7 +51,7 @@ class Data {
   Mat1D F;       // observed or estimated population allele frequency
   Mat1D Dc;      // diagnal vector of covariance matrix
   ArrBool C;     // nsnps x nsample, if there is missing value
-  double p_miss; // proportion of genotype missingness
+  double p_miss = 0.0; // proportion of genotype missingness
   Arr2D centered_geno_lookup;
   std::vector<int> keepSNPs;  // store index of SNPs to keep
 };
