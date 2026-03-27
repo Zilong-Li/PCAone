@@ -33,10 +33,7 @@ class FileBeagle : public Data {
         nsnps++;
       } 
     }
-
-    if (params.dopca) {  // initial F
-      F = Mat1D::Zero(nsnps);
-    }
+    if(params.estaf) F = Mat1D::Zero(nsnps);  // initial F
     cao.print(tick.date(), "N (# samples):", nsamples, ", M (# SNPs):", nsnps);
   }
 

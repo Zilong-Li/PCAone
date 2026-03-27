@@ -32,15 +32,9 @@ class FilePgen : public Data {
     
     snpmajor = true;
     thread_bufs.resize(reader_threads, std::vector<double>(nsamples));
-    if (params.center) {
-      centered_geno_lookup = Arr2D::Zero(4, nsnps);
-      F = Mat1D::Zero(nsnps);
-    }
-    if (params.project > 0) {
-      cao.print(tick.date(), "read frequency of SNPs from the extended bim (.mbim)");
-      F = read_frq(params.filebim);
-      if (F.size() != nsnps) cao.error("the number of sites doesn't match each other");
-    }
+    if (params.center) centered_geno_lookup = Arr2D::Zero(4, nsnps);
+    if (params.estaf) F = Mat1D::Zero(nsnps);  // initial F
+
   }
 
   ~FilePgen() override = default;

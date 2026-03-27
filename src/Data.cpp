@@ -13,6 +13,11 @@ using namespace std;
 
 void Data::prepare() {
   if (nsamples > nsnps) nsamples_ge_nsnps = true;
+  
+  if (!params.estaf) { // for projection, read F from reference set
+    cao.print(tick.date(), "read frequency of SNPs from the extended bim (.mbim)");
+    F = read_frq(params.filebim);
+  }
 
   if (!params.out_of_core) {
     tick.clock();
