@@ -400,19 +400,20 @@ Project new samples onto existing PCs is supported with =--project= option.
 First, we run PCAone on a set of reference samples and output the loadings:
 
 #+begin_src shell
-PCAone -b ref_samples -k 10 --printv -o ref
+PCAone -b example/ref -k 10 --printv -o ref
 #+end_src
 
 Then, we need to read in the SNPs loadings from the ref set (=--read-V=) and
 its scaling factors (=--read-S=) as well as the allele frequencies form the
-=.mbim= file via =--match-bim=. *Note:* one can use the =--USV= option instead to
-simplify the usage since v0.4.8 Here is the example command to project new
-target samples and get the PCs coordinates.
+=.mbim= file via =--match-bim=. You can use the =--USV= option instead to simplify
+the usage since *v0.4.8* =Note:= you must ensure the new plink files contain
+*exactly the same SNPs and allele's order*. Below is command using example
+data to project new target samples onto the reference coordinates.
 
 #+begin_src shell
-PCAone -b new_samples \
-       --USV ref \  ## prefix to .eigvecs, .eigvals, .loadings
-       --project 2 \  ## check the manual on projection methods
+PCAone -b example/new \
+       --USV ref \      ## prefix to .eigvecs, .eigvals, .loadings, .mbim
+       --project 2 \    ## check the manual on projection methods
        -o new
 #+end_src
 

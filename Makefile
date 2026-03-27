@@ -203,6 +203,10 @@ example_tests:
 	./PCAone -p example/plink2 -n 4 -o m0 --hardcall
 	./PCAone -p example/plink2 -n 4 -o m1 -m1
 
+projection:
+	./PCAone -b example/ref -V -o ref -v3
+	./PCAone -b example/new --USV ref --project 2 -o new -v3
+
 hwe:
 	./PCAone -b example/plink -k 3 -V -m 1
 	./PCAone -b example/plink --USV pcaone -k 3 --inbreed 1 -o inbreed_m0

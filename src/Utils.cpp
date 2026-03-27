@@ -393,13 +393,11 @@ void check_bim_vs_mbim(const std::string& bim_file, const std::string& mbim_file
   std::ifstream fb(bim_file), fm(mbim_file);
   std::string lb, lm;
   while (getline(fb, lb) && getline(fm, lm)) {
-    auto id1 = split_string(lb, sep)[1];
-    auto id2 = split_string(lm, sep)[1];
-    if (id1 != id2)
-      cao.error(
-          "the bim files are not matched!\n"
-          "id1 vs id2 => " +
-          id1 + " vs " + id2);
+    auto id1 = split_string(lb, sep);
+    auto id2 = split_string(lm, sep);
+    if ((id1[0] != id2[0]) || (id1[3] != id2[3]) || (id1[4] != id2[4]) || (id1[5] != id2[5])) {
+      cao.error("SNP info must be all identical between two bim files! snp1 vs snp2 =>\n" + lb + "\n" + lm);
+    }
   }
 }
 

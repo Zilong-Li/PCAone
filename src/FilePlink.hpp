@@ -28,7 +28,7 @@ class FileBed : public Data {
       centered_geno_lookup = Arr2D::Zero(4, nsnps);
       F = Mat1D::Zero(nsnps);
     }
-    if (params.project > 0) {
+    if (!params.estaf) { // for projection
       // read frq from original set
       cao.print(tick.date(), "read frequency of SNPs from the extended bim (.mbim)");
       F = read_frq(params.filebim);

@@ -31,6 +31,7 @@ void FileBed::read_all() {
   bed_ifstream.read(reinterpret_cast<char *>(inbed.data()), bed_bytes_per_snp * nsnps);
   uint64 c, i, j, b, k;
   uchar buf;
+  // sometimes no need to estimate AF, e.g. projection
   if (params.estaf) {
     F = Mat1D::Zero(nsnps);
     C = ArrBool::Zero(nsnps * nsamples);
