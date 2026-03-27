@@ -27,7 +27,7 @@ class FilePgen : public Data {
     reader_threads = std::max(1u, params.threads);
     reader.Load(fpgen, nsamples, {}, reader_threads);
     nsnps = reader.GetVariantCt();
-    dosage_mode = params.dosage && reader.DosagePresent();
+    dosage_mode = (!params.hardcall) && reader.DosagePresent();
     cao.print(tick.date(), "N (# samples):", nsamples, ", M (# SNPs):", nsnps, ". dosage_mode:", dosage_mode);
     
     snpmajor = true;

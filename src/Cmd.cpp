@@ -75,7 +75,7 @@ Param::Param(int argc, char **argv) {
   auto plinkfile = opts.add<Value<std::string>>("b", "bfile", "prefix of PLINK .bed/.bim/.fam files.", "", &filein);
   opts.add<Switch, Attribute::advanced>("", "haploid", "the plink format represents haploid data.", &haploid);
   auto pgenfile = opts.add<Value<std::string>>("p", "pgen", "prefix of PLINK2 .pgen/.pvar/.psam files.", "", &filein);
-  opts.add<Switch, Attribute::advanced>("", "dosage", "use genotype dosage instead of hard call genotypes.", &dosage);
+  opts.add<Switch, Attribute::advanced>("", "hardcall", "use hardcall genotype instead of dosages.", &hardcall);
   auto binfile = opts.add<Value<std::string>>("B", "binary", "path of binary file.", "", &filein);
   auto csvfile = opts.add<Value<std::string>>("c", "csv", "path of comma seperated CSV file compressed by zstd.", "", &filein);
   auto bgenfile = opts.add<Value<std::string>>("g", "bgen", "path of BGEN file compressed by gzip/zstd.", "", &filein);

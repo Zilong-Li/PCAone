@@ -200,8 +200,8 @@ example_tests:
 	diff m0.eigvals m1.eigvals
 	./PCAone --csv example/BrainSpinalCord.csv.zst -k 10 -m 4 --scale 2 -S
 	./PCAone -p example/plink2 -n 4 -o m0 
-	./PCAone -p example/plink2 -n 4 -o m0 --dosage
-	./PCAone -p example/plink2 -n 4 -o m1 --dosage -m1
+	./PCAone -p example/plink2 -n 4 -o m0 --hardcall
+	./PCAone -p example/plink2 -n 4 -o m1 -m1
 
 hwe:
 	./PCAone -b example/plink -k 3 -V -m 1
@@ -269,7 +269,7 @@ example_tests_fast:
 	./PCAone -g example/test.bgen -n4 -m0.1 -o m1
 	diff m0.eigvals m1.eigvals
 	./PCAone -p example/plink2 -n 4 -o m0
-	./PCAone -p example/plink2 -n 4 -o m0 --dosage
+	./PCAone -p example/plink2 -n 4 -o m0 --hardcall
 
 # The fast test suite for aarch64
 test_aarch64: data example_tests_fast hwe ld_matrix ld_r2 ld_prune ld_clump

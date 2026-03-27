@@ -74,7 +74,7 @@ class Param {
   // general
   uint verbose = 1; // verbose level. 0: no verbose; 1: output to screen; 2: debug info 
   int scale = -9;  // do scaling. 9: sqrt(2f(1-f)); 0: just centering. 1: log scaling. 2: cpmed
-  bool dosage = false;
+  bool hardcall = false;
   bool groff = false;
   bool printv = false;
   bool miss = false; // keep track of missing information
