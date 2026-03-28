@@ -4,6 +4,7 @@ VERSION=0.7.0
 # Detect OS and CPU architecture to add flags conditionally
 Platform        := $(shell uname -s)
 ARCH            := $(shell uname -m)
+LIBOMP_PREFIX   := $(shell brew --prefix libomp 2>/dev/null)
 
 $(info "building PCAone on ${Platform} (${ARCH}) -- version ${VERSION}")
 
@@ -95,6 +96,10 @@ ifeq ($(Platform),Linux)
 else ifeq ($(Platform),Darwin)
 ###### for mac
 	MYFLAGS  += -Xpreprocessor -fopenmp
+	ifneq ($(strip $(LIBOMP_PREFIX)),)
+		INC     += -I$(LIBOMP_PREFIX)/include
+		LDFLAGS += -L$(LIBOMP_PREFIX)/lib
+	endif
 
 	ifneq ($(strip $(OPENBLAS)),)
 		MYFLAGS += -DWITH_OPENBLAS -DEIGEN_USE_BLAS -DEIGEN_USE_LAPACKE
@@ -195,13 +200,17 @@ data:
 #####                   EXAMPLE TESTS
 ###################################################################
 example_tests:
+	./PCAone -b example/plink -n 4 -o m0 
+	./PCAone -b example/plink -n 4 -o m1 -m 1
+	$(shell diff <(cut -c1-4 m1.eigvals) <(cut -c1-4 m0.eigvals))
+	./PCAone -p example/plink2 -n 4 -o m0 --hardcall
+	./PCAone -p example/plink2 -n 4 -o m0 
+	./PCAone -p example/plink2 -n 4 -o m1 -m1 
+	$(shell diff <(cut -c1-4 m1.eigvals) <(cut -c1-4 m0.eigvals))
 	./PCAone -g example/test.bgen -n4 -o m0
 	./PCAone -g example/test.bgen -n4 -m0.1 -o m1
 	diff m0.eigvals m1.eigvals
 	./PCAone --csv example/BrainSpinalCord.csv.zst -k 10 -m 4 --scale 2 -S
-	./PCAone -p example/plink2 -n 4 -o m0 
-	./PCAone -p example/plink2 -n 4 -o m0 --hardcall
-	./PCAone -p example/plink2 -n 4 -o m1 -m1
 
 projection:
 	./PCAone -b example/ref -V -o ref -v3
@@ -269,11 +278,16 @@ ld_tests:
 
 # Define a faster version of example_tests that excludes the long-running CSV test
 example_tests_fast:
-	./PCAone -g example/test.bgen -n4 -o m0
-	./PCAone -g example/test.bgen -n4 -m0.1 -o m1
-	diff m0.eigvals m1.eigvals
-	./PCAone -p example/plink2 -n 4 -o m0
+	./PCAone -b example/plink -n 4 -o m0 
+	./PCAone -b example/plink -n 4 -o m1 -m 1
+	$(shell diff <(cut -c1-4 m1.eigvals) <(cut -c1-4 m0.eigvals))
 	./PCAone -p example/plink2 -n 4 -o m0 --hardcall
+	./PCAone -p example/plink2 -n 4 -o m0 
+	./PCAone -p example/plink2 -n 4 -o m1 -m1 
+	$(shell diff <(cut -c1-4 m1.eigvals) <(cut -c1-4 m0.eigvals))
+	./PCAone -g example/test.bgen -n4 -o m0
+	./PCAone -g example/test.bgen -n4 -m1 -o m1
+	diff m0.eigvals m1.eigvals
 
 # The fast test suite for aarch64
 test_aarch64: data example_tests_fast hwe ld_matrix ld_r2 ld_prune ld_clump

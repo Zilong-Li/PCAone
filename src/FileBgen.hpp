@@ -19,7 +19,7 @@ class FileBgen : public Data {
     nsamples = bg->header.nsamples;
     nsnps = bg->header.nvariants;
     dosages.resize(nsamples);
-    if (params.estaf) F = Mat1D::Zero(nsnps);  // initial F
+    if (params.dopca) F = Mat1D::Zero(nsnps);  // initial F
     cao.print(tick.date(), "N(#samples) =", nsamples, ", M(#SNPs) =", nsnps);
     cao.print(tick.date(), "the layout is", bg->header.layout, ", compressed by",
               bg->header.compression == 2 ? "zstd" : "zlib");

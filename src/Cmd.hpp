@@ -29,7 +29,7 @@ class Param {
   uint threads = 12;
   uint bands = 64;
   bool genetic = true;  // bifle,pgen,bgen
-  bool dopca = true;
+  bool dopca = true;   // false for projection, selection, inbreeding
   bool perm = false;  // wheather data is permuted
   // for normalization
   double scaleFactor = 1;
@@ -88,7 +88,6 @@ class Param {
   int seed = 112; // seeding 
   bool filterSNP = false; // filter snps
   bool center = true; // false if G is raw data likelihood
-  bool estaf = true; // false if project,inbreed enabled
   // bool estpi = false; // true if output pi is needed
 
   std::ostringstream ss;

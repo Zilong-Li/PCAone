@@ -14,9 +14,16 @@ using namespace std;
 void Data::prepare() {
   if (nsamples > nsnps) nsamples_ge_nsnps = true;
   
-  if (!params.estaf) { // for projection, read F from reference set
+  if (!params.dopca) { // for projection, read F from reference set
     cao.print(tick.date(), "read allele frequency from .mbim file: " + params.filebim);
     F = read_frq(params.filebim);
+    if (!keepRefSNPs.empty()) {
+      Mat1D Fnew(keepRefSNPs.size());
+      for (int i = 0; i < (int)keepRefSNPs.size(); ++i) {
+        Fnew(i) = F(keepRefSNPs[i]);
+      }
+      F = Fnew;
+    }
   }
 
   if (!params.out_of_core) {

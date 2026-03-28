@@ -16,7 +16,16 @@
    // NOTE: we don't support out-of-core for projection.
  */
 void run_projection(Data* data, const Param& params) {
-  check_bim_vs_mbim(params.filein + ".bim", params.filebim);
+  auto match = match_bim_to_mbim(params.filein + ".bim", params.filebim);
+  if (match.bim_indices.empty()) {
+    cao.error("no overlapped SNPs found between " + params.filein + ".bim and " + params.filebim);
+  }
+  if (!match.identical) {
+    data->keepSNPs = match.bim_indices;
+    data->keepRefSNPs = match.mbim_indices;
+    cao.warn("SNP info is not fully identical between input .bim and reference .mbim; projection will use ",
+             match.bim_indices.size(), " overlapped sites only");
+  }
   cao.print(tick.date(), "run projection");
   data->prepare();
   data->standardize_E();
@@ -26,6 +35,13 @@ void run_projection(Data* data, const Param& params) {
   read_sigvals(params.fileS, nsamples, nsnps, S); 
   int K = fmin(S.size(), params.k);
   Mat2D V = read_eigvecs(params.fileV, nsnps, K);
+  if (!match.identical) {
+    Mat2D V_overlap(match.mbim_indices.size(), K);
+    for (int i = 0; i < (int)match.mbim_indices.size(); ++i) {
+      V_overlap.row(i) = V.row(match.mbim_indices[i]);
+    }
+    V = V_overlap;
+  }
   Mat2D U(data->nsamples, K);
 
   if (params.project == 1) {
@@ -64,4 +80,3 @@ void run_projection(Data* data, const Param& params) {
   if (outu.is_open()) outu << U.format(fmt) << '\n';
 
 }
-

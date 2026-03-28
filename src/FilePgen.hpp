@@ -33,7 +33,7 @@ class FilePgen : public Data {
     snpmajor = true;
     thread_bufs.resize(reader_threads, std::vector<double>(nsamples));
     if (params.center) centered_geno_lookup = Arr2D::Zero(4, nsnps);
-    if (params.estaf) F = Mat1D::Zero(nsnps);  // initial F
+    if (params.dopca) F = Mat1D::Zero(nsnps);  // initial F
 
   }
 

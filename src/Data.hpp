@@ -53,7 +53,8 @@ class Data {
   Mat1D Dc;                    // diagnal vector of covariance matrix
   ArrBool C;                   // nsnps x nsample, if there is missing value
   Arr2D centered_geno_lookup;  // lookup table for centering genotypes
-  std::vector<int> keepSNPs;   // store index of SNPs to keep
+  Int1D keepSNPs;              // store index of SNPs to keep
+  Int1D keepRefSNPs;           // store matching SNP indices in the reference .mbim
 };
 
 #endif  // PCAONE_DATA_

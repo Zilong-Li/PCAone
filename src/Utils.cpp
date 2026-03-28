@@ -388,17 +388,60 @@ Mat1D read_frq(const std::string& path) {
   return Eigen::Map<Mat1D>(V.data(), V.size());
 }
 
-void check_bim_vs_mbim(const std::string& bim_file, const std::string& mbim_file) {
-  const std::string sep{"\t"};
+namespace {
+std::string bim_match_key(const String1D& tokens, const std::string& path, const std::string& line) {
+  if ((int)tokens.size() < 6) cao.error("the input bim file is not valid!\n => " + path + "\n" + line);
+  return tokens[0] + "\t" + tokens[3] + "\t" + tokens[4] + "\t" + tokens[5];
+}
+}
+
+BimMatch match_bim_to_mbim(const std::string& bim_file, const std::string& mbim_file) {
+  const std::string sep{" \t"};
   std::ifstream fb(bim_file), fm(mbim_file);
-  std::string lb, lm;
-  while (getline(fb, lb) && getline(fm, lm)) {
-    auto id1 = split_string(lb, sep);
-    auto id2 = split_string(lm, sep);
-    if ((id1[0] != id2[0]) || (id1[3] != id2[3]) || (id1[4] != id2[4]) || (id1[5] != id2[5])) {
-      cao.error("SNP info must be all identical between two bim files! snp1 vs snp2 =>\n" + lb + "\n" + lm);
+  if (!fb.is_open()) cao.error("can not open " + bim_file);
+  if (!fm.is_open()) cao.error("can not open " + mbim_file);
+
+  String1D bim_keys, mbim_keys;
+  std::string line;
+  while (getline(fb, line)) {
+    bim_keys.push_back(bim_match_key(split_string(line, sep), bim_file, line));
+  }
+  while (getline(fm, line)) {
+    auto tokens = split_string(line, sep);
+    if ((int)tokens.size() != 7) cao.error("the input file is not valid!\n => " + mbim_file);
+    mbim_keys.push_back(bim_match_key(tokens, mbim_file, line));
+  }
+
+  BimMatch match;
+  match.identical = bim_keys.size() == mbim_keys.size();
+  if (match.identical) {
+    for (int i = 0; i < (int)bim_keys.size(); ++i) {
+      if (bim_keys[i] != mbim_keys[i]) {
+        match.identical = false;
+        break;
+      }
     }
   }
+
+  std::unordered_map<std::string, int> mbim_lookup;
+  mbim_lookup.reserve(mbim_keys.size());
+  for (int i = 0; i < (int)mbim_keys.size(); ++i) {
+    if (!mbim_lookup.insert({mbim_keys[i], i}).second) {
+      cao.error("duplicate SNP records found in " + mbim_file + " for key " + mbim_keys[i]);
+    }
+  }
+
+  match.bim_indices.reserve(std::min(bim_keys.size(), mbim_keys.size()));
+  match.mbim_indices.reserve(std::min(bim_keys.size(), mbim_keys.size()));
+  for (int i = 0; i < (int)bim_keys.size(); ++i) {
+    auto it = mbim_lookup.find(bim_keys[i]);
+    if (it != mbim_lookup.end()) {
+      match.bim_indices.push_back(i);
+      match.mbim_indices.push_back(it->second);
+    }
+  }
+
+  return match;
 }
 
 void parse_beagle_file(Mat2D& P, gzFile fp, const int nsamples, const int nsnps) {

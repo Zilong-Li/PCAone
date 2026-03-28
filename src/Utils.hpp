@@ -89,7 +89,13 @@ Mat2D read_eigvecs(const std::string& path, int n, int k);
 
 Mat1D read_frq(const std::string& path);
 
-void check_bim_vs_mbim(const std::string& bim_file, const std::string& mbim_file);
+struct BimMatch {
+  bool identical = false;
+  Int1D bim_indices;
+  Int1D mbim_indices;
+};
+
+BimMatch match_bim_to_mbim(const std::string& bim_file, const std::string& mbim_file);
 
 void parse_beagle_file(Mat2D& P, gzFile fp, const int nsamples, const int nsnps);
 

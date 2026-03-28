@@ -45,10 +45,9 @@ void FileBgen::read_all() {
 #pragma omp parallel for
         for (i = 0; i < nsamples; i++) {
           if (std::isnan(dosages[i])) {
-            if (params.miss) C[k * nsamples + i] = 1;
             G(i, k) = 0;
+            if (params.miss) C[k * nsamples + i] = 1;
           } else {
-            if (params.miss) C[k * nsamples + i] = 0;
             G(i, k) = dosages[i] / 2.0 - F(k);  // map to [0, 1];
           }
         }

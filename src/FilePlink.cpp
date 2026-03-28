@@ -32,9 +32,8 @@ void FileBed::read_all() {
   uint64 c, i, j, b, k;
   uchar buf;
   // sometimes no need to estimate AF, e.g. projection
-  if (params.estaf) {
+  if (params.dopca && !frequency_was_estimated) {
     F = Mat1D::Zero(nsnps);
-    C = ArrBool::Zero(nsnps * nsamples);
     // estimate allele frequency first
 #pragma omp parallel for private(i, j, b, c, k, buf)
     for (i = 0; i < nsnps; ++i) {
@@ -45,9 +44,7 @@ void FileBed::read_all() {
             if (BED2GENO[buf & 3] != BED_MISSING_VALUE) {
               F(i) += BED2GENO[buf & 3];
               c++;
-            } else {
-              C[i * nsamples + j] = 1;
-            }
+            } 
             buf >>= 2;
           }
         }
@@ -62,19 +59,14 @@ void FileBed::read_all() {
       if (params.ld && params.verbose > 1 && F(i) == 0.5)
         cao.warn("sites with MAF=0.5 found in LD estimation. NaN values expected! SNP index:", i);
     }
-    if (C.count() > 0) {
-      impute = true;
-      p_miss = (double)C.count() / (double)C.size();
-      cao.print(tick.date(), "the proportion of missingness  is", p_miss);
-    } else {
-      C.resize(0); // clear 
-      filter_snps_resize_F();  // filter and resize nsnps
-    }
+    filter_snps_resize_F();  // filter and resize nsnps
   }
 
   const bool filter = keepSNPs.size() > 0 ? true : false;
   if (filter) nsnps = keepSNPs.size();
-  G = Mat2D::Zero(nsamples, nsnps); // fill in G with new size after filtering
+  G = Mat2D::Zero(nsamples, nsnps);  // fill in G with new size after filtering
+
+  if(params.miss) C = ArrBool::Zero(nsnps * nsamples);
   if (params.pcangsd) P = Mat2D::Zero(nsamples * 2, nsnps);
 
 #pragma omp parallel for private(i, j, b, c, k, buf)
@@ -86,6 +78,8 @@ void FileBed::read_all() {
         if (j < nsamples) {
           G(j, i) = BED2GENO[buf & 3];
           buf >>= 2;
+          if((params.miss && G(j, i)== BED_MISSING_VALUE))
+            C[i * nsamples + j] = 1;
         }
       }
     }
@@ -117,6 +111,12 @@ void FileBed::read_all() {
     }
   }
 
+  if (params.miss) {
+      impute = true;
+      p_miss = (double)C.count() / (double)C.size();
+      cao.print(tick.date(), "the proportion of missingness  is", p_miss);
+  }
+
   // read bed to matrix G done and close bed_ifstream
   inbed.clear();
   inbed.shrink_to_fit();
@@ -138,7 +138,7 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
   uchar buf;
   // inbed.resize(bed_bytes_per_snp * actual_block_size);
   bed_ifstream.read(reinterpret_cast<char *>(inbed.data()), bed_bytes_per_snp * actual_block_size);
-  if (!params.estaf) frequency_was_estimated = true;
+  if (!params.dopca) frequency_was_estimated = true; // read AF from external
   if (frequency_was_estimated) {
 #pragma omp parallel for private(i, j, b, k, snp_idx, buf)
     for (i = 0; i < actual_block_size; ++i) {

@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file        https://github.com/Zilong-Li/PCAone/src/FilePgen.cpp
  * @author      Zilong Li
- * Copyright (C) 2022-2024. Use of this code is governed by the LICENSE file.
+ * Copyright (C) 2026. Use of this code is governed by the LICENSE file.
  ******************************************************************************/
 
 #include "FilePgen.hpp"
@@ -27,9 +27,8 @@ static inline double centered_pgen_value(double v, double af) {
 
 void FilePgen::read_all() {
   uint i, j;
-  if (params.estaf) {
+  if (params.dopca && !frequency_was_estimated) {
     F = Mat1D::Zero(nsnps);
-    C = ArrBool::Zero(nsnps * nsamples);
  #pragma omp parallel for private(i, j) schedule(static)
     for (i = 0; i < nsnps; ++i) {
       int thr = omp_get_thread_num();
@@ -45,27 +44,20 @@ void FilePgen::read_all() {
         if (buf[j] != PGEN_MISSING) {
           sum += buf[j] / 2.0;
           ++c;
-        } else {
-          C[i * nsamples + j] = 1;
-        }
+        } 
       }
       F(i) = (c > 0) ? sum / c : 0.0;
       if (F(i) == 0.0 || F(i) == 1.0) cao.warn("sites with MAF=0 found! remove them first! SNP index:", i);
       if (params.ld && params.verbose > 1 && F(i) == 0.5)
         cao.warn("sites with MAF=0.5 found in LD estimation. NaN values expected! SNP index:", i);
     }
-    if (C.count() > 0) {
-      impute = true;
-      p_miss = (double)C.count() / (double)C.size();
-      cao.print(tick.date(), "the proportion of missingness  is", p_miss);
-    } else {
-      C.resize(0); // clear 
-      filter_snps_resize_F();
-    }
+    filter_snps_resize_F();
   }
   const bool filter = keepSNPs.size() > 0 ? true : false;
   if (filter) nsnps = keepSNPs.size();
   G = Mat2D::Zero(nsamples, nsnps);
+
+  if(params.miss) C = ArrBool::Zero(nsnps * nsamples);
 
  #pragma omp parallel for private(i, j) schedule(static)
   for (i = 0; i < nsnps; ++i) {
@@ -79,6 +71,8 @@ void FilePgen::read_all() {
     }
     for (j = 0; j < nsamples; ++j) {
       G(j, i) = pgen2dosage(buf[j]);
+      if((params.miss && G(j, i)== BED_MISSING_VALUE))
+        C[i * nsamples + j] = 1;
     }
     if (params.center) {
       for (j = 0; j < nsamples; ++j) {
@@ -88,6 +82,12 @@ void FilePgen::read_all() {
           G(j, i) -= F(i);
       }
     }
+  }
+
+  if (params.miss) {
+      impute = true;
+      p_miss = (double)C.count() / (double)C.size();
+      cao.print(tick.date(), "the proportion of missingness  is", p_miss);
   }
 
 }
@@ -147,7 +147,7 @@ void FilePgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standa
   uint i, j;
   uint64 snp_idx;
 
-  if (!params.estaf) frequency_was_estimated = true;
+  if (!params.dopca) frequency_was_estimated = true;
   if (frequency_was_estimated) {
  #pragma omp parallel for private(i, j, snp_idx) schedule(static)
     for (i = 0; i < actual_block_size; ++i) {
