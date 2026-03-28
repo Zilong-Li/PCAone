@@ -209,13 +209,15 @@ Param::Param(int argc, char **argv) {
     oversamples = oversamples > k ? oversamples : k;
     if (haploid && genetic) ploidy = 1;
     if (memory > 0 && svd_t != SvdType::FULL) out_of_core = true;
-    if (maf > 0.5) {
-      std::cerr << "warning: '--maf' with a value greater than 0.5 will be converted to 1 - maf.\n";
-      maf = 1 - maf;
+    
+    filterSNP = maf > 0 ? true : false;  // filter SNP if MAf applied
+    if (filterSNP) {
+      if (!(maf > 0 && maf < 0.5))
+        throw std::invalid_argument("--maf has to be between (0, 0.5)");
+      if (out_of_core)
+        throw std::invalid_argument("does not support --maf filters for out-of-core mode yet! ");
     }
-    filterSNP = maf > 0 ? true : false;
-    if (maf && out_of_core)
-      throw std::invalid_argument("does not support --maf filters for out-of-core mode yet! ");
+
 
     // handle EM-PCA
     if (dopca && file_t == FileType::BEAGLE) pcangsd = true;

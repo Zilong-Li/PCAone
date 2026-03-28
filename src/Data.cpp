@@ -74,29 +74,33 @@ void Data::prepare() {
   }
 }
 
+
+// filter snps, update keepSNPs, reassign nsnps;
 void Data::filter_snps_resize_F() {
-  if (params.filterSNP && params.maf > 0 &&
-      params.maf <= 0.5) {  // filter snps, update keepSNPs, reassign nsnps;
-    Mat1D Fnew(F.size());   // make a temp F
-    int i, j;
-    for (i = 0, j = 0; j < (int)F.size(); j++) {
-      if (MAF(F(j)) > params.maf) {
-        keepSNPs.push_back(j);  // keep track of index of element > maf
-        Fnew(i++) = F(j);
-      }
+  if (!params.filterSNP) return;
+  if (!(params.maf > 0 && params.maf <= 0.5))
+    cao.error("--maf has to be between (0, 0.5)");
+
+  Mat1D Fnew(F.size());   // make a temp F
+  int i, j;
+  for (i = 0, j = 0; j < (int)F.size(); j++) {
+    if (MAF(F(j)) > params.maf) {
+      keepSNPs.push_back(j);  // keep track of index of element > maf
+      Fnew(i++) = F(j);
     }
-    nsnps = keepSNPs.size();  // new number of SNPs
-    cao.print(tick.date(), "number of SNPs after filtering by MAF >", params.maf, ":", nsnps);
-    if (nsnps < 1) cao.error("no SNPs left after filtering!");
-    // resize F
-    F.noalias() = Fnew.head(nsnps);
   }
+  nsnps = keepSNPs.size();  // new number of SNPs
+  cao.print(tick.date(), "number of SNPs after filtering by MAF >", params.maf, ":", nsnps);
+  if (nsnps < 1) cao.error("no SNPs left after filtering!");
+  // resize F
+  F.noalias() = Fnew.head(nsnps);
+
 }
 
 // initially only works with plink inputs
 // but can work with beagle file as long as there is beagle.gz.bim file
 // TODO: always output mbim even though there is no beagle.gz.bim file
-void Data::save_snps_in_bim() {
+void Data::save_snps_in_mbim() {
   cao.print(tick.date(), "save matched sites in .mbim file and permutation mode is", params.perm);
   // could be permuted; fall back to .pvar for PGEN input
   std::string bim_path = params.filein + ".bim";
@@ -191,7 +195,7 @@ void Data::write_eigs_files(const Mat1D& E, const Mat1D& S, const Mat2D& U, cons
   if (oute.is_open()) oute << E.format(fmt) << '\n';
   if (outu.is_open()) outu << U.format(fmt) << '\n';
   if (params.project == 0 && params.printv) {
-    save_snps_in_bim();
+    save_snps_in_mbim();
     std::ofstream outv(params.fileout + ".loadings");
     if (outv.is_open()) outv << V.format(fmt) << '\n';
   }
@@ -245,7 +249,7 @@ void Data::write_residuals(const Mat1D &S, const Mat2D &U, const Mat2D &VT) {
     }
   }
 
-  save_snps_in_bim();
+  save_snps_in_mbim();
   cao.print(tick.date(), "the LD matrix and SNPs info are saved");
 }
 

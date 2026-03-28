@@ -58,7 +58,7 @@ void FileBgen::read_all() {
       }
     }
     if (k == 0)
-      cao.error("the number of SNPs after filtering should be 0!");
+      cao.error("the number of SNPs after filtering is 0!");
     else
       cao.print(tick.date(), "number of SNPs after filtering by MAF >", params.maf, ":", k);
     // resize G, F, C;

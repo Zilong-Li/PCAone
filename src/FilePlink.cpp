@@ -72,12 +72,14 @@ void FileBed::read_all() {
     }
   }
 
-  G = Mat2D::Zero(nsamples, nsnps);  // fill in G with new size
+  const bool filter = keepSNPs.size() > 0 ? true : false;
+  if (filter) nsnps = keepSNPs.size();
+  G = Mat2D::Zero(nsamples, nsnps); // fill in G with new size after filtering
   if (params.pcangsd) P = Mat2D::Zero(nsamples * 2, nsnps);
 
 #pragma omp parallel for private(i, j, b, c, k, buf)
   for (i = 0; i < nsnps; ++i) {
-    uint s = params.filterSNP ? keepSNPs[i] : i;
+    uint s = filter ? keepSNPs[i] : i;
     for (b = 0, c = 0, j = 0; b < bed_bytes_per_snp; ++b) {
       buf = inbed[s * bed_bytes_per_snp + b];
       for (k = 0; k < 4; ++k, ++j) {
@@ -119,10 +121,6 @@ void FileBed::read_all() {
   inbed.clear();
   inbed.shrink_to_fit();
 
-  // if (params.pcangsd) {
-  //   F = Mat1D::Constant(nsnps, 0.25);
-  //   emMAF_with_GL(F, P, params.maxiter, params.tolmaf);
-  // }
 }
 
 void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize) {
