@@ -13,7 +13,7 @@
  * 1: simple, assume no missingness
  * 2: like smartPCA, solving g=Vx, can take missing genotypes
  * 3: OADP, online Augmentation Decomposition Procrusters transformation, but can take missing genotypes
-   // NOTE: we don't support out-of-memory for projection.
+   // NOTE: we don't support out-of-core for projection.
  */
 void run_projection(Data* data, const Param& params) {
   check_bim_vs_mbim(params.filein + ".bim", params.filebim);
@@ -59,6 +59,9 @@ void run_projection(Data* data, const Param& params) {
     cao.error("have not implemented yet");
   }
 
-  data->write_eigs_files(S.array().square() / data->nsnps, S, U, V);
+  Eigen::IOFormat fmt(6, Eigen::DontAlignCols, "\t", "\n");
+  std::ofstream outu(params.fileout + ".eigvecs");
+  if (outu.is_open()) outu << U.format(fmt) << '\n';
+
 }
 

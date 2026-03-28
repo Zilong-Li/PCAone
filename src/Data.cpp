@@ -15,7 +15,7 @@ void Data::prepare() {
   if (nsamples > nsnps) nsamples_ge_nsnps = true;
   
   if (!params.estaf) { // for projection, read F from reference set
-    cao.print(tick.date(), "read frequency of SNPs from the extended bim (.mbim)");
+    cao.print(tick.date(), "read allele frequency from .mbim file: " + params.filebim);
     F = read_frq(params.filebim);
   }
 
