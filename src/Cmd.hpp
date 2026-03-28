@@ -77,7 +77,7 @@ class Param {
   bool hardcall = false;
   bool groff = false;
   bool printv = false;
-  bool miss = false; // keep track of missing information
+  bool missme = false; // keep track of missing information
   bool noshuffle = false;
   bool emu = false;
   bool pcangsd = false;  // enable pcangsd procedure

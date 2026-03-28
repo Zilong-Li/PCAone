@@ -186,7 +186,7 @@ Param::Param(int argc, char **argv) {
       if (fileV.empty() || fileS.empty())
         throw std::invalid_argument("please use --USV together with --project");
       if (project > 2) throw std::invalid_argument("more projection methods are coming. stay tuned!");
-      dopca=false, miss = true, out_of_core = false;
+      dopca=false, missme = true, out_of_core = false;
       memory = 0;
     }
 
@@ -222,7 +222,7 @@ Param::Param(int argc, char **argv) {
     // handle EM-PCA
     if (dopca && file_t == FileType::BEAGLE) pcangsd = true;
     if (emu || pcangsd) {
-      miss = true;
+      missme = true;
     } else if (dopca) {
       maxiter = 0;
     }

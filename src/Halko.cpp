@@ -283,12 +283,9 @@ void run_pca_with_halko(Data* data, const Param& params) {
               params.out_of_core ? "out-of-core" : "in-core");
     rsvd = new NormalRsvdOpData(data, params.k, params.oversamples);
   }
-  if (!params.miss) {
+  if (!params.missme) {
     if (params.genetic) {
-      if (params.ld)
-        rsvd->setFlags(false, false);
-      else
-        rsvd->setFlags(false, true);
+      rsvd->setFlags(false, params.ld ? false : true);
     } else {
       rsvd->setFlags(false, false);
     }
@@ -316,6 +313,12 @@ void run_pca_with_halko(Data* data, const Param& params) {
       }
     }
 
+    if (params.emu) {
+      cao.print(tick.date(), "standardize the final matrix for EMU");
+      rsvd->setFlags(true, true);
+      rsvd->computeUSV(params.maxp, params.tol);
+    }
+    
     if (params.pcangsd && (params.file_t == FileType::BEAGLE)) {
       cao.print(tick.date(), "estimate GRM for pcangsd");
       data->pcangsd_standardize_E(rsvd->U, rsvd->S, rsvd->V.transpose());
@@ -331,11 +334,7 @@ void run_pca_with_halko(Data* data, const Param& params) {
       // output real eigenvectors of covariance in eigvecs2
       write_eigvecs2_beagle(svd.matrixU(), params.filein, params.fileout + ".eigvecs2");
     }
-    if (params.emu) {
-      cao.print(tick.date(), "standardize the final matrix for EMU");
-      rsvd->setFlags(true, true);
-      rsvd->computeUSV(params.maxp, params.tol);
-    }
+    
   }
   // output PI
   if (params.ld) data->write_residuals(rsvd->S, rsvd->U, rsvd->V.transpose());

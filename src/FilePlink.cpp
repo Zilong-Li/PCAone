@@ -66,7 +66,7 @@ void FileBed::read_all() {
   if (filter) nsnps = keepSNPs.size();
   G = Mat2D::Zero(nsamples, nsnps);  // fill in G with new size after filtering
 
-  if(params.miss) C = ArrBool::Zero(nsnps * nsamples);
+  if(params.missme) C = ArrBool::Zero(nsnps * nsamples);
   if (params.pcangsd) P = Mat2D::Zero(nsamples * 2, nsnps);
 
 #pragma omp parallel for private(i, j, b, c, k, buf)
@@ -78,7 +78,7 @@ void FileBed::read_all() {
         if (j < nsamples) {
           G(j, i) = BED2GENO[buf & 3];
           buf >>= 2;
-          if((params.miss && G(j, i)== BED_MISSING_VALUE))
+          if(params.missme && (G(j, i)== BED_MISSING_VALUE))
             C[i * nsamples + j] = 1;
         }
       }
@@ -111,8 +111,7 @@ void FileBed::read_all() {
     }
   }
 
-  if (params.miss) {
-      impute = true;
+  if (params.missme) {
       p_miss = (double)C.count() / (double)C.size();
       cao.print(tick.date(), "the proportion of missingness  is", p_miss);
   }

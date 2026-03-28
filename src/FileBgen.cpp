@@ -18,7 +18,7 @@ void FileBgen::read_all() {
   if (!params.pcangsd) {
     F = Mat1D::Zero(nsnps);
     G = Mat2D::Zero(nsamples, nsnps);
-    if (params.miss) C = ArrBool::Zero(nsnps * nsamples);
+    if (params.missme) C = ArrBool::Zero(nsnps * nsamples);
     for (j = 0, k = 0; j < nsnps; j++) {
       try {
         auto var = bg->next_var();
@@ -46,7 +46,7 @@ void FileBgen::read_all() {
         for (i = 0; i < nsamples; i++) {
           if (std::isnan(dosages[i])) {
             G(i, k) = 0;
-            if (params.miss) C[k * nsamples + i] = 1;
+            if (params.missme) C[k * nsamples + i] = 1;
           } else {
             G(i, k) = dosages[i] / 2.0 - F(k);  // map to [0, 1];
           }
