@@ -73,7 +73,8 @@ void RsvdOpData::computeUSV(int p, double tol) {
         diff = 1 - mev(Ucur, Upre);
       else
         diff = minSSE(Ucur, Upre).sum() / Upre.cols();
-      if (data->params.verbose) cao.print(tick.date(), "running of epoch =", pi, ", diff =", diff);
+      if (data->params.verbose && !data->params.missme)
+        cao.print(tick.date(), "running of epoch =", pi, ", diff =", diff);
       if (diff < tol || pi == p) {
         if (data->params.svd_t == SvdType::PCAoneAlg2 && std::pow(2, pi) < data->params.bands) {
           cao.print("PCAone winSVD converged but continues running to get S and V.");
@@ -82,7 +83,8 @@ void RsvdOpData::computeUSV(int p, double tol) {
           U = Ucur;
           V.noalias() = G * svd.matrixU().leftCols(nk);
           S = svd.singularValues().head(nk);
-          if (data->params.verbose) cao.print(tick.date(), "stops at epoch =", pi + 1);
+          if (data->params.verbose && !data->params.missme)
+            cao.print(tick.date(), "stops at epoch =", pi + 1);
           break;
         }
       } else {
@@ -291,17 +293,18 @@ void run_pca_with_halko(Data* data, const Param& params) {
     }
     rsvd->computeUSV(params.maxp, params.tol);
   } else {
+    if(data->p_miss == 0.0) cao.error("there is no missing values");
     // for EM iteration
     rsvd->setFlags(false, false);
     rsvd->computeUSV(params.maxp, params.tol);
-    // flip_UV(rsvd->U, rsvd->V, false);
+    flip_UV(rsvd->U, rsvd->V, false);
     double diff;
     cao.print(tick.date(), "run EM-PCA. maxiter =", params.maxiter);
     for (uint i = 0; i < params.maxiter; ++i) {
       rsvd->setFlags(true, false);
       Vpre = rsvd->V;
       rsvd->computeUSV(params.maxp, params.tol);
-      // flip_UV(rsvd->U, rsvd->V, false);
+      flip_UV(rsvd->U, rsvd->V, false);
       if (params.mev)
         diff = 1.0 - mev(rsvd->V, Vpre);
       else
@@ -317,6 +320,7 @@ void run_pca_with_halko(Data* data, const Param& params) {
       cao.print(tick.date(), "standardize the final matrix for EMU");
       rsvd->setFlags(true, true);
       rsvd->computeUSV(params.maxp, params.tol);
+      flip_UV(rsvd->U, rsvd->V, false);
     }
     
     if (params.pcangsd && (params.file_t == FileType::BEAGLE)) {

@@ -14,6 +14,7 @@ class FileBgen : public Data {
  public:
   // using Data::Data;
   FileBgen(const Param& params_) : Data(params_) {
+    cao.warn("BGEN support is very limited. Please convert BGEN to PGEN instead!");
     cao.print(tick.date(), "start parsing BGEN format");
     bg = new bgen::CppBgenReader(params.filein, "", true);
     nsamples = bg->header.nsamples;

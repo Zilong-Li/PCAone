@@ -201,11 +201,12 @@ void Data::write_eigs_files(const Mat1D& E, const Mat1D& S, const Mat2D& U, cons
   }
   if (oute.is_open()) oute << E.format(fmt) << '\n';
   if (outu.is_open()) outu << U.format(fmt) << '\n';
-  if (params.project == 0 && params.printv) {
-    save_snps_in_mbim();
+  if (params.dopca && params.printv) {
+    if(!params.missme) save_snps_in_mbim();
     std::ofstream outv(params.fileout + ".loadings");
     if (outv.is_open()) outv << V.format(fmt) << '\n';
   }
+  
   cao.print(tick.date(), "eigen vectors and values saved");
 }
 
@@ -261,9 +262,9 @@ void Data::write_residuals(const Mat1D &S, const Mat2D &U, const Mat2D &VT) {
 }
 
 void Data::fit_with_pi(const Mat2D &U, const Mat1D &svals, const Mat2D &VT) {
+  if(params.verbose >= 3) cao.print(tick.date(), "call fit_with_pi");
   uint ks = svals.size();
-  if (params.pcangsd) {
-    // for pcangsd with beagle input
+  if (params.pcangsd) { // for pcangsd with beagle input
 #pragma omp parallel for
     for (uint j = 0; j < nsnps; ++j) {
       double p0, p1, p2;
@@ -285,8 +286,7 @@ void Data::fit_with_pi(const Mat2D &U, const Mat1D &svals, const Mat2D &VT) {
     }
   }
 
-  if (params.emu) {
-// for emu
+  if (params.emu && params.perm) {  // for emu with permuted data, -d 2
 #pragma omp parallel for
     for (uint i = 0; i < nsnps; ++i) {
       for (uint j = 0; j < nsamples; ++j) {
@@ -301,9 +301,27 @@ void Data::fit_with_pi(const Mat2D &U, const Mat1D &svals, const Mat2D &VT) {
       }
     }
   }
+
+  if (params.emu && !params.perm) {  // for emu without permuted data, -d 0
+#pragma omp parallel for
+    for (uint i = 0; i < nsnps; ++i) {
+      for (uint j = 0; j < nsamples; ++j) {
+        if (C[i * nsamples + j])  // no bool & 1
+        {                         // sites need to be predicted
+          G(j, i) = 0.0;
+          for (uint k = 0; k < ks; ++k) {
+            G(j, i) += U(j, k) * svals(k) * VT(k, i);
+          }
+          G(j, i) = fmin(fmax(G(j, i), -F(i)), 1 - F(i));
+        }
+      }
+    }
+  }
+  
 }
 
 void Data::standardize_E() {
+  if(params.verbose >= 3) cao.print(tick.date(), "standardize the matrix");
   if(params.scale != -9) return;
 #pragma omp parallel for
   for (uint i = 0; i < nsnps; ++i) {

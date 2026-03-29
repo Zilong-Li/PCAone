@@ -57,7 +57,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
   if (!params.out_of_core) {
     // SpMatrix sG = data->G.sparseView();
     PartialSVDSolver<Mat2D> svds(data->G, params.k, params.ncv);
-    if (!params.ld && !params.missme && params.genetic)
+    if (!(params.missme || params.ld))
       data->standardize_E();
     nconv = svds.compute(params.imaxiter, params.itol);
     if (nconv != params.k) cao.error("the nconv is not equal to k.");
@@ -145,6 +145,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
     evals.noalias() = eigs->eigenvalues() / data->nsnps;
     // impute information via EM-PCA
     if (params.missme) {
+      if(data->p_miss == 0.0) cao.error("there is no missing values");
       cao.print(tick.date(), "starts EM iteration. maxiter =", params.maxiter);
       data->calcu_vt_initial(U, op->VT, false);
       flip_UV(op->U, op->VT);
