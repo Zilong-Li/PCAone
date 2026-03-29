@@ -54,6 +54,7 @@ class Data {
   Arr2D centered_geno_lookup;  // lookup table for centering genotypes
   Int1D keepSNPs;              // store index of SNPs to keep
   Int1D keepRefSNPs;           // store matching SNP indices in the reference .mbim
+  Int1D flipSNPs;              // local SNP indices (into keepSNPs order) with flipped alleles
 };
 
 #endif  // PCAONE_DATA_

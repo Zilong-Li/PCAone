@@ -89,8 +89,12 @@ int main(int argc, char* argv[]) {
   }
 
   // particular case for projection
-  if ((params.project > 0) && (params.file_t == FileType::PLINK)) {
-    data = new FileBed(params);
+  if (params.project > 0 &&
+      (params.file_t == FileType::PLINK || params.file_t == FileType::BEAGLE)) {
+    if (params.file_t == FileType::PLINK)
+      data = new FileBed(params);
+    else
+      data = new FileBeagle(params);
     run_projection(data, params);
     delete data;
     return bye();

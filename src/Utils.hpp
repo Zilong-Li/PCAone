@@ -93,9 +93,12 @@ struct BimMatch {
   bool identical = false;
   Int1D bim_indices;
   Int1D mbim_indices;
+  std::vector<bool> flip;  // parallel to bim_indices: true if ref/alt are swapped vs mbim
 };
 
 BimMatch match_bim_to_mbim(const std::string& bim_file, const std::string& mbim_file);
+
+BimMatch match_beagle_to_mbim(const std::string& beagle_file, const std::string& mbim_file);
 
 void parse_beagle_file(Mat2D& P, gzFile fp, const int nsamples, const int nsnps);
 

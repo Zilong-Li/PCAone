@@ -6,6 +6,7 @@
 
 #include "Projection.hpp"
 
+#include "Cmd.hpp"
 #include "Utils.hpp"
 
 /**
@@ -16,15 +17,26 @@
    // NOTE: we don't support out-of-core for projection.
  */
 void run_projection(Data* data, const Param& params) {
-  auto match = match_bim_to_mbim(params.filein + ".bim", params.filebim);
-  if (match.bim_indices.empty()) {
-    cao.error("no overlapped SNPs found between " + params.filein + ".bim and " + params.filebim);
+  BimMatch match;
+  if (params.file_t == FileType::BEAGLE) {
+    match = match_beagle_to_mbim(params.filein, params.filebim);
+    if (match.bim_indices.empty())
+      cao.error("no overlapped SNPs found between " + params.filein + " and " + params.filebim);
+  } else {
+    match = match_bim_to_mbim(params.filein + ".bim", params.filebim);
+    if (match.bim_indices.empty())
+      cao.error("no overlapped SNPs found between " + params.filein + ".bim and " + params.filebim);
   }
   if (!match.identical) {
     data->keepSNPs = match.bim_indices;
     data->keepRefSNPs = match.mbim_indices;
-    cao.warn("SNP info is not fully identical between input .bim and reference .mbim; projection will use ",
+    for (int k = 0; k < (int)match.flip.size(); ++k) {
+      if (match.flip[k]) data->flipSNPs.push_back(k);
+    }
+    cao.warn("SNP info is not fully identical between input .bim and reference .mbim;\n projection will use ",
              match.bim_indices.size(), " overlapped sites only");
+    if (!data->flipSNPs.empty())
+      cao.warn(data->flipSNPs.size(), " SNPs have flipped ref/alt alleles and will be corrected");
   }
   cao.print(tick.date(), "run projection");
   data->prepare();
@@ -32,13 +44,14 @@ void run_projection(Data* data, const Param& params) {
   cao.print(tick.date(), "start parsing V:", params.fileV, ", S:", params.fileS);
   uint nsamples, nsnps;
   Mat1D S;
-  read_sigvals(params.fileS, nsamples, nsnps, S); 
+  read_sigvals(params.fileS, nsamples, nsnps, S);
   int K = fmin(S.size(), params.k);
   Mat2D V = read_eigvecs(params.fileV, nsnps, K);
   if (!match.identical) {
     Mat2D V_overlap(match.mbim_indices.size(), K);
     for (int i = 0; i < (int)match.mbim_indices.size(); ++i) {
       V_overlap.row(i) = V.row(match.mbim_indices[i]);
+      if (match.flip[i]) V_overlap.row(i) = -V_overlap.row(i);
     }
     V = V_overlap;
   }
@@ -78,5 +91,4 @@ void run_projection(Data* data, const Param& params) {
   Eigen::IOFormat fmt(6, Eigen::DontAlignCols, "\t", "\n");
   std::ofstream outu(params.fileout + ".eigvecs");
   if (outu.is_open()) outu << U.format(fmt) << '\n';
-
 }

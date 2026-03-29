@@ -10,10 +10,28 @@ using namespace std;
 
 // read all data and estimate F
 void FileBeagle::read_all() {
-  P = Mat2D::Zero(nsamples * 2, nsnps);
+  uint total_nsnps = nsnps;
+  P = Mat2D::Zero(nsamples * 2, total_nsnps);
   fp = gzopen(params.filein.c_str(), "r");
-  parse_beagle_file(P, fp, nsamples, nsnps);
-  if (!params.dopca) return;
+  parse_beagle_file(P, fp, nsamples, total_nsnps);
+  if (!params.dopca) {
+    // projection mode: compute soft expected genotypes from GLs using reference F
+    const bool filter = !keepSNPs.empty();
+    if (filter) nsnps = keepSNPs.size();
+    G = Mat2D::Zero(nsamples, nsnps);
+#pragma omp parallel for
+    for (uint j = 0; j < nsnps; j++) {
+      uint s = filter ? keepSNPs[j] : j;
+      for (uint i = 0; i < nsamples; i++) {
+        double p0 = P(2 * i + 0, s) * (1.0 - F(j)) * (1.0 - F(j));
+        double p1 = P(2 * i + 1, s) * 2.0 * F(j) * (1.0 - F(j));
+        double p2 = (1 - P(2 * i + 0, s) - P(2 * i + 1, s)) * F(j) * F(j);
+        G(i, j) = (p1 + 2.0 * p2) / (p0 + p1 + p2) - 2.0 * F(j);
+      }
+    }
+    p_miss = 0.0;  // GL-based expected genotypes are always defined
+    return;
+  }
   cao.print(tick.date(), "begin to estimate allele frequencies");
   F = Mat1D::Constant(nsnps, 0.25);
   emMAF_with_GL(F, P, params.maxiter, params.tolmaf);

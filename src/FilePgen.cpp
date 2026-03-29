@@ -53,7 +53,7 @@ void FilePgen::read_all() {
     }
     filter_snps_resize_F();
   }
-  const bool filter = keepSNPs.size() > 0 ? true : false;
+  const bool filter = !keepSNPs.empty();
   if (filter) nsnps = keepSNPs.size();
   G = Mat2D::Zero(nsamples, nsnps);
 

@@ -62,7 +62,7 @@ void FileBed::read_all() {
     filter_snps_resize_F();  // filter and resize nsnps
   }
 
-  const bool filter = keepSNPs.size() > 0 ? true : false;
+  const bool filter = !keepSNPs.empty();
   if (filter) nsnps = keepSNPs.size();
   G = Mat2D::Zero(nsamples, nsnps);  // fill in G with new size after filtering
 

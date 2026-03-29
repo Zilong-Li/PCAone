@@ -24,6 +24,9 @@ void Data::prepare() {
       }
       F = Fnew;
     }
+    if (!flipSNPs.empty()) {
+      for (int i : flipSNPs) F(i) = 1.0 - F(i);
+    }
   }
 
   if (!params.out_of_core) {
