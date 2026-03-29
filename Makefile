@@ -150,7 +150,7 @@ SLIBS += ./external/bgen/bgenlib.a ./external/zstd/lib/libzstd.a $(PGENLIB)
 
 LIBS += $(SLIBS) $(DLIBS) -lpthread -ldl -lm
 
-.PHONY: all clean ld_matrix ld_r2 ld_prune ld_clump ld_tests test_full test_aarch64
+.PHONY: all clean island projection hwe ld_matrix ld_r2 ld_prune ld_clump ld_tests test_full test_aarch64
 
 all: ${program}
 
@@ -199,6 +199,10 @@ data:
 ###################################################################
 #####                   EXAMPLE TESTS
 ###################################################################
+island:
+	./PCAone -b inbreeding/plink-miss0.3 -k 3 -d 0 --emu -o emu -V
+	./PCAone -b inbreeding/plink-miss0.3 -k 3 -d 2 --emu -o emu -V -m 1
+
 example_tests:
 	./PCAone -b example/plink -n 4 -o m0 
 	./PCAone -b example/plink -n 4 -o m1 -m 1
@@ -218,9 +222,9 @@ projection:
 
 hwe:
 	./PCAone -b example/plink -k 3 -V -m 1
-	./PCAone -b example/plink --USV pcaone -k 3 --inbreed 1 -o inbreed_m0
-	./PCAone -b example/plink --USV pcaone -k 3 --inbreed 1 -o inbreed_m1 -m 1
-	rm -f inbreed* pcangsd.*
+	./PCAone -b example/plink --USV pcaone -k 3 --inbreed 1 -o m0
+	./PCAone -b example/plink --USV pcaone -k 3 --inbreed 1 -o m1 -m 1
+	rm -f m0.* m1.*
 
 ld_matrix:
 	./PCAone -b example/plink -k 3 --ld -o adj -d 2
@@ -294,5 +298,5 @@ test_aarch64: data example_tests_fast hwe ld_matrix ld_r2 ld_prune ld_clump
 	@echo "SUCCESS: aarch64 fast test suite completed."
 
 # The complete test suite for other architectures like x86_64
-test_full: data example_tests hwe ld_matrix ld_r2 ld_prune ld_clump ld_tests
+test_full: data example_tests projection hwe ld_matrix ld_r2 ld_prune ld_clump ld_tests
 	@echo "SUCCESS: Full test suite completed."

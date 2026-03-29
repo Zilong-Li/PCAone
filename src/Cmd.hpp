@@ -87,7 +87,7 @@ class Param {
   int ploidy = 2;
   int seed = 112; // seeding 
   bool filterSNP = false; // filter snps
-  bool center = true; // false if G is raw data likelihood
+  bool center = true; // false if G is raw data likelihood or inbred mode
   // bool estpi = false; // true if output pi is needed
 
   std::ostringstream ss;
