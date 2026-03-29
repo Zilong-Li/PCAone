@@ -13,7 +13,8 @@
  * options:
  * 1: simple, assume no missingness
  * 2: like smartPCA, solving g=Vx, can take missing genotypes
- * 3: OADP, online Augmentation Decomposition Procrusters transformation, but can take missing genotypes
+ * 3: iterative GL-aware projection (EM): alternates between updating individual allele frequencies
+ *    from current PC scores and re-solving for PC scores with updated expected genotypes (BEAGLE only)
    // NOTE: we don't support out-of-core for projection.
  */
 void run_projection(Data* data, const Param& params) {
@@ -40,7 +41,7 @@ void run_projection(Data* data, const Param& params) {
   }
   cao.print(tick.date(), "run projection");
   data->prepare();
-  data->standardize_E();
+  if (params.project != 3) data->standardize_E();
   cao.print(tick.date(), "start parsing V:", params.fileV, ", S:", params.fileS);
   uint nsamples, nsnps;
   Mat1D S;
@@ -85,7 +86,57 @@ void run_projection(Data* data, const Param& params) {
       }
     }
   } else {
-    cao.error("have not implemented yet");
+    // project == 3: iterative GL-aware projection (EM)
+    // E-step: update expected genotype G using per-sample allele frequencies from U
+    // M-step: solve V*S*u_i = G_std_i (standardized with reference F)
+    if (params.file_t != FileType::BEAGLE)
+      cao.error("--project 3 requires BEAGLE genotype likelihood input");
+    // data->G is centered (expected_dosage - 2F), data->P holds raw GLs
+    const int nsnps = (int)data->nsnps;
+    const int nsamples = (int)data->nsamples;
+    const bool filter = !data->keepSNPs.empty();
+
+    // sd(j) = sqrt(F*(1-F)/ploidy): convert G_centered <-> G_std
+    Mat1D sd(nsnps);
+    for (int j = 0; j < nsnps; ++j)
+      sd(j) = std::sqrt(data->F(j) * (1.0 - data->F(j)) / params.ploidy);
+
+    // V*S is fixed across iterations
+    Mat2D VS = V * S.asDiagonal();
+    Eigen::ColPivHouseholderQR<Mat2D> qr(VS);
+
+    U.setZero();
+    for (uint iter = 0; iter < params.maxiter; ++iter) {
+      Mat2D U_prev = U;
+
+      // M-step: standardize G and solve for U
+      Mat2D G_std = data->G;
+      for (int j = 0; j < nsnps; ++j)
+        if (sd(j) > VAR_TOL) G_std.col(j) /= sd(j);
+#pragma omp parallel for
+      for (int i = 0; i < nsamples; ++i)
+        U.row(i) = qr.solve(G_std.row(i).transpose());
+
+      // E-step: update G using individual allele frequencies
+      // pred(i,j) = predicted G_std; pt = (pred*sd + 2F)/2 = individual allele freq
+      Mat2D pred = U * S.asDiagonal() * V.transpose();  // nsamples x nsnps
+#pragma omp parallel for
+      for (int j = 0; j < nsnps; ++j) {
+        uint s = filter ? data->keepSNPs[j] : (uint)j;
+        for (int i = 0; i < nsamples; ++i) {
+          double pt = (pred(i, j) * sd(j) + 2.0 * data->F(j)) / 2.0;
+          pt = std::fmin(std::fmax(pt, 1e-4), 1.0 - 1e-4);
+          double p0 = data->P(2 * i + 0, s) * (1 - pt) * (1 - pt);
+          double p1 = data->P(2 * i + 1, s) * 2.0 * pt * (1 - pt);
+          double p2 = (1 - data->P(2 * i + 0, s) - data->P(2 * i + 1, s)) * pt * pt;
+          data->G(i, j) = (p1 + 2.0 * p2) / (p0 + p1 + p2) - 2.0 * data->F(j);
+        }
+      }
+
+      double delta = (U - U_prev).norm() / (U_prev.norm() + 1e-10);
+      cao.print(tick.date(), "projection iter", iter + 1, ", delta =", delta);
+      if (iter > 0 && delta < params.tol) break;
+    }
   }
 
   Eigen::IOFormat fmt(6, Eigen::DontAlignCols, "\t", "\n");

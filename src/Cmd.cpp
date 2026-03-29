@@ -98,7 +98,8 @@ Param::Param(int argc, char **argv) {
                                       "0: disabled;\n"
                                       "1: by multiplying the loadings with mean imputation for missing genotypes;\n"
                                       "2: by solving the least squares system Vx=g. skip sites with missingness;\n"
-                                      "3: by Augmentation, Decomposition and Procrusters transformation.\n", project, &project);
+                                      "3: by EM to account for genotype uncertainty (BEAGLE input);\n"
+                                      "4: by Augmentation, Decomposition and Procrusters transformation.\n", project, &project);
   opts.add<Value<int>>("", "inbreed", "compute the inbreeding coefficient accounting for population structure. Options are\n"
                                       "0: disabled;\n"
                                       "1: compute per-site inbreeding coefficient and HWE test.\n", inbreed, &inbreed);
@@ -185,7 +186,6 @@ Param::Param(int argc, char **argv) {
     if (project > 0) {
       if (fileV.empty() || fileS.empty())
         throw std::invalid_argument("please use --USV together with --project");
-      if (project > 2) throw std::invalid_argument("more projection methods are coming. stay tuned!");
       dopca=false, missme = true, out_of_core = false;
       memory = 0;
     }
