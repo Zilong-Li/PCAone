@@ -184,6 +184,8 @@ Param::Param(int argc, char **argv) {
 
     // handle projection
     if (project > 0) {
+      if (project < 1 || project > 3)
+        throw std::invalid_argument("--project supports only 1, 2, or 3 in this release");
       if (fileV.empty() || fileS.empty())
         throw std::invalid_argument("please use --USV together with --project");
       dopca=false, missme = true, out_of_core = false;

@@ -388,6 +388,14 @@ Mat1D read_frq(const std::string& path) {
   return Eigen::Map<Mat1D>(V.data(), V.size());
 }
 
+std::string decode_beagle_allele(const std::string& allele) {
+  if (allele == "0") return "A";
+  if (allele == "1") return "C";
+  if (allele == "2") return "G";
+  if (allele == "3") return "T";
+  return allele;
+}
+
 namespace {
 std::string bim_match_key(const String1D& tokens, const std::string& path, const std::string& line) {
   if ((int)tokens.size() < 6) cao.error("the input bim file is not valid!\n => " + path + "\n" + line);
@@ -457,7 +465,7 @@ BimMatch match_bim_to_mbim(const std::string& bim_file, const std::string& mbim_
 }
 
 BimMatch match_beagle_to_mbim(const std::string& beagle_file, const std::string& mbim_file) {
-  // Parse all marker names from the BEAGLE file (first column of each data row)
+  // Parse BEAGLE rows as marker_allele1_allele2 so matching respects allele order.
   gzFile fp = gzopen(beagle_file.c_str(), "r");
   if (!fp) cao.error("can not open " + beagle_file);
   uint64 bufsize = (uint64)128 * 1024 * 1024;
@@ -468,11 +476,15 @@ BimMatch match_beagle_to_mbim(const std::string& beagle_file, const std::string&
   if (buffer != original) original = buffer;
   buffer = original;
   String1D beagle_markers;
-  char* tok;
   while (tgets(fp, &buffer, &bufsize)) {
     if (buffer != original) original = buffer;
-    tok = strtok_r(buffer, delims, &buffer);
-    if (tok) beagle_markers.push_back(std::string(tok));
+    char* marker = strtok_r(buffer, delims, &buffer);
+    char* allele1 = strtok_r(NULL, delims, &buffer);
+    char* allele2 = strtok_r(NULL, delims, &buffer);
+    if (!marker || !allele1 || !allele2)
+      cao.error("invalid BEAGLE record while matching markers:\n => " + beagle_file);
+    beagle_markers.push_back(std::string(marker) + "_" + decode_beagle_allele(allele1) + "_" +
+                             decode_beagle_allele(allele2));
     buffer = original;
   }
   gzclose(fp);

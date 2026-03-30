@@ -100,6 +100,8 @@ BimMatch match_bim_to_mbim(const std::string& bim_file, const std::string& mbim_
 
 BimMatch match_beagle_to_mbim(const std::string& beagle_file, const std::string& mbim_file);
 
+std::string decode_beagle_allele(const std::string& allele);
+
 void parse_beagle_file(Mat2D& P, gzFile fp, const int nsamples, const int nsnps);
 
 String1D parse_beagle_samples(const std::string& fin);

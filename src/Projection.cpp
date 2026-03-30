@@ -9,6 +9,23 @@
 #include "Cmd.hpp"
 #include "Utils.hpp"
 
+namespace {
+
+inline double expected_centered_genotype(const Mat2D& gls, const Mat1D& freqs, uint sample_idx, uint raw_snp_idx,
+                                         uint matched_snp_idx, double allele_freq) {
+  allele_freq = std::fmin(std::fmax(allele_freq, 1e-4), 1.0 - 1e-4);
+  const double gl0 = gls(2 * sample_idx + 0, raw_snp_idx);
+  const double gl1 = gls(2 * sample_idx + 1, raw_snp_idx);
+  const double p0 = gl0 * (1.0 - allele_freq) * (1.0 - allele_freq);
+  const double p1 = gl1 * 2.0 * allele_freq * (1.0 - allele_freq);
+  const double p2 = (1.0 - gl0 - gl1) * allele_freq * allele_freq;
+  const double posterior_sum = p0 + p1 + p2;
+  if (posterior_sum <= 0.0) return -2.0 * freqs(matched_snp_idx);
+  return (p1 + 2.0 * p2) / posterior_sum - 2.0 * freqs(matched_snp_idx);
+}
+
+}  // namespace
+
 /**
  * options:
  * 1: simple, assume no missingness
@@ -34,7 +51,7 @@ void run_projection(Data* data, const Param& params) {
     for (int k = 0; k < (int)match.flip.size(); ++k) {
       if (match.flip[k]) data->flipSNPs.push_back(k);
     }
-    cao.warn("SNP info is not fully identical between input .bim and reference .mbim;\n projection will use ",
+    cao.warn("SNP info is not fully identical between input and reference .mbim;\n projection will use ",
              match.bim_indices.size(), " overlapped sites only");
     if (!data->flipSNPs.empty())
       cao.warn(data->flipSNPs.size(), " SNPs have flipped ref/alt alleles and will be corrected");
@@ -85,7 +102,7 @@ void run_projection(Data* data, const Param& params) {
         U.row(i) = V(idx, Eigen::all).colPivHouseholderQr().solve(data->G(i, idx).transpose());
       }
     }
-  } else {
+  } else if (params.project == 3) {
     // project == 3: iterative GL-aware projection (EM)
     // E-step: update expected genotype G using per-sample allele frequencies from U
     // M-step: solve V*S*u_i = G_std_i (standardized with reference F)
@@ -101,16 +118,19 @@ void run_projection(Data* data, const Param& params) {
     for (int j = 0; j < nsnps; ++j)
       sd(j) = std::sqrt(data->F(j) * (1.0 - data->F(j)) / params.ploidy);
 
+    const auto sdiag = S.asDiagonal();
     // V*S is fixed across iterations
-    Mat2D VS = V * S.asDiagonal();
+    Mat2D VS = V * sdiag;
     Eigen::ColPivHouseholderQR<Mat2D> qr(VS);
+    Mat2D G_std(data->nsamples, nsnps);
+    Mat2D pred(data->nsamples, nsnps);
 
     U.setZero();
     for (uint iter = 0; iter < params.maxiter; ++iter) {
       Mat2D U_prev = U;
 
       // M-step: standardize G and solve for U
-      Mat2D G_std = data->G;
+      G_std = data->G;
       for (int j = 0; j < nsnps; ++j)
         if (sd(j) > VAR_TOL) G_std.col(j) /= sd(j);
 #pragma omp parallel for
@@ -119,17 +139,13 @@ void run_projection(Data* data, const Param& params) {
 
       // E-step: update G using individual allele frequencies
       // pred(i,j) = predicted G_std; pt = (pred*sd + 2F)/2 = individual allele freq
-      Mat2D pred = U * S.asDiagonal() * V.transpose();  // nsamples x nsnps
+      pred.noalias() = U * sdiag * V.transpose();  // nsamples x nsnps
 #pragma omp parallel for
       for (int j = 0; j < nsnps; ++j) {
         uint s = filter ? data->keepSNPs[j] : (uint)j;
         for (int i = 0; i < nsamples; ++i) {
-          double pt = (pred(i, j) * sd(j) + 2.0 * data->F(j)) / 2.0;
-          pt = std::fmin(std::fmax(pt, 1e-4), 1.0 - 1e-4);
-          double p0 = data->P(2 * i + 0, s) * (1 - pt) * (1 - pt);
-          double p1 = data->P(2 * i + 1, s) * 2.0 * pt * (1 - pt);
-          double p2 = (1 - data->P(2 * i + 0, s) - data->P(2 * i + 1, s)) * pt * pt;
-          data->G(i, j) = (p1 + 2.0 * p2) / (p0 + p1 + p2) - 2.0 * data->F(j);
+          const double pt = (pred(i, j) * sd(j) + 2.0 * data->F(j)) / 2.0;
+          data->G(i, j) = expected_centered_genotype(data->P, data->F, i, s, j, pt);
         }
       }
 
@@ -137,6 +153,8 @@ void run_projection(Data* data, const Param& params) {
       cao.print(tick.date(), "projection iter", iter + 1, ", delta =", delta);
       if (iter > 0 && delta < params.tol) break;
     }
+  } else {
+    cao.error("unsupported --project mode: " + std::to_string(params.project));
   }
 
   Eigen::IOFormat fmt(6, Eigen::DontAlignCols, "\t", "\n");
