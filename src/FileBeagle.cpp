@@ -5,6 +5,7 @@
  ******************************************************************************/
 
 #include "FileBeagle.hpp"
+#include "Data.hpp"
 
 using namespace std;
 
@@ -14,22 +15,33 @@ void FileBeagle::read_all() {
   P = Mat2D::Zero(nsamples * 2, total_nsnps);
   fp = gzopen(params.filein.c_str(), "r");
   parse_beagle_file(P, fp, nsamples, total_nsnps);
-  if (!params.dopca) {
-    // projection mode: compute soft expected genotypes from GLs using reference F
+  if (!params.dopca && params.project > 0) {
+    // projection mode: compute expected genotypes from GLs using reference F
+    // F is read in Data::prepare() to include only overlapped sites
     const bool filter = !keepSNPs.empty();
     if (filter) nsnps = keepSNPs.size();
     G = Mat2D::Zero(nsamples, nsnps);
+    C = ArrBool::Zero(nsnps * nsamples);
+
 #pragma omp parallel for
     for (uint j = 0; j < nsnps; j++) {
       uint s = filter ? keepSNPs[j] : j;
+      const double norm = sqrt(2.0 * F(j) * (1.0 - F(j)));
       for (uint i = 0; i < nsamples; i++) {
         double p0 = P(2 * i + 0, s) * (1.0 - F(j)) * (1.0 - F(j));
         double p1 = P(2 * i + 1, s) * 2.0 * F(j) * (1.0 - F(j));
         double p2 = (1 - P(2 * i + 0, s) - P(2 * i + 1, s)) * F(j) * F(j);
-        G(i, j) = (p1 + 2.0 * p2) / (p0 + p1 + p2) - 2.0 * F(j);
+        double psum = p0 + p1 + p2;
+        if (!std::isfinite(psum) || psum <= 0.0) {
+          C[j * nsamples + i] = 1;
+          G(i, j) = 0.0;
+          continue;
+        }
+        G(i, j) = (p1 + 2.0 * p2) / (2.0 * psum) - F(j);
+        C[j * nsamples + i] = 0;
+        if(params.scale == -9 && norm > VAR_TOL) G(i, j) /= norm; 
       }
     }
-    p_miss = 0.0;  // GL-based expected genotypes are always defined
     return;
   }
   cao.print(tick.date(), "begin to estimate allele frequencies");

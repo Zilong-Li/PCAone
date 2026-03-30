@@ -23,6 +23,7 @@ void Data::prepare() {
         Fnew(i) = F(keepRefSNPs[i]);
       }
       F = Fnew;
+      cao.print(tick.date(), "keep AF of",F.size()," matched sites in the reference");
     }
     if (!flipSNPs.empty()) {
       for (int i : flipSNPs) F(i) = 1.0 - F(i);

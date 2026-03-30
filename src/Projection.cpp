@@ -7,24 +7,31 @@
 #include "Projection.hpp"
 
 #include "Cmd.hpp"
+#include "Common.hpp"
+#include "Data.hpp"
 #include "Utils.hpp"
 
-namespace {
-
-inline double expected_centered_genotype(const Mat2D& gls, const Mat1D& freqs, uint sample_idx, uint raw_snp_idx,
-                                         uint matched_snp_idx, double allele_freq) {
-  allele_freq = std::fmin(std::fmax(allele_freq, 1e-4), 1.0 - 1e-4);
-  const double gl0 = gls(2 * sample_idx + 0, raw_snp_idx);
-  const double gl1 = gls(2 * sample_idx + 1, raw_snp_idx);
-  const double p0 = gl0 * (1.0 - allele_freq) * (1.0 - allele_freq);
-  const double p1 = gl1 * 2.0 * allele_freq * (1.0 - allele_freq);
-  const double p2 = (1.0 - gl0 - gl1) * allele_freq * allele_freq;
-  const double posterior_sum = p0 + p1 + p2;
-  if (posterior_sum <= 0.0) return -2.0 * freqs(matched_snp_idx);
-  return (p1 + 2.0 * p2) / posterior_sum - 2.0 * freqs(matched_snp_idx);
+static void solve_projection_scores(const Mat2D& V, const ArrBool& C, const Mat2D& G, Mat2D& U) {
+  if (U.rows() == 0 || U.cols() == 0) return;
+  double p_miss = C.size() ? (double)C.count() / (double)C.size() : 0.0;
+  if (p_miss == 0.0) {
+    Eigen::ColPivHouseholderQR<Mat2D> qr(V);
+#pragma omp parallel for
+    for (uint i = 0; i < (uint)U.rows(); i++) {
+      U.row(i) = qr.solve(G.row(i).transpose());
+    }
+  } else {
+#pragma omp parallel for
+    for (uint i = 0; i < (uint)U.rows(); i++) {
+      Int1D idx;
+      for (int j = 0; j < V.rows(); j++) {
+        if (!C(j * U.rows() + i)) idx.push_back(j);
+      }
+      U.row(i) = V(idx, Eigen::all).colPivHouseholderQr().solve(G(i, idx).transpose());
+    }
+  }
 }
 
-}  // namespace
 
 /**
  * options:
@@ -51,19 +58,21 @@ void run_projection(Data* data, const Param& params) {
     for (int k = 0; k < (int)match.flip.size(); ++k) {
       if (match.flip[k]) data->flipSNPs.push_back(k);
     }
-    cao.warn("SNP info is not fully identical between input and reference .mbim;\n projection will use ",
-             match.bim_indices.size(), " overlapped sites only");
+    cao.warn("SNP info is not fully identical between input and reference .mbim");
+    cao.print(tick.date(), "projection will use", match.bim_indices.size(), " overlapped sites. there are",
+              data->flipSNPs.size(), " flipped alleles");
     if (!data->flipSNPs.empty())
       cao.warn(data->flipSNPs.size(), " SNPs have flipped ref/alt alleles and will be corrected");
   }
   cao.print(tick.date(), "run projection");
-  data->prepare();
+  data->prepare(); // read AF and resize F to matched size
   if (params.project != 3) data->standardize_E();
   cao.print(tick.date(), "start parsing V:", params.fileV, ", S:", params.fileS);
   uint nsamples, nsnps;
   Mat1D S;
   read_sigvals(params.fileS, nsamples, nsnps, S);
-  int K = fmin(S.size(), params.k);
+  // target number of PCs for getting individual allele frequency
+  const int K = fmin(S.size(), params.k);
   Mat2D V = read_eigvecs(params.fileV, nsnps, K);
   if (!match.identical) {
     Mat2D V_overlap(match.mbim_indices.size(), K);
@@ -74,84 +83,80 @@ void run_projection(Data* data, const Param& params) {
     V = V_overlap;
   }
   Mat2D U(data->nsamples, K);
+  double p_miss = data->C.size() ? (double)data->C.count() / (double)data->C.size() : data->p_miss;
 
   if (params.project == 1) {
-    if (data->p_miss > 0) cao.warn("there are missing genotypes. recommend using --project 2 or 3.");
+    if (p_miss > 0) cao.warn("there are missing genotypes. recommend using --project 2 or 3.");
     // get 1 / Singular = sqrt(Eigen * M)
     V = V * (S.array().inverse().matrix().asDiagonal());
     // G V = U D
     U = data->G * V;
   } else if (params.project == 2) {
     V = V * S.asDiagonal();
-    if (data->p_miss == 0.0) {
-      Eigen::ColPivHouseholderQR<Mat2D> qr(V);
-#pragma omp parallel for
-      for (uint i = 0; i < data->nsamples; i++) {
-        // Vx = g
-        U.row(i) = qr.solve(data->G.row(i).transpose());
-      }
-    } else {
-#pragma omp parallel for
-      for (uint i = 0; i < data->nsamples; i++) {
-        // find non-missing snps for sample i
-        Int1D idx;
-        for (int j = 0; j < V.rows(); j++) {
-          if (!data->C(j * data->nsamples + i)) idx.push_back(j);
-        }
-        // Vx = g
-        U.row(i) = V(idx, Eigen::all).colPivHouseholderQr().solve(data->G(i, idx).transpose());
-      }
-    }
+    if (p_miss == 0.0) cao.warn("there is no missing genotypes");
+    solve_projection_scores(V, data->C, data->G, U);
   } else if (params.project == 3) {
     // project == 3: iterative GL-aware projection (EM)
     // E-step: update expected genotype G using per-sample allele frequencies from U
     // M-step: solve V*S*u_i = G_std_i (standardized with reference F)
-    if (params.file_t != FileType::BEAGLE)
-      cao.error("--project 3 requires BEAGLE genotype likelihood input");
-    // data->G is centered (expected_dosage - 2F), data->P holds raw GLs
-    const int nsnps = (int)data->nsnps;
-    const int nsamples = (int)data->nsamples;
+    if (params.file_t != FileType::BEAGLE) cao.error("--project 3 requires BEAGLE genotype likelihood input");
     const bool filter = !data->keepSNPs.empty();
 
-    // sd(j) = sqrt(F*(1-F)/ploidy): convert G_centered <-> G_std
-    Mat1D sd(nsnps);
-    for (int j = 0; j < nsnps; ++j)
-      sd(j) = std::sqrt(data->F(j) * (1.0 - data->F(j)) / params.ploidy);
+    V = V * S.asDiagonal();
+    solve_projection_scores(V, data->C, data->G, U);
 
-    const auto sdiag = S.asDiagonal();
-    // V*S is fixed across iterations
-    Mat2D VS = V * sdiag;
-    Eigen::ColPivHouseholderQR<Mat2D> qr(VS);
-    Mat2D G_std(data->nsamples, nsnps);
-    Mat2D pred(data->nsamples, nsnps);
-
-    U.setZero();
+    // run EM
     for (uint iter = 0; iter < params.maxiter; ++iter) {
-      Mat2D U_prev = U;
-
-      // M-step: standardize G and solve for U
-      G_std = data->G;
-      for (int j = 0; j < nsnps; ++j)
-        if (sd(j) > VAR_TOL) G_std.col(j) /= sd(j);
-#pragma omp parallel for
-      for (int i = 0; i < nsamples; ++i)
-        U.row(i) = qr.solve(G_std.row(i).transpose());
+      Mat2D Uprev = U;
 
       // E-step: update G using individual allele frequencies
-      // pred(i,j) = predicted G_std; pt = (pred*sd + 2F)/2 = individual allele freq
-      pred.noalias() = U * sdiag * V.transpose();  // nsamples x nsnps
+      // pred.noalias() = U * sdiag * V.transpose();  // nsamples x nsnps
 #pragma omp parallel for
-      for (int j = 0; j < nsnps; ++j) {
+      for (uint j = 0; j < data->nsnps; ++j) {
+        const double norm = sqrt(2.0 * data->F(j) * (1.0 - data->F(j)));
         uint s = filter ? data->keepSNPs[j] : (uint)j;
-        for (int i = 0; i < nsamples; ++i) {
-          const double pt = (pred(i, j) * sd(j) + 2.0 * data->F(j)) / 2.0;
-          data->G(i, j) = expected_centered_genotype(data->P, data->F, i, s, j, pt);
+        for (uint i = 0; i < data->nsamples; ++i) {
+          double z = 0.0;
+          for (int k = 0; k < K; ++k) {
+            z += U(i, k) * S(k) * V(j, k);
+          }
+          if (params.scale==-9 && norm > VAR_TOL) z *= norm;
+          double pt = z + data->F(j);
+          pt = fmin(fmax(pt, 1e-4), 1.0 - 1e-4);
+          const double gl11 = data->P(2 * i + 0, s);
+          const double gl12 = data->P(2 * i + 1, s);
+          const double gl22 = 1.0 - gl11 - gl12;
+          const double p11 = gl11 * (1.0 - pt) * (1.0 - pt);
+          const double p12 = gl12 * 2.0 * pt * (1.0 - pt);
+          const double p22 = gl22 * pt * pt;
+          const double pSum = p11 + p12 + p22;
+          if (!std::isfinite(pSum) || pSum <= 0.0) {
+            data->C[j * data->nsamples + i] = 1;
+            data->G(i, j) = 0.0;
+            continue;
+          }
+          data->C[j * data->nsamples + i] = 0;
+          data->G(i, j) = (p12 + 2.0 * p22) / (2.0 * pSum) - data->F(j);
+          if (params.scale == -9) {
+            if (norm > VAR_TOL)
+              data->G(i, j) /= norm;
+            else
+              data->G(i, j) = 0.0;
+          }
         }
       }
 
-      double delta = (U - U_prev).norm() / (U_prev.norm() + 1e-10);
-      cao.print(tick.date(), "projection iter", iter + 1, ", delta =", delta);
-      if (iter > 0 && delta < params.tol) break;
+      // M-step: standardize G and solve for U
+      solve_projection_scores(V, data->C, data->G, U);
+      // flip signs
+      for (int k = 0; k < K; ++k) {
+        if (U.col(k).dot(Uprev.col(k)) < 0.0) U.col(k) *= -1.0;
+      }
+      double denom = Uprev.norm();
+      if (denom < 1e-12) denom = 1.0;
+      double diff = (U - Uprev).norm() / denom;;
+      cao.print(tick.date(), "GL projection iter", iter + 1, ", diff =", diff);
+      if (diff < params.tolem) break;
     }
   } else {
     cao.error("unsupported --project mode: " + std::to_string(params.project));
