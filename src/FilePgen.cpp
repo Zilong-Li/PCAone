@@ -165,7 +165,7 @@ void FilePgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standa
         } else {
           G(j, i) = centered_geno_lookup(pgen_code(buf[j]), snp_idx);
         }
-        if (standardize && params.scale == -9) {
+        if (standardize && params.scale == SCALE_STANDARDIZE_GENETIC) {
           double sd = sqrt(F(snp_idx) * (1.0 - F(snp_idx)));
           if (sd > VAR_TOL) G(j, i) = G(j, i) * sqrt((double)params.ploidy) / sd;
         }
@@ -210,7 +210,7 @@ void FilePgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standa
         } else {
           G(j, i) = centered_geno_lookup(pgen_code(buf[j]), snp_idx);
         }
-        if (standardize && params.scale == -9) {
+        if (standardize && params.scale == SCALE_STANDARDIZE_GENETIC) {
           double sd = sqrt(F(snp_idx) * (1.0 - F(snp_idx)));
           if (sd > VAR_TOL) G(j, i) = G(j, i) * sqrt((double)params.ploidy) / sd;
         }
@@ -254,7 +254,7 @@ void FilePgen::read_block_update(uint64 start_idx, uint64 stop_idx, const Mat2D&
         for (k = 0; k < ks; ++k) G(j, i) += U(j, k) * svals(k) * VT(k, snp_idx);
         G(j, i) = fmin(fmax(G(j, i), -F(snp_idx)), 1.0 - F(snp_idx));
       }
-      if (standardize && params.scale == -9) {
+      if (standardize && params.scale == SCALE_STANDARDIZE_GENETIC) {
         double sd = sqrt(F(snp_idx) * (1.0 - F(snp_idx)));
         if (sd > VAR_TOL) G(j, i) = G(j, i) * sqrt((double)params.ploidy) / sd;
       }

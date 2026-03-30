@@ -108,14 +108,6 @@ int main(int argc, char* argv[]) {
     return bye();
   }
 
-  // particular case for Selection
-  // if ((params.selection > 0) && (params.file_t == FileType::PLINK)) {
-  //   data = new FileBed(params);
-  //   run_selection(data, params);
-  //   delete data;
-  //   return bye();
-  // }
-
   if (params.perm && params.out_of_core) {
     tick.clock();
     if (params.file_t == FileType::PLINK) {
@@ -169,7 +161,7 @@ int main(int argc, char* argv[]) {
   } else if (params.svd_t == SvdType::FULL) {
     if (params.file_t == FileType::PLINK || params.file_t == FileType::BGEN || params.file_t == FileType::PGEN)
       data->standardize_E();
-    cao.print(tick.date(), "running exact PCA with in-core Gram eigendecomposition (PLINK-like).");
+    cao.print(tick.date(), "running exact PCA with in-core eigendecomposition (PLINK-like).");
     const Eigen::Index ncomp =
         std::min<Eigen::Index>(params.k, std::min<Eigen::Index>(data->G.rows(), data->G.cols()));
     Mat1D evals(ncomp), svals(ncomp);

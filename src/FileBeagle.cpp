@@ -41,7 +41,7 @@ void FileBeagle::read_all() {
         }
         C[j * nsamples + i] = 0;
         G(i, j) = (p1 + 2.0 * p2) / (2.0 * psum) - F(j);
-        if (params.scale == -9 && norm > VAR_TOL) G(i, j) /= norm;
+        if (params.scale == SCALE_STANDARDIZE_GENETIC && norm > VAR_TOL) G(i, j) /= norm;
       }
     }
     return;

@@ -45,7 +45,7 @@ Param::Param(int argc, char **argv) {
                                                    "3: the full Singular Value Decomposition.", 2);
   opts.add<Value<uint>>("k", "pc", "top k principal components (PCs) to be calculated", k, &k);
   opts.add<Value<int>>("C", "scale", "do normalization or scaling for input file. Options are\n"
-                                     "-9: do sqrt(ploidy*f(1-f)) for genetic data;\n"
+                                     "-9: standardize genetic data by sqrt(ploidy*f*(1-f));\n"
                                      " 0: do nothing and proceed to SVD;\n"
                                      " 1: do direct standardization, as the scale(x, center=TRUE, scale=TRUE) function in R;\n"
                                      " 2: do first count per median log transformation (CPMED), then standardization;\n"
@@ -81,7 +81,7 @@ Param::Param(int argc, char **argv) {
   auto bgenfile = opts.add<Value<std::string>>("g", "bgen", "path of BGEN file compressed by gzip/zstd.", "", &filein);
   auto beaglefile = opts.add<Value<std::string>>("G", "beagle", "path of BEAGLE file compressed by gzip.", "", &filein);
   opts.add<Value<std::string>>("F", "match-bim", "the .mbim file to be matched, where the 7th column is allele frequency.", "", &filebim);
-  auto usvprefix = opts.add<Value<std::string>>("P", "USV", "prefix of PCAone .eigvecs/.eigvals/.loadings/.mbim.");
+  auto usvprefix = opts.add<Value<std::string>>("P", "USV", "prefix of PCAone .eigvecs/.sigvals/.loadings/.mbim.");
   opts.add<Value<std::string>, Attribute::hidden>("", "read-U", "path of file with left singular vectors (.eigvecs).", "", &fileU);
   opts.add<Value<std::string>, Attribute::hidden>("", "read-V", "path of file with right singular vectors (.loadings).", "", &fileV);
   opts.add<Value<std::string>, Attribute::hidden>("", "read-S", "path of file with sigular values (.sigvals).", "", &fileS);
@@ -105,8 +105,8 @@ Param::Param(int argc, char **argv) {
                                       "1: compute per-site inbreeding coefficient and HWE test.\n", inbreed, &inbreed);
   opts.add<Value<int>>("", "selection", "compute selection statistics. Options are\n"
                                       "0: disabled;\n"
-                                      "1: perform genome-wide selection scale using Galinsky et al method;\n"
-                                      "2: perform genome-wide selection scale using PCAdapt method.\n", selection, &selection);
+                                      "1: perform selection scan using Galinsky et al method;\n"
+                                      "2: perform selection scan using PCAdapt method.\n", selection, &selection);
   opts.add<Value<double>>("", "ld-r2", "R2 cutoff for LD-based pruning (usually 0.2).", ld_r2, &ld_r2);
   opts.add<Value<uint>>("", "ld-bp", "physical distance threshold in bases for LD window.", ld_bp, &ld_bp);
   opts.add<Value<int>>("", "ld-stats", "statistics to compute LD R2 for pairwise SNPs. Options are\n"

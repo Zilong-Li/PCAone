@@ -119,7 +119,7 @@ void run_projection(Data* data, const Param& params) {
           for (int k = 0; k < K; ++k) {
             pt += U(i, k) * V(j, k);
           }
-          if (params.scale == -9 && norm > VAR_TOL) pt *= norm;
+          if (params.scale == SCALE_STANDARDIZE_GENETIC && norm > VAR_TOL) pt *= norm;
           pt = fmin(fmax(pt + data->F(j), 1e-4), 1.0 - 1e-4);
           const double p0 = data->P(2 * i + 0, s) * (1.0 - pt) * (1.0 - pt);
           const double p1 = data->P(2 * i + 1, s) * 2.0 * pt * (1.0 - pt);
@@ -132,7 +132,7 @@ void run_projection(Data* data, const Param& params) {
           }
           data->C[j * data->nsamples + i] = 0;
           data->G(i, j) = (p1 + 2.0 * p2) / (2.0 * psum) - data->F(j);  // domain (0,1)
-          if (params.scale == -9) {
+          if (params.scale == SCALE_STANDARDIZE_GENETIC) {
             if (norm > VAR_TOL)
               data->G(i, j) /= norm;
             else

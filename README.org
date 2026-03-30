@@ -41,6 +41,7 @@ missingness and uncertainty. The PDF manual can be downloaded [[https://github.c
 #+BEGIN_QUOTE
 - [[#introduction][Introduction]]
 - [[#features][Features]]
+- [[#whats-new-in-v070][What's new in v0.7.0]]
 - [[#cite-the-work][Cite the work]]
 - [[#quick-start][Quick start]]
 - [[#installation][Installation]]
@@ -62,7 +63,8 @@ missingness and uncertainty. The PDF manual can be downloaded [[https://github.c
   - [[#clumping-based-on-ancestry-adjusted-ld][Clumping based on ancestry adjusted LD]]
 - [[#more-tutorials][More tutorials]]
   - [[#genotype-data-plink][Genotype data (PLINK)]]
-  - [[#genotype-dosages-bgen][Genotype dosages (BGEN)]]
+  - [[#plink2-pgen-input][PLINK2 PGEN input]]
+  - [[#bgen-input-limited-support][BGEN input (limited support)]]
   - [[#single-cell-rna-seq-data-csv][Single cell RNA-seq data (CSV)]]
 - [[#acknowledgements][Acknowledgements]]
 - [[#contributing][Contributing]]
@@ -76,12 +78,21 @@ See [[file:CHANGELOG.org][change log]] here.
 - Implements our new fast window based Randomized SVD algorithm for tera-scale dataset.
 - Quite fast with multi-threading support using high performance library [[https://software.intel.com/content/www/us/en/develop/tools/oneapi/components/onemkl.html#gs.8jsfgz][MKL]] or [[https://www.openblas.net/][OpenBLAS]] as backend.
 - Supports the [[https://www.cog-genomics.org/plink/1.9/formats#bed][PLINK]], [[https://www.well.ox.ac.uk/~gav/bgen_format][BGEN]], [[http://www.popgen.dk/angsd/index.php/Input#Beagle_format][Beagle]] genetic data formats.
+- Supports [[https://www.cog-genomics.org/plink/2.0/input#pgen][PLINK2 PGEN]] input via =--pgen=, using dosages by default and hard calls with =--hardcall=.
 - Supports the comma separated CSV format with integer/float entries for single cell (or bulk) RNA-seq data compressed by [[https://github.com/facebook/zstd][zstd]].
 - Supports [[https://github.com/Rosemeis/emu][EMU]] algorithm for scenario with large proportion of missingness.
 - Supports [[https://github.com/Rosemeis/pcangsd][PCAngsd]] algorithm for low coverage sequencing scenario with genotype likelihood as input.
 - Novel [[https://www.biorxiv.org/content/10.1101/2024.05.02.592187v1][LD]] prunning and clumping method that accounts for population structure in the data.
 - Projection support for data with missingness.
+- Projection from BEAGLE genotype likelihoods onto a reference space via =--project 3=.
 - HWE test taking population structure into account.
+
+* What's new in v0.7.0
+
+- Added PLINK2 =PGEN= input support with =--pgen= for PCA workflows.
+- =PGEN= reads dosages when available, and can be forced to use hard calls with =--hardcall=.
+- Added genotype-likelihood aware projection for =BEAGLE= input with =--project 3=.
+- Projection now matches overlapping markers against the reference =.mbim= and corrects flipped alleles when needed.
 
 * Cite the work
 
@@ -97,11 +108,9 @@ See [[file:CHANGELOG.org][change log]] here.
 
 #+begin_src shell
 pkg=https://github.com/Zilong-Li/PCAone/releases/latest/download/PCAone-avx2-Linux.zip
-wget $pkg
-unzip -o PCAone-avx2-Linux.zip
+wget $pkg && unzip -o PCAone-avx2-Linux.zip
 wget http://popgen.dk/zilong/datahub/pca/example.tar.gz
 tar -xzf example.tar.gz && rm -f example.tar.gz
-# in default calculating top 10 PCs with in-memory mode 
 ./PCAone -b example/plink
 R -s -e 'd=read.table("pcaone.eigvecs2", h=F);
 plot(d[,1:2+2], col=factor(d[,1]), xlab="PC1", ylab="PC2");
@@ -200,9 +209,7 @@ make -j4
 
 #+begin_src shell
 brew install libomp
-export LDFLAGS="-L"$(brew --prefix libomp)/lib
-export CPPFLAGS="-I"$(brew --prefix libomp)/include
-make -j4 
+make -j4
 #+end_src
 
 \newpage
@@ -231,20 +238,21 @@ PCA algorithms:
                                  3: the full Singular Value Decomposition.
   -k, --pc arg (=10)             top k principal components (PCs) to be calculated
   -C, --scale arg (=-9)          do normalization or scaling for input file. Options are
-                                 -9: do sqrt(ploidy*f(1-f)) for genetic data;
+                                 -9: standardize genetic data by sqrt(ploidy*f*(1-f));
                                   0: do nothing and proceed to SVD;
                                   1: do direct standardization, as the scale(x, center=TRUE, scale=TRUE) function in R;
                                   2: do first count per median log transformation (CPMED), then standardization;
                                   3: do first log1p transformation, then standardization;
                                   4: do first relative counts, then standardization.
-  -p, --maxp arg (=20)           maximum number of power iterations for RSVD algorithm.
+  --maxp arg (=20)               maximum number of power iterations for RSVD algorithm.
   -S, --no-shuffle               do not shuffle columns of data for --svd 2 (if not locally correlated).
-  --seed arg (=101)              seeds for reproducing results.
+  --seed arg (=112)              seeds for reproducing results.
   --emu                          use EMU algorithm for genotype input with missingness.
   --pcangsd                      use PCAngsd algorithm for genotype likelihood input.
 
 Input options:
   -b, --bfile arg                prefix of PLINK .bed/.bim/.fam files.
+  -p, --pgen arg                 prefix of PLINK2 .pgen/.pvar/.psam files.
   -B, --binary arg               path of binary file.
   -c, --csv arg                  path of comma seperated CSV file compressed by zstd.
   -g, --bgen arg                 path of BGEN file compressed by gzip/zstd.
@@ -264,7 +272,8 @@ Misc options:
                                  0: disabled;
                                  1: by multiplying the loadings with mean imputation for missing genotypes;
                                  2: by solving the least squares system Vx=g. skip sites with missingness;
-                                 3: by Augmentation, Decomposition and Procrusters transformation.
+                                 3: by EM to account for genotype uncertainty (BEAGLE input);
+                                 4: by Augmentation, Decomposition and Procrusters transformation.
   --inbreed arg (=0)             compute the inbreeding coefficient accounting for population structure. Options are
                                  0: disabled;
                                  1: compute per-site inbreeding coefficient and HWE test.
@@ -308,7 +317,12 @@ PCAone is designed to be extensible to accept many different formats.
 Currently, PCAone can work with SNP major genetic formats to study
 population structure. such as [[https://www.cog-genomics.org/plink/1.9/formats#bed][PLINK]], [[https://www.well.ox.ac.uk/~gav/bgen_format][BGEN]] and [[http://www.popgen.dk/angsd/index.php/Input#Beagle_format][Beagle]]. Also, PCAone supports
 a comma delimited CSV format compressed by zstd, which is useful for other
-datasets requiring specific normalization such as single cell RNAs data.
+datasets requiring specific normalization such as single cell RNAs data. Since
+=v0.7.0=, PCAone also supports [[https://www.cog-genomics.org/plink/2.0/input#pgen][PLINK2 PGEN]]
+input via =--pgen=. If dosages are stored in the =.pgen= file, PCAone uses
+them by default; add =--hardcall= to force hard-call genotypes instead. The
+current =BGEN= support is limited, so for large production workflows we
+recommend converting =BGEN= to =PGEN= when possible.
 
 ** Output files
 *** Eigen vectors
@@ -406,15 +420,30 @@ PCAone -b example/ref -k 10 --printv -o ref
 Then, we need to read in the SNPs loadings from the ref set (=--read-V=) and
 its scaling factors (=--read-S=) as well as the allele frequencies form the
 =.mbim= file via =--match-bim=. You can use the =--USV= option instead to simplify
-the usage since *v0.4.8* =Note:= you must ensure the new plink files contain
-*exactly the same SNPs and allele's order*. Below is command using example
-data to project new target samples onto the reference coordinates.
+the usage since *v0.4.8*. For projection, PCAone matches overlapping markers
+against the reference =.mbim= file and can correct flipped alleles when
+needed, but you should still make sure both datasets are aligned to the same
+genome build and alleles.
+
+Below is a command using example PLINK data to project new target samples onto
+the reference coordinates.
 
 #+begin_src shell
 PCAone -b example/new \
        --USV ref \      ## prefix to .eigvecs, .eigvals, .loadings, .mbim
        --project 2 \    ## check the manual on projection methods
        -o new
+#+end_src
+
+For BEAGLE genotype likelihood input, use =--project 3= to perform
+genotype-likelihood aware projection with an EM procedure:
+
+#+begin_src shell
+PCAone -G example/target.beagle.gz \
+       --USV ref \
+       --project 3 \
+       --scale 0 \
+       -o target
 #+end_src
 
 ** HWE accounting for population structure
@@ -530,7 +559,25 @@ plot(pcs[,1:2+2], col=factor(pcs[,1]), xlab = xlab, ylab = ylab, cex.lab = 1.5)
 legend("topleft", legend=levels(factor(pcs[,1])), col=1:4, pch = 21, cex=1.2)
 #+end_src
 
-** Genotype dosages (BGEN)
+** PLINK2 PGEN input
+
+PCAone (version >= 0.7.0) can also read PLINK2 =.pgen/.pvar/.psam= input directly. By default it
+uses dosages when they are present in the =.pgen= file.
+
+#+begin_src shell
+./PCAone --pgen example/plink2_data -k 10 -m 2
+#+end_src
+
+If you want to ignore dosages and use hard-call genotypes instead, add
+=--hardcall=.
+
+#+begin_src shell
+./PCAone --pgen example/plink2_data -k 10 -m 2 --hardcall
+#+end_src
+
+** BGEN input (limited support)
+
+*NB:* =BGEN support is very limited. Please convert BGEN to PGEN and use PGEN input!=
 
 Imputation tools usually generate the genotype probabilities or dosages in
 BGEN format. To do PCA with the imputed genotype probabilities, we can
@@ -562,4 +609,3 @@ PCAngsd algorithms are modified from [[https://github.com/Rosemeis][@Jonas]] pac
 PCAone is an open source project, and we welcome quality contributions. If you
 are interested in contributing and have experience with C++ (or LLM :D), feel
 free to reach out with ideas you would like to implement yourself.
-

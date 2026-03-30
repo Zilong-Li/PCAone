@@ -4,6 +4,8 @@
 #include <sstream>
 #include <cstdint>
 
+#include "Common.hpp"
+
 using uint = std::uint32_t;
 using uint64 = std::uint64_t;
 
@@ -73,7 +75,7 @@ class Param {
 
   // general
   uint verbose = 1; // verbose level. 0: no verbose; 1: output to screen; 2: debug info 
-  int scale = -9;  // do scaling. 9: sqrt(2f(1-f)); 0: just centering. 1: log scaling. 2: cpmed
+  int scale = SCALE_STANDARDIZE_GENETIC;  // default: standardize genetic data by sqrt(ploidy*f*(1-f))
   bool hardcall = false;
   bool groff = false;
   bool printv = false;

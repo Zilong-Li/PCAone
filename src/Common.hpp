@@ -24,6 +24,7 @@
 #include "zstd.h"
 
 #define MAF(a) ((a) > 0.5 ? (1 - a) : (a))
+#define SCALE_STANDARDIZE_GENETIC -9
 
 using Mat2D = Eigen::MatrixXd;
 using Mat1D = Eigen::VectorXd;
