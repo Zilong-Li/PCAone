@@ -32,7 +32,6 @@ static void solve_projection_scores(const Mat2D& V, const ArrBool& C, const Mat2
   }
 }
 
-
 /**
  * options:
  * 1: simple, assume no missingness
@@ -65,7 +64,7 @@ void run_projection(Data* data, const Param& params) {
       cao.warn(data->flipSNPs.size(), " SNPs have flipped ref/alt alleles and will be corrected");
   }
   cao.print(tick.date(), "run projection");
-  data->prepare(); // read AF and resize F to matched size
+  data->prepare();  // read AF and resize F to matched size
   if (params.project != 3) data->standardize_E();
   cao.print(tick.date(), "start parsing V:", params.fileV, ", S:", params.fileS);
   uint nsamples, nsnps;
@@ -116,27 +115,23 @@ void run_projection(Data* data, const Param& params) {
         const double norm = sqrt(2.0 * data->F(j) * (1.0 - data->F(j)));
         uint s = filter ? data->keepSNPs[j] : (uint)j;
         for (uint i = 0; i < data->nsamples; ++i) {
-          double z = 0.0;
+          double pt = 0.0;
           for (int k = 0; k < K; ++k) {
-            z += U(i, k) * S(k) * V(j, k);
+            pt += U(i, k) * V(j, k);
           }
-          if (params.scale==-9 && norm > VAR_TOL) z *= norm;
-          double pt = z + data->F(j);
-          pt = fmin(fmax(pt, 1e-4), 1.0 - 1e-4);
-          const double gl11 = data->P(2 * i + 0, s);
-          const double gl12 = data->P(2 * i + 1, s);
-          const double gl22 = 1.0 - gl11 - gl12;
-          const double p11 = gl11 * (1.0 - pt) * (1.0 - pt);
-          const double p12 = gl12 * 2.0 * pt * (1.0 - pt);
-          const double p22 = gl22 * pt * pt;
-          const double pSum = p11 + p12 + p22;
-          if (!std::isfinite(pSum) || pSum <= 0.0) {
+          if (params.scale == -9 && norm > VAR_TOL) pt *= norm;
+          pt = fmin(fmax(pt + data->F(j), 1e-4), 1.0 - 1e-4);
+          const double p0 = data->P(2 * i + 0, s) * (1.0 - pt) * (1.0 - pt);
+          const double p1 = data->P(2 * i + 1, s) * 2.0 * pt * (1.0 - pt);
+          const double p2 = (1.0 - data->P(2 * i + 0, s) - data->P(2 * i + 1, s)) * pt * pt;
+          const double psum = p0 + p1 + p2;
+          if (!std::isfinite(psum) || psum <= 0.0) {
             data->C[j * data->nsamples + i] = 1;
             data->G(i, j) = 0.0;
             continue;
           }
           data->C[j * data->nsamples + i] = 0;
-          data->G(i, j) = (p12 + 2.0 * p22) / (2.0 * pSum) - data->F(j);
+          data->G(i, j) = (p1 + 2.0 * p2) / (2.0 * psum) - data->F(j);  // domain (0,1)
           if (params.scale == -9) {
             if (norm > VAR_TOL)
               data->G(i, j) /= norm;
@@ -154,7 +149,8 @@ void run_projection(Data* data, const Param& params) {
       }
       double denom = Uprev.norm();
       if (denom < 1e-12) denom = 1.0;
-      double diff = (U - Uprev).norm() / denom;;
+      double diff = (U - Uprev).norm() / denom;
+      ;
       cao.print(tick.date(), "GL projection iter", iter + 1, ", diff =", diff);
       if (diff < params.tolem) break;
     }

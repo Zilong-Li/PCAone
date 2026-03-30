@@ -5,6 +5,7 @@
  ******************************************************************************/
 
 #include "FileBeagle.hpp"
+
 #include "Data.hpp"
 
 using namespace std;
@@ -28,18 +29,19 @@ void FileBeagle::read_all() {
       uint s = filter ? keepSNPs[j] : j;
       const double norm = sqrt(2.0 * F(j) * (1.0 - F(j)));
       for (uint i = 0; i < nsamples; i++) {
-        double p0 = P(2 * i + 0, s) * (1.0 - F(j)) * (1.0 - F(j));
-        double p1 = P(2 * i + 1, s) * 2.0 * F(j) * (1.0 - F(j));
-        double p2 = (1 - P(2 * i + 0, s) - P(2 * i + 1, s)) * F(j) * F(j);
-        double psum = p0 + p1 + p2;
+        const double pt = fmin(fmax(F(j), 1e-4), 1.0 - 1e-4);
+        const double p0 = P(2 * i + 0, s) * (1.0 - pt) * (1.0 - pt);
+        const double p1 = P(2 * i + 1, s) * 2.0 * pt * (1.0 - pt);
+        const double p2 = (1 - P(2 * i + 0, s) - P(2 * i + 1, s)) * pt * pt;
+        const double psum = p0 + p1 + p2;
         if (!std::isfinite(psum) || psum <= 0.0) {
           C[j * nsamples + i] = 1;
           G(i, j) = 0.0;
           continue;
         }
-        G(i, j) = (p1 + 2.0 * p2) / (2.0 * psum) - F(j);
         C[j * nsamples + i] = 0;
-        if(params.scale == -9 && norm > VAR_TOL) G(i, j) /= norm; 
+        G(i, j) = (p1 + 2.0 * p2) / (2.0 * psum) - F(j);
+        if (params.scale == -9 && norm > VAR_TOL) G(i, j) /= norm;
       }
     }
     return;
@@ -78,7 +80,7 @@ void FileBeagle::read_block_initial(uint64 start_idx, uint64 stop_idx, bool stan
   if (G.cols() < blocksize || (actual_block_size < blocksize)) {
     P = Mat2D::Zero(nsamples * 2, actual_block_size);
   }
-  const char *delims = "\t \n";
+  const char* delims = "\t \n";
   char* tok;
   // read all GL data into P
   for (uint j = 0; j < actual_block_size; ++j) {
