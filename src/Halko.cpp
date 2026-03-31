@@ -8,6 +8,7 @@
 
 #include "Common.hpp"
 #include "Utils.hpp"
+#include "RSVD.hpp"
 
 using namespace std;
 
@@ -72,7 +73,8 @@ void RsvdOpData::computeUSV(int p, double tol) {
         diff = 1 - mev(Ucur, Upre);
       else
         diff = minSSE(Ucur, Upre).sum() / Upre.cols();
-      if (data->params.verbose) cao.print(tick.date(), "running of epoch =", pi, ", diff =", diff);
+      if (data->params.verbose && !data->params.missme)
+        cao.print(tick.date(), "running of epoch =", pi, ", diff =", diff);
       if (diff < tol || pi == p) {
         if (data->params.svd_t == SvdType::PCAoneAlg2 && std::pow(2, pi) < data->params.bands) {
           cao.print("PCAone winSVD converged but continues running to get S and V.");
@@ -81,7 +83,8 @@ void RsvdOpData::computeUSV(int p, double tol) {
           U = Ucur;
           V.noalias() = G * svd.matrixU().leftCols(nk);
           S = svd.singularValues().head(nk);
-          if (data->params.verbose) cao.print(tick.date(), "stops at epoch =", pi + 1);
+          if (data->params.verbose && !data->params.missme)
+            cao.print(tick.date(), "stops at epoch =", pi + 1);
           break;
         }
       } else {
@@ -273,6 +276,7 @@ void run_pca_with_halko(Data* data, const Param& params) {
   Mat2D Vpre;
   RsvdOpData* rsvd;
   if (params.svd_t == SvdType::PCAoneAlg2) {
+    if(params.ld) cao.warn("You are recommended to use --svd 1 for outputting the LD residual matrix");
     cao.print(tick.date(), "initialize window-based RSVD (winSVD) with",
               params.out_of_core ? "out-of-core" : "in-core");
     rsvd = new FancyRsvdOpData(data, params.k, params.oversamples);
@@ -281,28 +285,27 @@ void run_pca_with_halko(Data* data, const Param& params) {
               params.out_of_core ? "out-of-core" : "in-core");
     rsvd = new NormalRsvdOpData(data, params.k, params.oversamples);
   }
-  if (!params.impute) {
-    if (params.file_t == FileType::PLINK || params.file_t == FileType::BGEN) {
-      if (params.ld)
-        rsvd->setFlags(false, false);
-      else
-        rsvd->setFlags(false, true);
+  if (!params.missme) {
+    if (params.genetic) {
+      rsvd->setFlags(false, params.ld ? false : true);
     } else {
       rsvd->setFlags(false, false);
     }
     rsvd->computeUSV(params.maxp, params.tol);
   } else {
+    if (data->p_miss == 0.0 && !params.out_of_core)
+      cao.warn("there is no missing values");
     // for EM iteration
     rsvd->setFlags(false, false);
     rsvd->computeUSV(params.maxp, params.tol);
-    // flip_UV(rsvd->U, rsvd->V, false);
+    flip_UV(rsvd->U, rsvd->V, false);
     double diff;
     cao.print(tick.date(), "run EM-PCA. maxiter =", params.maxiter);
     for (uint i = 0; i < params.maxiter; ++i) {
       rsvd->setFlags(true, false);
       Vpre = rsvd->V;
       rsvd->computeUSV(params.maxp, params.tol);
-      // flip_UV(rsvd->U, rsvd->V, false);
+      flip_UV(rsvd->U, rsvd->V, false);
       if (params.mev)
         diff = 1.0 - mev(rsvd->V, Vpre);
       else
@@ -314,6 +317,13 @@ void run_pca_with_halko(Data* data, const Param& params) {
       }
     }
 
+    if (params.emu) {
+      cao.print(tick.date(), "standardize the final matrix for EMU");
+      rsvd->setFlags(true, true);
+      rsvd->computeUSV(params.maxp, params.tol);
+      flip_UV(rsvd->U, rsvd->V, false);
+    }
+    
     if (params.pcangsd && (params.file_t == FileType::BEAGLE)) {
       cao.print(tick.date(), "estimate GRM for pcangsd");
       data->pcangsd_standardize_E(rsvd->U, rsvd->S, rsvd->V.transpose());
@@ -329,18 +339,14 @@ void run_pca_with_halko(Data* data, const Param& params) {
       // output real eigenvectors of covariance in eigvecs2
       write_eigvecs2_beagle(svd.matrixU(), params.filein, params.fileout + ".eigvecs2");
     }
-    if (params.emu) {
-      cao.print(tick.date(), "standardize the final matrix for EMU");
-      rsvd->setFlags(true, true);
-      rsvd->computeUSV(params.maxp, params.tol);
-    }
+    
   }
   // output PI
+  if (params.ld) data->write_residuals(rsvd->S, rsvd->U, rsvd->V.transpose());
   if (params.perm)
     data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->S, rsvd->U, data->perm * rsvd->V);
   else
     data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->S, rsvd->U, rsvd->V);
-  if (params.ld) data->write_residuals(rsvd->S, rsvd->U, rsvd->V.transpose());
 
   delete rsvd;
 

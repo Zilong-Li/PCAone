@@ -3,7 +3,7 @@
 
 #include "Data.hpp"
 #include "bgen/reader.h"
-#include "bgen/writer.h"
+#include "Utils.hpp"
 
 // const double GENOTYPE_THRESHOLD = 0.9;
 // const double BGEN_MISSING_VALUE = -9;
@@ -14,12 +14,13 @@ class FileBgen : public Data {
  public:
   // using Data::Data;
   FileBgen(const Param& params_) : Data(params_) {
+    cao.warn("BGEN support is very limited. Please convert BGEN to PGEN instead!");
     cao.print(tick.date(), "start parsing BGEN format");
     bg = new bgen::CppBgenReader(params.filein, "", true);
     nsamples = bg->header.nsamples;
     nsnps = bg->header.nvariants;
     dosages.resize(nsamples);
-    F = Mat1D::Zero(nsnps);  // initial F
+    if (params.dopca) F = Mat1D::Zero(nsnps);  // initial F
     cao.print(tick.date(), "N(#samples) =", nsamples, ", M(#SNPs) =", nsnps);
     cao.print(tick.date(), "the layout is", bg->header.layout, ", compressed by",
               bg->header.compression == 2 ? "zstd" : "zlib");

@@ -31,3 +31,9 @@ releases
 PCAone
 adj*
 Rplots.pdf
+/tutorial
+/scripts
+/dataset
+/results
+/inbreeding
+/*.png

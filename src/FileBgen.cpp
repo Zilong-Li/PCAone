@@ -5,6 +5,7 @@
  ******************************************************************************/
 
 #include "FileBgen.hpp"
+#include "bgen/writer.h"
 
 #include <thread>
 
@@ -17,7 +18,7 @@ void FileBgen::read_all() {
   if (!params.pcangsd) {
     F = Mat1D::Zero(nsnps);
     G = Mat2D::Zero(nsamples, nsnps);
-    if (params.impute) C = ArrBool::Zero(nsnps * nsamples);
+    if (params.missme) C = ArrBool::Zero(nsnps * nsamples);
     for (j = 0, k = 0; j < nsnps; j++) {
       try {
         auto var = bg->next_var();
@@ -44,11 +45,10 @@ void FileBgen::read_all() {
 #pragma omp parallel for
         for (i = 0; i < nsamples; i++) {
           if (std::isnan(dosages[i])) {
-            if (params.impute) C[k * nsamples + i] = 1;
             G(i, k) = 0;
+            if (params.missme) C[k * nsamples + i] = 1;
           } else {
-            if (params.impute) C[k * nsamples + i] = 0;
-            G(i, j) = dosages[i] / 2.0 - F(k);  // map to [0, 1];
+            G(i, k) = dosages[i] / 2.0 - F(k);  // map to [0, 1];
           }
         }
         k++;
@@ -57,7 +57,7 @@ void FileBgen::read_all() {
       }
     }
     if (k == 0)
-      cao.error("the number of SNPs after filtering should be 0!");
+      cao.error("the number of SNPs after filtering is 0!");
     else
       cao.print(tick.date(), "number of SNPs after filtering by MAF >", params.maf, ":", k);
     // resize G, F, C;
@@ -92,7 +92,7 @@ void FileBgen::read_all() {
 #pragma omp parallel for
     for (j = 0; j < nsnps; j++) {
       double p0, p1, p2;
-      uint s = params.keepsnp ? keepSNPs[j] : j;
+      uint s = params.filterSNP ? keepSNPs[j] : j;
       for (i = 0; i < nsamples; i++) {
         p0 = P(2 * i + 0, s) * (1.0 - F(j)) * (1.0 - F(j));
         p1 = P(2 * i + 1, s) * 2 * F(j) * (1.0 - F(j));
@@ -121,9 +121,9 @@ void FileBgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standa
         } else {
           G(j, i) = dosages[j] / 2.0 - F(snp_idx);
         }
-        if (standardize) {
-          double sd = sqrt((double)params.ploidy * F(snp_idx) * (1 - F(snp_idx)));
-          if (sd > VAR_TOL) G(j, i) /= sd;
+        if (standardize && params.scale == SCALE_STANDARDIZE_GENETIC) {
+          double sd = sqrt(F(snp_idx) * (1 - F(snp_idx)));
+          if (sd > VAR_TOL) G(j, i) = (G(j, i) * sqrt((double) params.ploidy)) / sd;
         }
       }
     }
@@ -156,9 +156,9 @@ void FileBgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standa
         } else {
           G(j, i) -= F(snp_idx);
         }
-        if (standardize) {
-          double sd = sqrt((double)params.ploidy * F(snp_idx) * (1 - F(snp_idx)));
-          if (sd > VAR_TOL) G(j, i) /= sd;
+        if (standardize && params.scale == SCALE_STANDARDIZE_GENETIC) {
+          double sd = sqrt(F(snp_idx) * (1 - F(snp_idx)));
+          if (sd > VAR_TOL) G(j, i) = (G(j, i) * sqrt((double) params.ploidy)) / sd;
         }
       }
     }

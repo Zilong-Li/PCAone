@@ -1,9 +1,10 @@
 ######################### configure ################
 
-VERSION=0.6.0
+VERSION=0.7.0
 # Detect OS and CPU architecture to add flags conditionally
 Platform        := $(shell uname -s)
 ARCH            := $(shell uname -m)
+LIBOMP_PREFIX   := $(shell brew --prefix libomp 2>/dev/null)
 
 $(info "building PCAone on ${Platform} (${ARCH}) -- version ${VERSION}")
 
@@ -48,7 +49,7 @@ else
 endif
 
 MYFLAGS         = -DVERSION=\"$(VERSION)\"
-INC             = -I./external -I./external/zstd/lib
+INC             = -I./external -I./external/zstd/lib -I./external/pgenlib
 PCALIB = libpcaone.a
 
 ifeq ($(Platform), Darwin)
@@ -95,6 +96,10 @@ ifeq ($(Platform),Linux)
 else ifeq ($(Platform),Darwin)
 ###### for mac
 	MYFLAGS  += -Xpreprocessor -fopenmp
+	ifneq ($(strip $(LIBOMP_PREFIX)),)
+		INC     += -I$(LIBOMP_PREFIX)/include
+		LDFLAGS += -L$(LIBOMP_PREFIX)/lib
+	endif
 
 	ifneq ($(strip $(OPENBLAS)),)
 		MYFLAGS += -DWITH_OPENBLAS -DEIGEN_USE_BLAS -DEIGEN_USE_LAPACKE
@@ -134,19 +139,22 @@ else
 endif
 
 OBJ = src/Arnoldi.o src/Halko.o src/Data.o src/Utils.o src/Cmd.o \
-		src/FileBeagle.o src/FileCsv.o src/FileBgen.o src/FilePlink.o \
-		src/FileBinary.o src/FileUSV.o src/LD.o src/Projection.o src/Inbreeding.o \
+		src/FileBeagle.o src/FileCsv.o src/FileBgen.o src/FilePlink.o src/FilePgen.o \
+		src/FileBinary.o src/FileUSV.o src/LD.o src/Projection.o \
+		src/InbredSites.o src/InbredSamples.o src/Selection.o \
 		src/kfunc.o
 
-SLIBS += ./external/bgen/bgenlib.a ./external/zstd/lib/libzstd.a
+PGENLIB = external/pgenlib/libpgenlib.a
+
+SLIBS += ./external/bgen/bgenlib.a ./external/zstd/lib/libzstd.a $(PGENLIB)
 
 LIBS += $(SLIBS) $(DLIBS) -lpthread -ldl -lm
 
-.PHONY: all clean ld_matrix ld_r2 ld_prune ld_clump ld_tests test_full test_aarch64
+.PHONY: all clean island projection hwe ld_matrix ld_r2 ld_prune ld_clump ld_tests test_full test_aarch64
 
 all: ${program}
 
-${program}: zstdlib bgenlib pcaonelib src/Main.o
+${program}: zstdlib bgenlib pgenlib pcaonelib src/Main.o
 	$(CXX) $(CXXFLAGS) -o $(program) src/Main.o $(PCALIB) $(LPATHS) $(LIBS) $(LDFLAGS)
 
 %.o: %.cpp
@@ -157,6 +165,19 @@ zstdlib:
 
 bgenlib:
 	$(MAKE) -C external/bgen CFLAGS='$(CFLAGS)' CXXFLAGS='$(CXXFLAGS)'
+
+pgenlib:
+	$(CXX) $(CXXFLAGS) -c -o external/pgenlib/plink2_base.o external/pgenlib/include/plink2_base.cc
+	$(CXX) $(CXXFLAGS) -c -o external/pgenlib/plink2_bits.o external/pgenlib/include/plink2_bits.cc
+	$(CXX) $(CXXFLAGS) -c -o external/pgenlib/pgenlib_misc.o external/pgenlib/include/pgenlib_misc.cc
+	$(CXX) $(CXXFLAGS) -c -o external/pgenlib/pgenlib_read.o external/pgenlib/include/pgenlib_read.cc
+	$(CXX) $(CXXFLAGS) -c -o external/pgenlib/pvar_ffi_support.o external/pgenlib/pvar_ffi_support.cc
+	$(CXX) $(CXXFLAGS) -c -o external/pgenlib/pgenlib_ffi_support.o external/pgenlib/pgenlib_ffi_support.cpp
+	$(CXX) $(CXXFLAGS) -c -o external/pgenlib/pgenlibr.o external/pgenlib/pgenlibr.cpp
+	ar -rcs $(PGENLIB) external/pgenlib/plink2_base.o external/pgenlib/plink2_bits.o \
+		external/pgenlib/pgenlib_misc.o external/pgenlib/pgenlib_read.o \
+		external/pgenlib/pvar_ffi_support.o external/pgenlib/pgenlib_ffi_support.o \
+		external/pgenlib/pgenlibr.o
 
 pcaonelib:$(OBJ)
 	ar -rcs $(PCALIB) $?
@@ -169,26 +190,45 @@ clean:
 	(rm -f src/*.o $(program))
 	(cd ./external/bgen/; $(MAKE) clean)
 	(cd ./external/zstd/lib/; $(MAKE) clean)
+	rm -f external/pgenlib/*.o $(PGENLIB)
 
 data:
 	wget http://popgen.dk/zilong/datahub/pca/example.tar.gz
 	tar -xzf example.tar.gz && rm -f example.tar.gz
 
+###################################################################
+#####                   EXAMPLE TESTS
+###################################################################
+island:
+	./PCAone -b inbreeding/plink-miss0.3 -k 3 -d 0 --emu -o emu -V
+	./PCAone -b inbreeding/plink-miss0.3 -k 3 -d 2 --emu -o emu -V -m 1
+
 example_tests:
+	./PCAone -b example/plink -n 4 -o m0 
+	./PCAone -b example/plink -n 4 -o m1 -m 1
+	$(shell diff <(cut -c1-4 m1.eigvals) <(cut -c1-4 m0.eigvals))
+	./PCAone -p example/plink2 -n 4 -o m0 --hardcall
+	./PCAone -p example/plink2 -n 4 -o m0 
+	./PCAone -p example/plink2 -n 4 -o m1 -m1 
+	$(shell diff <(cut -c1-4 m1.eigvals) <(cut -c1-4 m0.eigvals))
 	./PCAone -g example/test.bgen -n4 -o m0
 	./PCAone -g example/test.bgen -n4 -m0.1 -o m1
 	diff m0.eigvals m1.eigvals
-	./PCAone --csv example/BrainSpinalCord.csv.zst -k 10 -m 2 --scale 2 -S
+	./PCAone --csv example/BrainSpinalCord.csv.zst -k 10 -m 4 --scale 2 -S
+
+projection:
+	./PCAone -b example/ref -V -o ref -v3
+	./PCAone -b example/new --USV ref --project 2 -o new -v3
 
 hwe:
 	./PCAone -b example/plink -k 3 -V -m 1
-	./PCAone -b example/plink --USV pcaone -k 3 --inbreed 1 -o inbreed_m0
-	./PCAone -b example/plink --USV pcaone -k 3 --inbreed 1 -o inbreed_m1 -m 1
-	rm -f inbreed* pcangsd.*
+	./PCAone -b example/plink --USV pcaone -k 3 --inbreed 1 -o m0
+	./PCAone -b example/plink --USV pcaone -k 3 --inbreed 1 -o m1 -m 1
+	rm -f m0.* m1.*
 
 ld_matrix:
 	./PCAone -b example/plink -k 3 --ld -o adj -d 2
-	./PCAone -b example/plink -k 3 --ld -o pcaone -d 2 -m 2
+	./PCAone -b example/plink -k 3 --ld -o pcaone -d 2 -m 1
 	diff adj.mbim pcaone.mbim
 	cut -f1 adj.mbim | sort -cn  ## check if sorted
 	awk '$$1==3' adj.mbim | cut -f4 | sort -cn
@@ -211,27 +251,27 @@ ld_clump:
 ld_tests:
 	./PCAone -b example/plink -k 3 --ld -o adj -d 0 --maf 0.1
 	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0
-	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 2
+	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 1
 	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
-	./PCAone -b example/plink -k 3 --ld -o adj -d 0 -m 2
+	./PCAone -b example/plink -k 3 --ld -o adj -d 0 -m 1
 	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0
-	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 2
+	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 1
 	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
-	./PCAone -b example/plink -k 3 --ld -o adj -d 1 -p 10 --maf 0.1
+	./PCAone -b example/plink -k 3 --ld -o adj -d 1 --maxp 10 --maf 0.1
 	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0
-	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 2
+	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 1
 	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
-	./PCAone -b example/plink -k 3 --ld -o adj -d 1 -p 10 -m 2
+	./PCAone -b example/plink -k 3 --ld -o adj -d 1 --maxp 10 -m 1
 	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0
-	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 2
+	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 1
 	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
 	./PCAone -b example/plink -k 3 --ld -o adj -d 2 --maf 0.1
 	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0
-	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 2
+	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 1
 	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
-	./PCAone -b example/plink -k 3 --ld -o adj -d 2 -m 2
+	./PCAone -b example/plink -k 3 --ld -o adj -d 2 -m 1
 	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0
-	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 2
+	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 1
 	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
 
 #################################################################
@@ -242,8 +282,15 @@ ld_tests:
 
 # Define a faster version of example_tests that excludes the long-running CSV test
 example_tests_fast:
+	./PCAone -b example/plink -n 4 -o m0 
+	./PCAone -b example/plink -n 4 -o m1 -m 1
+	$(shell diff <(cut -c1-4 m1.eigvals) <(cut -c1-4 m0.eigvals))
+	./PCAone -p example/plink2 -n 4 -o m0 --hardcall
+	./PCAone -p example/plink2 -n 4 -o m0 
+	./PCAone -p example/plink2 -n 4 -o m1 -m1 
+	$(shell diff <(cut -c1-4 m1.eigvals) <(cut -c1-4 m0.eigvals))
 	./PCAone -g example/test.bgen -n4 -o m0
-	./PCAone -g example/test.bgen -n4 -m0.1 -o m1
+	./PCAone -g example/test.bgen -n4 -m1 -o m1
 	diff m0.eigvals m1.eigvals
 
 # The fast test suite for aarch64
@@ -251,5 +298,5 @@ test_aarch64: data example_tests_fast hwe ld_matrix ld_r2 ld_prune ld_clump
 	@echo "SUCCESS: aarch64 fast test suite completed."
 
 # The complete test suite for other architectures like x86_64
-test_full: data example_tests hwe ld_matrix ld_r2 ld_prune ld_clump ld_tests
+test_full: data example_tests projection hwe ld_matrix ld_r2 ld_prune ld_clump ld_tests
 	@echo "SUCCESS: Full test suite completed."

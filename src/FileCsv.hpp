@@ -2,6 +2,7 @@
 #define PCAONE_FILECSV_
 
 #include "Data.hpp"
+#include "Utils.hpp"
 
 void parse_csvzstd(ZstdDS& zbuf, uint& nsamples, uint& nsnps, uint scale, std::vector<int>& libsize,
                    std::vector<size_t>& tidx, double& median_libsize);
@@ -18,7 +19,7 @@ class FileCsv : public Data {
   FileCsv(const Param& params_) : Data(params_) {
     cao.print(tick.date(), "start parsing CSV format compressed by ZSTD");
 
-    if (params.nsnps > 0 && params.nsamples > 0 && !params.cpmed) {
+    if (params.nsnps > 0 && params.nsamples > 0 && params.scale != 2) {
       cao.print(tick.date(), "use nsamples and nsnps given by user.");
       nsamples = params.nsamples;
       nsnps = params.nsnps;

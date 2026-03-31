@@ -38,6 +38,8 @@ std::tuple<Int2D, Int2D> get_target_snp_idx(const SNPld& snp_t, const SNPld& snp
 
 void divide_pos_by_window(SNPld& snp, const int ld_window_bp);
 
+void write_pruned_snp_ids(const std::string& filebim, const std::string& fileout, const ArrBool& keep);
+
 void ld_prune_small(Data* data, const std::string& fileout, const std::string& filebim, const SNPld& snp,
                     const double r2_tol);
 

@@ -12,6 +12,7 @@
 #include <cstring>  // strtok_r
 #include <fstream>
 
+#include "Common.hpp"
 #include "kfunc.h"
 
 using namespace std;
@@ -34,7 +35,7 @@ std::string get_machine() {
 void standardize(Mat2D& X, double tol) {
   double sqrt_rdf = sqrt(X.rows() - 1.0);
   // if X is centered, then we can convert norm to sd
-  for (size_t j = 0; j < X.cols(); j++) {
+  for (Eigen::Index j = 0; j < X.cols(); j++) {
     double mean = X.col(j).mean();
     X.col(j).array() -= mean;
     double sd = X.col(j).norm() / sqrt_rdf;  // sd
@@ -235,6 +236,34 @@ void make_plink2_eigenvec_file(int K, std::string fout, const std::string& fin, 
   }
 }
 
+void make_plink2_eigenvec_from_psam(int K, const std::string& fout, const std::string& fin,
+                                    const std::string& fpsam) {
+  std::ifstream ipsam(fpsam);
+  std::ifstream ifin(fin);
+  std::ofstream ofs(fout);
+  ofs << "#FID\tIID";
+  for (int i = 0; i < K; i++) ofs << "\tPC" << i + 1;
+  ofs << "\n";
+  std::string header, line1, line2, sep{" \t"};
+  // skip ## comment lines, stop at column header (starts with single '#')
+  while (std::getline(ipsam, header))
+    if (header.size() >= 1 && header[0] == '#' && (header.size() < 2 || header[1] != '#')) break;
+  bool has_fid = (header.size() >= 4 && header.substr(0, 4) == "#FID");
+  while (std::getline(ipsam, line1)) {
+    if (line1.empty() || line1[0] == '#') continue;
+    auto tokens = split_string(line1, sep);
+    std::getline(ifin, line2);
+    std::string fid = "0", iid;
+    if (has_fid && tokens.size() >= 2) {
+      fid = tokens[0];
+      iid = tokens[1];
+    } else if (!tokens.empty()) {
+      iid = tokens[0];
+    }
+    ofs << fid << "\t" << iid << "\t" << line2 << "\n";
+  }
+}
+
 bool isZstdCompressed(const char* filename) {
   FILE* file = fopen(filename, "rb");
   if (!file) return false;
@@ -327,14 +356,14 @@ Mat2D read_eigvecs(const std::string& path, int n, int k) {
   std::ifstream fin(path);
   std::string line;
   while (std::getline(fin, line)) {
-    for (begin = 0, k1 = 0, i = 0; i <= (int)line.size(); i++) {
+    for (begin = 0, k1 = 0, i = 0; k1 < k; i++) {
       if (is_seperator[(uint8_t)line[i]] || i == (int)line.size()) {
         M(j, k1) = std::stod(std::string(line.begin() + begin, line.begin() + i));
         begin = i + 1;
         k1++;
       }
     }
-    if (k1 != k) cao.error("the columns are not aligned!\n =>" + path);
+    if (k1 != k) cao.error("the number of columns is not alignd with K!\n =>" + path);
     j++;
   }
 
@@ -345,7 +374,7 @@ Mat2D read_eigvecs(const std::string& path, int n, int k) {
 
 // parse AF
 Mat1D read_frq(const std::string& path) {
-  const std::string sep{"\t"};
+  const std::string sep{" \t"};
   double val;
   Double1D V;
   std::ifstream fin(path);
@@ -359,19 +388,158 @@ Mat1D read_frq(const std::string& path) {
   return Eigen::Map<Mat1D>(V.data(), V.size());
 }
 
-void check_bim_vs_mbim(const std::string& bim_file, const std::string& mbim_file) {
-  const std::string sep{"\t"};
+std::string decode_beagle_allele(const std::string& allele) {
+  if (allele == "0") return "A";
+  if (allele == "1") return "C";
+  if (allele == "2") return "G";
+  if (allele == "3") return "T";
+  return allele;
+}
+
+namespace {
+std::string bim_match_key(const String1D& tokens, const std::string& path, const std::string& line) {
+  if ((int)tokens.size() < 6) cao.error("the input bim file is not valid!\n => " + path + "\n" + line);
+  return tokens[0] + "_" + tokens[3] + "_" + tokens[4] + "_" + tokens[5];
+}
+std::string bim_flip_key(const String1D& tokens, const std::string& path, const std::string& line) {
+  if ((int)tokens.size() < 6) cao.error("the input bim file is not valid!\n => " + path + "\n" + line);
+  return tokens[0] + "_" + tokens[3] + "_" + tokens[5] + "_" + tokens[4];
+}
+}
+
+BimMatch match_bim_to_mbim(const std::string& bim_file, const std::string& mbim_file) {
+  const std::string sep{" \t"};
   std::ifstream fb(bim_file), fm(mbim_file);
-  std::string lb, lm;
-  while (getline(fb, lb) && getline(fm, lm)) {
-    auto id1 = split_string(lb, sep)[1];
-    auto id2 = split_string(lm, sep)[1];
-    if (id1 != id2)
-      cao.error(
-          "the bim files are not matched!\n"
-          "id1 vs id2 => " +
-          id1 + " vs " + id2);
+  if (!fb.is_open()) cao.error("can not open " + bim_file);
+  if (!fm.is_open()) cao.error("can not open " + mbim_file);
+
+  String1D bim_keys, mbim_keys;
+  std::string line;
+  while (getline(fb, line)) {
+    auto tokens = split_string(line, sep);
+    bim_keys.push_back(bim_match_key(tokens, bim_file, line));
   }
+  std::unordered_map<std::string, int> mbim_lookup, mbim_flip_lookup;
+  while (getline(fm, line)) {
+    auto tokens = split_string(line, sep);
+    if ((int)tokens.size() != 7) cao.error("the input file is not valid!\n => " + mbim_file);
+    int idx = (int)mbim_keys.size();
+    std::string key = bim_match_key(tokens, mbim_file, line);
+    if (!mbim_lookup.insert({key, idx}).second)
+      cao.error("duplicate SNP records found in " + mbim_file + " for key " + key);
+    mbim_flip_lookup.insert({bim_flip_key(tokens, mbim_file, line), idx});
+    mbim_keys.push_back(std::move(key));
+  }
+
+  BimMatch match;
+  match.identical = bim_keys.size() == mbim_keys.size();
+  if (match.identical) {
+    for (int i = 0; i < (int)bim_keys.size(); ++i) {
+      if (bim_keys[i] != mbim_keys[i]) {
+        match.identical = false;
+        break;
+      }
+    }
+  }
+
+  match.bim_indices.reserve(std::min(bim_keys.size(), mbim_keys.size()));
+  match.mbim_indices.reserve(std::min(bim_keys.size(), mbim_keys.size()));
+  match.flip.reserve(std::min(bim_keys.size(), mbim_keys.size()));
+  for (int i = 0; i < (int)bim_keys.size(); ++i) {
+    auto it = mbim_lookup.find(bim_keys[i]);
+    if (it != mbim_lookup.end()) {
+      match.bim_indices.push_back(i);
+      match.mbim_indices.push_back(it->second);
+      match.flip.push_back(false);
+    } else {
+      auto it2 = mbim_flip_lookup.find(bim_keys[i]);
+      if (it2 != mbim_flip_lookup.end()) {
+        match.bim_indices.push_back(i);
+        match.mbim_indices.push_back(it2->second);
+        match.flip.push_back(true);
+      }
+    }
+  }
+
+  return match;
+}
+
+BimMatch match_beagle_to_mbim(const std::string& beagle_file, const std::string& mbim_file) {
+  // Parse BEAGLE rows as marker_allele1_allele2 so matching respects allele order.
+  gzFile fp = gzopen(beagle_file.c_str(), "r");
+  if (!fp) cao.error("can not open " + beagle_file);
+  uint64 bufsize = (uint64)128 * 1024 * 1024;
+  char* original = (char*)calloc(bufsize, sizeof(char));
+  char* buffer = original;
+  const char* delims = "\t \n";
+  tgets(fp, &buffer, &bufsize);  // skip header line
+  if (buffer != original) original = buffer;
+  buffer = original;
+  String1D beagle_markers;
+  while (tgets(fp, &buffer, &bufsize)) {
+    if (buffer != original) original = buffer;
+    char* marker = strtok_r(buffer, delims, &buffer);
+    char* allele1 = strtok_r(NULL, delims, &buffer);
+    char* allele2 = strtok_r(NULL, delims, &buffer);
+    if (!marker || !allele1 || !allele2)
+      cao.error("invalid BEAGLE record while matching markers:\n => " + beagle_file);
+    beagle_markers.push_back(std::string(marker) + "_" + decode_beagle_allele(allele1) + "_" +
+                             decode_beagle_allele(allele2));
+    buffer = original;
+  }
+  gzclose(fp);
+  free(original);
+
+  // Parse mbim: chr id cM bp a1 a2 maf
+  // Build two lookups: normal key chr_pos_a1_a2 and flipped key chr_pos_a2_a1
+  const std::string sep{" \t"};
+  std::ifstream fm(mbim_file);
+  if (!fm.is_open()) cao.error("can not open " + mbim_file);
+  std::unordered_map<std::string, int> mbim_lookup, mbim_flip_lookup;
+  String1D mbim_keys;
+  std::string line;
+  while (getline(fm, line)) {
+    auto tokens = split_string(line, sep);
+    if ((int)tokens.size() != 7) cao.error("the input file is not valid!\n => " + mbim_file);
+    int idx = (int)mbim_keys.size();
+    std::string key = bim_match_key(tokens, mbim_file, line);
+    if (!mbim_lookup.insert({key, idx}).second)
+      cao.error("duplicate SNP records found in " + mbim_file + " for key " + key);
+    mbim_flip_lookup.insert({bim_flip_key(tokens, mbim_file, line), idx});
+    mbim_keys.push_back(std::move(key));
+  }
+
+  BimMatch match;
+  match.identical = beagle_markers.size() == mbim_keys.size();
+  if (match.identical) {
+    for (int i = 0; i < (int)beagle_markers.size(); ++i) {
+      if (beagle_markers[i] != mbim_keys[i]) {
+        match.identical = false;
+        break;
+      }
+    }
+  }
+
+  match.bim_indices.reserve(std::min(beagle_markers.size(), mbim_keys.size()));
+  match.mbim_indices.reserve(std::min(beagle_markers.size(), mbim_keys.size()));
+  match.flip.reserve(std::min(beagle_markers.size(), mbim_keys.size()));
+  for (int i = 0; i < (int)beagle_markers.size(); ++i) {
+    auto it = mbim_lookup.find(beagle_markers[i]);
+    if (it != mbim_lookup.end()) {
+      match.bim_indices.push_back(i);
+      match.mbim_indices.push_back(it->second);
+      match.flip.push_back(false);
+    } else {
+      auto it2 = mbim_flip_lookup.find(beagle_markers[i]);
+      if (it2 != mbim_flip_lookup.end()) {
+        match.bim_indices.push_back(i);
+        match.mbim_indices.push_back(it2->second);
+        match.flip.push_back(true);
+      }
+    }
+  }
+
+  return match;
 }
 
 void parse_beagle_file(Mat2D& P, gzFile fp, const int nsamples, const int nsnps) {
@@ -505,7 +673,7 @@ void emMAF_with_GL(Mat1D& F, const Mat2D& P, int maxiter, double tolmaf) {
   double scale = 1.0 / (2.0 * nsamples);
   double diff;
   // run EM to estimate allele frequencies
-  for (uint it = 0; it < maxiter; it++) {
+  for (int it = 0; it < maxiter; it++) {
 #pragma omp parallel for
     for (uint j = 0; j < nsnps; j++) {
       Ft(j) = F(j);
@@ -527,5 +695,182 @@ void emMAF_with_GL(Mat1D& F, const Mat2D& P, int maxiter, double tolmaf) {
     } else if (it == (maxiter - 1)) {
       cao.print(tick.date(), "EM (MAF) did not converge");
     }
+  }
+}
+
+double qchisq(double p, int df) {
+  if (df <= 0) return std::numeric_limits<double>::quiet_NaN();  // ADD THIS
+  if (p <= 0.0) return 0.0;
+  if (p >= 1.0) return std::numeric_limits<double>::infinity();
+
+  double s = df / 2.0;
+
+  // Initial guess using Wilson-Hilferty approximation
+  // For chi-sq(df), approximate quantile:
+  //   x ≈ df * (1 - 2/(9*df) + z_p * sqrt(2/(9*df)))^3
+  // where z_p is the standard normal quantile of p.
+  // Approximate z_p using rational approximation (Abramowitz & Stegun 26.2.23)
+  double t;
+  if (p < 0.5) {
+    t = std::sqrt(-2.0 * std::log(p));
+    t = t -
+        (2.515517 + t * (0.802853 + t * 0.010328)) / (1.0 + t * (1.432788 + t * (0.189269 + t * 0.001308)));
+    t = -t;  // negative side
+  } else {
+    t = std::sqrt(-2.0 * std::log(1.0 - p));
+    t = t -
+        (2.515517 + t * (0.802853 + t * 0.010328)) / (1.0 + t * (1.432788 + t * (0.189269 + t * 0.001308)));
+  }
+
+  double a = 2.0 / (9.0 * df);
+  double x = df * std::pow(1.0 - a + t * std::sqrt(a), 3.0);
+  if (x <= 0.0) x = 0.01;  // fallback
+
+  // Log of chi-sq PDF normalization: log(2^(df/2) * Gamma(df/2))
+  double log_norm = s * std::log(2.0) + std::lgamma(s);
+
+  // Newton-Raphson iteration
+  for (int iter = 0; iter < 100; ++iter) {
+    double cdf = kf_gammap(s, x / 2.0);
+    double err = cdf - p;
+
+    // chi-sq PDF at x: f(x) = x^(s-1) * exp(-x/2) / (2^s * Gamma(s))
+    double log_pdf = (s - 1.0) * std::log(x) - x / 2.0 - log_norm;
+    double pdf = std::exp(log_pdf);
+
+    // acceptable if converged, but should check |err| first
+    if (pdf < 1e-300) break;  // avoid division by zero
+
+    double delta = err / pdf;
+    delta = std::max(delta, -x * 0.9);  // don't step to negative
+    x -= delta;
+
+    if (x <= 0.0) x = 1e-10;  // keep positive
+
+    if (std::fabs(delta) < 1e-12 * (1.0 + x)) break;  // +1 for small x
+  }
+
+  return x;
+}
+
+double pchisq(double x, int df, bool lower_tail = true) {
+  // Validate degrees of freedom
+  if (df <= 0) return std::numeric_limits<double>::quiet_NaN();
+
+  // Handle edge cases
+  if (std::isnan(x)) return std::numeric_limits<double>::quiet_NaN();
+  if (x <= 0.0) return lower_tail ? 0.0 : 1.0;
+  if (std::isinf(x)) return lower_tail ? 1.0 : 0.0;
+
+  double s = df / 2.0;
+  double z = x / 2.0;
+
+  // Use the complementary function for numerical stability:
+  // - When p is close to 1 (large x), kf_gammap loses precision
+  // - When p is close to 0 (small x), kf_gammaq loses precision
+  // Switch based on which tail is smaller to get best precision,
+  // then flip if needed.
+  double result;
+  bool use_lower = (x < df + 1.0);  // heuristic: switch near mode
+
+  if (use_lower) {
+    result = kf_gammap(s, z);  // lower incomplete gamma
+    return lower_tail ? result : 1.0 - result;
+  } else {
+    result = kf_gammaq(s, z);  // upper incomplete gamma
+    return lower_tail ? 1.0 - result : result;
+  }
+}
+
+void galinsky_selection_stat(Mat2D& V) {
+  // FastPCA/Galinsky statistic: M * v_{jk}^2 ~ chi-squared(df=1) under the null,
+  // where v_{jk} is the SNP loading for SNP j along PC k.
+#pragma omp parallel for
+  for (int i = 0; i < V.cols(); i++) {
+    for (int j = 0; j < V.rows(); j++) {
+      V(j, i) = V(j, i) * V(j, i) * V.rows();
+    }
+  }
+}
+
+namespace {
+double robust_mad(const Mat1D& x) {
+  std::vector<double> vals(x.data(), x.data() + x.size());
+  double med = get_median(vals);
+  for (double& v : vals) v = std::abs(v - med);
+  double mad = 1.482602218505602 * get_median(vals);
+  if (mad > 0.0 && std::isfinite(mad)) return mad;
+
+  if (x.size() <= 1) return 1.0;
+  double mean = x.mean();
+  double var = (x.array() - mean).square().sum() / std::max(1.0, static_cast<double>(x.size() - 1));
+  double sd = std::sqrt(var);
+  return (sd > 0.0 && std::isfinite(sd)) ? sd : 1.0;
+}
+
+Mat1D robust_center(const Mat2D& X) {
+  Mat1D center(X.cols());
+  for (int j = 0; j < X.cols(); ++j) {
+    std::vector<double> vals(X.rows());
+    for (int i = 0; i < X.rows(); ++i) vals[i] = X(i, j);
+    center(j) = get_median(vals);
+  }
+  return center;
+}
+
+Mat2D robust_cov_gk(const Mat2D& X, const Mat1D& center) {
+  const int p = X.cols();
+  Mat2D cov = Mat2D::Zero(p, p);
+  Mat2D Xc = X.rowwise() - center.transpose();
+
+  for (int i = 0; i < p; ++i) {
+    double scale = robust_mad(Xc.col(i));
+    cov(i, i) = scale * scale;
+  }
+
+  for (int i = 0; i < p; ++i) {
+    for (int j = i + 1; j < p; ++j) {
+      Mat1D plus = Xc.col(i) + Xc.col(j);
+      Mat1D minus = Xc.col(i) - Xc.col(j);
+      double splus = robust_mad(plus);
+      double sminus = robust_mad(minus);
+      double cij = 0.25 * (splus * splus - sminus * sminus);
+      cov(i, j) = cij;
+      cov(j, i) = cij;
+    }
+  }
+
+  Eigen::SelfAdjointEigenSolver<Mat2D> eig(cov);
+  if (eig.info() != Eigen::Success) cao.error("failed eigendecomposition of pcadapt robust covariance.");
+  Mat1D evals = eig.eigenvalues();
+  double max_eval = std::max(1.0, evals.maxCoeff());
+  double floor = max_eval * 1e-8;
+  for (int i = 0; i < evals.size(); ++i) evals(i) = std::max(evals(i), floor);
+  return eig.eigenvectors() * evals.asDiagonal() * eig.eigenvectors().transpose();
+}
+}  // namespace
+
+void pcadapt_selection_stats(const Mat2D& Z, Mat1D& stat, Mat1D& chi2_stat, Mat1D& pval, double& gif) {
+  const int k = Z.cols();
+  Mat1D center = robust_center(Z);
+  Mat2D cov = robust_cov_gk(Z, center);
+  Mat2D inv_cov = cov.inverse();
+
+  stat = Mat1D::Zero(Z.rows());
+#pragma omp parallel for
+  for (int i = 0; i < Z.rows(); ++i) {
+    Mat1D dz = Z.row(i).transpose() - center;
+    stat(i) = dz.transpose() * inv_cov * dz;
+  }
+
+  std::vector<double> stat_vec(stat.data(), stat.data() + stat.size());
+  gif = get_median(stat_vec) / qchisq(0.5, k);
+  if (!(gif > 0.0) || !std::isfinite(gif)) gif = 1.0;
+
+  chi2_stat = stat / gif;
+  pval = Mat1D::Zero(Z.rows());
+#pragma omp parallel for
+  for (int i = 0; i < pval.size(); ++i) {
+    pval(i) = pchisq(chi2_stat(i), k, false);
   }
 }

@@ -4,6 +4,8 @@
  * Copyright (C) 2022-2024. Use of this code is governed by the LICENSE file.
  ******************************************************************************/
 
+#include <iterator>
+
 #include "Cmd.hpp"
 
 #include "popl/popl.hpp"
@@ -42,13 +44,14 @@ Param::Param(int argc, char **argv) {
                                                    "2: the accurate window-based Randomized SVD method (PCAone);\n"
                                                    "3: the full Singular Value Decomposition.", 2);
   opts.add<Value<uint>>("k", "pc", "top k principal components (PCs) to be calculated", k, &k);
-  opts.add<Value<uint>>("C", "scale", "do scaling for input file. Options are\n"
-                                      "0: do nothing and proceed to SVD;\n"
-                                      "1: do only standardization;\n"
-                                      "2: do count per median log transformation (CPMED);\n"
-                                      "3: do log1p transformation;\n"
-                                      "4: do relative counts.", scale,  &scale);
-  opts.add<Value<uint>>("p", "maxp", "maximum number of power iterations for RSVD algorithm.", maxp, &maxp);
+  opts.add<Value<int>>("C", "scale", "do normalization or scaling for input file. Options are\n"
+                                     "-9: standardize genetic data by sqrt(ploidy*f*(1-f));\n"
+                                     " 0: do nothing and proceed to SVD;\n"
+                                     " 1: do direct standardization, as the scale(x, center=TRUE, scale=TRUE) function in R;\n"
+                                     " 2: do first count per median log transformation (CPMED), then standardization;\n"
+                                     " 3: do first log1p transformation, then standardization;\n"
+                                     " 4: do first relative counts, then standardization.", scale,  &scale);
+  opts.add<Value<uint>>("", "maxp", "maximum number of power iterations for RSVD algorithm.", maxp, &maxp);
   opts.add<Switch>("S", "no-shuffle", "do not shuffle columns of data for --svd 2 (if not locally correlated).", &noshuffle);
   opts.add<Value<uint>, Attribute::advanced>("w", "batches", "the number of mini-batches used by --svd 2.", bands, &bands);
   opts.add<Value<int>>("", "seed", "seeds for reproducing results.\n", seed, &seed);
@@ -71,12 +74,14 @@ Param::Param(int argc, char **argv) {
   opts.add<Value<std::string>, Attribute::headline>("","INPUT","Input options:");
   auto plinkfile = opts.add<Value<std::string>>("b", "bfile", "prefix of PLINK .bed/.bim/.fam files.", "", &filein);
   opts.add<Switch, Attribute::advanced>("", "haploid", "the plink format represents haploid data.", &haploid);
+  auto pgenfile = opts.add<Value<std::string>>("p", "pgen", "prefix of PLINK2 .pgen/.pvar/.psam files.", "", &filein);
+  opts.add<Switch, Attribute::advanced>("", "hardcall", "use hardcall genotype instead of dosages.", &hardcall);
   auto binfile = opts.add<Value<std::string>>("B", "binary", "path of binary file.", "", &filein);
   auto csvfile = opts.add<Value<std::string>>("c", "csv", "path of comma seperated CSV file compressed by zstd.", "", &filein);
   auto bgenfile = opts.add<Value<std::string>>("g", "bgen", "path of BGEN file compressed by gzip/zstd.", "", &filein);
   auto beaglefile = opts.add<Value<std::string>>("G", "beagle", "path of BEAGLE file compressed by gzip.", "", &filein);
-  opts.add<Value<std::string>>("f", "match-bim", "the .mbim file to be matched, where the 7th column is allele frequency.", "", &filebim);
-  auto usvprefix = opts.add<Value<std::string>>("", "USV", "prefix of PCAone .eigvecs/.eigvals/.loadings/.mbim.");
+  opts.add<Value<std::string>>("F", "match-bim", "the .mbim file to be matched, where the 7th column is allele frequency.", "", &filebim);
+  auto usvprefix = opts.add<Value<std::string>>("P", "USV", "prefix of PCAone .eigvecs/.sigvals/.loadings/.mbim.");
   opts.add<Value<std::string>, Attribute::hidden>("", "read-U", "path of file with left singular vectors (.eigvecs).", "", &fileU);
   opts.add<Value<std::string>, Attribute::hidden>("", "read-V", "path of file with right singular vectors (.loadings).", "", &fileV);
   opts.add<Value<std::string>, Attribute::hidden>("", "read-S", "path of file with sigular values (.sigvals).", "", &fileS);
@@ -93,12 +98,17 @@ Param::Param(int argc, char **argv) {
                                       "0: disabled;\n"
                                       "1: by multiplying the loadings with mean imputation for missing genotypes;\n"
                                       "2: by solving the least squares system Vx=g. skip sites with missingness;\n"
-                                      "3: by Augmentation, Decomposition and Procrusters transformation.\n", project, &project);
+                                      "3: by EM to account for genotype uncertainty (BEAGLE input);\n"
+                                      "4: by Augmentation, Decomposition and Procrusters transformation.\n", project, &project);
   opts.add<Value<int>>("", "inbreed", "compute the inbreeding coefficient accounting for population structure. Options are\n"
                                       "0: disabled;\n"
                                       "1: compute per-site inbreeding coefficient and HWE test.\n", inbreed, &inbreed);
+  opts.add<Value<int>>("", "selection", "compute selection statistics. Options are\n"
+                                      "0: disabled;\n"
+                                      "1: perform selection scan using Galinsky et al method;\n"
+                                      "2: perform selection scan using PCAdapt method.\n", selection, &selection);
   opts.add<Value<double>>("", "ld-r2", "R2 cutoff for LD-based pruning (usually 0.2).", ld_r2, &ld_r2);
-  opts.add<Value<uint>>("", "ld-bp", "physical distance threshold in bases for LD window (usually 1000000).", ld_bp, &ld_bp);
+  opts.add<Value<uint>>("", "ld-bp", "physical distance threshold in bases for LD window.", ld_bp, &ld_bp);
   opts.add<Value<int>>("", "ld-stats", "statistics to compute LD R2 for pairwise SNPs. Options are\n"
                                        "0: the ancestry adjusted, i.e. correlation between residuals;\n"
                                        "1: the standard, i.e. correlation between two alleles.\n", ld_stats, &ld_stats);
@@ -147,6 +157,8 @@ Param::Param(int argc, char **argv) {
       file_t = FileType::BEAGLE;
     else if (csvfile->is_set())
       file_t = FileType::CSV;
+    else if (pgenfile->is_set())
+      file_t = FileType::PGEN;
     else if (help_opt->count() == 1) {
       std::cout << opts.help(Attribute::advanced) << "\n";
       exit(EXIT_SUCCESS);
@@ -154,33 +166,42 @@ Param::Param(int argc, char **argv) {
       std::cout << opts << "\n";
       exit(EXIT_SUCCESS);
     }
+    genetic = (file_t == FileType::PLINK || file_t == FileType::BGEN || file_t == FileType::PGEN);
     // handle PI, i.e U,S,V
     if (usvprefix->is_set()) {
       if (fileU.empty()) fileU = usvprefix->value() + ".eigvecs";
+      if (fileE.empty()) fileE = usvprefix->value() + ".eigvals";
       if (fileS.empty()) fileS = usvprefix->value() + ".sigvals";
       if (fileV.empty()) fileV = usvprefix->value() + ".loadings";
       if (filebim.empty()) filebim = usvprefix->value() + ".mbim";
     }
 
     // handle LD
-    if (print_r2 || ld_bp > 0 || ld_r2 > 0 || !clump.empty()) {
-      pca = false;    // we always want to center the G for calculating R2
+    if (print_r2 || ld_r2 > 0 || !clump.empty()) {
+      dopca = false;    // we always want to center the G for calculating R2
       memory /= 2.0;  // adjust memory estimator
     }
 
     // handle projection
     if (project > 0) {
+      if (project < 1 || project > 3)
+        throw std::invalid_argument("--project supports only 1, 2, or 3 in this release");
       if (fileV.empty() || fileS.empty())
-        throw std::invalid_argument(
-            "please use --read-S and --read-V together with --project, or simply --USV");
-      if (project > 2) throw std::invalid_argument("more projection methods are coming. stay tuned!");
-      estaf = false, impute = true, out_of_core = false, pca = false;
+        throw std::invalid_argument("please use --USV together with --project");
+      dopca=false, missme = true, out_of_core = false;
       memory = 0;
+    }
+
+    // handle selection
+    if (selection > 0) {
+      if (fileU.empty() || fileE.empty())
+        throw std::invalid_argument("please use --USV together with --project");
+      dopca = false;
     }
 
     // handle inbreeding
     if (inbreed > 0) {
-      estaf = false, center = false, pca = false;
+      dopca = false, center = false;
       if (fileU.empty() || fileV.empty() || fileS.empty())
         throw std::invalid_argument("please use --USV together with --inbreed");
     }
@@ -188,21 +209,23 @@ Param::Param(int argc, char **argv) {
     // handle memory and misc options
     ncv = 20 > (2 * k + 1) ? 20 : (2 * k + 1);
     oversamples = oversamples > k ? oversamples : k;
-    if (haploid && (file_t == FileType::PLINK || file_t == FileType::BGEN)) ploidy = 1;
+    if (haploid && genetic) ploidy = 1;
     if (memory > 0 && svd_t != SvdType::FULL) out_of_core = true;
-    if (maf > 0.5) {
-      std::cerr << "warning: '--maf' with a value greater than 0.5 will be converted to 1 - maf.\n";
-      maf = 1 - maf;
+    
+    filterSNP = maf > 0 ? true : false;  // filter SNP if MAf applied
+    if (filterSNP) {
+      if (!(maf > 0 && maf < 0.5))
+        throw std::invalid_argument("--maf has to be between (0, 0.5)");
+      if (out_of_core)
+        throw std::invalid_argument("does not support --maf filters for out-of-core mode yet! ");
     }
-    keepsnp = maf > 0 ? true : false;
-    if (maf && out_of_core)
-      throw std::invalid_argument("does not support --maf filters for out-of-core mode yet! ");
+
 
     // handle EM-PCA
-    if (pca && file_t == FileType::BEAGLE) pcangsd = true;
+    if (dopca && file_t == FileType::BEAGLE) pcangsd = true;
     if (emu || pcangsd) {
-      impute = true;
-    } else if (pca) {
+      missme = true;
+    } else if (dopca) {
       maxiter = 0;
     }
     if (out_of_core && pcangsd && (file_t == FileType::BEAGLE))

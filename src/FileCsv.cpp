@@ -53,7 +53,7 @@ void FileCsv::read_all() {
     }
   }
 
-  if (params.scale > 0) standardize(G);  // standardization
+  if (params.scale >= 1) standardize(G);  // standardization
 
   if (zbuf.lastRet != 0) cao.error("EOF before end of ZSTD_decompressStream.\n");
 

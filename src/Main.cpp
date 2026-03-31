@@ -2,6 +2,7 @@
 #define _DECLARE_TOOLBOX_HERE
 
 #include <omp.h>
+
 #include <thread>
 
 #include "Arnoldi.hpp"
@@ -12,12 +13,15 @@
 #include "FileBgen.hpp"
 #include "FileBinary.hpp"
 #include "FileCsv.hpp"
+#include "FilePgen.hpp"
 #include "FilePlink.hpp"
 #include "FileUSV.hpp"
 #include "Halko.hpp"
-#include "Inbreeding.hpp"
+#include "InbredSamples.hpp"
+#include "InbredSites.hpp"
 #include "LD.hpp"
 #include "Projection.hpp"
+#include "Selection.hpp"
 
 #ifdef WITH_OPENBLAS
 #include "lapacke.h"
@@ -53,13 +57,21 @@ int main(int argc, char* argv[]) {
   cao.print(tick.date(), "program started");
   Data* data = nullptr;
 
-  // particular case for inbreeding
-  if (params.inbreed > 0) {
+  // particular case for inbreeding sites
+  if (params.inbreed == 1) {
     data = new FileUSV(params);
-    run_inbreeding(data, params);
+    run_inbred_sites(data, params);
     delete data;
     return bye();
   }
+
+  // particular case for inbreeding samples
+  // if (params.inbreed == 2) {
+  //   data = new FileUSV(params);
+  //   run_inbreed_coef_sample(data, params);
+  //   delete data;
+  //   return bye();
+  // }
 
   // particular case for LD
   if (((params.file_t == FileType::BINARY || ((params.file_t == FileType::PLINK) && !params.fileU.empty())) &&
@@ -77,9 +89,21 @@ int main(int argc, char* argv[]) {
   }
 
   // particular case for projection
-  if ((params.project > 0) && (params.file_t == FileType::PLINK)) {
-    data = new FileBed(params);
+  if (params.project > 0 &&
+      (params.file_t == FileType::PLINK || params.file_t == FileType::BEAGLE)) {
+    if (params.file_t == FileType::PLINK)
+      data = new FileBed(params);
+    else
+      data = new FileBeagle(params);
     run_projection(data, params);
+    delete data;
+    return bye();
+  }
+
+  // particular case for Selection
+  if ((params.selection > 0) && (params.file_t == FileType::PLINK)) {
+    data = new FileBed(params);
+    run_selection(data, params);
     delete data;
     return bye();
   }
@@ -90,12 +114,17 @@ int main(int argc, char* argv[]) {
       auto perm = permute_plink(params.filein, params.fileout, params.buffer, params.bands);
       data = new FileBed(params);
       data->perm = perm;
+    } else if (params.file_t == FileType::PGEN) {
+      // Logical permutation: no file rewrite needed; PgenReader supports random access.
+      data = new FilePgen(params);
+      data->perm = compute_pgen_perm(data->nsnps, params.bands);
     } else if (params.file_t == FileType::BGEN) {
       auto perm = permute_bgen(params.filein, params.fileout, params.threads);
       data = new FileBgen(params);
       data->perm = perm;
     } else if (params.file_t == FileType::CSV) {
-      auto perm = shuffle_csvzstd_to_bin(params.filein, params.fileout, params.buffer, params.scale, params.scaleFactor);
+      auto perm = shuffle_csvzstd_to_bin(params.filein, params.fileout, params.buffer, params.scale,
+                                         params.scaleFactor);
       params.file_t = FileType::BINARY;
       data = new FileBin(params);
       data->perm = perm;
@@ -106,6 +135,8 @@ int main(int argc, char* argv[]) {
   } else {
     if (params.file_t == FileType::PLINK) {
       data = new FileBed(params);
+    } else if (params.file_t == FileType::PGEN) {
+      data = new FilePgen(params);
     } else if (params.file_t == FileType::BGEN) {
       data = new FileBgen(params);
     } else if (params.file_t == FileType::BEAGLE) {
@@ -128,10 +159,44 @@ int main(int argc, char* argv[]) {
   } else if (params.svd_t == SvdType::PCAoneAlg1 || params.svd_t == SvdType::PCAoneAlg2) {
     run_pca_with_halko(data, params);
   } else if (params.svd_t == SvdType::FULL) {
-    if (params.file_t == FileType::PLINK || params.file_t == FileType::BGEN) data->standardize_E();
-    cao.print(tick.date(), "running the Full SVD with in-core mode.");
-    Eigen::JacobiSVD<Mat2D> svd(data->G, Eigen::ComputeThinU | Eigen::ComputeThinV);
-    data->write_eigs_files(svd.singularValues().array().square() / data->nsnps, svd.singularValues(), svd.matrixU(), svd.matrixV());
+    if (params.file_t == FileType::PLINK || params.file_t == FileType::BGEN || params.file_t == FileType::PGEN)
+      data->standardize_E();
+    cao.print(tick.date(), "running exact PCA with in-core eigendecomposition (PLINK-like).");
+    const Eigen::Index ncomp =
+        std::min<Eigen::Index>(params.k, std::min<Eigen::Index>(data->G.rows(), data->G.cols()));
+    Mat1D evals(ncomp), svals(ncomp);
+    Mat2D U(data->nsamples, ncomp), V(data->nsnps, ncomp);
+    if (data->nsamples <= data->nsnps) {
+      Mat2D K = (data->G * data->G.transpose()) / data->nsnps;
+      Eigen::SelfAdjointEigenSolver<Mat2D> eig(K);
+      if (eig.info() != Eigen::Success) cao.error("failed eigendecomposition of the sample covariance matrix.");
+      for (Eigen::Index i = 0; i < ncomp; ++i) {
+        Eigen::Index idx = eig.eigenvalues().size() - 1 - i;
+        evals(i) = std::max(0.0, eig.eigenvalues()(idx));
+        U.col(i) = eig.eigenvectors().col(idx);
+      }
+      svals = (evals.array() * data->nsnps).sqrt();
+      V.noalias() = data->G.transpose() * U;
+      for (Eigen::Index i = 0; i < ncomp; ++i) {
+        if (svals(i) > 0) V.col(i) /= svals(i);
+      }
+    } else {
+      Mat2D K = (data->G.transpose() * data->G) / data->nsnps;
+      Eigen::SelfAdjointEigenSolver<Mat2D> eig(K);
+      if (eig.info() != Eigen::Success) cao.error("failed eigendecomposition of the feature covariance matrix.");
+      for (Eigen::Index i = 0; i < ncomp; ++i) {
+        Eigen::Index idx = eig.eigenvalues().size() - 1 - i;
+        evals(i) = std::max(0.0, eig.eigenvalues()(idx));
+        V.col(i) = eig.eigenvectors().col(idx);
+      }
+      svals = (evals.array() * data->nsnps).sqrt();
+      U.noalias() = data->G * V;
+      for (Eigen::Index i = 0; i < ncomp; ++i) {
+        if (svals(i) > 0) U.col(i) /= svals(i);
+      }
+    }
+    flip_UV(U, V);
+    data->write_eigs_files(evals, svals, U, V);
   } else {
     cao.error("unsupported PCA method!");
   }
@@ -143,6 +208,9 @@ int main(int argc, char* argv[]) {
   if (params.file_t == FileType::PLINK)
     make_plink2_eigenvec_file(params.k, params.fileout + ".eigvecs2", params.fileout + ".eigvecs",
                               params.filein + ".fam");
+  else if (params.file_t == FileType::PGEN)
+    make_plink2_eigenvec_from_psam(params.k, params.fileout + ".eigvecs2", params.fileout + ".eigvecs",
+                                   params.filein + ".psam");
 
   // remove temp files if verbose < 3
   if (params.perm && params.out_of_core && params.verbose < 3) {

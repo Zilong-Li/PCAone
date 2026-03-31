@@ -2,13 +2,14 @@
 #define PCAONE_FILEBEAGLE_
 
 #include "Data.hpp"
+#include "Utils.hpp"
 
 class FileBeagle : public Data {
  public:
   FileBeagle(const Param &params_) : Data(params_) {
     cao.print(tick.date(), "start parsing BEAGLE format");
     // TODO: ask user to use --pcangsd explicitly
-    impute = true; // always imputing imcomplete information
+    p_miss = 1.0; // enable EM-PCA in halko and arnoldi
     original = buffer = (char *)calloc(bufsize, sizeof(char));
     if (params.nsnps > 0 && params.nsamples > 0) {
       cao.print(tick.date(), "use nsamples and nsnps given by user");
@@ -32,10 +33,7 @@ class FileBeagle : public Data {
         nsnps++;
       } 
     }
-
-    if (params.pca) {  // initial F
-      F = Mat1D::Zero(nsnps);
-    }
+    if(params.dopca) F = Mat1D::Zero(nsnps);  // initial F
     cao.print(tick.date(), "N (# samples):", nsamples, ", M (# SNPs):", nsnps);
   }
 

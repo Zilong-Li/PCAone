@@ -6,14 +6,46 @@
 
 #include "FileBeagle.hpp"
 
+#include "Data.hpp"
+
 using namespace std;
 
 // read all data and estimate F
 void FileBeagle::read_all() {
-  P = Mat2D::Zero(nsamples * 2, nsnps);
+  uint total_nsnps = nsnps;
+  P = Mat2D::Zero(nsamples * 2, total_nsnps);
   fp = gzopen(params.filein.c_str(), "r");
-  parse_beagle_file(P, fp, nsamples, nsnps);
-  if (!params.pca) return;
+  parse_beagle_file(P, fp, nsamples, total_nsnps);
+  if (!params.dopca && params.project > 0) {
+    // projection mode: compute expected genotypes from GLs using reference F
+    // F is read in Data::prepare() to include only overlapped sites
+    const bool filter = !keepSNPs.empty();
+    if (filter) nsnps = keepSNPs.size();
+    G = Mat2D::Zero(nsamples, nsnps);
+    C = ArrBool::Zero(nsnps * nsamples);
+
+#pragma omp parallel for
+    for (uint j = 0; j < nsnps; j++) {
+      uint s = filter ? keepSNPs[j] : j;
+      // const double norm = sqrt(2.0 * F(j) * (1.0 - F(j)));
+      for (uint i = 0; i < nsamples; i++) {
+        const double pt = fmin(fmax(F(j), 1e-4), 1.0 - 1e-4);
+        const double p0 = P(2 * i + 0, s) * (1.0 - pt) * (1.0 - pt);
+        const double p1 = P(2 * i + 1, s) * 2.0 * pt * (1.0 - pt);
+        const double p2 = (1 - P(2 * i + 0, s) - P(2 * i + 1, s)) * pt * pt;
+        const double psum = p0 + p1 + p2;
+        if (!std::isfinite(psum) || psum <= 0.0) {
+          C[j * nsamples + i] = 1;
+          G(i, j) = 0.0;
+          continue;
+        }
+        C[j * nsamples + i] = 0;
+        G(i, j) = (p1 + 2.0 * p2) / (2.0 * psum) - F(j);
+        // if (params.scale == SCALE_STANDARDIZE_GENETIC && norm > VAR_TOL) G(i, j) /= norm;
+      }
+    }
+    return;
+  }
   cao.print(tick.date(), "begin to estimate allele frequencies");
   F = Mat1D::Constant(nsnps, 0.25);
   emMAF_with_GL(F, P, params.maxiter, params.tolmaf);
@@ -25,7 +57,7 @@ void FileBeagle::read_all() {
 #pragma omp parallel for
   for (uint j = 0; j < nsnps; j++) {
     double p0, p1, p2;
-    uint s = params.keepsnp ? keepSNPs[j] : j;
+    uint s = params.filterSNP ? keepSNPs[j] : j;
     for (uint i = 0; i < nsamples; i++) {
       p0 = P(2 * i + 0, s) * (1.0 - F(j)) * (1.0 - F(j));
       p1 = P(2 * i + 1, s) * 2 * F(j) * (1.0 - F(j));
@@ -43,12 +75,12 @@ void FileBeagle::check_file_offset_first_var() {
 }
 
 void FileBeagle::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize = false) {
-  if (params.pca) cao.error("doesn't support out-of-core PCAngsd algorithm");
+  if (params.dopca) cao.error("doesn't support out-of-core PCAngsd algorithm");
   uint actual_block_size = stop_idx - start_idx + 1;
   if (G.cols() < blocksize || (actual_block_size < blocksize)) {
     P = Mat2D::Zero(nsamples * 2, actual_block_size);
   }
-  const char *delims = "\t \n";
+  const char* delims = "\t \n";
   char* tok;
   // read all GL data into P
   for (uint j = 0; j < actual_block_size; ++j) {

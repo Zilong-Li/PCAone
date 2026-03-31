@@ -2,6 +2,7 @@
 #define FILEBINARY_H_
 
 #include "Data.hpp"
+#include "Utils.hpp"
 
 class FileBin : public Data {
  public:
@@ -14,7 +15,7 @@ class FileBin : public Data {
     } else {
       ifs_bin.read((char *)&nsnps, ibyte);
       ifs_bin.read((char *)&nsamples, ibyte);
-      cao.print(tick.date(), "shape of input matrix (features x samples) is", nsnps, "x", nsamples);
+      cao.print(tick.date(), "shape of input matrix (features x samples) is", nsnps, " x", nsamples);
       bytes_per_snp = nsamples * ibyte;
     }
   }

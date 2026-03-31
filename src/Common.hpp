@@ -11,6 +11,7 @@
 #include <cfloat>
 #include <cmath>
 #include <cstdio>
+#include <cstdint>
 #include <filesystem>
 #include <iterator>
 #include <numeric>
@@ -23,6 +24,7 @@
 #include "zstd.h"
 
 #define MAF(a) ((a) > 0.5 ? (1 - a) : (a))
+#define SCALE_STANDARDIZE_GENETIC -9
 
 using Mat2D = Eigen::MatrixXd;
 using Mat1D = Eigen::VectorXd;
@@ -32,8 +34,8 @@ using ArrBool = Eigen::Array<bool, Eigen::Dynamic, 1>;
 using PermMat = Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic>;
 
 using uchar = unsigned char;
-using uint = unsigned int;
-using uint64 = unsigned long long;
+using uint = std::uint32_t;
+using uint64 = std::uint64_t;
 using Int1D = std::vector<int>;
 using Int2D = std::vector<Int1D>;
 using Double1D = std::vector<double>;

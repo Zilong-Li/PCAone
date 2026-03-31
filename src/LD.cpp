@@ -7,6 +7,7 @@
 #include "LD.hpp"
 
 #include <zlib.h>
+
 #include <cstddef>
 
 #include "Cmd.hpp"
@@ -138,6 +139,25 @@ void divide_pos_by_window(SNPld& snp, const int ld_window_bp) {
   }
 }
 
+void write_pruned_snp_ids(const std::string& filebim, const std::string& fileout, const ArrBool& keep) {
+  cao.print(tick.date(), keep.count(), " sites will be kept");
+  std::ifstream fin(filebim);
+  if (!fin.is_open()) cao.error("can not open " + filebim);
+  std::ofstream ofs_out(fileout + ".ld.prune.out");
+  std::ofstream ofs_in(fileout + ".ld.prune.in");
+  std::string line, sep{" \t"};
+  int i = 0;
+  while (getline(fin, line)) {
+    // only output rsids, i.e the second column
+    const auto fields = split_string(line, sep);
+    if (keep(i))
+      ofs_in << fields[0] << "\t" << fields[1] << "\t" << fields[2] << "\t" << fields[3] << "\t" << fields[4] << "\t" << fields[5] << std::endl;
+    else
+      ofs_out << fields[0] << "\t" << fields[1] << "\t" << fields[2] << "\t" << fields[3] << "\t" << fields[4] << "\t" << fields[5] << std::endl;
+    i++;
+  }
+}
+
 void ld_prune_small(Data* data, const std::string& fileout, const std::string& filebim, const SNPld& snp,
                     const double r2_tol) {
   const bool pick_random_one = snp.af.size() > 0 ? false : true;
@@ -173,7 +193,6 @@ void ld_prune_small(Data* data, const std::string& fileout, const std::string& f
         r = calc_cor(G.col(i - data->start[b - 1]), G.col(k - data->start[b - 1]), df);
       } else if (i >= data->start[b] && k <= data->stop[b]) {
         r = calc_cor(data->G.col(i - data->start[b]), data->G.col(k - data->start[b]), df);
-
       } else {
         r = calc_cor(G.col(i - data->start[b - 1]), data->G.col(k - data->start[b]), df);
       }
@@ -184,19 +203,7 @@ void ld_prune_small(Data* data, const std::string& fileout, const std::string& f
       }
     }
   }
-  std::ifstream fin(filebim);
-  if (!fin.is_open()) cao.error("can not open " + filebim);
-  std::ofstream ofs_out(fileout + ".ld.prune.out");
-  std::ofstream ofs_in(fileout + ".ld.prune.in");
-  std::string line;
-  int i = 0;
-  while (getline(fin, line)) {
-    if (keep(i))
-      ofs_in << line << std::endl;
-    else
-      ofs_out << line << std::endl;
-    i++;
-  }
+  write_pruned_snp_ids(filebim, fileout, keep);
 }
 
 void ld_prune_big(const Mat2D& G, const SNPld& snp, double r2_tol, const std::string& fileout,
@@ -226,19 +233,7 @@ void ld_prune_big(const Mat2D& G, const SNPld& snp, double r2_tol, const std::st
       }
     }
   }
-  std::ifstream fin(filebim);
-  if (!fin.is_open()) cao.error("can not open " + filebim);
-  std::ofstream ofs_out(fileout + ".ld.prune.out");
-  std::ofstream ofs_in(fileout + ".ld.prune.in");
-  std::string line;
-  int i = 0;
-  while (getline(fin, line)) {
-    if (keep(i))
-      ofs_in << line << std::endl;
-    else
-      ofs_out << line << std::endl;
-    i++;
-  }
+  write_pruned_snp_ids(filebim, fileout, keep);
 }
 
 Int1D valid_assoc_file(const std::string& fileassoc, const std::string& colnames) {
@@ -356,7 +351,7 @@ void ld_clump_single_pheno(const std::string& fileout, const std::string& head, 
         for (auto op : clumped) opp.push_back(pvals_per_chr[c].at(op).first);
         k = 0;
         for (auto oi : sortidx(opp)) {
-          if (k == opp.size() - 1)
+          if (k == (int)opp.size() - 1)
             ofs << clumped[oi];
           else
             ofs << clumped[oi] << ",";

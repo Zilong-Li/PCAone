@@ -1,14 +1,15 @@
 #ifndef CMD_H_
 #define CMD_H_
 
-#include <iostream>
-#include <iterator>
 #include <sstream>
+#include <cstdint>
 
-typedef unsigned int uint;
-typedef unsigned long long uint64;
+#include "Common.hpp"
 
-enum class FileType { PLINK, CSV, BEAGLE, BINARY, BGEN };
+using uint = std::uint32_t;
+using uint64 = std::uint64_t;
+
+enum class FileType { PLINK, CSV, BEAGLE, BINARY, BGEN, PGEN };
 
 enum class SvdType { IRAM, PCAoneAlg1, PCAoneAlg2, FULL };
 
@@ -19,7 +20,7 @@ class Param {
 
   FileType file_t;  // PLINK, CSV, BEAGLE, BGEN
   SvdType svd_t;
-  std::string fileU, fileS, fileV;
+  std::string fileU, fileS, fileE, fileV;
   std::string filein;
   std::string fileout = "pcaone";
   double memory = 0;  // 0 for disable
@@ -29,7 +30,9 @@ class Param {
   uint maxp = 20;  // maximum number of power iterations
   uint threads = 12;
   uint bands = 64;
-  bool pca = true;
+  bool genetic = true;  // bifle,pgen,bgen
+  bool dopca = true;   // false for projection, selection, inbreeding
+  bool perm = false;  // wheather data is permuted
   // for normalization
   double scaleFactor = 1;
   // for emu iteration
@@ -48,7 +51,6 @@ class Param {
   double tol = 1e-4;
   uint buffer = 2;
   uint rand = 1;
-  bool perm = false;  // wheather data is permuted
   // for ld stuff
   bool print_r2 = false;
   // for ld pruning
@@ -56,7 +58,7 @@ class Param {
   int ld_stats = 0;     // 0: adj; 1: std
   double ld_r2 = 0;
   bool ld = false;  // true if tolld > 0
-  uint ld_bp = 0;   // base pairs not number of snps
+  uint ld_bp = 1000000;   // base pairs not number of snps
   // for clumping
   std::string clump;
   std::string assoc_colnames;
@@ -68,14 +70,16 @@ class Param {
   int project = 0;
   // for inbreeding
   int inbreed = 0;
+  // for selection. 1: Galinsky et al. 2. pcadapt
+  int selection = 0;
 
   // general
   uint verbose = 1; // verbose level. 0: no verbose; 1: output to screen; 2: debug info 
-  uint scale = 0;  // do scaling. 0: just centering. 1: log scaling. 2: cpmed
+  int scale = SCALE_STANDARDIZE_GENETIC;  // default: standardize genetic data by sqrt(ploidy*f*(1-f))
+  bool hardcall = false;
   bool groff = false;
-  bool cpmed = false;
   bool printv = false;
-  bool impute = false;    // enable EM-PCA for data with uncertainty. impute information!
+  bool missme = false; // keep track of missing information
   bool noshuffle = false;
   bool emu = false;
   bool pcangsd = false;  // enable pcangsd procedure
@@ -83,10 +87,9 @@ class Param {
   bool mev = true;
   bool out_of_core = false;  // otherwise load all matrix into RAM.
   int ploidy = 2;
-  int seed = 101; // seeding 
-  bool keepsnp = false;
-  bool center = true; // false if G is raw data likelihood
-  bool estaf = true; // false if project,inbreed enabled
+  int seed = 112; // seeding 
+  bool filterSNP = false; // filter snps
+  bool center = true; // false if G is raw data likelihood or inbred mode
   // bool estpi = false; // true if output pi is needed
 
   std::ostringstream ss;

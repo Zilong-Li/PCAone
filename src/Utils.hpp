@@ -74,6 +74,8 @@ auto get_median(std::vector<T> v) {
 }
 
 void make_plink2_eigenvec_file(int K, std::string fout, const std::string& fin, const std::string& fam);
+void make_plink2_eigenvec_from_psam(int K, const std::string& fout, const std::string& fin,
+                                    const std::string& fpsam);
 
 bool isZstdCompressed(const char* filename);
 
@@ -87,7 +89,18 @@ Mat2D read_eigvecs(const std::string& path, int n, int k);
 
 Mat1D read_frq(const std::string& path);
 
-void check_bim_vs_mbim(const std::string& bim_file, const std::string& mbim_file);
+struct BimMatch {
+  bool identical = false;
+  Int1D bim_indices;
+  Int1D mbim_indices;
+  std::vector<bool> flip;  // parallel to bim_indices: true if ref/alt are swapped vs mbim
+};
+
+BimMatch match_bim_to_mbim(const std::string& bim_file, const std::string& mbim_file);
+
+BimMatch match_beagle_to_mbim(const std::string& beagle_file, const std::string& mbim_file);
+
+std::string decode_beagle_allele(const std::string& allele);
 
 void parse_beagle_file(Mat2D& P, gzFile fp, const int nsamples, const int nsnps);
 
@@ -139,5 +152,21 @@ struct ZstdCS {
   size_t lastRet = 1;
   std::string buffInTmp, buffOutTmp;
 };
+
+
+// Chi-square CDF: P(X <= x) where X ~ chi-sq(df)
+// chi-sq CDF = regularized lower incomplete gamma P(df/2, x/2)
+// pchisq(x, df, lower_tail=true)  = kf_gammap(df/2, x/2)
+// pchisq(x, df, lower_tail=false) = kf_gammaq(df/2, x/2)
+double pchisq(double x, int df, bool lower_tail);
+
+// Chi-square quantile function via Newton's method
+// Find x such that P(X <= x) = p, where X ~ chi-sq(df)
+// Uses the chi-square PDF for the Newton update:
+//   f(x) = x^(df/2-1) * exp(-x/2) / (2^(df/2) * Gamma(df/2))
+double qchisq(double p, int df);
+
+void galinsky_selection_stat(Mat2D& V);
+void pcadapt_selection_stats(const Mat2D& Z, Mat1D& stat, Mat1D& chi2_stat, Mat1D& pval, double& gif);
 
 #endif  // PCAONE_UTILES_

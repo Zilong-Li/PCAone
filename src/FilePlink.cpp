@@ -6,8 +6,6 @@
 
 #include "FilePlink.hpp"
 
-#include "Common.hpp"
-#include "Utils.hpp"
 
 using namespace std;
 
@@ -29,11 +27,12 @@ void FileBed::check_file_offset_first_var() {
 void FileBed::read_all() {
   check_file_offset_first_var();
   // Begin to decode the plink bed
-  inbed.reserve(bed_bytes_per_snp * nsnps);
-  bed_ifstream.read(reinterpret_cast<char *>(&inbed[0]), bed_bytes_per_snp * nsnps);
+  inbed.resize(bed_bytes_per_snp * nsnps);
+  bed_ifstream.read(reinterpret_cast<char *>(inbed.data()), bed_bytes_per_snp * nsnps);
   uint64 c, i, j, b, k;
   uchar buf;
-  if (params.estaf) {
+  // sometimes no need to estimate AF, e.g. projection
+  if (params.dopca && !frequency_was_estimated) {
     F = Mat1D::Zero(nsnps);
     // estimate allele frequency first
 #pragma omp parallel for private(i, j, b, c, k, buf)
@@ -45,7 +44,7 @@ void FileBed::read_all() {
             if (BED2GENO[buf & 3] != BED_MISSING_VALUE) {
               F(i) += BED2GENO[buf & 3];
               c++;
-            }
+            } 
             buf >>= 2;
           }
         }
@@ -55,34 +54,32 @@ void FileBed::read_all() {
       else
         F(i) /= c;
       // should remove sites with F=0 and 1.0
-      if (F(i) == 0.0 || F(i) == 1.0) cao.warn("sites with MAF=0 found! remove them first!");
+      if (F(i) == 0.0 || F(i) == 1.0) cao.warn("sites with MAF=0 found! remove them first! SNP index:", i);
       // in LD r2,F=0.5 means sample standard deviation is 0
       if (params.ld && params.verbose > 1 && F(i) == 0.5)
-        cao.warn("MAF for site ", i, "is 0.5. NaN values expected in calculating LD R2.");
+        cao.warn("sites with MAF=0.5 found in LD estimation. NaN values expected! SNP index:", i);
     }
     filter_snps_resize_F();  // filter and resize nsnps
-  } 
+  }
 
-  G = Mat2D::Zero(nsamples, nsnps);  // fill in G with new size
-  if (params.emu) C = ArrBool::Zero(nsnps * nsamples);
+  const bool filter = !keepSNPs.empty();
+  if (filter) nsnps = keepSNPs.size();
+  G = Mat2D::Zero(nsamples, nsnps);  // fill in G with new size after filtering
+
+  if(params.missme) C = ArrBool::Zero(nsnps * nsamples);
   if (params.pcangsd) P = Mat2D::Zero(nsamples * 2, nsnps);
 
 #pragma omp parallel for private(i, j, b, c, k, buf)
   for (i = 0; i < nsnps; ++i) {
-    uint s = params.keepsnp ? keepSNPs[i] : i;
+    uint s = filter ? keepSNPs[i] : i;
     for (b = 0, c = 0, j = 0; b < bed_bytes_per_snp; ++b) {
       buf = inbed[s * bed_bytes_per_snp + b];
       for (k = 0; k < 4; ++k, ++j) {
         if (j < nsamples) {
           G(j, i) = BED2GENO[buf & 3];
           buf >>= 2;
-          if (params.emu) {
-            // 1 indicate G(i,j) need to be predicted and updated.
-            if (G(j, i) != BED_MISSING_VALUE)
-              C[i * nsamples + j] = 0;
-            else
-              C[i * nsamples + j] = 1;
-          }
+          if(params.missme && (G(j, i)== BED_MISSING_VALUE))
+            C[i * nsamples + j] = 1;
         }
       }
     }
@@ -114,20 +111,15 @@ void FileBed::read_all() {
     }
   }
 
+  if (params.missme) {
+      p_miss = (double)C.count() / (double)C.size();
+      cao.print(tick.date(), "the proportion of missingness  is", p_miss);
+  }
+
   // read bed to matrix G done and close bed_ifstream
   inbed.clear();
   inbed.shrink_to_fit();
 
-  if (C.size()) {
-    double p_miss = (double)C.count() / (double)C.size();
-    cao.print(tick.date(), "the proportion of missingness  is", p_miss);
-    if (p_miss == 0.0) impute = false;
-  }
-
-  // if (params.pcangsd) {
-  //   F = Mat1D::Constant(nsnps, 0.25);
-  //   emMAF_with_GL(F, P, params.maxiter, params.tolmaf);
-  // }
 }
 
 void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize) {
@@ -139,13 +131,13 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
   // if actual_block_size is smaller than blocksize, don't resize G;
   if (G.cols() < blocksize || (actual_block_size < blocksize)) {
     G = Mat2D::Zero(nsamples, actual_block_size);
-    inbed.reserve(bed_bytes_per_snp * blocksize);
+    inbed.resize(bed_bytes_per_snp * blocksize);
   }
   uint64 c, b, i, j, k, snp_idx;
   uchar buf;
   // inbed.resize(bed_bytes_per_snp * actual_block_size);
-  bed_ifstream.read(reinterpret_cast<char *>(&inbed[0]), bed_bytes_per_snp * actual_block_size);
-  if (!params.estaf) frequency_was_estimated = true;
+  bed_ifstream.read(reinterpret_cast<char *>(inbed.data()), bed_bytes_per_snp * actual_block_size);
+  if (!params.dopca) frequency_was_estimated = true; // read AF from external
   if (frequency_was_estimated) {
 #pragma omp parallel for private(i, j, b, k, snp_idx, buf)
     for (i = 0; i < actual_block_size; ++i) {
@@ -156,9 +148,9 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
           if (j < nsamples) {
             if (params.center) {
               G(j, i) = centered_geno_lookup(buf & 3, snp_idx);
-              if (standardize) {
-                double sd = sqrt((double)params.ploidy * F(snp_idx) * (1 - F(snp_idx)));
-                if (sd > VAR_TOL) G(j, i) /= sd;
+              if (standardize && params.scale == SCALE_STANDARDIZE_GENETIC) {
+                double sd = sqrt(F(snp_idx) * (1 - F(snp_idx)));
+                if (sd > VAR_TOL) G(j, i) = (G(j, i) * sqrt((double) params.ploidy)) / sd;
               }
             } else {
               G(j, i) = BED2GENO[buf & 3];
@@ -209,9 +201,9 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
         for (k = 0; k < 4; ++k, ++j) {
           if (j < nsamples) {
             G(j, i) = centered_geno_lookup(buf & 3, snp_idx);
-            if (standardize) {
-              double sd = sqrt((double)params.ploidy * F(snp_idx) * (1 - F(snp_idx)));
-              if (sd > VAR_TOL) G(j, i) /= sd;
+            if (standardize && params.scale == SCALE_STANDARDIZE_GENETIC) {
+              double sd = sqrt(F(snp_idx) * (1 - F(snp_idx)));
+              if (sd > VAR_TOL) G(j, i) = (G(j, i) * sqrt((double) params.ploidy)) / sd;
             }
             buf >>= 2;
           }
@@ -228,7 +220,7 @@ void FileBed::read_block_update(uint64 start_idx, uint64 stop_idx, const Mat2D &
   uint actual_block_size = stop_idx - start_idx + 1;
   if (G.cols() < blocksize || (actual_block_size < blocksize)) {
     G = Mat2D::Zero(nsamples, actual_block_size);
-    inbed.reserve(bed_bytes_per_snp * blocksize);
+    inbed.resize(bed_bytes_per_snp * blocksize);
   }
   // check where we are
   if (params.verbose) {
@@ -237,7 +229,7 @@ void FileBed::read_block_update(uint64 start_idx, uint64 stop_idx, const Mat2D &
       cao.error("something wrong with read_snp_block!");
     }
   }
-  bed_ifstream.read(reinterpret_cast<char *>(&inbed[0]), bed_bytes_per_snp * actual_block_size);
+  bed_ifstream.read(reinterpret_cast<char *>(inbed.data()), bed_bytes_per_snp * actual_block_size);
   uint64 b, i, j, snp_idx;
   uint ks = svals.rows();
   uint ki, k;
@@ -267,23 +259,31 @@ void FileBed::read_block_update(uint64 start_idx, uint64 stop_idx, const Mat2D &
             }
             pt = (pt + 2.0 * F(snp_idx)) / 2.0;
             pt = fmin(fmax(pt, 1e-4), 1.0 - 1e-4);
-            if ((buf & 3) == 3) { 
-              p0 = 1.00; p1 = 0.00; p2 = 0.00;
+            if ((buf & 3) == 3) {
+              p0 = 1.00;
+              p1 = 0.00;
+              p2 = 0.00;
             } else if ((buf & 3) == 0) {
-              p0 = 0.00; p1 = 0.00; p2 = 1.00;
+              p0 = 0.00;
+              p1 = 0.00;
+              p2 = 1.00;
             } else if ((buf & 3) == 2) {
-              p0 = 0.00; p1 = 1.00; p2 = 0.00;
+              p0 = 0.00;
+              p1 = 1.00;
+              p2 = 0.00;
             } else {
-              p0 = 0.333333; p1 = 0.333333; p2 = 0.333333;
+              p0 = 0.333333;
+              p1 = 0.333333;
+              p2 = 0.333333;
             }
             p0 *= (1.0 - pt) * (1.0 - pt);
-            p1 *=  2.0 * pt * (1.0 - pt);
-            p2 *=  pt * pt;
+            p1 *= 2.0 * pt * (1.0 - pt);
+            p2 *= pt * pt;
             G(j, i) = (p1 + 2.0 * p2) / (p0 + p1 + p2) - 2.0 * F(snp_idx);
           }
-          if (standardize) {
-            double sd = sqrt((double)params.ploidy * F(snp_idx) * (1 - F(snp_idx)));
-            if (sd > VAR_TOL) G(j, i) /= sd;
+          if (standardize && params.scale == SCALE_STANDARDIZE_GENETIC) {
+            double sd = sqrt(F(snp_idx) * (1 - F(snp_idx)));
+            if (sd > VAR_TOL) G(j, i) = (G(j, i) * sqrt((double) params.ploidy)) / sd;
           }
           // shift packed data and throw away genotype just processed.
           buf >>= 2;
@@ -295,6 +295,7 @@ void FileBed::read_block_update(uint64 start_idx, uint64 stop_idx, const Mat2D &
 
 // structured permutation with cached buffer
 // TODO: support MAF filters
+// TODO: support --exclude
 PermMat permute_plink(std::string &fin, const std::string &fout, uint gb, uint nbands) {
   uint nsnps = count_lines(fin + ".bim");
   uint nsamples = count_lines(fin + ".fam");
