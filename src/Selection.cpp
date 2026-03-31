@@ -34,10 +34,8 @@ void run_selection(Data* data, const Param& params) {
 
   Eigen::IOFormat fmt(6, Eigen::DontAlignCols, "\t", "\n");
   if (params.selection == 1) {
-    std::ofstream outz(params.fileout + ".zscore");
     std::ofstream out(params.fileout + ".galinsky");
     std::ofstream outp(params.fileout + ".galinsky.pval");
-    if (outz.is_open()) outz << V.format(fmt) << '\n';
     E = E.head(K) * V.rows();
     V.array().rowwise() /= E.transpose().array().sqrt();
     galinsky_selection_stat(V);
