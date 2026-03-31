@@ -1,3 +1,12 @@
+- v0.7.0
+  - add support for [[https://www.cog-genomics.org/plink/2.0/input#pgen][PLINK2 PGEN]] input via =--pgen=
+  - bug fixes for projection with missing data
+  - use dosages from =.pgen= when available, with =--hardcall= to force hard-call genotypes
+  - add genotype-likelihood aware projection for [[http://www.popgen.dk/angsd/index.php/Input#Beagle_format][BEAGLE]] input via =--project 3=
+  - projection now matches overlapping markers against the reference =.mbim= file and corrects flipped alleles when needed
+  - add genome-wide selection scans via =--selection 1= (Galinsky/FastPCA) and =--selection 2= (pcadapt)
+  - always write =.mbim= together with =.loadings= to support downstream projection, HWE, and selection workflows
+
 - v0.6.0
   - *fix HWE! Rework pcangsd and emu plugins*
     
