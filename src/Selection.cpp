@@ -5,17 +5,18 @@
 void run_selection(Data* data, const Param& params) {
   cao.print(tick.date(), "run selection");
   data->prepare();
-  cao.print(tick.date(), "start parsing U:", params.fileU, ", E:", params.fileE);
+  cao.print(tick.date(), "parsing U:", params.fileU, ", E:", params.fileE);
   Mat1D E = read_eigvals(params.fileE);
   int K = fmin(E.size(), params.k);
   Mat2D U = read_eigvecs(params.fileU, data->nsamples, K);
   Mat2D V(data->nsnps, K);
   Mat1D y_norm2(data->nsnps);
+  uint j;
 
   if (!params.out_of_core) {
     data->standardize_E();
-#pragma omp parallel for
-    for (uint j = 0; j < data->nsnps; j++) {
+#pragma omp parallel for private(j) schedule(static)
+    for (j = 0; j < data->nsnps; j++) {
       V.row(j) = U.transpose() * data->G.col(j);
       y_norm2(j) = data->G.col(j).squaredNorm();
     }
@@ -24,35 +25,37 @@ void run_selection(Data* data, const Param& params) {
     for (uint b = 0; b < data->nblocks; b++) {
       data->read_block_initial(data->start[b], data->stop[b], true);
       uint64 actual_block_size = data->stop[b] - data->start[b] + 1;
-#pragma omp parallel for
-      for (uint j = 0; j < actual_block_size; j++) {
+#pragma omp parallel for private(j) schedule(static)
+      for (j = 0; j < actual_block_size; j++) {
         V.row(j + data->start[b]) = U.transpose() * data->G.col(j);
         y_norm2(j + data->start[b]) = data->G.col(j).squaredNorm();
       }
     }
   }
 
+  E = E.head(K) * V.rows();                             // downscale
+  V.array().rowwise() /= E.transpose().array().sqrt();  // divid by singluar values
   Eigen::IOFormat fmt(6, Eigen::DontAlignCols, "\t", "\n");
   if (params.selection == 1) {
+    cao.print(tick.date(), "calculate galinksky statistics");
     std::ofstream out(params.fileout + ".galinsky");
-    std::ofstream outp(params.fileout + ".galinsky.pval");
-    E = E.head(K) * V.rows();
-    V.array().rowwise() /= E.transpose().array().sqrt();
     galinsky_selection_stat(V);
     out << "#FastPCA/Galinsky selection statistic for each site and PC\n";
     out << V.format(fmt) << '\n';
+    std::ofstream outp(params.fileout + ".galinsky.pval");
     if (outp.is_open()) {
       Mat2D P = V.unaryExpr([](double x) { return pchisq(x, 1, false); });
       outp << "#P-value for the FastPCA/Galinsky selection statistic for each site and PC\n";
       outp << P.format(fmt) << '\n';
     }
   } else if (params.selection == 2) {
+    cao.print(tick.date(), "calculate pcadapt statistics");
     const int dof = static_cast<int>(data->nsamples) - K;
     if (dof <= 0) cao.error("pcadapt selection requires nsamples > K.");
 
     Mat2D Z = V;
-#pragma omp parallel for
-    for (uint j = 0; j < data->nsnps; ++j) {
+#pragma omp parallel for private(j) schedule(static)
+    for (j = 0; j < data->nsnps; ++j) {
       double rss = y_norm2(j) - V.row(j).squaredNorm();
       rss = std::max(rss, 0.0);
       double sigma = std::sqrt(rss / dof);
@@ -89,7 +92,9 @@ void run_selection(Data* data, const Param& params) {
       outp << "#pcadapt p-value for each site\n";
       outp << pval.format(fmt) << '\n';
     }
-    if (outg.is_open()) outg << gif << '\n';
+    if (outg.is_open()) {
+      outg << "#genomic inflation factor\n";      
+      outg << gif << '\n';
+    }
   }
-
 }

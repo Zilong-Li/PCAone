@@ -405,7 +405,7 @@ std::string bim_flip_key(const String1D& tokens, const std::string& path, const 
   if ((int)tokens.size() < 6) cao.error("the input bim file is not valid!\n => " + path + "\n" + line);
   return tokens[0] + "_" + tokens[3] + "_" + tokens[5] + "_" + tokens[4];
 }
-}
+}  // namespace
 
 BimMatch match_bim_to_mbim(const std::string& bim_file, const std::string& mbim_file) {
   const std::string sep{" \t"};
@@ -783,11 +783,11 @@ double pchisq(double x, int df, bool lower_tail = true) {
 }
 
 void galinsky_selection_stat(Mat2D& V) {
-  // FastPCA/Galinsky statistic: M * v_{jk}^2 ~ chi-squared(df=1) under the null,
-  // where v_{jk} is the SNP loading for SNP j along PC k.
+// FastPCA/Galinsky statistic: M * v_{jk}^2 ~ chi-squared(df=1) under the null,
+// where v_{jk} is the SNP loading for SNP j along PC k.
 #pragma omp parallel for
-  for (int i = 0; i < V.cols(); i++) {
-    for (int j = 0; j < V.rows(); j++) {
+  for (int j = 0; j < V.rows(); j++) {
+    for (int i = 0; i < V.cols(); i++) {
       V(j, i) = V(j, i) * V(j, i) * V.rows();
     }
   }
