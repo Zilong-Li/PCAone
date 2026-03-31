@@ -782,13 +782,95 @@ double pchisq(double x, int df, bool lower_tail = true) {
   }
 }
 
-void galinsky_selection_scan(Mat2D& V) {
-// get p-value
+void galinsky_selection_stat(Mat2D& V) {
+  // FastPCA/Galinsky statistic: M * v_{jk}^2 ~ chi-squared(df=1) under the null,
+  // where v_{jk} is the SNP loading for SNP j along PC k.
 #pragma omp parallel for
   for (int i = 0; i < V.cols(); i++) {
     for (int j = 0; j < V.rows(); j++) {
       V(j, i) = V(j, i) * V(j, i) * V.rows();
-      V(j, i) = pchisq(V(j, i), 1, false);
     }
+  }
+}
+
+namespace {
+double robust_mad(const Mat1D& x) {
+  std::vector<double> vals(x.data(), x.data() + x.size());
+  double med = get_median(vals);
+  for (double& v : vals) v = std::abs(v - med);
+  double mad = 1.482602218505602 * get_median(vals);
+  if (mad > 0.0 && std::isfinite(mad)) return mad;
+
+  if (x.size() <= 1) return 1.0;
+  double mean = x.mean();
+  double var = (x.array() - mean).square().sum() / std::max(1.0, static_cast<double>(x.size() - 1));
+  double sd = std::sqrt(var);
+  return (sd > 0.0 && std::isfinite(sd)) ? sd : 1.0;
+}
+
+Mat1D robust_center(const Mat2D& X) {
+  Mat1D center(X.cols());
+  for (int j = 0; j < X.cols(); ++j) {
+    std::vector<double> vals(X.rows());
+    for (int i = 0; i < X.rows(); ++i) vals[i] = X(i, j);
+    center(j) = get_median(vals);
+  }
+  return center;
+}
+
+Mat2D robust_cov_gk(const Mat2D& X, const Mat1D& center) {
+  const int p = X.cols();
+  Mat2D cov = Mat2D::Zero(p, p);
+  Mat2D Xc = X.rowwise() - center.transpose();
+
+  for (int i = 0; i < p; ++i) {
+    double scale = robust_mad(Xc.col(i));
+    cov(i, i) = scale * scale;
+  }
+
+  for (int i = 0; i < p; ++i) {
+    for (int j = i + 1; j < p; ++j) {
+      Mat1D plus = Xc.col(i) + Xc.col(j);
+      Mat1D minus = Xc.col(i) - Xc.col(j);
+      double splus = robust_mad(plus);
+      double sminus = robust_mad(minus);
+      double cij = 0.25 * (splus * splus - sminus * sminus);
+      cov(i, j) = cij;
+      cov(j, i) = cij;
+    }
+  }
+
+  Eigen::SelfAdjointEigenSolver<Mat2D> eig(cov);
+  if (eig.info() != Eigen::Success) cao.error("failed eigendecomposition of pcadapt robust covariance.");
+  Mat1D evals = eig.eigenvalues();
+  double max_eval = std::max(1.0, evals.maxCoeff());
+  double floor = max_eval * 1e-8;
+  for (int i = 0; i < evals.size(); ++i) evals(i) = std::max(evals(i), floor);
+  return eig.eigenvectors() * evals.asDiagonal() * eig.eigenvectors().transpose();
+}
+}  // namespace
+
+void pcadapt_selection_stats(const Mat2D& Z, Mat1D& stat, Mat1D& chi2_stat, Mat1D& pval, double& gif) {
+  const int k = Z.cols();
+  Mat1D center = robust_center(Z);
+  Mat2D cov = robust_cov_gk(Z, center);
+  Mat2D inv_cov = cov.inverse();
+
+  stat = Mat1D::Zero(Z.rows());
+#pragma omp parallel for
+  for (int i = 0; i < Z.rows(); ++i) {
+    Mat1D dz = Z.row(i).transpose() - center;
+    stat(i) = dz.transpose() * inv_cov * dz;
+  }
+
+  std::vector<double> stat_vec(stat.data(), stat.data() + stat.size());
+  gif = get_median(stat_vec) / qchisq(0.5, k);
+  if (!(gif > 0.0) || !std::isfinite(gif)) gif = 1.0;
+
+  chi2_stat = stat / gif;
+  pval = Mat1D::Zero(Z.rows());
+#pragma omp parallel for
+  for (int i = 0; i < pval.size(); ++i) {
+    pval(i) = pchisq(chi2_stat(i), k, false);
   }
 }

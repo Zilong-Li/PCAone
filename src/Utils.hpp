@@ -166,6 +166,7 @@ double pchisq(double x, int df, bool lower_tail);
 //   f(x) = x^(df/2-1) * exp(-x/2) / (2^(df/2) * Gamma(df/2))
 double qchisq(double p, int df);
 
-void galinsky_selection_scan(Mat2D& V);
+void galinsky_selection_stat(Mat2D& V);
+void pcadapt_selection_stats(const Mat2D& Z, Mat1D& stat, Mat1D& chi2_stat, Mat1D& pval, double& gif);
 
 #endif  // PCAONE_UTILES_
