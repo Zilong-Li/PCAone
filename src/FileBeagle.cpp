@@ -27,7 +27,7 @@ void FileBeagle::read_all() {
 #pragma omp parallel for
     for (uint j = 0; j < nsnps; j++) {
       uint s = filter ? keepSNPs[j] : j;
-      const double norm = sqrt(2.0 * F(j) * (1.0 - F(j)));
+      // const double norm = sqrt(2.0 * F(j) * (1.0 - F(j)));
       for (uint i = 0; i < nsamples; i++) {
         const double pt = fmin(fmax(F(j), 1e-4), 1.0 - 1e-4);
         const double p0 = P(2 * i + 0, s) * (1.0 - pt) * (1.0 - pt);
@@ -41,7 +41,7 @@ void FileBeagle::read_all() {
         }
         C[j * nsamples + i] = 0;
         G(i, j) = (p1 + 2.0 * p2) / (2.0 * psum) - F(j);
-        if (params.scale == SCALE_STANDARDIZE_GENETIC && norm > VAR_TOL) G(i, j) /= norm;
+        // if (params.scale == SCALE_STANDARDIZE_GENETIC && norm > VAR_TOL) G(i, j) /= norm;
       }
     }
     return;

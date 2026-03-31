@@ -11,7 +11,7 @@
 #include "Data.hpp"
 #include "Utils.hpp"
 
-static void solve_projection_scores(const Mat2D& V, const ArrBool& C, const Mat2D& G, Mat2D& U) {
+void solve_projection_scores(const Mat2D& V, const ArrBool& C, const Mat2D& G, Mat2D& U) {
   if (U.rows() == 0 || U.cols() == 0) return;
   double p_miss = C.size() ? (double)C.count() / (double)C.size() : 0.0;
   if (p_miss == 0.0) {
@@ -96,31 +96,31 @@ void run_projection(Data* data, const Param& params) {
     solve_projection_scores(V, data->C, data->G, U);
   } else if (params.project == 3) {
     // project == 3: iterative GL-aware projection (EM)
-    // E-step: update expected genotype G using per-sample allele frequencies from U
-    // M-step: solve V*S*u_i = G_std_i (standardized with reference F)
+    // E-step: update expected G (0, 1) using individual allele frequencies PI
+    // M-step: solve U with new G
     if (params.file_t != FileType::BEAGLE) cao.error("--project 3 requires BEAGLE genotype likelihood input");
     const bool filter = !data->keepSNPs.empty();
 
-    V = V * S.asDiagonal();
+    V = V * S.asDiagonal(); // VS
     solve_projection_scores(V, data->C, data->G, U);
 
-    // run EM
+    cao.print(tick.date(), "run EM to update expected G and solve U iteratively");
+    // NOTE: First, we map G to domain [0,1]; Second, we can't standarize/scale G.
     for (uint iter = 0; iter < params.maxiter; ++iter) {
       Mat2D Uprev = U;
 
       // E-step: update G using individual allele frequencies
-      // pred.noalias() = U * sdiag * V.transpose();  // nsamples x nsnps
 #pragma omp parallel for
       for (uint j = 0; j < data->nsnps; ++j) {
-        const double norm = sqrt(2.0 * data->F(j) * (1.0 - data->F(j)));
+        // const double norm = sqrt(2.0 * data->F(j) * (1.0 - data->F(j)));
         uint s = filter ? data->keepSNPs[j] : (uint)j;
         for (uint i = 0; i < data->nsamples; ++i) {
           double pt = 0.0;
           for (int k = 0; k < K; ++k) {
             pt += U(i, k) * V(j, k);
           }
-          if (params.scale == SCALE_STANDARDIZE_GENETIC && norm > VAR_TOL) pt *= norm;
-          pt = fmin(fmax(pt + data->F(j), 1e-4), 1.0 - 1e-4);
+          // if (params.scale == SCALE_STANDARDIZE_GENETIC && norm > VAR_TOL) pt *= norm;
+          pt = fmin(fmax(pt * 0.5 + data->F(j), 1e-4), 1.0 - 1e-4); // 
           const double p0 = data->P(2 * i + 0, s) * (1.0 - pt) * (1.0 - pt);
           const double p1 = data->P(2 * i + 1, s) * 2.0 * pt * (1.0 - pt);
           const double p2 = (1.0 - data->P(2 * i + 0, s) - data->P(2 * i + 1, s)) * pt * pt;
@@ -132,16 +132,11 @@ void run_projection(Data* data, const Param& params) {
           }
           data->C[j * data->nsamples + i] = 0;
           data->G(i, j) = (p1 + 2.0 * p2) / (2.0 * psum) - data->F(j);  // domain (0,1)
-          if (params.scale == SCALE_STANDARDIZE_GENETIC) {
-            if (norm > VAR_TOL)
-              data->G(i, j) /= norm;
-            else
-              data->G(i, j) = 0.0;
-          }
+          // if (params.scale == SCALE_STANDARDIZE_GENETIC && norm > VAR_TOL) data->G(i, j) /= norm;
         }
       }
 
-      // M-step: standardize G and solve for U
+      // M-step: solve for U using expected G
       solve_projection_scores(V, data->C, data->G, U);
       // flip signs
       for (int k = 0; k < K; ++k) {
@@ -150,7 +145,6 @@ void run_projection(Data* data, const Param& params) {
       double denom = Uprev.norm();
       if (denom < 1e-12) denom = 1.0;
       double diff = (U - Uprev).norm() / denom;
-      ;
       cao.print(tick.date(), "GL projection iter", iter + 1, ", diff =", diff);
       if (diff < params.tolem) break;
     }
