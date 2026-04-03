@@ -138,10 +138,10 @@ void run_projection(Data* data, const Param& params) {
 
       // M-step: solve for U using expected G
       solve_projection_scores(V, data->C, data->G, U);
-      // flip signs
-      for (int k = 0; k < K; ++k) {
-        if (U.col(k).dot(Uprev.col(k)) < 0.0) U.col(k) *= -1.0;
-      }
+      // // flip signs
+      // for (int k = 0; k < K; ++k) {
+      //   if (U.col(k).dot(Uprev.col(k)) < 0.0) U.col(k) *= -1.0;
+      // }
       double denom = Uprev.norm();
       if (denom < 1e-12) denom = 1.0;
       double diff = (U - Uprev).norm() / denom;
