@@ -20,7 +20,7 @@ if [ $platform == "Darwin" ];then
 elif [ $platform == "Linux" ];then
 
     echo "Publishing releases on Linux ";
-    make clean && make -j6 MKLROOT=/home/zilong/zilong/intel/oneapi/mkl/latest ONEAPI_COMPILER=/home/zilong/zilong/oneapi/compiler/latest STATIC=1 AVX=1 && zip PCAone-Linux.zip PCAone PCAone.pdf && mv PCAone-Linux.zip $dir && echo "Publishing PCAone-Linux.zip done";
+    make clean && make -j6 MKLROOT=/home/zilong/zilong/intel/oneapi/mkl/latest ONEAPI_COMPILER=/home/zilong/zilong/intel/oneapi/compiler/latest STATIC=1 AVX=1 && zip PCAone-Linux.zip PCAone PCAone.pdf && mv PCAone-Linux.zip $dir && echo "Publishing PCAone-Linux.zip done";
 
 fi
 
