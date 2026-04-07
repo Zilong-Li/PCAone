@@ -1,3 +1,6 @@
+- v0.7.1
+  - bug fix for sign flipping with =--project 3=
+  - bug fix for output mbim with PGEN input and out-of-core
 - v0.7.0
   - add support for [[https://www.cog-genomics.org/plink/2.0/input#pgen][PLINK2 PGEN]] input via =--pgen=
   - bug fixes for projection with missing data

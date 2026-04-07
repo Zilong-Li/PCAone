@@ -116,9 +116,11 @@ void Data::save_snps_in_mbim() {
   // could be permuted; fall back to .pvar for PGEN input
   std::string bim_path = params.filein + ".bim";
   bool header = false;
+  bool source_is_permuted = params.perm && params.out_of_core;
   if (!std::ifstream(bim_path).is_open()){
     bim_path = params.filein + ".pvar";
     header = true;
+    source_is_permuted = false;  // PGEN keeps metadata in the original .pvar order.
   }
   std::ifstream ifs_bim(bim_path);
   if (!ifs_bim.is_open()) {
@@ -130,15 +132,24 @@ void Data::save_snps_in_mbim() {
   if(header) getline(ifs_bim, line);
   int i, j;
   if (params.perm && params.out_of_core) {
-    vector<std::string> bims2;
-    bims2.resize(nsnps);
+    vector<std::string> bims2(nsnps);
     Mat1D Ftmp(F.size());
-    j = 0;
-    while (getline(ifs_bim, line)) {
-      i = perm.indices()[j];
-      bims2[i] = line;
-      Ftmp(i) = F(j);
-      j++;
+    if (source_is_permuted) {
+      j = 0;
+      while (getline(ifs_bim, line)) {
+        i = perm.indices()[j];
+        bims2[i] = line;
+        Ftmp(i) = F(j);
+        j++;
+      }
+    } else {
+      PermMat inverse_perm(perm.inverse());
+      j = 0;
+      while (getline(ifs_bim, line)) {
+        bims2[j] = line;
+        Ftmp(j) = F(inverse_perm.indices()[j]);
+        j++;
+      }
     }
     for (j = 0; j < (int)bims2.size(); j++) {
       ofs_bim << bims2[j] << "\t" << Ftmp(j) << "\n";
