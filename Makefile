@@ -63,7 +63,7 @@ else
 	else ifeq ($(strip $(AVX)),1)
 		# Only add AVX flags on x86_64, as they are not valid on aarch64
 		ifeq ($(ARCH), x86_64)
-			CXXFLAGS += -mavx2 -mfma
+			CXXFLAGS += -mavx2 -mfma -mbmi -mbmi2 -mlzcnt # last 3 required by pgenlib
 		endif
 	endif
 endif
