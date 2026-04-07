@@ -1,5 +1,5 @@
-#+TITLE: Principal Component Analysis All in One (v0.7.0)
-#+subtitle: Version 0.7.0
+#+TITLE: Principal Component Analysis All in One (v0.7.1)
+#+subtitle: Version 0.7.1
 #+author: Zilong Li 
 #+email: zilong.dk@gmail.com
 #+options: toc:2 num:nil email:t -:nil ^:nil

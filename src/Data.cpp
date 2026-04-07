@@ -115,7 +115,11 @@ void Data::save_snps_in_mbim() {
   cao.print(tick.date(), "save matched sites in .mbim file and permutation mode is", params.perm);
   // could be permuted; fall back to .pvar for PGEN input
   std::string bim_path = params.filein + ".bim";
-  if (!std::ifstream(bim_path).is_open()) bim_path = params.filein + ".pvar";
+  bool header = false;
+  if (!std::ifstream(bim_path).is_open()){
+    bim_path = params.filein + ".pvar";
+    header = true;
+  }
   std::ifstream ifs_bim(bim_path);
   if (!ifs_bim.is_open()) {
     cao.warn(params.filein + ".bim/.pvar not found; skipping mbim output");
@@ -123,6 +127,7 @@ void Data::save_snps_in_mbim() {
   }
   std::ofstream ofs_bim(params.fileout + ".mbim");
   std::string line;
+  if(header) getline(ifs_bim, line);
   int i, j;
   if (params.perm && params.out_of_core) {
     vector<std::string> bims2;
