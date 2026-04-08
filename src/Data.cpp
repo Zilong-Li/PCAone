@@ -224,7 +224,16 @@ void Data::write_eigs_files(const Mat1D& E, const Mat1D& S, const Mat2D& U, cons
   if (params.printv) {
     save_snps_in_mbim();
     std::ofstream outv(params.fileout + ".loadings");
-    if (outv.is_open()) outv << V.format(fmt) << '\n';
+    if (outv.is_open()) {
+      if (params.perm && params.out_of_core && V.rows() == nsnps) {
+        PermMat inverse_perm(perm.inverse());
+        for (Eigen::Index j = 0; j < V.rows(); ++j) {
+          outv << V.row(inverse_perm.indices()[j]).format(fmt) << '\n';
+        }
+      } else {
+        outv << V.format(fmt) << '\n';
+      }
+    }
   }
   
   cao.print(tick.date(), "eigen vectors and values saved");

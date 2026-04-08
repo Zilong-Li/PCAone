@@ -56,7 +56,7 @@ missingness and uncertainty. The PDF manual can be downloaded [[https://github.c
   - [[#performance-and-memory][Performance and memory]]
   - [[#data-normalization][Data Normalization]]
   - [[#projection][Projection]]
-  - [[#genome-wide-selection-scan][Genome-wide selection scan]]
+  - [[#genome-wide-selection-scan][GENOME-wide selection scan]]
   - [[#hwe-accounting-for-population-structure][HWE accounting for population structure]]
   - [[#ancestry-adjusted-ld-matrix][Ancestry adjusted LD matrix]]
   - [[#report-ld-statistics][Report LD statistics]]
@@ -450,10 +450,13 @@ PCAone -G example/target.beagle.gz \
        -o target
 #+end_src
 
-** Genome-wide selection scan
+*NB:* Make sure the first allele in BEAGLE is the ref allele in the reference
+samples! Use angsd --doMajorMinor 3 option to produce the BEAGLE file.
 
-PCAone can test for differentiated variants after a good reference PCA
-has been computed with good sites after site-level QC, e.g. LD prunning.
+** GENOME-wide selection scan
+
+PCAone can test selection for differentiated variants after a good reference
+PCA has been computed with good sites after site-level QC, e.g. LD prunning.
 
 First run PCA on the subset genotype matrix with good sites
 
