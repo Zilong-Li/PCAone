@@ -1,6 +1,6 @@
 ######################### configure ################
 
-VERSION=0.7.0
+VERSION=0.7.2
 # Detect OS and CPU architecture to add flags conditionally
 Platform        := $(shell uname -s)
 ARCH            := $(shell uname -m)
@@ -63,7 +63,7 @@ else
 	else ifeq ($(strip $(AVX)),1)
 		# Only add AVX flags on x86_64, as they are not valid on aarch64
 		ifeq ($(ARCH), x86_64)
-			CXXFLAGS += -mavx2 -mfma
+			CXXFLAGS += -mavx2 -mfma -mbmi -mbmi2 -mlzcnt # last 3 required by pgenlib
 		endif
 	endif
 endif
@@ -144,20 +144,21 @@ OBJ = src/Arnoldi.o src/Halko.o src/Data.o src/Utils.o src/Cmd.o \
 		src/InbredSites.o src/InbredSamples.o src/Selection.o \
 		src/kfunc.o
 
-PGENLIB = external/pgenlib/libpgenlib.a
-
-SLIBS += ./external/bgen/bgenlib.a ./external/zstd/lib/libzstd.a $(PGENLIB)
+SLIBS += ./external/bgen/bgenlib.a ./external/zstd/lib/libzstd.a  ./external/pgenlib/pgenlib.a
 
 LIBS += $(SLIBS) $(DLIBS) -lpthread -ldl -lm
 
-.PHONY: all clean island projection hwe ld_matrix ld_r2 ld_prune ld_clump ld_tests test_full test_aarch64
+.PHONY: all clean island projection hwe ld_matrix ld_r2 ld_prune ld_clump ld_tests test_full test_aarch64 test_file_pgen_read_all
 
 all: ${program}
 
-${program}: zstdlib bgenlib pgenlib pcaonelib src/Main.o
+${program}: zstdlib bgenlib pgenlib $(PCALIB) src/Main.o
 	$(CXX) $(CXXFLAGS) -o $(program) src/Main.o $(PCALIB) $(LPATHS) $(LIBS) $(LDFLAGS)
 
 %.o: %.cpp
+	$(CXX) $(CXXFLAGS) $(MYFLAGS) -o $@ -c $< $(INC) $(CPPFLAGS)
+
+tests/%.o: tests/%.cpp
 	$(CXX) $(CXXFLAGS) $(MYFLAGS) -o $@ -c $< $(INC) $(CPPFLAGS)
 
 zstdlib:
@@ -166,21 +167,14 @@ zstdlib:
 bgenlib:
 	$(MAKE) -C external/bgen CFLAGS='$(CFLAGS)' CXXFLAGS='$(CXXFLAGS)'
 
-pgenlib:
-	$(CXX) $(CXXFLAGS) -c -o external/pgenlib/plink2_base.o external/pgenlib/include/plink2_base.cc
-	$(CXX) $(CXXFLAGS) -c -o external/pgenlib/plink2_bits.o external/pgenlib/include/plink2_bits.cc
-	$(CXX) $(CXXFLAGS) -c -o external/pgenlib/pgenlib_misc.o external/pgenlib/include/pgenlib_misc.cc
-	$(CXX) $(CXXFLAGS) -c -o external/pgenlib/pgenlib_read.o external/pgenlib/include/pgenlib_read.cc
-	$(CXX) $(CXXFLAGS) -c -o external/pgenlib/pvar_ffi_support.o external/pgenlib/pvar_ffi_support.cc
-	$(CXX) $(CXXFLAGS) -c -o external/pgenlib/pgenlib_ffi_support.o external/pgenlib/pgenlib_ffi_support.cpp
-	$(CXX) $(CXXFLAGS) -c -o external/pgenlib/pgenlibr.o external/pgenlib/pgenlibr.cpp
-	ar -rcs $(PGENLIB) external/pgenlib/plink2_base.o external/pgenlib/plink2_bits.o \
-		external/pgenlib/pgenlib_misc.o external/pgenlib/pgenlib_read.o \
-		external/pgenlib/pvar_ffi_support.o external/pgenlib/pgenlib_ffi_support.o \
-		external/pgenlib/pgenlibr.o
+pgenlib: 
+	(cd ./external/pgenlib/;$(MAKE))
 
-pcaonelib:$(OBJ)
-	ar -rcs $(PCALIB) $?
+$(PCALIB): $(OBJ)
+	ar -rcs $@ $?
+
+test_file_pgen_read_all: zstdlib bgenlib pgenlib $(PCALIB) tests/test_file_pgen_read_all.o
+	$(CXX) $(CXXFLAGS) -o $@ tests/test_file_pgen_read_all.o $(PCALIB) $(LPATHS) $(LIBS) $(LDFLAGS)
 
 rm:
 	(rm -f src/*.o $(program))
@@ -189,8 +183,8 @@ rm:
 clean:
 	(rm -f src/*.o $(program))
 	(cd ./external/bgen/; $(MAKE) clean)
+	(cd ./external/pgenlib/; $(MAKE) clean)
 	(cd ./external/zstd/lib/; $(MAKE) clean)
-	rm -f external/pgenlib/*.o $(PGENLIB)
 
 data:
 	wget http://popgen.dk/zilong/datahub/pca/example.tar.gz

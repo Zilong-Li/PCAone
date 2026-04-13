@@ -108,7 +108,12 @@ int main(int argc, char* argv[]) {
     return bye();
   }
 
-  if (params.perm && params.out_of_core) {
+  const bool use_permutation = params.perm && params.out_of_core && params.svd_t != SvdType::IRAM;
+  if (params.perm && params.out_of_core && params.svd_t == SvdType::IRAM) {
+    cao.warn("permutation is disabled for the Arnoldi/IRAM method");
+  }
+
+  if (use_permutation) {
     tick.clock();
     if (params.file_t == FileType::PLINK) {
       auto perm = permute_plink(params.filein, params.fileout, params.buffer, params.bands);
@@ -213,7 +218,7 @@ int main(int argc, char* argv[]) {
                                    params.filein + ".psam");
 
   // remove temp files if verbose < 3
-  if (params.perm && params.out_of_core && params.verbose < 3) {
+  if (use_permutation && params.verbose < 3) {
     if (params.file_t == FileType::PLINK) {
       for (auto suf : std::vector<std::string>{".bed", ".bim", ".fam"}) {
         std::filesystem::path tmpfile{params.filein + suf};

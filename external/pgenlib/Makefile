@@ -7,8 +7,11 @@ CXXFLAGS    = -O3 -Wall -std=c++11
 CFLAGS      = 
 
 UNAME_S := $(shell uname -s)
+UNAME_P := $(shell uname -p)
 ifeq ($(UNAME_S),Darwin)
- CXXFLAGS += -arch x86_64
+	ifeq ($(UNAME_P),x86_64)
+		CXXFLAGS += -arch x86_64
+	endif
 endif
 
 OBJECTS       = $(patsubst %.cc,%.o,$(wildcard ./include/*.cc)) $(patsubst %.cpp,%.o,$(wildcard *.cpp))  $(patsubst %.cc,%.o,$(wildcard *.cc))

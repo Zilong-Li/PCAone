@@ -294,7 +294,7 @@ void run_pca_with_halko(Data* data, const Param& params) {
     rsvd->computeUSV(params.maxp, params.tol);
   } else {
     if (data->p_miss == 0.0 && !params.out_of_core)
-      cao.error("there is no missing values");
+      cao.warn("there is no missing values");
     // for EM iteration
     rsvd->setFlags(false, false);
     rsvd->computeUSV(params.maxp, params.tol);
@@ -343,10 +343,7 @@ void run_pca_with_halko(Data* data, const Param& params) {
   }
   // output PI
   if (params.ld) data->write_residuals(rsvd->S, rsvd->U, rsvd->V.transpose());
-  if (params.perm)
-    data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->S, rsvd->U, data->perm * rsvd->V);
-  else
-    data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->S, rsvd->U, rsvd->V);
+  data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->S, rsvd->U, rsvd->V);
 
   delete rsvd;
 

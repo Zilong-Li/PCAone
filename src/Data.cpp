@@ -115,7 +115,13 @@ void Data::save_snps_in_mbim() {
   cao.print(tick.date(), "save matched sites in .mbim file and permutation mode is", params.perm);
   // could be permuted; fall back to .pvar for PGEN input
   std::string bim_path = params.filein + ".bim";
-  if (!std::ifstream(bim_path).is_open()) bim_path = params.filein + ".pvar";
+  bool header = false;
+  bool source_is_permuted = params.perm && params.out_of_core;
+  if (!std::ifstream(bim_path).is_open()){
+    bim_path = params.filein + ".pvar";
+    header = true;
+    source_is_permuted = false;  // PGEN keeps metadata in the original .pvar order.
+  }
   std::ifstream ifs_bim(bim_path);
   if (!ifs_bim.is_open()) {
     cao.warn(params.filein + ".bim/.pvar not found; skipping mbim output");
@@ -123,17 +129,27 @@ void Data::save_snps_in_mbim() {
   }
   std::ofstream ofs_bim(params.fileout + ".mbim");
   std::string line;
+  if(header) getline(ifs_bim, line);
   int i, j;
   if (params.perm && params.out_of_core) {
-    vector<std::string> bims2;
-    bims2.resize(nsnps);
+    vector<std::string> bims2(nsnps);
     Mat1D Ftmp(F.size());
-    j = 0;
-    while (getline(ifs_bim, line)) {
-      i = perm.indices()[j];
-      bims2[i] = line;
-      Ftmp(i) = F(j);
-      j++;
+    if (source_is_permuted) {
+      j = 0;
+      while (getline(ifs_bim, line)) {
+        i = perm.indices()[j];
+        bims2[i] = line;
+        Ftmp(i) = F(j);
+        j++;
+      }
+    } else {
+      PermMat inverse_perm(perm.inverse());
+      j = 0;
+      while (getline(ifs_bim, line)) {
+        bims2[j] = line;
+        Ftmp(j) = F(inverse_perm.indices()[j]);
+        j++;
+      }
     }
     for (j = 0; j < (int)bims2.size(); j++) {
       ofs_bim << bims2[j] << "\t" << Ftmp(j) << "\n";
@@ -205,10 +221,19 @@ void Data::write_eigs_files(const Mat1D& E, const Mat1D& S, const Mat2D& U, cons
   }
   if (oute.is_open()) oute << E.format(fmt) << '\n';
   if (outu.is_open()) outu << U.format(fmt) << '\n';
-  if (params.dopca && params.printv) {
-    if(!params.missme) save_snps_in_mbim();
+  if (params.printv) {
+    save_snps_in_mbim();
     std::ofstream outv(params.fileout + ".loadings");
-    if (outv.is_open()) outv << V.format(fmt) << '\n';
+    if (outv.is_open()) {
+      if (params.perm && params.out_of_core && V.rows() == nsnps) {
+        PermMat inverse_perm(perm.inverse());
+        for (Eigen::Index j = 0; j < V.rows(); ++j) {
+          outv << V.row(inverse_perm.indices()[j]).format(fmt) << '\n';
+        }
+      } else {
+        outv << V.format(fmt) << '\n';
+      }
+    }
   }
   
   cao.print(tick.date(), "eigen vectors and values saved");

@@ -194,9 +194,11 @@ Param::Param(int argc, char **argv) {
 
     // handle selection
     if (selection > 0) {
+      if (file_t != FileType::PLINK) 
+        throw std::invalid_argument("only supports --bfile for now");
       if (fileU.empty() || fileE.empty())
-        throw std::invalid_argument("please use --USV together with --project");
-      dopca = false;
+        throw std::invalid_argument("please use --USV together with --selection");
+      dopca = true;  // we need this to init F
     }
 
     // handle inbreeding
