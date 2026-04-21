@@ -113,14 +113,12 @@ void Data::filter_snps_resize_F() {
 // TODO: always output mbim even though there is no beagle.gz.bim file
 void Data::save_snps_in_mbim() {
   cao.print(tick.date(), "save matched sites in .mbim file and permutation mode is", params.perm);
-  // could be permuted; fall back to .pvar for PGEN input
+  // Fall back to .pvar for PGEN input.
   std::string bim_path = params.filein + ".bim";
   bool header = false;
-  bool source_is_permuted = params.perm && params.out_of_core;
   if (!std::ifstream(bim_path).is_open()){
     bim_path = params.filein + ".pvar";
     header = true;
-    source_is_permuted = false;  // PGEN keeps metadata in the original .pvar order.
   }
   std::ifstream ifs_bim(bim_path);
   if (!ifs_bim.is_open()) {
@@ -130,42 +128,44 @@ void Data::save_snps_in_mbim() {
   std::ofstream ofs_bim(params.fileout + ".mbim");
   std::string line;
   if(header) getline(ifs_bim, line);
-  int i, j;
-  if (params.perm && params.out_of_core) {
-    vector<std::string> bims2(nsnps);
-    Mat1D Ftmp(F.size());
-    if (source_is_permuted) {
-      j = 0;
-      while (getline(ifs_bim, line)) {
-        i = perm.indices()[j];
-        bims2[i] = line;
-        Ftmp(i) = F(j);
-        j++;
-      }
-    } else {
-      PermMat inverse_perm(perm.inverse());
-      j = 0;
-      while (getline(ifs_bim, line)) {
-        bims2[j] = line;
-        Ftmp(j) = F(inverse_perm.indices()[j]);
-        j++;
+  const bool metadata_is_permuted = !header && params.perm && params.out_of_core;
+  const bool frequency_is_permuted = params.perm && params.out_of_core;
+
+  if (!params.filterSNP && !params.perm) {
+    for (Eigen::Index j = 0; j < F.size() && getline(ifs_bim, line); ++j) {
+      ofs_bim << line << "\t" << F(j) << "\n";
+    }
+    ofs_bim.close();
+    return;
+  }
+
+  std::vector<std::string> metadata(nsnps);
+  if (metadata_is_permuted) {
+    for (Eigen::Index permuted_idx = 0; permuted_idx < nsnps && getline(ifs_bim, line); ++permuted_idx) {
+      Eigen::Index original_idx = perm.indices()[permuted_idx];
+      metadata[original_idx] = line;
+    }
+  } else if (params.filterSNP) {
+    int kept = 0;
+    for (int source_idx = 0; kept < (int)nsnps && getline(ifs_bim, line); ++source_idx) {
+      if (kept < (int)keepSNPs.size() && keepSNPs[kept] == source_idx) {
+        metadata[kept++] = line;
       }
     }
-    for (j = 0; j < (int)bims2.size(); j++) {
-      ofs_bim << bims2[j] << "\t" << Ftmp(j) << "\n";
+  } else {
+    for (Eigen::Index j = 0; j < nsnps && getline(ifs_bim, line); ++j) {
+      metadata[j] = line;
     }
-  } else {  // plink.bim is not permuted
-    j = 0, i = 0;
-    while (getline(ifs_bim, line)) {
-      if (params.filterSNP) {
-        if (i < (int)keepSNPs.size() && keepSNPs[i] == j) {
-          ofs_bim << line << "\t" << F(i) << "\n";
-          i++;
-        }
-      } else {
-        ofs_bim << line << "\t" << F(j) << "\n";
-      }
-      j++;
+  }
+
+  if (frequency_is_permuted) {
+    PermMat inverse_perm(perm.inverse());
+    for (Eigen::Index original_idx = 0; original_idx < nsnps; ++original_idx) {
+      ofs_bim << metadata[original_idx] << "\t" << F(inverse_perm.indices()[original_idx]) << "\n";
+    }
+  } else {
+    for (Eigen::Index j = 0; j < nsnps; ++j) {
+      ofs_bim << metadata[j] << "\t" << F(j) << "\n";
     }
   }
   ofs_bim.close();
@@ -224,16 +224,16 @@ void Data::write_eigs_files(const Mat1D& E, const Mat1D& S, const Mat2D& U, cons
   if (params.printv) {
     save_snps_in_mbim();
     std::ofstream outv(params.fileout + ".loadings");
-    if (outv.is_open()) {
-      if (params.perm && params.out_of_core && V.rows() == nsnps) {
-        PermMat inverse_perm(perm.inverse());
-        for (Eigen::Index j = 0; j < V.rows(); ++j) {
-          outv << V.row(inverse_perm.indices()[j]).format(fmt) << '\n';
-        }
-      } else {
-        outv << V.format(fmt) << '\n';
+    if (!outv.is_open()) cao.error("can not open " + params.fileout + ".loadings");
+    if (params.perm && V.rows() == nsnps) {
+      PermMat inverse_perm(perm.inverse());
+      for (Eigen::Index j = 0; j < V.rows(); ++j) {
+        outv << V.row(inverse_perm.indices()[j]).format(fmt) << '\n';
       }
+    } else {
+      outv << V.format(fmt) << '\n';
     }
+
   }
   
   cao.print(tick.date(), "eigen vectors and values saved");

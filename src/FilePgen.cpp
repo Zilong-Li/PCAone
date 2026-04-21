@@ -92,6 +92,8 @@ void FilePgen::read_all() {
 }
 
 PermMat compute_pgen_perm(uint nsnps, uint nbands) {
+  if (nsnps == 0) return PermMat(0);
+  nbands = std::max<uint>(1, std::min<uint>(nbands, nsnps));
   uint bufsize = nsnps / nbands;
   uint twoGB_snps = bufsize * nbands;
   uint nblocks = (nsnps + twoGB_snps - 1) / twoGB_snps;
