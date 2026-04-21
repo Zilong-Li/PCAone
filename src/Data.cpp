@@ -112,7 +112,6 @@ void Data::filter_snps_resize_F() {
 // but can work with beagle file as long as there is beagle.gz.bim file
 // TODO: always output mbim even though there is no beagle.gz.bim file
 void Data::save_snps_in_mbim() {
-  cao.print(tick.date(), "save matched sites in .mbim file and permutation mode is", params.perm);
   // Fall back to .pvar for PGEN input.
   std::string bim_path = params.filein + ".bim";
   bool header = false;
@@ -169,6 +168,7 @@ void Data::save_snps_in_mbim() {
     }
   }
   ofs_bim.close();
+  cao.print(tick.date(), "save matched sites in .mbim file and permutation mode is", params.perm);
 }
 
 /**

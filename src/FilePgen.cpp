@@ -94,47 +94,11 @@ void FilePgen::read_all() {
 PermMat compute_pgen_perm(uint nsnps, uint nbands) {
   if (nsnps == 0) return PermMat(0);
   nbands = std::max<uint>(1, std::min<uint>(nbands, nsnps));
-  uint bufsize = nsnps / nbands;
-  uint twoGB_snps = bufsize * nbands;
-  uint nblocks = (nsnps + twoGB_snps - 1) / twoGB_snps;
-  uint modr2 = nsnps % twoGB_snps;
-  uint64 bufidx = bufsize;
-
-  uint modr = nsnps % nbands;
-  uint bandsize = (nsnps + nbands - 1) / nbands;
-  std::vector<uint64> bandidx(nbands);
-  if (modr == 0) {
-    for (uint i = 0; i < nbands; ++i) bandidx[i] = (uint64)i * bandsize;
-  } else {
-    for (uint i = 0; i < nbands; ++i) {
-      if (i < modr)
-        bandidx[i] = (uint64)i * bandsize;
-      else
-        bandidx[i] = (uint64)modr * bandsize + (uint64)(bandsize - 1) * (i - modr);
-    }
-  }
-
   Eigen::VectorXi indices(nsnps);
-  for (uint i = 0; i < nblocks; ++i) {
-    uint64 cur_bufsize = bufsize;
-    uint cur_modr2 = modr2;
-    if (i == nblocks - 1 && modr2 != 0) {
-      uint64 twoGB_snps2 = nsnps - (uint64)(nblocks - 1) * twoGB_snps;
-      cur_bufsize = (twoGB_snps2 + nbands - 1) / nbands;
-      cur_modr2 = twoGB_snps2 % nbands;
-    }
-    for (uint b = 0; b < nbands; ++b) {
-      for (uint64 j = 0; j < cur_bufsize - 1; ++j) {
-        uint64 ia = (uint64)i * twoGB_snps + j * nbands + b;
-        uint64 ib = (uint64)i * bufidx + bandidx[b] + j;
-        indices(ib) = (int)ia;
-      }
-      uint64 j = cur_bufsize - 1;
-      if (i != nblocks - 1 || cur_modr2 == 0 || b < cur_modr2) {
-        uint64 ia = (uint64)i * twoGB_snps + j * nbands + b;
-        uint64 ib = (uint64)i * bufidx + bandidx[b] + j;
-        indices(ib) = (int)ia;
-      }
+  Eigen::Index out_idx = 0;
+  for (uint band = 0; band < nbands; ++band) {
+    for (uint64 snp_idx = band; snp_idx < nsnps; snp_idx += nbands) {
+      indices(out_idx++) = (int)snp_idx;
     }
   }
   return PermMat(indices);
