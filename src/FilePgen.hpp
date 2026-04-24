@@ -1,8 +1,3 @@
-/*******************************************************************************
- * @file        https://github.com/Zilong-Li/PCAone/src/FilePgen.hpp
- * @author      Zilong Li
- * Copyright (C) 2022-2024. Use of this code is governed by the LICENSE file.
- ******************************************************************************/
 #ifndef PCAONE_FILEPGEN_
 #define PCAONE_FILEPGEN_
 
@@ -55,8 +50,8 @@ class FilePgen : public Data {
   static int pgen_code(double v) { return (v == -3.0) ? 3 : static_cast<int>(v); }
 };
 
-/// Compute a band-interleaving permutation for PGEN logical (no-I/O) permutation.
-/// Equivalent to the index math in permute_plink but without any file writes.
-PermMat compute_pgen_perm(uint nsnps, uint nbands);
+/// Write PLINK2 .pgen/.pvar/.psam files with band-interleaved SNP order.
+/// Equivalent to permute_plink_bed for PGEN input.
+PermMat permute_plink_pgen(std::string& fin, const std::string& fout, uint nbands);
 
 #endif  // PCAONE_FILEPGEN_

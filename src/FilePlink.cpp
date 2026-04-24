@@ -296,7 +296,7 @@ void FileBed::read_block_update(uint64 start_idx, uint64 stop_idx, const Mat2D &
 // structured permutation with cached buffer
 // TODO: support MAF filters
 // TODO: support --exclude
-PermMat permute_plink(std::string &fin, const std::string &fout, uint gb, uint nbands) {
+PermMat permute_plink_bed(std::string &fin, const std::string &fout, uint gb, uint nbands) {
   uint nsnps = count_lines(fin + ".bim");
   uint nsamples = count_lines(fin + ".fam");
   uint bed_bytes_per_snp = (nsamples + 3) >> 2;

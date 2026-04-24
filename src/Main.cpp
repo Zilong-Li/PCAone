@@ -116,13 +116,13 @@ int main(int argc, char* argv[]) {
   if (use_permutation) {
     tick.clock();
     if (params.file_t == FileType::PLINK) {
-      auto perm = permute_plink(params.filein, params.fileout, params.buffer, params.bands);
+      auto perm = permute_plink_bed(params.filein, params.fileout, params.buffer, params.bands);
       data = new FileBed(params);
       data->perm = perm;
     } else if (params.file_t == FileType::PGEN) {
-      // Logical permutation: no file rewrite needed; PgenReader supports random access.
+      auto perm = permute_plink_pgen(params.filein, params.fileout, params.bands);
       data = new FilePgen(params);
-      data->perm = compute_pgen_perm(data->nsnps, params.bands);
+      data->perm = perm;
     } else if (params.file_t == FileType::BGEN) {
       auto perm = permute_bgen(params.filein, params.fileout, params.threads);
       data = new FileBgen(params);
@@ -221,6 +221,12 @@ int main(int argc, char* argv[]) {
   if (use_permutation && params.verbose < 3) {
     if (params.file_t == FileType::PLINK) {
       for (auto suf : std::vector<std::string>{".bed", ".bim", ".fam"}) {
+        std::filesystem::path tmpfile{params.filein + suf};
+        std::filesystem::remove(tmpfile);
+      }
+    }
+    if (params.file_t == FileType::PGEN) {
+      for (auto suf : std::vector<std::string>{".pgen", ".pvar", ".psam"}) {
         std::filesystem::path tmpfile{params.filein + suf};
         std::filesystem::remove(tmpfile);
       }

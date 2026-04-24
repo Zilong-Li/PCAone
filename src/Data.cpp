@@ -120,7 +120,6 @@ void Data::save_snps_in_mbim() {
   if (!std::ifstream(bim_path).is_open()){
     bim_path = params.filein + ".pvar";
     header = true;
-    source_is_permuted = false;  // PGEN keeps metadata in the original .pvar order.
   }
   std::ifstream ifs_bim(bim_path);
   if (!ifs_bim.is_open()) {
