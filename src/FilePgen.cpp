@@ -91,16 +91,66 @@ void FilePgen::read_all() {
 
 }
 
-PermMat compute_pgen_perm(uint nsnps, uint nbands) {
+PermMat compute_pgen_perm(uint nsnps, uint nbatches, uint blocksize, uint nthreads, int seed) {
   if (nsnps == 0) return PermMat(0);
-  nbands = std::max<uint>(1, std::min<uint>(nbands, nsnps));
-  Eigen::VectorXi indices(nsnps);
-  Eigen::Index out_idx = 0;
-  for (uint band = 0; band < nbands; ++band) {
-    for (uint64 snp_idx = band; snp_idx < nsnps; snp_idx += nbands) {
-      indices(out_idx++) = (int)snp_idx;
+
+  nbatches = std::max<uint>(1, std::min<uint>(nbatches, nsnps));
+  blocksize = std::max<uint>(1, blocksize);
+  nthreads = std::max<uint>(1, std::min<uint>(nthreads, std::min<uint>(blocksize, nsnps)));
+
+  std::vector<uint64> read_count_by_thread(nthreads, 0);
+  for (uint batch = 0; batch < nbatches; ++batch) {
+    uint64 batch_start = ((uint64)batch * nsnps) / nbatches;
+    uint64 batch_stop = ((uint64)(batch + 1) * nsnps) / nbatches;
+    for (uint64 block_start = batch_start; block_start < batch_stop; block_start += blocksize) {
+      uint block_len = (uint)std::min<uint64>(blocksize, batch_stop - block_start);
+      uint active_threads = std::min<uint>(nthreads, block_len);
+      uint base = block_len / active_threads;
+      uint extra = block_len % active_threads;
+      for (uint t = 0; t < active_threads; ++t) {
+        read_count_by_thread[t] += base + (t < extra ? 1u : 0u);
+      }
     }
   }
+
+  std::vector<std::vector<int>> source_by_thread(nthreads);
+  uint64 source_start = 0;
+  for (uint t = 0; t < nthreads; ++t) {
+    uint64 source_stop = source_start + read_count_by_thread[t];
+    source_by_thread[t].reserve(source_stop - source_start);
+    for (uint64 snp_idx = source_start; snp_idx < source_stop; ++snp_idx) {
+      source_by_thread[t].push_back((int)snp_idx);
+    }
+    source_start = source_stop;
+  }
+
+  auto rng = std::default_random_engine{};
+  rng.seed(seed);
+  for (auto& source : source_by_thread) std::shuffle(source.begin(), source.end(), rng);
+
+  std::vector<uint64> next_by_thread(nthreads, 0);
+  Eigen::VectorXi indices(nsnps);
+
+  for (uint batch = 0; batch < nbatches; ++batch) {
+    uint64 batch_start = ((uint64)batch * nsnps) / nbatches;
+    uint64 batch_stop = ((uint64)(batch + 1) * nsnps) / nbatches;
+    for (uint64 block_start = batch_start; block_start < batch_stop; block_start += blocksize) {
+      uint block_len = (uint)std::min<uint64>(blocksize, batch_stop - block_start);
+      uint active_threads = std::min<uint>(nthreads, block_len);
+      uint base = block_len / active_threads;
+      uint extra = block_len % active_threads;
+      uint offset = 0;
+      for (uint t = 0; t < active_threads; ++t) {
+        uint len = base + (t < extra ? 1u : 0u);
+        for (uint j = 0; j < len; ++j) {
+          if (next_by_thread[t] >= source_by_thread[t].size()) cao.error("BUG: exhausted PGEN permutation partition.");
+          indices((Eigen::Index)(block_start + offset + j)) = source_by_thread[t][next_by_thread[t]++];
+        }
+        offset += len;
+      }
+    }
+  }
+
   return PermMat(indices);
 }
 

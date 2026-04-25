@@ -55,8 +55,9 @@ class FilePgen : public Data {
   static int pgen_code(double v) { return (v == -3.0) ? 3 : static_cast<int>(v); }
 };
 
-/// Compute a band-interleaving permutation for PGEN logical (no-I/O) permutation.
-/// Equivalent to the index math in permute_plink but without any file writes.
-PermMat compute_pgen_perm(uint nsnps, uint nbands);
+/// Compute a logical PGEN permutation without rewriting the .pgen file.
+/// Each OpenMP thread reads random SNPs from its own contiguous source partition,
+/// so each winSVD batch mixes across partitions without making threads seek globally.
+PermMat compute_pgen_perm(uint nsnps, uint nbatches, uint blocksize, uint nthreads, int seed);
 
 #endif  // PCAONE_FILEPGEN_

@@ -108,21 +108,20 @@ int main(int argc, char* argv[]) {
     return bye();
   }
 
-  const bool use_permutation = params.perm && params.out_of_core && params.svd_t != SvdType::IRAM;
+  const bool oof_permutation = params.perm && params.out_of_core;
   if (params.perm && params.out_of_core && params.svd_t == SvdType::IRAM) {
     cao.warn("permutation is disabled for the Arnoldi/IRAM method");
   }
 
-  if (use_permutation) {
+  if (oof_permutation) {
     tick.clock();
     if (params.file_t == FileType::PLINK) {
       auto perm = permute_plink(params.filein, params.fileout, params.buffer, params.bands);
       data = new FileBed(params);
       data->perm = perm;
     } else if (params.file_t == FileType::PGEN) {
-      // Logical permutation: no file rewrite needed; PgenReader supports random access.
+      // Logical permutation is initialized after prepare(), when blocksize is known.
       data = new FilePgen(params);
-      data->perm = compute_pgen_perm(data->nsnps, params.bands);
     } else if (params.file_t == FileType::BGEN) {
       auto perm = permute_bgen(params.filein, params.fileout, params.threads);
       data = new FileBgen(params);
@@ -136,7 +135,8 @@ int main(int argc, char* argv[]) {
     } else {
       cao.error("wrong file type used!");
     }
-    cao.print(tick.date(), "elapsed time of permuting data:", tick.reltime(), " seconds");
+    if (params.file_t != FileType::PGEN)
+      cao.print(tick.date(), "elapsed time of permuting data:", tick.reltime(), " seconds");
   } else {
     if (params.file_t == FileType::PLINK) {
       data = new FileBed(params);
@@ -157,6 +157,11 @@ int main(int argc, char* argv[]) {
 
   // be prepared for run
   data->prepare();
+  if (oof_permutation && params.file_t == FileType::PGEN) {
+    data->perm = compute_pgen_perm(data->nsnps, params.bands, data->blocksize, max_threads, params.seed);
+    cao.print(tick.date(), "initialized logical PGEN permutation. blocksize:", data->blocksize,
+              ", batches:", params.bands, ", threads:", max_threads);
+  }
 
   // begin to run PCA
   if (params.svd_t == SvdType::IRAM) {
@@ -218,7 +223,7 @@ int main(int argc, char* argv[]) {
                                    params.filein + ".psam");
 
   // remove temp files if verbose < 3
-  if (use_permutation && params.verbose < 3) {
+  if (oof_permutation && params.verbose < 3) {
     if (params.file_t == FileType::PLINK) {
       for (auto suf : std::vector<std::string>{".bed", ".bim", ".fam"}) {
         std::filesystem::path tmpfile{params.filein + suf};
