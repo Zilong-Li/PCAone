@@ -74,14 +74,18 @@ int main(int argc, char* argv[]) {
   // }
 
   // particular case for LD
-  if (((params.file_t == FileType::BINARY || ((params.file_t == FileType::PLINK) && !params.fileU.empty())) &&
+  if (((params.file_t == FileType::BINARY ||
+        (((params.file_t == FileType::PLINK) || (params.file_t == FileType::PGEN)) && !params.fileU.empty())) &&
        (params.print_r2 || params.ld_r2 > 0 || !params.clump.empty()))) {
-    if (params.filebim.empty()) params.filebim = params.filein + ".bim";
+    if (params.filebim.empty()) params.filebim = params.filein + (params.file_t == FileType::PGEN ? ".pvar" : ".bim");
     if (params.file_t == FileType::BINARY)
       data = new FileBin(params);
-    else {
+    else if (params.file_t == FileType::PLINK) {
       params.memory = 0, params.out_of_core = false;
       data = new FileBed(params);
+    } else {
+      params.memory = 0, params.out_of_core = false;
+      data = new FilePgen(params);
     }
     run_ld_stuff(data, params);
     delete data;
@@ -90,30 +94,35 @@ int main(int argc, char* argv[]) {
 
   // particular case for projection
   if (params.project > 0 &&
-      (params.file_t == FileType::PLINK || params.file_t == FileType::BEAGLE)) {
+      (params.file_t == FileType::PLINK || params.file_t == FileType::BEAGLE || params.file_t == FileType::PGEN)) {
     if (params.file_t == FileType::PLINK)
       data = new FileBed(params);
-    else
+    else if (params.file_t == FileType::BEAGLE)
       data = new FileBeagle(params);
+    else
+      data = new FilePgen(params);
     run_projection(data, params);
     delete data;
     return bye();
   }
 
   // particular case for Selection
-  if ((params.selection > 0) && (params.file_t == FileType::PLINK)) {
-    data = new FileBed(params);
+  if ((params.selection > 0) && (params.file_t == FileType::PLINK || params.file_t == FileType::PGEN)) {
+    if (params.file_t == FileType::PLINK)
+      data = new FileBed(params);
+    else
+      data = new FilePgen(params);
     run_selection(data, params);
     delete data;
     return bye();
   }
 
-  const bool oof_permutation = params.perm && params.out_of_core;
+  const bool ooc_permutation = params.perm && params.out_of_core;
   if (params.perm && params.out_of_core && params.svd_t == SvdType::IRAM) {
     cao.warn("permutation is disabled for the Arnoldi/IRAM method");
   }
 
-  if (oof_permutation) {
+  if (ooc_permutation) {
     tick.clock();
     if (params.file_t == FileType::PLINK) {
       auto perm = permute_plink(params.filein, params.fileout, params.buffer, params.bands);
@@ -157,7 +166,7 @@ int main(int argc, char* argv[]) {
 
   // be prepared for run
   data->prepare();
-  if (oof_permutation && params.file_t == FileType::PGEN) {
+  if (ooc_permutation && params.file_t == FileType::PGEN) {
     data->perm = compute_pgen_perm(data->nsnps, params.bands, data->blocksize, max_threads, params.seed);
     cao.print(tick.date(), "initialized logical PGEN permutation. blocksize:", data->blocksize,
               ", batches:", params.bands, ", threads:", max_threads);
@@ -223,7 +232,7 @@ int main(int argc, char* argv[]) {
                                    params.filein + ".psam");
 
   // remove temp files if verbose < 3
-  if (oof_permutation && params.verbose < 3) {
+  if (ooc_permutation && params.verbose < 3) {
     if (params.file_t == FileType::PLINK) {
       for (auto suf : std::vector<std::string>{".bed", ".bim", ".fam"}) {
         std::filesystem::path tmpfile{params.filein + suf};

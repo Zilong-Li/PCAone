@@ -46,6 +46,10 @@ void run_projection(Data* data, const Param& params) {
     match = match_beagle_to_mbim(params.filein, params.filebim);
     if (match.bim_indices.empty())
       cao.error("no overlapped SNPs found between " + params.filein + " and " + params.filebim);
+  } else if (params.file_t == FileType::PGEN) {
+    match = match_pvar_to_mbim(params.filein + ".pvar", params.filebim);
+    if (match.bim_indices.empty())
+      cao.error("no overlapped SNPs found between " + params.filein + ".pvar and " + params.filebim);
   } else {
     match = match_bim_to_mbim(params.filein + ".bim", params.filebim);
     if (match.bim_indices.empty())

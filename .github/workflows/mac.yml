@@ -2,7 +2,7 @@ name: MacOS
 
 on:
   push:
-    branches: [ main, dev ]
+    branches: [ main, pgen ]
   pull_request:
     branches: [ main ]
 

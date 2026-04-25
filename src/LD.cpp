@@ -16,6 +16,35 @@
 
 using namespace std;
 
+namespace {
+bool is_pvar_header(const std::string& line) {
+  return !line.empty() && line[0] == '#';
+}
+
+String1D variant_tokens_for_bimish_line(const std::string& line, const std::string& path) {
+  if (is_pvar_header(line)) return {};
+  auto tokens = split_string(line, " \t");
+  if ((int)tokens.size() >= 5 && path.size() >= 5 && path.substr(path.size() - 5) == ".pvar") {
+    return split_string(pvar_line_to_bim_line(line, path), " \t");
+  }
+  return tokens;
+}
+
+String1D read_variant_labels(const std::string& filebim) {
+  std::ifstream fin(filebim);
+  if (!fin.is_open()) cao.error("can not open " + filebim);
+  String1D labels;
+  std::string line;
+  while (std::getline(fin, line)) {
+    if (line.empty() || is_pvar_header(line)) continue;
+    auto tokens = variant_tokens_for_bimish_line(line, filebim);
+    if ((int)tokens.size() < 6) cao.error("the input variant file is not valid!\n => " + filebim);
+    labels.push_back(tokens[0] + "\t" + tokens[3] + "\t" + tokens[1]);
+  }
+  return labels;
+}
+}  // namespace
+
 // compute sample standard deviation
 // return 1e-9 when sd is 0
 Arr1D calc_sds(const Mat2D& X) {
@@ -57,7 +86,8 @@ std::string get_snp_pos_bim(SNPld& snp, const std::string& filebim, bool header,
   if (header) getline(fin, line);
   ret = line;
   while (getline(fin, line)) {
-    auto tokens = split_string(line, sep);
+    if (line.empty() || is_pvar_header(line)) continue;
+    auto tokens = variant_tokens_for_bimish_line(line, filebim);
     if ((int)tokens.size() == 7 && !header) snp.af.push_back(std::stod(tokens[6]));
     chr_cur = tokens[idx[0]];
     if (chr_prev.empty()) snp.chr.push_back(chr_cur);
@@ -148,8 +178,9 @@ void write_pruned_snp_ids(const std::string& filebim, const std::string& fileout
   std::string line, sep{" \t"};
   int i = 0;
   while (getline(fin, line)) {
+    if (line.empty() || is_pvar_header(line)) continue;
     // only output rsids, i.e the second column
-    const auto fields = split_string(line, sep);
+    const auto fields = variant_tokens_for_bimish_line(line, filebim);
     if (keep(i))
       ofs_in << fields[0] << "\t" << fields[1] << "\t" << fields[2] << "\t" << fields[3] << "\t" << fields[4] << "\t" << fields[5] << std::endl;
     else
@@ -271,7 +302,7 @@ std::vector<UMapIntPds> map_index_snps(const std::string& fileassoc, const Int1D
   getline(fin, line);
   vector<UMapIntPds> vm;
   UMapIntPds m;
-  int c = 0, bp;
+  int bp;
   double pval;
   while (getline(fin, line)) {
     auto tokens = split_string(line, sep);
@@ -280,7 +311,6 @@ std::vector<UMapIntPds> map_index_snps(const std::string& fileassoc, const Int1D
     pval = std::stod(tokens[colidx[2]]);
     if (pval <= clump_p2) m.insert({bp, {pval, line}});
     if (!chr_prev.empty() && chr_prev != chr_cur) {
-      c++;
       vm.push_back(m);
       m.clear();
     }
@@ -367,7 +397,7 @@ void ld_clump_single_pheno(const std::string& fileout, const std::string& head, 
 void ld_r2_small(Data* data, const SNPld& snp, const std::string& filebim, const std::string& fileout) {
   std::ifstream fin(filebim);
   if (!fin.is_open()) cao.error("can not open " + filebim);
-  String1D bims(std::istream_iterator<BIM>{fin}, std::istream_iterator<BIM>{});
+  String1D bims = read_variant_labels(filebim);
   const double df = 1.0 / (data->nsamples - 1);  // N-1
   int b = 0;
   data->check_file_offset_first_var();
@@ -414,7 +444,7 @@ void ld_r2_small(Data* data, const SNPld& snp, const std::string& filebim, const
 void ld_r2_big(const Mat2D& G, const SNPld& snp, const std::string& filebim, const std::string& fileout) {
   std::ifstream fin(filebim);
   if (!fin.is_open()) cao.error("can not open " + filebim);
-  String1D bims(std::istream_iterator<BIM>{fin}, std::istream_iterator<BIM>{});
+  String1D bims = read_variant_labels(filebim);
   Arr1D sds = 1.0 / calc_sds(G);
   const double df = 1.0 / (G.rows() - 1);  // N-1
   gzFile gzfp = gzopen(fileout.c_str(), "wb");

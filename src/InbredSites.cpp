@@ -8,6 +8,7 @@
 #include "Cmd.hpp"
 #include "Common.hpp"
 #include "FileBeagle.hpp"
+#include "FilePgen.hpp"
 #include "FilePlink.hpp"
 #include "Utils.hpp"
 
@@ -182,7 +183,7 @@ void inbreed_coef_site_ooc(Mat1D& D1, Mat1D& F, Data* data, Data* Pi, const Para
   for (uint b = 0; b < data->nblocks; b++) {
     data->read_block_initial(data->start[b], data->stop[b], false);
     Pi->read_block_initial(Pi->start[b], Pi->stop[b], false);
-    if (params.file_t == FileType::PLINK) {
+    if (params.file_t == FileType::PLINK || params.file_t == FileType::PGEN) {
       inbreed_coef_site(D1, F, Pi->G, data->G, 1, Pi->stop[b] - Pi->start[b] + 1,
                         Pi->start[b]);  // init F
     } else {
@@ -197,6 +198,8 @@ void run_inbred_sites(Data* Pi, const Param& params) {
   Data* data = nullptr;
   if (params.file_t == FileType::PLINK) {
     data = new FileBed(params);
+  } else if (params.file_t == FileType::PGEN) {
+    data = new FilePgen(params);
   } else if (params.file_t == FileType::BEAGLE) {
     data = new FileBeagle(params);
   } else {
@@ -207,7 +210,7 @@ void run_inbred_sites(Data* Pi, const Param& params) {
 
   cao.print(tick.date(), "run inbreeding coefficient estimator per site");
   if (!params.out_of_core) {
-    if (params.file_t == FileType::PLINK) inbreed_coef_site_em(1, data->G, Pi->G, params);
+    if (params.file_t == FileType::PLINK || params.file_t == FileType::PGEN) inbreed_coef_site_em(1, data->G, Pi->G, params);
     if (params.file_t == FileType::BEAGLE) inbreed_coef_site_em(2, data->P, Pi->G, params);
     delete data;
     return;
@@ -251,7 +254,7 @@ void run_inbred_sites(Data* Pi, const Param& params) {
   for (uint b = 0; b < data->nblocks; b++) {
     data->read_block_initial(data->start[b], data->stop[b], false);
     Pi->read_block_initial(Pi->start[b], Pi->stop[b], false);
-    if (params.file_t == FileType::PLINK) {
+    if (params.file_t == FileType::PLINK || params.file_t == FileType::PGEN) {
       calc_inbreed_site_lrt(D1, F, Pi->G, data->G, 1, Pi->stop[b] - Pi->start[b] + 1, Pi->start[b]);
     } else {
       calc_inbreed_site_lrt(D1, F, Pi->G, data->P, 2, Pi->stop[b] - Pi->start[b] + 1, Pi->start[b]);
@@ -283,4 +286,3 @@ void write_hwe_per_site(const std::string& fout, const std::string& fbim, const 
   }
   assert(j == coef.size());
 }
-

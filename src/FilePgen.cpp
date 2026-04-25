@@ -63,7 +63,7 @@ void FilePgen::read_all() {
   for (i = 0; i < nsnps; ++i) {
     int thr = omp_get_thread_num();
     double* buf = thread_bufs[thr].data();
-    uint s = params.filterSNP ? keepSNPs[i] : i;
+    uint s = filter ? keepSNPs[i] : i;
     if (dosage_mode) {        
       reader.Read(buf, nsamples, thr, s, 1);
     } else {
@@ -176,7 +176,9 @@ void FilePgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standa
         reader.ReadHardcalls(buf, nsamples, thr, pgen_idx, 1);
       }
       for (j = 0; j < nsamples; ++j) {
-        if (dosage_mode) {
+        if (!params.center) {
+          G(j, i) = pgen2dosage(buf[j]);
+        } else if (dosage_mode) {
           G(j, i) = centered_pgen_value(buf[j], F(snp_idx));
         } else {
           G(j, i) = centered_geno_lookup(pgen_code(buf[j]), snp_idx);

@@ -147,7 +147,7 @@ SLIBS += ./external/bgen/bgenlib.a ./external/zstd/lib/libzstd.a  ./external/pge
 
 LIBS += $(SLIBS) $(DLIBS) -lpthread -ldl -lm
 
-.PHONY: all clean island projection hwe ld_matrix ld_r2 ld_prune ld_clump ld_tests test_full test_aarch64 test_file_pgen_read_all
+.PHONY: all clean island projection hwe ld_matrix ld_r2 ld_prune ld_clump ld_tests test_full test_aarch64 test_pgen_plink_equivalence
 
 all: ${program}
 
@@ -172,8 +172,8 @@ pgenlib:
 $(PCALIB): $(OBJ)
 	ar -rcs $@ $?
 
-test_file_pgen_read_all: zstdlib bgenlib pgenlib $(PCALIB) tests/test_file_pgen_read_all.o
-	$(CXX) $(CXXFLAGS) -o $@ tests/test_file_pgen_read_all.o $(PCALIB) $(LPATHS) $(LIBS) $(LDFLAGS)
+test_pgen_plink_equivalence: ${program}
+	python3 tests/pgen_plink_equivalence.py
 
 rm:
 	(rm -f src/*.o $(program))

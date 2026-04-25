@@ -118,13 +118,20 @@ void Data::save_snps_in_mbim() {
   }
   std::ofstream ofs_bim(params.fileout + ".mbim");
   std::string line;
-  if (has_metadata_header) getline(ifs_bim, line);
+  auto read_metadata_line = [&]() {
+    while (getline(ifs_bim, line)) {
+      if (has_metadata_header && !line.empty() && line[0] == '#') continue;
+      if (has_metadata_header) line = pvar_line_to_bim_line(line, bim_path);
+      return true;
+    }
+    return false;
+  };
   const bool metadata_is_permuted =
       params.file_t == FileType::PLINK && params.perm && params.out_of_core && perm.indices().size() == nsnps;
   const bool frequency_is_permuted = params.perm && params.out_of_core && perm.indices().size() == nsnps;
 
   if (!params.filterSNP && !params.perm) {
-    for (Eigen::Index j = 0; j < F.size() && getline(ifs_bim, line); ++j) {
+    for (Eigen::Index j = 0; j < F.size() && read_metadata_line(); ++j) {
       ofs_bim << line << "\t" << F(j) << "\n";
     }
     ofs_bim.close();
@@ -133,19 +140,19 @@ void Data::save_snps_in_mbim() {
 
   std::vector<std::string> metadata(nsnps);
   if (metadata_is_permuted) {
-    for (Eigen::Index permuted_idx = 0; permuted_idx < nsnps && getline(ifs_bim, line); ++permuted_idx) {
+    for (Eigen::Index permuted_idx = 0; permuted_idx < nsnps && read_metadata_line(); ++permuted_idx) {
       Eigen::Index original_idx = perm.indices()[permuted_idx];
       metadata[original_idx] = line;
     }
   } else if (params.filterSNP) {
     int kept = 0;
-    for (int source_idx = 0; kept < (int)nsnps && getline(ifs_bim, line); ++source_idx) {
+    for (int source_idx = 0; kept < (int)nsnps && read_metadata_line(); ++source_idx) {
       if (kept < (int)keepSNPs.size() && keepSNPs[kept] == source_idx) {
         metadata[kept++] = line;
       }
     }
   } else {
-    for (Eigen::Index j = 0; j < nsnps && getline(ifs_bim, line); ++j) {
+    for (Eigen::Index j = 0; j < nsnps && read_metadata_line(); ++j) {
       metadata[j] = line;
     }
   }

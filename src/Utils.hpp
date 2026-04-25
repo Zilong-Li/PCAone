@@ -98,7 +98,11 @@ struct BimMatch {
 
 BimMatch match_bim_to_mbim(const std::string& bim_file, const std::string& mbim_file);
 
+BimMatch match_pvar_to_mbim(const std::string& pvar_file, const std::string& mbim_file);
+
 BimMatch match_beagle_to_mbim(const std::string& beagle_file, const std::string& mbim_file);
+
+std::string pvar_line_to_bim_line(const std::string& line, const std::string& path);
 
 std::string decode_beagle_allele(const std::string& allele);
 
