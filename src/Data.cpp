@@ -13,8 +13,8 @@ using namespace std;
 
 void Data::prepare() {
   if (nsamples > nsnps) nsamples_ge_nsnps = true;
-  
-  if (!params.dopca) { // for projection, read F from reference set
+
+  if (!params.dopca) {  // for projection, read F from reference set
     cao.print(tick.date(), "read allele frequency from .mbim file: " + params.filebim);
     F = read_frq(params.filebim);
     if (!keepRefSNPs.empty()) {
@@ -23,7 +23,7 @@ void Data::prepare() {
         Fnew(i) = F(keepRefSNPs[i]);
       }
       F = Fnew;
-      cao.print(tick.date(), "keep AF of",F.size()," matched sites in the reference");
+      cao.print(tick.date(), "keep AF of", F.size(), " matched sites in the reference");
     }
     if (!flipSNPs.empty()) {
       for (int i : flipSNPs) F(i) = 1.0 - F(i);
@@ -85,14 +85,12 @@ void Data::prepare() {
   }
 }
 
-
 // filter snps, update keepSNPs, reassign nsnps;
 void Data::filter_snps_resize_F() {
   if (!params.filterSNP) return;
-  if (!(params.maf > 0 && params.maf <= 0.5))
-    cao.error("--maf has to be between (0, 0.5)");
+  if (!(params.maf > 0 && params.maf <= 0.5)) cao.error("--maf has to be between (0, 0.5)");
 
-  Mat1D Fnew(F.size());   // make a temp F
+  Mat1D Fnew(F.size());  // make a temp F
   int i, j;
   for (i = 0, j = 0; j < (int)F.size(); j++) {
     if (MAF(F(j)) > params.maf) {
@@ -105,20 +103,14 @@ void Data::filter_snps_resize_F() {
   if (nsnps < 1) cao.error("no SNPs left after filtering!");
   // resize F
   F.noalias() = Fnew.head(nsnps);
-
 }
 
 // initially only works with plink inputs
 // but can work with beagle file as long as there is beagle.gz.bim file
 // TODO: always output mbim even though there is no beagle.gz.bim file
 void Data::save_snps_in_mbim() {
-  // Fall back to .pvar for PGEN input.
-  std::string bim_path = params.filein + ".bim";
-  bool header = false;
-  if (!std::ifstream(bim_path).is_open()){
-    bim_path = params.filein + ".pvar";
-    header = true;
-  }
+  const bool has_metadata_header = params.file_t == FileType::PGEN;
+  const std::string bim_path = params.filein + (has_metadata_header ? ".pvar" : ".bim");
   std::ifstream ifs_bim(bim_path);
   if (!ifs_bim.is_open()) {
     cao.warn(params.filein + ".bim/.pvar not found; skipping mbim output");
@@ -126,8 +118,9 @@ void Data::save_snps_in_mbim() {
   }
   std::ofstream ofs_bim(params.fileout + ".mbim");
   std::string line;
-  if(header) getline(ifs_bim, line);
-  const bool metadata_is_permuted = !header && params.perm && params.out_of_core;
+  if (has_metadata_header) getline(ifs_bim, line);
+  const bool metadata_is_permuted =
+      params.file_t == FileType::PLINK && params.perm && params.out_of_core && perm.indices().size() == nsnps;
   const bool frequency_is_permuted = params.perm && params.out_of_core && perm.indices().size() == nsnps;
 
   if (!params.filterSNP && !params.perm) {
@@ -175,7 +168,7 @@ void Data::save_snps_in_mbim() {
   VT = (U'/s) * G = T * G
   V = G' * (U/s) // calculate V is not a good idea
  **/
-void Data::calcu_vt_initial(const Mat2D &T, Mat2D &VT, bool standardize) {
+void Data::calcu_vt_initial(const Mat2D& T, Mat2D& VT, bool standardize) {
   if (nblocks == 1) {
     cao.error("only one block exists. please use in-memory mode instead");
   }
@@ -191,7 +184,7 @@ void Data::calcu_vt_initial(const Mat2D &T, Mat2D &VT, bool standardize) {
   return;
 }
 
-void Data::calcu_vt_update(const Mat2D &T, const Mat2D &U, const Mat1D &svals, Mat2D &VT, bool standardize) {
+void Data::calcu_vt_update(const Mat2D& T, const Mat2D& U, const Mat1D& svals, Mat2D& VT, bool standardize) {
   if (nblocks == 1) {
     cao.error("only one block exists. please use in-memory mode instead");
   }
@@ -235,13 +228,12 @@ void Data::write_eigs_files(const Mat1D& E, const Mat1D& S, const Mat2D& U, cons
     } else {
       outv << V.format(fmt) << '\n';
     }
-
   }
-  
+
   cao.print(tick.date(), "eigen vectors and values saved");
 }
 
-void Data::write_residuals(const Mat1D &S, const Mat2D &U, const Mat2D &VT) {
+void Data::write_residuals(const Mat1D& S, const Mat2D& U, const Mat2D& VT) {
   // we always filter snps for in-core mode
   if (params.ld_stats == 1) {
     cao.print(tick.date(), "ld-stats=1: calculate standardized genotype matrix!");
@@ -254,8 +246,8 @@ void Data::write_residuals(const Mat1D &S, const Mat2D &U, const Mat2D &VT) {
   const uint64 ibyte = 4;
   const uint64 magic = ibyte * 2;
   uint64 bytes_per_snp = nsamples * ibyte;
-  ofs.write((char *)&nsnps, ibyte);
-  ofs.write((char *)&nsamples, ibyte);
+  ofs.write((char*)&nsnps, ibyte);
+  ofs.write((char*)&nsamples, ibyte);
   Eigen::VectorXf fg;
   uint64 idx;
   if (!params.out_of_core) {
@@ -267,7 +259,7 @@ void Data::write_residuals(const Mat1D &S, const Mat2D &U, const Mat2D &VT) {
         idx = magic + (uint64)perm.indices()[ib] * bytes_per_snp;
         ofs.seekp(idx, std::ios_base::beg);
       }
-      ofs.write((char *)fg.data(), bytes_per_snp);
+      ofs.write((char*)fg.data(), bytes_per_snp);
     }
   } else {
     check_file_offset_first_var();
@@ -283,7 +275,7 @@ void Data::write_residuals(const Mat1D &S, const Mat2D &U, const Mat2D &VT) {
           idx = magic + (uint64)perm.indices()[i] * bytes_per_snp;
           ofs.seekp(idx, std::ios_base::beg);
         }
-        ofs.write((char *)fg.data(), bytes_per_snp);
+        ofs.write((char*)fg.data(), bytes_per_snp);
       }
     }
   }
@@ -292,10 +284,10 @@ void Data::write_residuals(const Mat1D &S, const Mat2D &U, const Mat2D &VT) {
   cao.print(tick.date(), "the LD matrix and SNPs info are saved");
 }
 
-void Data::fit_with_pi(const Mat2D &U, const Mat1D &svals, const Mat2D &VT) {
-  if(params.verbose >= 3) cao.print(tick.date(), "call fit_with_pi");
+void Data::fit_with_pi(const Mat2D& U, const Mat1D& svals, const Mat2D& VT) {
+  if (params.verbose >= 3) cao.print(tick.date(), "call fit_with_pi");
   uint ks = svals.size();
-  if (params.pcangsd) { // for pcangsd with beagle input
+  if (params.pcangsd) {  // for pcangsd with beagle input
 #pragma omp parallel for
     for (uint j = 0; j < nsnps; ++j) {
       double p0, p1, p2;
@@ -322,7 +314,7 @@ void Data::fit_with_pi(const Mat2D &U, const Mat1D &svals, const Mat2D &VT) {
     for (uint i = 0; i < nsnps; ++i) {
       for (uint j = 0; j < nsamples; ++j) {
         if (C[perm.indices()[i] * nsamples + j])  // no bool & 1
-        {                         // sites need to be predicted
+        {                                         // sites need to be predicted
           G(j, i) = 0.0;
           for (uint k = 0; k < ks; ++k) {
             G(j, i) += U(j, k) * svals(k) * VT(k, i);
@@ -348,24 +340,23 @@ void Data::fit_with_pi(const Mat2D &U, const Mat1D &svals, const Mat2D &VT) {
       }
     }
   }
-  
 }
 
 void Data::standardize_E() {
-  if(params.verbose >= 3) cao.print(tick.date(), "standardize the matrix");
-  if(params.scale != -9) return;
+  if (params.verbose >= 3) cao.print(tick.date(), "standardize the matrix");
+  if (params.scale != -9) return;
 #pragma omp parallel for
   for (uint i = 0; i < nsnps; ++i) {
     for (uint j = 0; j < nsamples; ++j) {
       double sd = sqrt(F(i) * (1 - F(i)));
       // in case denominator is too small.
-      if (sd > VAR_TOL) G(j, i) = (G(j, i) * sqrt((double) params.ploidy)) / sd;
+      if (sd > VAR_TOL) G(j, i) = (G(j, i) * sqrt((double)params.ploidy)) / sd;
     }
   }
 }
 
-void Data::pcangsd_standardize_E(const Mat2D &U, const Mat1D &svals, const Mat2D &VT) {
-  if(params.scale != -9) return;
+void Data::pcangsd_standardize_E(const Mat2D& U, const Mat1D& svals, const Mat2D& VT) {
+  if (params.scale != -9) return;
   cao.print(tick.date(), "begin to standardize the matrix for pcangsd procedure");
   uint nk = svals.size();
   Dc = Mat1D::Zero(nsamples);
@@ -409,7 +400,7 @@ void Data::pcangsd_standardize_E(const Mat2D &U, const Mat1D &svals, const Mat2D
   }
 }
 
-void Data::predict_missing_E(const Mat2D &U, uint64 start_idx, uint64 stop_idx) {
+void Data::predict_missing_E(const Mat2D& U, uint64 start_idx, uint64 stop_idx) {
   // assume full size G is in memory
   // Eigen::ColPivHouseholderQR<Mat2D> qr(U);  // nsamples x nk
   const uint nk = U.cols();
