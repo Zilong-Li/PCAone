@@ -56,14 +56,14 @@ ifeq ($(Platform), Darwin)
 	CXXFLAGS += -march=native
 else
 	ifeq ($(strip $(AVX)),)
-		# Only apply -march=native on x86_64
-		ifeq ($(ARCH), x86_64)
+		# Optimize for the local CPU on architectures where -march=native is supported.
+		ifneq ($(filter $(ARCH),x86_64 aarch64 arm64),)
 			CXXFLAGS += -march=native
 		endif
 	else ifeq ($(strip $(AVX)),1)
 		# Only add AVX flags on x86_64, as they are not valid on aarch64
 		ifeq ($(ARCH), x86_64)
-			CXXFLAGS += -mavx2 -mfma -mbmi -mbmi2 -mlzcnt # last 3 required by pgenlib
+			CXXFLAGS += -mavx2 -mfma 
 		endif
 	endif
 endif
@@ -126,7 +126,6 @@ endif
 ifeq ($(strip $(STATIC)),1)
 	ifeq ($(Platform), Darwin)
 		SLIBS += /opt/homebrew/opt/zlib/lib/libz.a
-		# CXXFLAGS += -stdlib=libc++
 	else
 		# Previous path: /usr/lib/x86_64-linux-gnu/libz.a
 		# Default dynamic link below (-lz)
