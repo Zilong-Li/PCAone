@@ -1,8 +1,3 @@
-/*******************************************************************************
- * @file        https://github.com/Zilong-Li/PCAone/src/FilePgen.hpp
- * @author      Zilong Li
- * Copyright (C) 2022-2024. Use of this code is governed by the LICENSE file.
- ******************************************************************************/
 #ifndef PCAONE_FILEPGEN_
 #define PCAONE_FILEPGEN_
 
@@ -54,6 +49,7 @@ class FilePgen : public Data {
   // ReadHardcalls returns 0.0/1.0/2.0/-3.0; map to lookup index 0/1/2/3
   static int pgen_code(double v) { return (v == -3.0) ? 3 : static_cast<int>(v); }
 };
+
 
 /// Compute a logical PGEN permutation without rewriting the .pgen file.
 /// Each OpenMP thread reads random SNPs from its own contiguous source partition,

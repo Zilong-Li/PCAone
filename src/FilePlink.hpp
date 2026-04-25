@@ -45,6 +45,6 @@ class FileBed : public Data {
   std::vector<uchar> inbed;
 };
 
-PermMat permute_plink(std::string &fin, const std::string &fout, uint gb, uint nbands);
+PermMat permute_plink_bed(std::string &fin, const std::string &fout, uint gb, uint nbands);
 
 #endif  // PCAONE_FILEPLINK_
