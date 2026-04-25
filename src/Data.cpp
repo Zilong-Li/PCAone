@@ -128,7 +128,7 @@ void Data::save_snps_in_mbim() {
   std::string line;
   if(header) getline(ifs_bim, line);
   const bool metadata_is_permuted = !header && params.perm && params.out_of_core;
-  const bool frequency_is_permuted = params.perm && params.out_of_core;
+  const bool frequency_is_permuted = params.perm && params.out_of_core && perm.indices().size() == nsnps;
 
   if (!params.filterSNP && !params.perm) {
     for (Eigen::Index j = 0; j < F.size() && getline(ifs_bim, line); ++j) {
@@ -157,15 +157,14 @@ void Data::save_snps_in_mbim() {
     }
   }
 
-  if (frequency_is_permuted) {
-    PermMat inverse_perm(perm.inverse());
-    for (Eigen::Index original_idx = 0; original_idx < nsnps; ++original_idx) {
-      ofs_bim << metadata[original_idx] << "\t" << F(inverse_perm.indices()[original_idx]) << "\n";
-    }
-  } else {
-    for (Eigen::Index j = 0; j < nsnps; ++j) {
-      ofs_bim << metadata[j] << "\t" << F(j) << "\n";
-    }
+  std::vector<Eigen::Index> original_to_logical(nsnps);
+  for (Eigen::Index logical_idx = 0; logical_idx < nsnps; ++logical_idx) {
+    Eigen::Index original_idx = frequency_is_permuted ? perm.indices()[logical_idx] : logical_idx;
+    original_to_logical[original_idx] = logical_idx;
+  }
+
+  for (Eigen::Index original_idx = 0; original_idx < nsnps; ++original_idx) {
+    ofs_bim << metadata[original_idx] << "\t" << F(original_to_logical[original_idx]) << "\n";
   }
   ofs_bim.close();
   cao.print(tick.date(), "save matched sites in .mbim file and permutation mode is", params.perm);
@@ -225,10 +224,13 @@ void Data::write_eigs_files(const Mat1D& E, const Mat1D& S, const Mat2D& U, cons
     save_snps_in_mbim();
     std::ofstream outv(params.fileout + ".loadings");
     if (!outv.is_open()) cao.error("can not open " + params.fileout + ".loadings");
-    if (params.perm && V.rows() == nsnps) {
-      PermMat inverse_perm(perm.inverse());
-      for (Eigen::Index j = 0; j < V.rows(); ++j) {
-        outv << V.row(inverse_perm.indices()[j]).format(fmt) << '\n';
+    if (params.perm && V.rows() == nsnps && perm.indices().size() == nsnps) {
+      std::vector<Eigen::Index> original_to_logical(nsnps);
+      for (Eigen::Index logical_idx = 0; logical_idx < nsnps; ++logical_idx) {
+        original_to_logical[perm.indices()[logical_idx]] = logical_idx;
+      }
+      for (Eigen::Index original_idx = 0; original_idx < V.rows(); ++original_idx) {
+        outv << V.row(original_to_logical[original_idx]).format(fmt) << '\n';
       }
     } else {
       outv << V.format(fmt) << '\n';
