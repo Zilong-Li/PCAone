@@ -60,4 +60,8 @@ class FilePgen : public Data {
 /// so each winSVD batch mixes across partitions without making threads seek globally.
 PermMat compute_pgen_perm(uint nsnps, uint nbatches, uint blocksize, uint nthreads, int seed);
 
+/// Merge several PLINK2 PGEN prefixes and write a physically permuted hard-call
+/// PGEN dataset.  Input prefixes are read from params.pgen_list, one per line.
+void merge_permute_pgen(const Param& params, uint nthreads);
+
 #endif  // PCAONE_FILEPGEN_

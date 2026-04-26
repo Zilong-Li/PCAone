@@ -257,6 +257,8 @@ PCA algorithms:
 Input options:
   -b, --bfile arg                prefix of PLINK .bed/.bim/.fam files.
   -p, --pgen arg                 prefix of PLINK2 .pgen/.pvar/.psam files.
+  --pgen-list arg                file with one PLINK2 .pgen/.pvar/.psam prefix per line; used with --make-perm-pgen.
+  --make-perm-pgen               merge prefixes from --pgen-list and write a permuted PLINK2 .pgen/.pvar/.psam dataset, then exit.
   -B, --binary arg               path of binary file.
   -c, --csv arg                  path of comma seperated CSV file compressed by zstd.
   -g, --bgen arg                 path of BGEN file compressed by gzip/zstd.
@@ -614,6 +616,23 @@ If you want to ignore dosages and use hard-call genotypes instead, add
 #+begin_src shell
 ./PCAone --pgen example/plink2_data -k 10 -m 2 --hardcall
 #+end_src
+
+For chromosome-sharded biobank data, create a text file with one PGEN prefix per
+line, then merge and physically permute variants into a single PCAone-ready
+basic hard-call PGEN dataset.
+
+#+begin_src shell
+./PCAone --pgen-list ukb_pgen_prefixes.txt --make-perm-pgen -o ukb.merged.perm --seed 112
+./PCAone --pgen ukb.merged.perm -k 20 -m 8 --hardcall -S
+#+end_src
+
+All input shards must contain identical =.psam= files in the same sample order.
+The preprocessing step uses =--buffer= as the approximate in-memory output block
+size in GB; larger values improve read locality during physical permutation when
+enough RAM is available.
+The preprocessing output uses PLINK2 basic hard-call PGEN encoding, so dosage
+tracks from the source files are converted to hard calls and are not preserved
+in the merged file.
 
 ** BGEN input (limited support)
 

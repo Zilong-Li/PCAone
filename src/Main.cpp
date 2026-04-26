@@ -57,6 +57,13 @@ int main(int argc, char* argv[]) {
   cao.print(tick.date(), "program started");
   Data* data = nullptr;
 
+  if (params.make_perm_pgen) {
+    tick.clock();
+    merge_permute_pgen(params, max_threads);
+    cao.print(tick.date(), "elapsed time of merging and permuting PGEN data:", tick.reltime(), " seconds");
+    return bye();
+  }
+
   // particular case for inbreeding sites
   if (params.inbreed == 1) {
     data = new FileUSV(params);

@@ -19,6 +19,8 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <fstream>
+#include <memory>
 
 #define ZSTD_STATIC_LINKING_ONLY
 #include "zstd.h"

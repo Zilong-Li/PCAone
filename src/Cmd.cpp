@@ -75,6 +75,8 @@ Param::Param(int argc, char **argv) {
   auto plinkfile = opts.add<Value<std::string>>("b", "bfile", "prefix of PLINK .bed/.bim/.fam files.", "", &filein);
   opts.add<Switch, Attribute::advanced>("", "haploid", "the plink format represents haploid data.", &haploid);
   auto pgenfile = opts.add<Value<std::string>>("p", "pgen", "prefix of PLINK2 .pgen/.pvar/.psam files.", "", &filein);
+  auto pgenlist = opts.add<Value<std::string>>("", "pgen-list", "file with one PLINK2 .pgen/.pvar/.psam prefix per line.", "", &pgen_list);
+  opts.add<Switch>("", "make-perm-pgen", "merge prefixes from --pgen-list and write a permuted PLINK2 dataset.", &make_perm_pgen);
   opts.add<Switch, Attribute::advanced>("", "hardcall", "use hardcall genotype instead of dosages.", &hardcall);
   auto binfile = opts.add<Value<std::string>>("B", "binary", "path of binary file.", "", &filein);
   auto csvfile = opts.add<Value<std::string>>("c", "csv", "path of comma seperated CSV file compressed by zstd.", "", &filein);
@@ -147,7 +149,13 @@ Param::Param(int argc, char **argv) {
     else
       svd_t = SvdType::PCAoneAlg2;
 
-    if (plinkfile->is_set())
+    if (make_perm_pgen) {
+      if (!pgenlist->is_set())
+        throw std::invalid_argument("please use --pgen-list together with --make-perm-pgen");
+      file_t = FileType::PGEN;
+      dopca = false;
+      perm = true;
+    } else if (plinkfile->is_set())
       file_t = FileType::PLINK;
     else if (binfile->is_set())
       file_t = FileType::BINARY;

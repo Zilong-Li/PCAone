@@ -23,6 +23,7 @@ class Param {
   std::string fileU, fileS, fileE, fileV;
   std::string filein;
   std::string fileout = "pcaone";
+  std::string pgen_list;
   double memory = 0;  // 0 for disable
   uint nsamples = 0;
   uint nsnps = 0;
@@ -86,6 +87,7 @@ class Param {
   // bool fancyem = false;  // true if emu/pcangsd + svd 2
   bool mev = true;
   bool out_of_core = false;  // otherwise load all matrix into RAM.
+  bool make_perm_pgen = false;
   int ploidy = 2;
   int seed = 112; // seeding 
   bool filterSNP = false; // filter snps

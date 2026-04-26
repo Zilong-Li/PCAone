@@ -154,6 +154,206 @@ PermMat compute_pgen_perm(uint nsnps, uint nbatches, uint blocksize, uint nthrea
   return PermMat(indices);
 }
 
+static std::string trim_pgen_list_line(const std::string& line) {
+  const auto first = line.find_first_not_of(" \t\r\n");
+  if (first == std::string::npos) return "";
+  const auto last = line.find_last_not_of(" \t\r\n");
+  return line.substr(first, last - first + 1);
+}
+
+static std::vector<std::string> read_pgen_prefix_list(const std::string& path) {
+  std::ifstream fin(path);
+  if (!fin.is_open()) cao.error("Cannot open --pgen-list file: " + path);
+  std::vector<std::string> prefixes;
+  std::string line;
+  while (std::getline(fin, line)) {
+    line = trim_pgen_list_line(line);
+    if (line.empty() || line[0] == '#') continue;
+    prefixes.push_back(line);
+  }
+  if (prefixes.empty()) cao.error("--pgen-list is empty: " + path);
+  return prefixes;
+}
+
+static std::string read_text_file(const std::string& path) {
+  std::ifstream fin(path, std::ios::binary);
+  if (!fin.is_open()) cao.error("Cannot open file: " + path);
+  return std::string(std::istreambuf_iterator<char>(fin), std::istreambuf_iterator<char>());
+}
+
+static uint count_psam_samples(const std::string& path) {
+  std::ifstream fin(path);
+  if (!fin.is_open()) cao.error("Cannot open psam file: " + path);
+  uint n = 0;
+  std::string line;
+  while (std::getline(fin, line)) {
+    if (!line.empty() && line[0] != '#') ++n;
+  }
+  return n;
+}
+
+static void read_pvar_lines(const std::string& path, std::vector<std::string>* headers,
+                            std::vector<std::string>& variants) {
+  std::ifstream fin(path);
+  if (!fin.is_open()) cao.error("Cannot open pvar file: " + path);
+  std::string line;
+  while (std::getline(fin, line)) {
+    if (!line.empty() && line[0] == '#') {
+      if (headers) headers->push_back(line);
+    } else if (!line.empty()) {
+      variants.push_back(line);
+    }
+  }
+}
+
+static void write_u32_le(std::ofstream& out, uint32_t value) {
+  unsigned char bytes[4] = {static_cast<unsigned char>(value & 0xff),
+                            static_cast<unsigned char>((value >> 8) & 0xff),
+                            static_cast<unsigned char>((value >> 16) & 0xff),
+                            static_cast<unsigned char>((value >> 24) & 0xff)};
+  out.write(reinterpret_cast<const char*>(bytes), sizeof(bytes));
+}
+
+static unsigned char pgen_hardcall_code(double value) {
+  if (value == PGEN_MISSING) return 3;
+  if (value <= 0.5) return 0;
+  if (value <= 1.5) return 1;
+  return 2;
+}
+
+void merge_permute_pgen(const Param& params, uint nthreads) {
+  struct PgenShard {
+    std::string prefix;
+    uint nsnps = 0;
+    bool dosage_mode = false;
+    std::unique_ptr<PgenReader> reader;
+  };
+
+  const auto prefixes = read_pgen_prefix_list(params.pgen_list);
+  const uint reader_threads = std::max(1u, nthreads);
+  const uint nsamples = count_psam_samples(prefixes.front() + ".psam");
+  const std::string first_psam = read_text_file(prefixes.front() + ".psam");
+
+  std::vector<PgenShard> shards;
+  std::vector<uint64> offsets;
+  std::vector<std::string> pvar_headers;
+  std::vector<std::string> pvar_lines;
+  offsets.push_back(0);
+
+  cao.print(tick.date(), "merge and permute PGEN shards. inputs:", prefixes.size(), ", samples:", nsamples);
+  for (size_t i = 0; i < prefixes.size(); ++i) {
+    const std::string& prefix = prefixes[i];
+    const uint shard_samples = count_psam_samples(prefix + ".psam");
+    if (shard_samples != nsamples)
+      cao.error("sample count mismatch in " + prefix + ".psam");
+    if (i > 0 && read_text_file(prefix + ".psam") != first_psam)
+      cao.error("all .psam files must be identical and in the same sample order. mismatch: " + prefix + ".psam");
+
+    std::vector<std::string> shard_pvars;
+    read_pvar_lines(prefix + ".pvar", i == 0 ? &pvar_headers : nullptr, shard_pvars);
+
+    auto reader = std::make_unique<PgenReader>();
+    reader->Load(prefix + ".pgen", nsamples, {}, reader_threads);
+    const uint nsnps = reader->GetVariantCt();
+    const bool dosage_mode = reader->DosagePresent();
+    if (shard_pvars.size() != nsnps)
+      cao.error("variant count mismatch between .pgen and .pvar for prefix: " + prefix);
+
+    pvar_lines.insert(pvar_lines.end(), shard_pvars.begin(), shard_pvars.end());
+    shards.push_back(PgenShard{prefix, nsnps, dosage_mode, std::move(reader)});
+    offsets.push_back(offsets.back() + nsnps);
+    cao.print(tick.date(), "shard", i + 1, ", variants:", nsnps, ", dosage_mode:", dosage_mode, ", prefix:", prefix);
+  }
+
+  const uint64 total_snps = offsets.back();
+  if (total_snps > 0x7ffffffdULL)
+    cao.error("basic PGEN writer currently supports at most 2^31-3 variants.");
+  cao.print(tick.date(), "total variants before permutation:", total_snps);
+
+  std::vector<uint32_t> perm(total_snps);
+  std::iota(perm.begin(), perm.end(), 0);
+  std::default_random_engine rng;
+  rng.seed(params.seed);
+  std::shuffle(perm.begin(), perm.end(), rng);
+
+  {
+    std::ofstream psam_out(params.fileout + ".psam", std::ios::binary);
+    if (!psam_out.is_open()) cao.error("Cannot write psam file: " + params.fileout + ".psam");
+    psam_out << first_psam;
+  }
+
+  std::ofstream pvar_out(params.fileout + ".pvar");
+  if (!pvar_out.is_open()) cao.error("Cannot write pvar file: " + params.fileout + ".pvar");
+  for (const auto& header : pvar_headers) pvar_out << header << '\n';
+
+  std::ofstream pgen_out(params.fileout + ".pgen", std::ios::binary);
+  if (!pgen_out.is_open()) cao.error("Cannot write pgen file: " + params.fileout + ".pgen");
+  const unsigned char magic[3] = {0x6c, 0x1b, 0x02};
+  pgen_out.write(reinterpret_cast<const char*>(magic), sizeof(magic));
+  write_u32_le(pgen_out, static_cast<uint32_t>(total_snps));
+  write_u32_le(pgen_out, nsamples);
+  pgen_out.put('\0');
+
+  const uint bytes_per_variant = (nsamples + 3) >> 2;
+  const uint64 target_block_bytes = std::max<uint64>(1, params.buffer) * 1073741824ULL;
+  const uint64 variants_per_block = std::max<uint64>(1, target_block_bytes / bytes_per_variant);
+  std::vector<std::vector<double>> thread_genotypes(reader_threads, std::vector<double>(nsamples));
+
+  struct PgenMergeRequest {
+    uint32_t src_global = 0;
+    uint64 out_offset = 0;
+    size_t shard_idx = 0;
+    uint local_idx = 0;
+  };
+
+  cao.print(tick.date(), "physical PGEN permutation block size: ", variants_per_block,
+            " variants (~", (variants_per_block * bytes_per_variant) / 1048576, " MiB)");
+
+  for (uint64 block_start = 0; block_start < total_snps; block_start += variants_per_block) {
+    const uint64 block_len = std::min<uint64>(variants_per_block, total_snps - block_start);
+    std::vector<PgenMergeRequest> requests(block_len);
+    for (uint64 j = 0; j < block_len; ++j) {
+      const uint32_t src_global = perm[block_start + j];
+      auto shard_it = std::upper_bound(offsets.begin(), offsets.end(), src_global);
+      const size_t shard_idx = static_cast<size_t>(std::distance(offsets.begin(), shard_it) - 1);
+      requests[j] = PgenMergeRequest{src_global, j, shard_idx, static_cast<uint>(src_global - offsets[shard_idx])};
+    }
+
+    std::sort(requests.begin(), requests.end(), [](const PgenMergeRequest& a, const PgenMergeRequest& b) {
+      if (a.shard_idx != b.shard_idx) return a.shard_idx < b.shard_idx;
+      return a.local_idx < b.local_idx;
+    });
+
+    std::vector<unsigned char> out_block(block_len * bytes_per_variant);
+
+#pragma omp parallel for schedule(static) num_threads(reader_threads)
+    for (uint64 req_idx = 0; req_idx < block_len; ++req_idx) {
+      const auto& req = requests[req_idx];
+      const int thr = omp_get_thread_num();
+      double* genotypes = thread_genotypes[thr].data();
+      if (shards[req.shard_idx].dosage_mode) {
+        shards[req.shard_idx].reader->Read(genotypes, nsamples, thr, req.local_idx, 1);
+      } else {
+        shards[req.shard_idx].reader->ReadHardcalls(genotypes, nsamples, thr, req.local_idx, 1);
+      }
+
+      unsigned char* packed = out_block.data() + req.out_offset * bytes_per_variant;
+      for (uint sample_idx = 0; sample_idx < nsamples; ++sample_idx) {
+        packed[sample_idx >> 2] |= static_cast<unsigned char>(pgen_hardcall_code(genotypes[sample_idx])
+                                                              << ((sample_idx & 3) * 2));
+      }
+    }
+
+    pgen_out.write(reinterpret_cast<const char*>(out_block.data()), out_block.size());
+    for (uint64 j = 0; j < block_len; ++j) pvar_out << pvar_lines[perm[block_start + j]] << '\n';
+
+    if (params.verbose > 1)
+      cao.print(tick.date(), "  written variants:", block_start + block_len, "/", total_snps);
+  }
+  cao.print(tick.date(), "wrote permuted PGEN prefix:", params.fileout,
+            "(.pgen/.pvar/.psam), variants:", total_snps);
+}
+
 void FilePgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize) {
   uint actual_block_size = stop_idx - start_idx + 1;
   if (G.cols() < blocksize || actual_block_size < blocksize)
