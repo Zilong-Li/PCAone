@@ -354,10 +354,10 @@ void Data::standardize_E() {
   if (params.scale != -9) return;
 #pragma omp parallel for
   for (uint i = 0; i < nsnps; ++i) {
-    for (uint j = 0; j < nsamples; ++j) {
-      double sd = sqrt(F(i) * (1 - F(i)));
-      // in case denominator is too small.
-      if (sd > VAR_TOL) G(j, i) = (G(j, i) * sqrt((double)params.ploidy)) / sd;
+    const double f = F(i);
+    const double sd = sqrt(f * (1.0 - f));
+    if (sd > VAR_TOL) {  // in case denominator is too small.
+        G.col(i) *= sqrt((double)params.ploidy) / sd;
     }
   }
 }

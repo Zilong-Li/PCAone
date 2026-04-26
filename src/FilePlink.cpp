@@ -142,19 +142,22 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
 #pragma omp parallel for private(i, j, b, k, snp_idx, buf)
     for (i = 0; i < actual_block_size; ++i) {
       snp_idx = start_idx + i;
+      const double f = F(snp_idx);
+      double scale_factor = 1.0;
+      if (standardize && params.scale == SCALE_STANDARDIZE_GENETIC) {
+        double sd = sqrt(f * (1.0 - f));
+        if (sd > VAR_TOL) scale_factor = sqrt((double)params.ploidy) / sd;
+      }
       for (b = 0, j = 0; b < bed_bytes_per_snp; ++b) {
         buf = inbed[i * bed_bytes_per_snp + b];
         for (k = 0; k < 4; ++k, ++j) {
           if (j < nsamples) {
             if (params.center) {
               G(j, i) = centered_geno_lookup(buf & 3, snp_idx);
-              if (standardize && params.scale == SCALE_STANDARDIZE_GENETIC) {
-                double sd = sqrt(F(snp_idx) * (1 - F(snp_idx)));
-                if (sd > VAR_TOL) G(j, i) = (G(j, i) * sqrt((double) params.ploidy)) / sd;
-              }
             } else {
               G(j, i) = BED2GENO[buf & 3];
             }
+            G(j, i) *= scale_factor;
             buf >>= 2;
           }
         }
@@ -196,15 +199,17 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
       centered_geno_lookup(2, snp_idx) = BED2GENO[2] - F(snp_idx);  // het
       centered_geno_lookup(3, snp_idx) = BED2GENO[3] - F(snp_idx);  // major hom
       // get centered and standardized G
+      const double f = F(snp_idx);
+      double scale_factor = 1.0;
+      if (standardize && params.scale == SCALE_STANDARDIZE_GENETIC) {
+        double sd = sqrt(f * (1.0 - f));
+        if (sd > VAR_TOL) scale_factor = sqrt((double)params.ploidy) / sd;
+      }
       for (b = 0, j = 0; b < bed_bytes_per_snp; ++b) {
         buf = inbed[i * bed_bytes_per_snp + b];
         for (k = 0; k < 4; ++k, ++j) {
           if (j < nsamples) {
-            G(j, i) = centered_geno_lookup(buf & 3, snp_idx);
-            if (standardize && params.scale == SCALE_STANDARDIZE_GENETIC) {
-              double sd = sqrt(F(snp_idx) * (1 - F(snp_idx)));
-              if (sd > VAR_TOL) G(j, i) = (G(j, i) * sqrt((double) params.ploidy)) / sd;
-            }
+            G(j, i) = centered_geno_lookup(buf & 3, snp_idx) * scale_factor;
             buf >>= 2;
           }
         }
@@ -235,6 +240,12 @@ void FileBed::read_block_update(uint64 start_idx, uint64 stop_idx, const Mat2D &
 #pragma omp parallel for private(i, j, b, ki, k, snp_idx, buf)
   for (i = 0; i < actual_block_size; ++i) {
     snp_idx = start_idx + i;
+    const double f = F(snp_idx);
+    double scale_factor = 1.0;
+    if (standardize && params.scale == SCALE_STANDARDIZE_GENETIC) {
+      double sd = sqrt(f * (1.0 - f));
+      if (sd > VAR_TOL) scale_factor = sqrt((double)params.ploidy) / sd;
+    }
     for (b = 0, j = 0; b < bed_bytes_per_snp; ++b) {
       buf = inbed[i * bed_bytes_per_snp + b];
       for (ki = 0; ki < 4; ++ki, ++j) {
@@ -279,10 +290,8 @@ void FileBed::read_block_update(uint64 start_idx, uint64 stop_idx, const Mat2D &
             p2 *= pt * pt;
             G(j, i) = (p1 + 2.0 * p2) / (p0 + p1 + p2) - 2.0 * F(snp_idx);
           }
-          if (standardize && params.scale == SCALE_STANDARDIZE_GENETIC) {
-            double sd = sqrt(F(snp_idx) * (1 - F(snp_idx)));
-            if (sd > VAR_TOL) G(j, i) = (G(j, i) * sqrt((double) params.ploidy)) / sd;
-          }
+          // scale G
+          G(j, i) *= scale_factor;
           // shift packed data and throw away genotype just processed.
           buf >>= 2;
         }
