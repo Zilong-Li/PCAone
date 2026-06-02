@@ -33,6 +33,10 @@ adj*
 Rplots.pdf
 /tutorial
 /scripts
+!/scripts/
+/scripts/*
+!/scripts/Makefile
+!/scripts/MergePlink.cpp
 /dataset
 /results
 /inbreeding
