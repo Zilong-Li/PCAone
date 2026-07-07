@@ -7,7 +7,7 @@
 #include "Utils.hpp"
 
 #include <sys/utsname.h>
-
+#include <cstdlib> // strtod
 #include <cstddef>
 #include <cstring>  // strtok_r
 #include <fstream>
@@ -293,8 +293,10 @@ Mat2D read_usv(const std::string& path) {
   std::string line;
   while (std::getline(fin, line)) {
     for (begin = 0, i = 0; i <= (int)line.size(); i++) {
+      const char* p = line.c_str();
       if (is_seperator[(uint8_t)line[i]] || i == (int)line.size()) {
-        val = std::stod(std::string(line.begin() + begin, line.begin() + i));
+        char* end;
+        val = std::strtod(p + begin, &end);
         V.push_back(val);
         begin = i + 1;
         if (j % 2 == 1) {
@@ -348,6 +350,7 @@ Mat1D read_eigvals(const std::string& path) {
 
 // parse .eigvecs or .loadings file assume rows and cols are known
 Mat2D read_eigvecs(const std::string& path, int n, int k) {
+  cao.print(tick.date(), "read matrix from " + path);
   Mat2D M(n, k);
   const char sep = '\t';
   bool is_seperator[256] = {false};
@@ -356,9 +359,11 @@ Mat2D read_eigvecs(const std::string& path, int n, int k) {
   std::ifstream fin(path);
   std::string line;
   while (std::getline(fin, line)) {
+    const char* p = line.c_str();
     for (begin = 0, k1 = 0, i = 0; k1 < k; i++) {
       if (is_seperator[(uint8_t)line[i]] || i == (int)line.size()) {
-        M(j, k1) = std::stod(std::string(line.begin() + begin, line.begin() + i));
+        char* end;
+        M(j, k1) = std::strtod(p + begin, &end);
         begin = i + 1;
         k1++;
       }
@@ -419,8 +424,8 @@ std::string bim_flip_key(const String1D& tokens, const std::string& path, const 
 std::string pvar_line_to_bim_line(const std::string& line, const std::string& path) {
   const std::string sep{" \t"};
   auto tokens = pvar_tokens_to_bim_tokens(split_string(line, sep), path, line);
-  return tokens[0] + "\t" + tokens[1] + "\t" + tokens[2] + "\t" + tokens[3] + "\t" + tokens[4] +
-         "\t" + tokens[5];
+  return tokens[0] + "\t" + tokens[1] + "\t" + tokens[2] + "\t" + tokens[3] + "\t" + tokens[4] + "\t" +
+         tokens[5];
 }
 
 BimMatch match_bim_to_mbim(const std::string& bim_file, const std::string& mbim_file) {
