@@ -93,7 +93,7 @@ void run_selection(Data* data, const Param& params) {
       outp << pval.format(fmt) << '\n';
     }
     if (outg.is_open()) {
-      outg << "#genomic inflation factor\n";      
+      outg << "#genomic inflation factor\n";
       outg << gif << '\n';
     }
   }

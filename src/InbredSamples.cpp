@@ -13,8 +13,8 @@
 
 // type 1: Genotype input, {1, -9, 0.5, 0}, GL is N x M
 // type 2: Genotype likelihood input, GL is (N x 2) x M
-void inbreed_coef_sample(Mat1D& D, Mat1D& F, const Mat2D& PI, const Mat2D& GL, const int type, const int size,
-                         const uint start) {
+void inbreed_coef_sample(
+    Mat1D& D, Mat1D& F, const Mat2D& PI, const Mat2D& GL, const int type, const int size, const uint start) {
   const int nsnps = size;
   const int nsamples = PI.rows();
   if (type != 1 && type != 2) cao.error("type must be 1 or 2");

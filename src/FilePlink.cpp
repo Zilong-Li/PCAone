@@ -6,7 +6,6 @@
 
 #include "FilePlink.hpp"
 
-
 using namespace std;
 
 void FileBed::check_file_offset_first_var() {
@@ -28,7 +27,7 @@ void FileBed::read_all() {
   check_file_offset_first_var();
   // Begin to decode the plink bed
   inbed.resize(bed_bytes_per_snp * nsnps);
-  bed_ifstream.read(reinterpret_cast<char *>(inbed.data()), bed_bytes_per_snp * nsnps);
+  bed_ifstream.read(reinterpret_cast<char*>(inbed.data()), bed_bytes_per_snp * nsnps);
   uint64 c, i, j, b, k;
   uchar buf;
   // sometimes no need to estimate AF, e.g. projection
@@ -44,7 +43,7 @@ void FileBed::read_all() {
             if (BED2GENO[buf & 3] != BED_MISSING_VALUE) {
               F(i) += BED2GENO[buf & 3];
               c++;
-            } 
+            }
             buf >>= 2;
           }
         }
@@ -66,7 +65,7 @@ void FileBed::read_all() {
   if (filter) nsnps = keepSNPs.size();
   G = Mat2D::Zero(nsamples, nsnps);  // fill in G with new size after filtering
 
-  if(params.missme) C = ArrBool::Zero(nsnps * nsamples);
+  if (params.missme) C = ArrBool::Zero(nsnps * nsamples);
   if (params.pcangsd) P = Mat2D::Zero(nsamples * 2, nsnps);
 
 #pragma omp parallel for private(i, j, b, c, k, buf)
@@ -78,8 +77,7 @@ void FileBed::read_all() {
         if (j < nsamples) {
           G(j, i) = BED2GENO[buf & 3];
           buf >>= 2;
-          if(params.missme && (G(j, i)== BED_MISSING_VALUE))
-            C[i * nsamples + j] = 1;
+          if (params.missme && (G(j, i) == BED_MISSING_VALUE)) C[i * nsamples + j] = 1;
         }
       }
     }
@@ -112,14 +110,13 @@ void FileBed::read_all() {
   }
 
   if (params.missme) {
-      p_miss = (double)C.count() / (double)C.size();
-      cao.print(tick.date(), "the proportion of missingness  is", p_miss);
+    p_miss = (double)C.count() / (double)C.size();
+    cao.print(tick.date(), "the proportion of missingness  is", p_miss);
   }
 
   // read bed to matrix G done and close bed_ifstream
   inbed.clear();
   inbed.shrink_to_fit();
-
 }
 
 void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize) {
@@ -136,8 +133,8 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
   uint64 c, b, i, j, k, snp_idx;
   uchar buf;
   // inbed.resize(bed_bytes_per_snp * actual_block_size);
-  bed_ifstream.read(reinterpret_cast<char *>(inbed.data()), bed_bytes_per_snp * actual_block_size);
-  if (!params.dopca) frequency_was_estimated = true; // read AF from external
+  bed_ifstream.read(reinterpret_cast<char*>(inbed.data()), bed_bytes_per_snp * actual_block_size);
+  if (!params.dopca) frequency_was_estimated = true;  // read AF from external
   if (frequency_was_estimated) {
 #pragma omp parallel for private(i, j, b, k, snp_idx, buf)
     for (i = 0; i < actual_block_size; ++i) {
@@ -220,8 +217,8 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
   if (stop_idx + 1 == nsnps) frequency_was_estimated = true;
 }
 
-void FileBed::read_block_update(uint64 start_idx, uint64 stop_idx, const Mat2D &U, const Mat1D &svals,
-                                const Mat2D &VT, bool standardize) {
+void FileBed::read_block_update(
+    uint64 start_idx, uint64 stop_idx, const Mat2D& U, const Mat1D& svals, const Mat2D& VT, bool standardize) {
   uint actual_block_size = stop_idx - start_idx + 1;
   if (G.cols() < blocksize || (actual_block_size < blocksize)) {
     G = Mat2D::Zero(nsamples, actual_block_size);
@@ -232,7 +229,7 @@ void FileBed::read_block_update(uint64 start_idx, uint64 stop_idx, const Mat2D &
     long long offset = 3 + start_idx * bed_bytes_per_snp;
     if (bed_ifstream.tellg() != offset) cao.error("read_block_initial: offset wrong!");
   }
-  bed_ifstream.read(reinterpret_cast<char *>(inbed.data()), bed_bytes_per_snp * actual_block_size);
+  bed_ifstream.read(reinterpret_cast<char*>(inbed.data()), bed_bytes_per_snp * actual_block_size);
   uint64 b, i, j, snp_idx;
   uint ks = svals.rows();
   uint ki, k;
@@ -303,7 +300,7 @@ void FileBed::read_block_update(uint64 start_idx, uint64 stop_idx, const Mat2D &
 // structured permutation with cached buffer
 // TODO: support MAF filters
 // TODO: support --exclude
-PermMat permute_plink(std::string &fin, const std::string &fout, uint gb, uint nbands) {
+PermMat permute_plink(std::string& fin, const std::string& fout, uint gb, uint nbands) {
   uint nsnps = count_lines(fin + ".bim");
   uint nsamples = count_lines(fin + ".fam");
   uint bed_bytes_per_snp = (nsamples + 3) >> 2;
@@ -349,10 +346,10 @@ PermMat permute_plink(std::string &fin, const std::string &fout, uint gb, uint n
   std::ofstream out(fout + ".perm.bed", std::ios::binary);
   if (!in.is_open()) cao.error("Cannot open bed file.");
   uchar header[3];
-  in.read(reinterpret_cast<char *>(&header[0]), 3);
+  in.read(reinterpret_cast<char*>(&header[0]), 3);
   if ((header[0] != 0x6c) || (header[1] != 0x1b) || (header[2] != 0x01))
     cao.error("Incorrect magic number in plink bed file.");
-  out.write(reinterpret_cast<char *>(&header[0]), 3);
+  out.write(reinterpret_cast<char*>(&header[0]), 3);
   std::ifstream in_bim(fin + ".bim", std::ios::in);
   std::ofstream out_bim(fout + ".perm.bim", std::ios::out);
   vector<std::string> bims(std::istream_iterator<Line>{in_bim}, std::istream_iterator<Line>{});
@@ -372,13 +369,12 @@ PermMat permute_plink(std::string &fin, const std::string &fout, uint gb, uint n
       out_bytes_per_block = bed_bytes_per_snp * bufsize;
       outbed.resize(out_bytes_per_block);
     }
-    in.read(reinterpret_cast<char *>(&inbed[0]), bed_bytes_per_block);
+    in.read(reinterpret_cast<char*>(&inbed[0]), bed_bytes_per_block);
     for (b = 0; b < nbands; b++) {
       idx = 3 + (i * bufidx + bandidx[b]) * bed_bytes_per_snp;
       for (j = 0; j < bufsize - 1; j++) {
         std::copy(inbed.begin() + (j * nbands + b) * bed_bytes_per_snp,
-                  inbed.begin() + (j * nbands + b + 1) * bed_bytes_per_snp,
-                  outbed.begin() + j * bed_bytes_per_snp);
+                  inbed.begin() + (j * nbands + b + 1) * bed_bytes_per_snp, outbed.begin() + j * bed_bytes_per_snp);
         // cout << i * twoGB_snps + j * nbands + b << endl;
         ia = i * twoGB_snps + j * nbands + b;
         ib = i * bufidx + bandidx[b] + j;
@@ -387,8 +383,7 @@ PermMat permute_plink(std::string &fin, const std::string &fout, uint gb, uint n
       }
       if (i != nblocks - 1 || (i == nblocks - 1 && b < modr2) || modr2 == 0) {
         std::copy(inbed.begin() + (j * nbands + b) * bed_bytes_per_snp,
-                  inbed.begin() + (j * nbands + b + 1) * bed_bytes_per_snp,
-                  outbed.begin() + j * bed_bytes_per_snp);
+                  inbed.begin() + (j * nbands + b + 1) * bed_bytes_per_snp, outbed.begin() + j * bed_bytes_per_snp);
         ia = i * twoGB_snps + j * nbands + b;
         ib = i * bufidx + bandidx[b] + j;
         bims2[ib] = bims[ia];
@@ -397,7 +392,7 @@ PermMat permute_plink(std::string &fin, const std::string &fout, uint gb, uint n
         out_bytes_per_block = bed_bytes_per_snp * (bufsize - 1);
       }
       out.seekp(idx, std::ios_base::beg);
-      out.write(reinterpret_cast<char *>(&outbed[0]), out_bytes_per_block);
+      out.write(reinterpret_cast<char*>(&outbed[0]), out_bytes_per_block);
     }
   }
   in.close();

@@ -6,9 +6,10 @@
 
 #include "FilePgen.hpp"
 
+#include <omp.h>
+
 #include "Common.hpp"
 #include "Utils.hpp"
-#include <omp.h>
 
 using namespace std;
 
@@ -16,9 +17,7 @@ using namespace std;
 // 1.0=Het, 2.0=HomAlt, -3.0=missing.  Divide by 2 to get [0,1] dosage
 // matching the BED convention (BED2GENO = {1,-9,0.5,0} for A1=ALT).
 static constexpr double PGEN_MISSING = -3.0;
-static inline double pgen2dosage(double v) {
-  return (v == PGEN_MISSING) ? BED_MISSING_VALUE : v / 2.0;
-}
+static inline double pgen2dosage(double v) { return (v == PGEN_MISSING) ? BED_MISSING_VALUE : v / 2.0; }
 
 static inline double centered_pgen_value(double v, double af) {
   double dosage = pgen2dosage(v);
@@ -29,11 +28,11 @@ void FilePgen::read_all() {
   uint i, j;
   if (params.dopca && !frequency_was_estimated) {
     F = Mat1D::Zero(nsnps);
- #pragma omp parallel for private(i, j) schedule(static)
+#pragma omp parallel for private(i, j) schedule(static)
     for (i = 0; i < nsnps; ++i) {
       int thr = omp_get_thread_num();
       double* buf = thread_bufs[thr].data();
-      if (dosage_mode) {        
+      if (dosage_mode) {
         reader.Read(buf, nsamples, thr, i, 1);
       } else {
         reader.ReadHardcalls(buf, nsamples, thr, i, 1);
@@ -44,7 +43,7 @@ void FilePgen::read_all() {
         if (buf[j] != PGEN_MISSING) {
           sum += buf[j] / 2.0;
           ++c;
-        } 
+        }
       }
       F(i) = (c > 0) ? sum / c : 0.0;
       if (F(i) == 0.0 || F(i) == 1.0) cao.warn("sites with MAF=0 found! remove them first! SNP index:", i);
@@ -57,22 +56,21 @@ void FilePgen::read_all() {
   if (filter) nsnps = keepSNPs.size();
   G = Mat2D::Zero(nsamples, nsnps);
 
-  if(params.missme) C = ArrBool::Zero(nsnps * nsamples);
+  if (params.missme) C = ArrBool::Zero(nsnps * nsamples);
 
- #pragma omp parallel for private(i, j) schedule(static)
+#pragma omp parallel for private(i, j) schedule(static)
   for (i = 0; i < nsnps; ++i) {
     int thr = omp_get_thread_num();
     double* buf = thread_bufs[thr].data();
     uint s = filter ? keepSNPs[i] : i;
-    if (dosage_mode) {        
+    if (dosage_mode) {
       reader.Read(buf, nsamples, thr, s, 1);
     } else {
       reader.ReadHardcalls(buf, nsamples, thr, s, 1);
     }
     for (j = 0; j < nsamples; ++j) {
       G(j, i) = pgen2dosage(buf[j]);
-      if((params.missme && G(j, i)== BED_MISSING_VALUE))
-        C[i * nsamples + j] = 1;
+      if ((params.missme && G(j, i) == BED_MISSING_VALUE)) C[i * nsamples + j] = 1;
     }
     if (params.center) {
       for (j = 0; j < nsamples; ++j) {
@@ -85,10 +83,9 @@ void FilePgen::read_all() {
   }
 
   if (params.missme) {
-      p_miss = (double)C.count() / (double)C.size();
-      cao.print(tick.date(), "the proportion of missingness  is", p_miss);
+    p_miss = (double)C.count() / (double)C.size();
+    cao.print(tick.date(), "the proportion of missingness  is", p_miss);
   }
-
 }
 
 PermMat compute_pgen_perm(uint nsnps, uint nbatches, uint blocksize, uint nthreads, int seed) {
@@ -156,21 +153,20 @@ PermMat compute_pgen_perm(uint nsnps, uint nbatches, uint blocksize, uint nthrea
 
 void FilePgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize) {
   uint actual_block_size = stop_idx - start_idx + 1;
-  if (G.cols() < blocksize || actual_block_size < blocksize)
-    G = Mat2D::Zero(nsamples, actual_block_size);
+  if (G.cols() < blocksize || actual_block_size < blocksize) G = Mat2D::Zero(nsamples, actual_block_size);
 
   uint i, j;
   uint64 snp_idx;
 
   if (!params.dopca) frequency_was_estimated = true;
   if (frequency_was_estimated) {
- #pragma omp parallel for private(i, j, snp_idx) schedule(static)
+#pragma omp parallel for private(i, j, snp_idx) schedule(static)
     for (i = 0; i < actual_block_size; ++i) {
       int thr = omp_get_thread_num();
       double* buf = thread_bufs[thr].data();
       snp_idx = start_idx + i;
       uint64 pgen_idx = params.perm ? (uint64)perm.indices()(snp_idx) : snp_idx;
-      if (dosage_mode) {        
+      if (dosage_mode) {
         reader.Read(buf, nsamples, thr, pgen_idx, 1);
       } else {
         reader.ReadHardcalls(buf, nsamples, thr, pgen_idx, 1);
@@ -194,13 +190,13 @@ void FilePgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standa
       }
     }
   } else {
- #pragma omp parallel for private(i, j, snp_idx) schedule(static)
+#pragma omp parallel for private(i, j, snp_idx) schedule(static)
     for (i = 0; i < actual_block_size; ++i) {
       int thr = omp_get_thread_num();
       double* buf = thread_bufs[thr].data();
       snp_idx = start_idx + i;
       uint64 pgen_idx = params.perm ? (uint64)perm.indices()(snp_idx) : snp_idx;
-      if (dosage_mode) {        
+      if (dosage_mode) {
         reader.Read(buf, nsamples, thr, pgen_idx, 1);
       } else {
         reader.ReadHardcalls(buf, nsamples, thr, pgen_idx, 1);
@@ -221,10 +217,10 @@ void FilePgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standa
         cao.warn("MAF for site ", snp_idx, " is 0.5. NaN values expected in calculating LD R2.");
       if (!dosage_mode) {
         // centered_geno_lookup: rows 0=HomRef, 1=Het, 2=HomAlt, 3=missing
-        centered_geno_lookup(3, snp_idx) = 0.0;                    // missing: impute to mean
-        centered_geno_lookup(0, snp_idx) = 0.0 - F(snp_idx);       // HomRef
-        centered_geno_lookup(1, snp_idx) = 0.5 - F(snp_idx);       // Het
-        centered_geno_lookup(2, snp_idx) = 1.0 - F(snp_idx);       // HomAlt
+        centered_geno_lookup(3, snp_idx) = 0.0;               // missing: impute to mean
+        centered_geno_lookup(0, snp_idx) = 0.0 - F(snp_idx);  // HomRef
+        centered_geno_lookup(1, snp_idx) = 0.5 - F(snp_idx);  // Het
+        centered_geno_lookup(2, snp_idx) = 1.0 - F(snp_idx);  // HomAlt
       }
       const double f = F(snp_idx);
       double scale_factor = 1.0;
@@ -246,23 +242,22 @@ void FilePgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standa
   if (stop_idx + 1 == nsnps) frequency_was_estimated = true;
 }
 
-void FilePgen::read_block_update(uint64 start_idx, uint64 stop_idx, const Mat2D& U, const Mat1D& svals,
-                                 const Mat2D& VT, bool standardize) {
+void FilePgen::read_block_update(
+    uint64 start_idx, uint64 stop_idx, const Mat2D& U, const Mat1D& svals, const Mat2D& VT, bool standardize) {
   uint actual_block_size = stop_idx - start_idx + 1;
-  if (G.cols() < blocksize || actual_block_size < blocksize)
-    G = Mat2D::Zero(nsamples, actual_block_size);
+  if (G.cols() < blocksize || actual_block_size < blocksize) G = Mat2D::Zero(nsamples, actual_block_size);
 
   uint i, j, k;
   uint64 snp_idx;
   uint ks = svals.rows();
 
- #pragma omp parallel for private(i, j, k, snp_idx) schedule(static)
+#pragma omp parallel for private(i, j, k, snp_idx) schedule(static)
   for (i = 0; i < actual_block_size; ++i) {
     int thr = omp_get_thread_num();
     double* buf = thread_bufs[thr].data();
     snp_idx = start_idx + i;
     uint64 pgen_idx = params.perm ? (uint64)perm.indices()(snp_idx) : snp_idx;
-    if (dosage_mode) {        
+    if (dosage_mode) {
       reader.Read(buf, nsamples, thr, pgen_idx, 1);
     } else {
       reader.ReadHardcalls(buf, nsamples, thr, pgen_idx, 1);

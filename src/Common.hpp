@@ -6,12 +6,12 @@
 #ifndef PCAone_Common_H
 #define PCAone_Common_H
 
-#include <Eigen/Dense>
 #include <algorithm>
 #include <cfloat>
 #include <cmath>
-#include <cstdio>
 #include <cstdint>
+#include <cstdio>
+#include <Eigen/Dense>
 #include <filesystem>
 #include <iterator>
 #include <numeric>
@@ -45,7 +45,6 @@ using UMapIntDouble = std::unordered_map<int, double>;
 using UMapIntString = std::unordered_map<int, std::string>;
 using Pds = std::pair<double, std::string>;
 using UMapIntPds = std::unordered_map<int, Pds>;
-
 
 /**
  * Recode genotype codes to allelic dosages of first allele in .bim file (A1),
@@ -83,9 +82,13 @@ struct Line {
 // C++ equivalent of Python's math.isclose function
 // https://github.com/jamadagni/areclose/blob/master/areclose.hpp
 struct AreClose {
-  AreClose() : abs_tol{0}, rel_tol{1e-09} {}
+  AreClose()
+      : abs_tol{0},
+        rel_tol{1e-09} {}
 
-  AreClose(double absTol, double relTol) : abs_tol{absTol}, rel_tol{relTol} {
+  AreClose(double absTol, double relTol)
+      : abs_tol{absTol},
+        rel_tol{relTol} {
     if (invalidTolerance(abs_tol) || invalidTolerance(rel_tol)) abs_tol = rel_tol = NAN;
     // this makes operator() always return false
   }

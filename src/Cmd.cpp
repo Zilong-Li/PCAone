@@ -4,15 +4,15 @@
  * Copyright (C) 2022-2024. Use of this code is governed by the LICENSE file.
  ******************************************************************************/
 
-#include <iterator>
-
 #include "Cmd.hpp"
+
+#include <iterator>
 
 #include "popl/popl.hpp"
 
 using namespace popl;
 
-Param::Param(int argc, char **argv) {
+Param::Param(int argc, char** argv) {
   // clang-format off
   bool haploid = false;
   std::string copyr{"PCA All In One (v" + (std::string)VERSION + ")        https://github.com/Zilong-Li/PCAone\n" +
@@ -133,7 +133,7 @@ Param::Param(int argc, char **argv) {
       exit(EXIT_SUCCESS);
     }
     if (!opts.unknown_options().empty()) {
-      for (const auto &uo : opts.unknown_options()) std::cerr << "unknown option: " << uo << "\n";
+      for (const auto& uo : opts.unknown_options()) std::cerr << "unknown option: " << uo << "\n";
       exit(EXIT_FAILURE);
     }
     if (svd_opt->value() == 0)
@@ -178,26 +178,23 @@ Param::Param(int argc, char **argv) {
 
     // handle LD
     if (print_r2 || ld_r2 > 0 || !clump.empty()) {
-      dopca = false;    // we always want to center the G for calculating R2
+      dopca = false;  // we always want to center the G for calculating R2
       memory /= 2.0;  // adjust memory estimator
     }
 
     // handle projection
     if (project > 0) {
-      if (project < 1 || project > 3)
-        throw std::invalid_argument("--project supports only 1, 2, or 3 in this release");
-      if (fileV.empty() || fileS.empty())
-        throw std::invalid_argument("please use --USV together with --project");
-      dopca=false, missme = true, out_of_core = false;
+      if (project < 1 || project > 3) throw std::invalid_argument("--project supports only 1, 2, or 3 in this release");
+      if (fileV.empty() || fileS.empty()) throw std::invalid_argument("please use --USV together with --project");
+      dopca = false, missme = true, out_of_core = false;
       memory = 0;
     }
 
     // handle selection
     if (selection > 0) {
-      if (file_t != FileType::PLINK && file_t != FileType::PGEN) 
+      if (file_t != FileType::PLINK && file_t != FileType::PGEN)
         throw std::invalid_argument("only supports --bfile/--pgen for now");
-      if (fileU.empty() || fileE.empty())
-        throw std::invalid_argument("please use --USV together with --selection");
+      if (fileU.empty() || fileE.empty()) throw std::invalid_argument("please use --USV together with --selection");
       dopca = true;  // we need this to init F
     }
 
@@ -213,15 +210,12 @@ Param::Param(int argc, char **argv) {
     oversamples = oversamples > k ? oversamples : k;
     if (haploid && genetic) ploidy = 1;
     if (memory > 0 && svd_t != SvdType::FULL) out_of_core = true;
-    
+
     filterSNP = maf > 0 ? true : false;  // filter SNP if MAf applied
     if (filterSNP) {
-      if (!(maf > 0 && maf < 0.5))
-        throw std::invalid_argument("--maf has to be between (0, 0.5)");
-      if (out_of_core)
-        throw std::invalid_argument("does not support --maf filters for out-of-core mode yet! ");
+      if (!(maf > 0 && maf < 0.5)) throw std::invalid_argument("--maf has to be between (0, 0.5)");
+      if (out_of_core) throw std::invalid_argument("does not support --maf filters for out-of-core mode yet! ");
     }
-
 
     // handle EM-PCA
     if (dopca && file_t == FileType::BEAGLE) pcangsd = true;
@@ -237,7 +231,7 @@ Param::Param(int argc, char **argv) {
 
     if (svd_t == SvdType::PCAoneAlg2 && !noshuffle) perm = true;
 
-  } catch (const popl::invalid_option &e) {
+  } catch (const popl::invalid_option& e) {
     std::cerr << "Invalid Option Exception: " << e.what() << "\n";
     std::cerr << "error:  ";
     if (e.error() == invalid_option::Error::missing_argument)
@@ -258,7 +252,7 @@ Param::Param(int argc, char **argv) {
       std::cerr << "value:  " << e.value() << "\n";
     }
     exit(EXIT_FAILURE);
-  } catch (const std::exception &e) {
+  } catch (const std::exception& e) {
     std::cerr << "Exception: " << e.what() << "\n";
     exit(EXIT_FAILURE);
   }

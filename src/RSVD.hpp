@@ -24,8 +24,7 @@ struct StandardNormalRandomHelper {
 
 template <typename MatrixType, typename RandomEngineType>
 struct StandardNormalRandomHelper<MatrixType, RealType<MatrixType>, RandomEngineType> {
-  static inline MatrixType generate(const Eigen::Index numRows, const Eigen::Index numCols,
-                                    RandomEngineType& engine) {
+  static inline MatrixType generate(const Eigen::Index numRows, const Eigen::Index numCols, RandomEngineType& engine) {
     std::normal_distribution<RealType<MatrixType>> distribution{0, 1};
     const auto normal{[&](typename MatrixType::Scalar) { return distribution(engine); }};
     return MatrixType::NullaryExpr(numRows, numCols, normal);
@@ -34,8 +33,7 @@ struct StandardNormalRandomHelper<MatrixType, RealType<MatrixType>, RandomEngine
 
 template <typename MatrixType, typename RandomEngineType>
 struct StandardNormalRandomHelper<MatrixType, std::complex<RealType<MatrixType>>, RandomEngineType> {
-  static inline MatrixType generate(const Eigen::Index numRows, const Eigen::Index numCols,
-                                    RandomEngineType& engine) {
+  static inline MatrixType generate(const Eigen::Index numRows, const Eigen::Index numCols, RandomEngineType& engine) {
     constexpr RealType<MatrixType> stdDev{0.707106781186547};
     std::normal_distribution<RealType<MatrixType>> distribution{0, stdDev};
     const auto complexNormal{[&](typename MatrixType::Scalar) {
@@ -46,22 +44,23 @@ struct StandardNormalRandomHelper<MatrixType, std::complex<RealType<MatrixType>>
 };
 
 template <typename MatrixType, typename RandomEngineType>
-inline MatrixType UniformRandom(const Eigen::Index numRows, const Eigen::Index numCols,
-                                RandomEngineType& engine) {
+inline MatrixType UniformRandom(const Eigen::Index numRows, const Eigen::Index numCols, RandomEngineType& engine) {
   std::uniform_real_distribution<typename MatrixType::Scalar> uniform_real_distribution{-1, 1};
   const auto uniform{[&](typename MatrixType::Scalar) { return uniform_real_distribution(engine); }};
   return MatrixType::NullaryExpr(numRows, numCols, uniform);
 }
 
 template <typename MatrixType, typename RandomEngineType>
-inline MatrixType StandardNormalRandom(const Eigen::Index numRows, const Eigen::Index numCols,
+inline MatrixType StandardNormalRandom(const Eigen::Index numRows,
+                                       const Eigen::Index numCols,
                                        RandomEngineType& engine) {
   return StandardNormalRandomHelper<MatrixType, typename MatrixType::Scalar, RandomEngineType>::generate(
       numRows, numCols, engine);
 }
 
 template <typename MatrixType>
-inline void permute_matrix(MatrixType& G, Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic>& P,
+inline void permute_matrix(MatrixType& G,
+                           Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic>& P,
                            bool bycol = true) {
   if (bycol) {
     P = Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic>(G.cols());
@@ -105,7 +104,11 @@ class RsvdOpOnePass {
  public:
   int finder = 1;
   RsvdOpOnePass(ConstGenericMatrix& mat_, int k_, int os_ = 10, int rand_ = 1)
-      : mat(mat_), k(k_), os(os_), size(k_ + os_), rand(rand_) {
+      : mat(mat_),
+        k(k_),
+        os(os_),
+        size(k_ + os_),
+        rand(rand_) {
     if (mat.rows() >= mat.cols()) {
       trans = false;
       nrow = mat.rows();
@@ -200,15 +203,13 @@ class RsvdOpOnePass {
           G.middleRows(start_idx, actual_block_size).noalias() =
               mat.middleCols(start_idx, actual_block_size).transpose() * Omg;
         else
-          G.middleRows(start_idx, actual_block_size).noalias() =
-              mat.middleRows(start_idx, actual_block_size) * Omg;
+          G.middleRows(start_idx, actual_block_size).noalias() = mat.middleRows(start_idx, actual_block_size) * Omg;
         if (pi > 0 && j <= std::pow(2, pi - 1) && std::pow(2, pi) < windows) {
           if (trans)
-            H1.noalias() +=
-                mat.middleCols(start_idx, actual_block_size) * G.middleRows(start_idx, actual_block_size);
+            H1.noalias() += mat.middleCols(start_idx, actual_block_size) * G.middleRows(start_idx, actual_block_size);
           else
-            H1.noalias() += mat.middleRows(start_idx, actual_block_size).transpose() *
-                            G.middleRows(start_idx, actual_block_size);
+            H1.noalias() +=
+                mat.middleRows(start_idx, actual_block_size).transpose() * G.middleRows(start_idx, actual_block_size);
           // additional complementary power iteration for last read
           if (j == std::pow(2, pi - 1)) {
             H = H1 + H2;
@@ -219,18 +220,16 @@ class RsvdOpOnePass {
           }
         } else if (i <= band / 2) {
           if (trans)
-            H1.noalias() +=
-                mat.middleCols(start_idx, actual_block_size) * G.middleRows(start_idx, actual_block_size);
+            H1.noalias() += mat.middleCols(start_idx, actual_block_size) * G.middleRows(start_idx, actual_block_size);
           else
-            H1.noalias() += mat.middleRows(start_idx, actual_block_size).transpose() *
-                            G.middleRows(start_idx, actual_block_size);
+            H1.noalias() +=
+                mat.middleRows(start_idx, actual_block_size).transpose() * G.middleRows(start_idx, actual_block_size);
         } else if (i > band / 2 && i <= band) {
           if (trans)
-            H2.noalias() +=
-                mat.middleCols(start_idx, actual_block_size) * G.middleRows(start_idx, actual_block_size);
+            H2.noalias() += mat.middleCols(start_idx, actual_block_size) * G.middleRows(start_idx, actual_block_size);
           else
-            H2.noalias() += mat.middleRows(start_idx, actual_block_size).transpose() *
-                            G.middleRows(start_idx, actual_block_size);
+            H2.noalias() +=
+                mat.middleRows(start_idx, actual_block_size).transpose() * G.middleRows(start_idx, actual_block_size);
         }
         if ((b + 1) >= band) {
           if (i == band) {
@@ -256,7 +255,8 @@ class RsvdOpOnePass {
 template <typename MatrixType, typename RsvdOp>
 class RsvdOnePass {
  public:
-  RsvdOnePass(RsvdOp& op) : b_op(op) {}
+  RsvdOnePass(RsvdOp& op)
+      : b_op(op) {}
 
   ~RsvdOnePass() {}
 
@@ -333,7 +333,10 @@ class RsvdOne {
 
  public:
   RsvdOne(ConstGenericMatrix& mat_, uint32_t k_, uint32_t os_ = 10, uint32_t rand_ = 1)
-      : mat(mat_), k(k_), os(os_), rand(rand_) {
+      : mat(mat_),
+        k(k_),
+        os(os_),
+        rand(rand_) {
     if (mat.rows() >= mat.cols())
       trans = false;
     else

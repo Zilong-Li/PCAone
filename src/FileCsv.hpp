@@ -4,19 +4,34 @@
 #include "Data.hpp"
 #include "Utils.hpp"
 
-void parse_csvzstd(ZstdDS& zbuf, uint& nsamples, uint& nsnps, uint scale, std::vector<int>& libsize,
-                   std::vector<size_t>& tidx, double& median_libsize);
+void parse_csvzstd(ZstdDS& zbuf,
+                   uint& nsamples,
+                   uint& nsnps,
+                   uint scale,
+                   std::vector<int>& libsize,
+                   std::vector<size_t>& tidx,
+                   double& median_libsize);
 
-void read_csvzstd_block(ZstdDS& zbuf, std::string& buffCur, uint blocksize, uint64 start_idx, uint64 stop_idx,
-                        Mat2D& G, uint nsamples, std::vector<int>& libsize, std::vector<size_t>& tidx,
-                        double median_libsize, uint scale, double scaleFactor);
+void read_csvzstd_block(ZstdDS& zbuf,
+                        std::string& buffCur,
+                        uint blocksize,
+                        uint64 start_idx,
+                        uint64 stop_idx,
+                        Mat2D& G,
+                        uint nsamples,
+                        std::vector<int>& libsize,
+                        std::vector<size_t>& tidx,
+                        double median_libsize,
+                        uint scale,
+                        double scaleFactor);
 
 PermMat shuffle_csvzstd_to_bin(std::string& fin, std::string fout, uint gb, uint scale, double scaleFactor);
 
 // for other types, assume data is already noralized only do centering
 class FileCsv : public Data {
  public:
-  FileCsv(const Param& params_) : Data(params_) {
+  FileCsv(const Param& params_)
+      : Data(params_) {
     cao.print(tick.date(), "start parsing CSV format compressed by ZSTD");
 
     if (params.nsnps > 0 && params.nsamples > 0 && params.scale != 2) {

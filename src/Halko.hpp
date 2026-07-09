@@ -9,11 +9,12 @@ class RsvdOpData {
   using Index = Eigen::Index;
   bool update = false, standardize = false;
   Mat2D U, Omg, Omg2;  // nsamples x nk
-  Mat2D V;       // nsnps x nk
-  Mat1D S;       // nk x 1
+  Mat2D V;             // nsnps x nk
+  Mat1D S;             // nk x 1
 
  public:
-  RsvdOpData(Data* data_) : data(data_) {}
+  RsvdOpData(Data* data_)
+      : data(data_) {}
 
   virtual ~RsvdOpData() {}
 
@@ -46,7 +47,11 @@ class NormalRsvdOpData : public RsvdOpData {
   uint64 actual_block_size, start_idx, stop_idx;
 
  public:
-  NormalRsvdOpData(Data* data_, int k_, int os_ = 10) : RsvdOpData(data_), nk(k_), os(os_), size(k_ + os_) {
+  NormalRsvdOpData(Data* data_, int k_, int os_ = 10)
+      : RsvdOpData(data_),
+        nk(k_),
+        os(os_),
+        size(k_ + os_) {
     initOmg();
   }
 
@@ -67,7 +72,11 @@ class FancyRsvdOpData : public RsvdOpData {
   Mat2D H1, H2;
 
  public:
-  FancyRsvdOpData(Data* data_, int k_, int os_ = 10) : RsvdOpData(data_), nk(k_), os(os_), size(k_ + os_) {
+  FancyRsvdOpData(Data* data_, int k_, int os_ = 10)
+      : RsvdOpData(data_),
+        nk(k_),
+        os(os_),
+        size(k_ + os_) {
     initOmg();
     H1 = Mat2D::Zero(cols(), size);
     H2 = Mat2D::Zero(cols(), size);

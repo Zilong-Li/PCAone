@@ -6,8 +6,8 @@
 
 #include "Arnoldi.hpp"
 
-#include <Spectra/SymEigsSolver.h>
 #include <Spectra/contrib/PartialSVDSolver.h>
+#include <Spectra/SymEigsSolver.h>
 
 #include "Cmd.hpp"
 #include "Utils.hpp"
@@ -57,8 +57,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
   if (!params.out_of_core) {
     // SpMatrix sG = data->G.sparseView();
     PartialSVDSolver<Mat2D> svds(data->G, params.k, params.ncv);
-    if (!(params.missme || params.ld))
-      data->standardize_E();
+    if (!(params.missme || params.ld)) data->standardize_E();
     nconv = svds.compute(params.imaxiter, params.itol);
     if (nconv != params.k) cao.error("the nconv is not equal to k.");
     U = svds.matrix_U(params.k);
@@ -67,7 +66,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
     evals.noalias() = svals.array().square().matrix() / data->nsnps;
     // impute information via EM-PCA
     if (params.missme) {
-      if(data->p_miss == 0.0) cao.warn("there is no missing values");
+      if (data->p_miss == 0.0) cao.warn("there is no missing values");
       flip_UV(U, V);
       cao.print(tick.date(), "starts EM iteration. maxiter =", params.maxiter);
       for (uint i = 1; i <= params.maxiter; ++i) {
@@ -138,15 +137,14 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
     // T' = (U.array().rowwise() /
     // eigs.eigenvalues().head(nv).transpose().array().sqrt()).matrix(); reuse
     // MyMatrix U = T, V = VT;
-    U = (eigs->eigenvectors().leftCols(nu).transpose().array().colwise() /
-         eigs->eigenvalues().head(nu).array().sqrt())
+    U = (eigs->eigenvectors().leftCols(nu).transpose().array().colwise() / eigs->eigenvalues().head(nu).array().sqrt())
             .matrix();
     op->VT = Mat2D::Zero(U.rows(), data->nsnps);
     data->calcu_vt_initial(U, op->VT, true);
     evals.noalias() = eigs->eigenvalues() / data->nsnps;
     // impute information via EM-PCA
     if (params.missme) {
-      if(data->p_miss == 0.0) cao.warn("there is no missing values");
+      if (data->p_miss == 0.0) cao.warn("there is no missing values");
       cao.print(tick.date(), "starts EM iteration. maxiter =", params.maxiter);
       data->calcu_vt_initial(U, op->VT, false);
       flip_UV(op->U, op->VT);

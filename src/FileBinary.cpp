@@ -23,7 +23,7 @@ void FileBin::read_all() {
   G = Mat2D::Zero(nsamples, nsnps);
   Eigen::VectorXf fg(nsamples);
   for (Eigen::Index i = 0; i < G.cols(); i++) {
-    ifs_bin.read((char *)fg.data(), bytes_per_snp);
+    ifs_bin.read((char*)fg.data(), bytes_per_snp);
     G.col(i) = fg.cast<double>();
     G.col(i).array() -= G.col(i).mean();
   }
@@ -39,7 +39,7 @@ void FileBin::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
   G = Mat2D(nsamples, actual_block_size);
   Eigen::VectorXf fg(nsamples);
   for (Eigen::Index i = 0; i < G.cols(); i++) {
-    ifs_bin.read((char *)fg.data(), bytes_per_snp);
+    ifs_bin.read((char*)fg.data(), bytes_per_snp);
     G.col(i) = fg.cast<double>();
     G.col(i).array() -= G.col(i).mean();
   }

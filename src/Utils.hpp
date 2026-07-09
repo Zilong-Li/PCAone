@@ -58,24 +58,23 @@ String1D split_string(const std::string& s, const std::string& separators);
 
 template <typename T>
 auto get_median(std::vector<T> v) {
-    static_assert(!std::is_same_v<T, bool>, "Boolean type is not supported");
+  static_assert(!std::is_same_v<T, bool>, "Boolean type is not supported");
 
-    if (v.empty()) {
-        throw std::invalid_argument("Cannot calculate median of an empty vector");
-    }
+  if (v.empty()) {
+    throw std::invalid_argument("Cannot calculate median of an empty vector");
+  }
 
-    std::sort(v.begin(), v.end());
-    size_t n = v.size();
-    if (n % 2 == 0) {
-        return (v[n / 2 - 1] + v[n / 2]) / static_cast<T>(2);
-    } else {
-        return v[n / 2];
-    }
+  std::sort(v.begin(), v.end());
+  size_t n = v.size();
+  if (n % 2 == 0) {
+    return (v[n / 2 - 1] + v[n / 2]) / static_cast<T>(2);
+  } else {
+    return v[n / 2];
+  }
 }
 
 void make_plink2_eigenvec_file(int K, std::string fout, const std::string& fin, const std::string& fam);
-void make_plink2_eigenvec_from_psam(int K, const std::string& fout, const std::string& fin,
-                                    const std::string& fpsam);
+void make_plink2_eigenvec_from_psam(int K, const std::string& fout, const std::string& fin, const std::string& fpsam);
 
 bool isZstdCompressed(const char* filename);
 
@@ -156,7 +155,6 @@ struct ZstdCS {
   size_t lastRet = 1;
   std::string buffInTmp, buffOutTmp;
 };
-
 
 // Chi-square CDF: P(X <= x) where X ~ chi-sq(df)
 // chi-sq CDF = regularized lower incomplete gamma P(df/2, x/2)

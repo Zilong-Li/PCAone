@@ -7,8 +7,8 @@
 #include "Halko.hpp"
 
 #include "Common.hpp"
-#include "Utils.hpp"
 #include "RSVD.hpp"
+#include "Utils.hpp"
 
 using namespace std;
 
@@ -32,7 +32,7 @@ Mat2D RsvdOpData::computeU(const Mat2D& G, const Mat2D& H) {
   {
     Eigen::HouseholderQR<Eigen::Ref<Mat2D>> qr(Gt);
     Rt.noalias() = Mat2D::Identity(size(), nrow) * qr.matrixQR().triangularView<Eigen::Upper>();  // get R2
-    Gt.noalias() = qr.householderQ() * Mat2D::Identity(nrow, size());  // hold Q2 in Gt
+    Gt.noalias() = qr.householderQ() * Mat2D::Identity(nrow, size());                             // hold Q2 in Gt
   }
   R = Rt * R;  // get R = Rt * R
   // B is size x ncol
@@ -55,12 +55,12 @@ void RsvdOpData::computeUSV(int p, double tol) {
     {
       Eigen::HouseholderQR<Eigen::Ref<Mat2D>> qr(G);
       R.noalias() = Mat2D::Identity(size(), nrow) * qr.matrixQR().triangularView<Eigen::Upper>();  // get R1
-      G.noalias() = qr.householderQ() * Mat2D::Identity(nrow, size());  // hold Q1 in G
+      G.noalias() = qr.householderQ() * Mat2D::Identity(nrow, size());                             // hold Q1 in G
     }
     {
       Eigen::HouseholderQR<Eigen::Ref<Mat2D>> qr(G);
       Rt.noalias() = Mat2D::Identity(size(), nrow) * qr.matrixQR().triangularView<Eigen::Upper>();  // get R2
-      G.noalias() = qr.householderQ() * Mat2D::Identity(nrow, size());  // hold Q2 in G
+      G.noalias() = qr.householderQ() * Mat2D::Identity(nrow, size());                              // hold Q2 in G
     }
     R = Rt * R;  // get R = R1R2;
     // B is size x ncol
@@ -83,8 +83,7 @@ void RsvdOpData::computeUSV(int p, double tol) {
           U = Ucur;
           V.noalias() = G * svd.matrixU().leftCols(nk);
           S = svd.singularValues().head(nk);
-          if (data->params.verbose && !data->params.missme)
-            cao.print(tick.date(), "stops at epoch =", pi + 1);
+          if (data->params.verbose && !data->params.missme) cao.print(tick.date(), "stops at epoch =", pi + 1);
           break;
         }
       } else {
@@ -198,17 +197,14 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
 
       if (i <= bandsize / 2) {
         // continues to add in data based on current band
-        H1.noalias() +=
-            data->G.middleCols(start_idx, actual_block_size) * G.middleRows(start_idx, actual_block_size);
+        H1.noalias() += data->G.middleCols(start_idx, actual_block_size) * G.middleRows(start_idx, actual_block_size);
       } else {
-        H2.noalias() +=
-            data->G.middleCols(start_idx, actual_block_size) * G.middleRows(start_idx, actual_block_size);
+        H2.noalias() += data->G.middleCols(start_idx, actual_block_size) * G.middleRows(start_idx, actual_block_size);
       }
 
       // use the first quarter band of succesive iteration (H1)
       // for extra power iteration updates with the last used band (H2)
-      const bool adjacent =
-          (pi > 0 && (b + 1) == std::pow(2, pi - 1) && std::pow(2, pi) < data->params.bands);
+      const bool adjacent = (pi > 0 && (b + 1) == std::pow(2, pi - 1) && std::pow(2, pi) < data->params.bands);
       if ((b + 1) < bandsize && !adjacent) continue;
 
       // add up H and update Omg
@@ -276,13 +272,12 @@ void run_pca_with_halko(Data* data, const Param& params) {
   Mat2D Vpre;
   RsvdOpData* rsvd;
   if (params.svd_t == SvdType::PCAoneAlg2) {
-    if(params.ld) cao.warn("You are recommended to use --svd 1 for outputting the LD residual matrix");
+    if (params.ld) cao.warn("You are recommended to use --svd 1 for outputting the LD residual matrix");
     cao.print(tick.date(), "initialize window-based RSVD (winSVD) with",
               params.out_of_core ? "out-of-core" : "in-core");
     rsvd = new FancyRsvdOpData(data, params.k, params.oversamples);
   } else {
-    cao.print(tick.date(), "initialize single-pass RSVD (sSVD) with",
-              params.out_of_core ? "out-of-core" : "in-core");
+    cao.print(tick.date(), "initialize single-pass RSVD (sSVD) with", params.out_of_core ? "out-of-core" : "in-core");
     rsvd = new NormalRsvdOpData(data, params.k, params.oversamples);
   }
   if (!params.missme) {
@@ -293,8 +288,7 @@ void run_pca_with_halko(Data* data, const Param& params) {
     }
     rsvd->computeUSV(params.maxp, params.tol);
   } else {
-    if (data->p_miss == 0.0 && !params.out_of_core)
-      cao.warn("there is no missing values");
+    if (data->p_miss == 0.0 && !params.out_of_core) cao.warn("there is no missing values");
     // for EM iteration
     rsvd->setFlags(false, false);
     rsvd->computeUSV(params.maxp, params.tol);
@@ -323,7 +317,7 @@ void run_pca_with_halko(Data* data, const Param& params) {
       rsvd->computeUSV(params.maxp, params.tol);
       flip_UV(rsvd->U, rsvd->V, false);
     }
-    
+
     if (params.pcangsd && (params.file_t == FileType::BEAGLE)) {
       cao.print(tick.date(), "estimate GRM for pcangsd");
       data->pcangsd_standardize_E(rsvd->U, rsvd->S, rsvd->V.transpose());
@@ -339,7 +333,6 @@ void run_pca_with_halko(Data* data, const Param& params) {
       // output real eigenvectors of covariance in eigvecs2
       write_eigvecs2_beagle(svd.matrixU(), params.filein, params.fileout + ".eigvecs2");
     }
-    
   }
   // output PI
   if (params.ld) data->write_residuals(rsvd->S, rsvd->U, rsvd->V.transpose());

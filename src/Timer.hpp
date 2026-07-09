@@ -27,15 +27,13 @@ inline Timer::~Timer() {}
 inline void Timer::clock() { prev_clock = std::chrono::high_resolution_clock::now(); }
 
 inline double Timer::reltime() {
-  return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() -
-                                                               prev_clock)
+  return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - prev_clock)
              .count() /
          1e3;
 }
 
 inline double Timer::abstime() {
-  return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() -
-                                                               start_clock)
+  return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start_clock)
              .count() /
          1e3;
 }

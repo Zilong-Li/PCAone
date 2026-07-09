@@ -1,19 +1,19 @@
 #ifndef PCAONE_FILEBGEN_
 #define PCAONE_FILEBGEN_
 
-#include "Data.hpp"
 #include "bgen/reader.h"
+#include "Data.hpp"
 #include "Utils.hpp"
 
 // const double GENOTYPE_THRESHOLD = 0.9;
 // const double BGEN_MISSING_VALUE = -9;
 // const double BGEN2GENO[4] = {0, 0.5, 1, BGEN_MISSING_VALUE};
 
-
 class FileBgen : public Data {
  public:
   // using Data::Data;
-  FileBgen(const Param& params_) : Data(params_) {
+  FileBgen(const Param& params_)
+      : Data(params_) {
     cao.warn("BGEN support is very limited. Please convert BGEN to PGEN instead!");
     cao.print(tick.date(), "start parsing BGEN format");
     bg = new bgen::CppBgenReader(params.filein, "", true);
@@ -35,7 +35,7 @@ class FileBgen : public Data {
 
   void read_block_initial(uint64, uint64, bool) final;
 
-  void read_block_update(uint64, uint64, const Mat2D &, const Mat1D &, const Mat2D &, bool) final {}
+  void read_block_update(uint64, uint64, const Mat2D&, const Mat1D&, const Mat2D&, bool) final {}
 
  private:
   bgen::CppBgenReader* bg;

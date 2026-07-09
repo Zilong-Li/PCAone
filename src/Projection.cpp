@@ -105,7 +105,7 @@ void run_projection(Data* data, const Param& params) {
     if (params.file_t != FileType::BEAGLE) cao.error("--project 3 requires BEAGLE genotype likelihood input");
     const bool filter = !data->keepSNPs.empty();
 
-    V = V * S.asDiagonal(); // VS
+    V = V * S.asDiagonal();  // VS
     solve_projection_scores(V, data->C, data->G, U);
 
     cao.print(tick.date(), "run EM to update expected G and solve U iteratively");
@@ -124,7 +124,7 @@ void run_projection(Data* data, const Param& params) {
             pt += U(i, k) * V(j, k);
           }
           // if (params.scale == SCALE_STANDARDIZE_GENETIC && norm > VAR_TOL) pt *= norm;
-          pt = fmin(fmax(pt * 0.5 + data->F(j), 1e-4), 1.0 - 1e-4); // 
+          pt = fmin(fmax(pt * 0.5 + data->F(j), 1e-4), 1.0 - 1e-4);  //
           const double p0 = data->P(2 * i + 0, s) * (1.0 - pt) * (1.0 - pt);
           const double p1 = data->P(2 * i + 1, s) * 2.0 * pt * (1.0 - pt);
           const double p2 = (1.0 - data->P(2 * i + 0, s) - data->P(2 * i + 1, s)) * pt * pt;

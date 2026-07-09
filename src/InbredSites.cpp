@@ -14,8 +14,8 @@
 
 // type 1: Genotype input, {1, -9, 0.5, 0}, GL is N x M
 // type 2: Genotype likelihood input, GL is (N x 2) x M
-void inbreed_coef_site(Mat1D& D, Mat1D& F, const Mat2D& PI, const Mat2D& GL, const int type, const int size,
-                       const uint start) {
+void inbreed_coef_site(
+    Mat1D& D, Mat1D& F, const Mat2D& PI, const Mat2D& GL, const int type, const int size, const uint start) {
   const int nsnps = size;
   const int nsamples = PI.rows();
   if (type != 1 && type != 2) cao.error("type must be 1 or 2");
@@ -77,8 +77,8 @@ void inbreed_coef_site(Mat1D& D, Mat1D& F, const Mat2D& PI, const Mat2D& GL, con
   }
 }
 
-void calc_inbreed_site_lrt(Mat1D& T, const Mat1D& F, const Mat2D& PI, const Mat2D& GL, const int type,
-                           const int size, const uint start) {
+void calc_inbreed_site_lrt(
+    Mat1D& T, const Mat1D& F, const Mat2D& PI, const Mat2D& GL, const int type, const int size, const uint start) {
   if (type != 1 && type != 2) cao.error("type must be 1 or 2");
   const int nsnps = size;
   const int nsamples = PI.rows();
@@ -210,7 +210,8 @@ void run_inbred_sites(Data* Pi, const Param& params) {
 
   cao.print(tick.date(), "run inbreeding coefficient estimator per site");
   if (!params.out_of_core) {
-    if (params.file_t == FileType::PLINK || params.file_t == FileType::PGEN) inbreed_coef_site_em(1, data->G, Pi->G, params);
+    if (params.file_t == FileType::PLINK || params.file_t == FileType::PGEN)
+      inbreed_coef_site_em(1, data->G, Pi->G, params);
     if (params.file_t == FileType::BEAGLE) inbreed_coef_site_em(2, data->P, Pi->G, params);
     delete data;
     return;
@@ -222,7 +223,7 @@ void run_inbred_sites(Data* Pi, const Param& params) {
   double sr2, sv2, alpha, diff;
   AreClose areClose;
   for (uint it = 0; it < params.maxiter; it++) {
-    F0 = F;                                                // copy the initial F
+    F0 = F;                                          // copy the initial F
     inbreed_coef_site_ooc(D1, F, data, Pi, params);  // F is F1
     sr2 = D1.array().square().sum();
     inbreed_coef_site_ooc(D2, F, data, Pi, params);  // F is F2
@@ -269,8 +270,8 @@ void run_inbred_sites(Data* Pi, const Param& params) {
   delete data;
 }
 
-void write_hwe_per_site(const std::string& fout, const std::string& fbim, const Mat1D& hwe, const Mat1D& lrt,
-                        const Mat1D& coef) {
+void write_hwe_per_site(
+    const std::string& fout, const std::string& fbim, const Mat1D& hwe, const Mat1D& lrt, const Mat1D& coef) {
   std::ifstream fin(fbim);
   if (!fin.is_open()) cao.error("can not open " + fbim);
   std::ofstream ohwe(fout);

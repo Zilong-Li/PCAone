@@ -6,11 +6,12 @@
 
 class FileBeagle : public Data {
  public:
-  FileBeagle(const Param &params_) : Data(params_) {
+  FileBeagle(const Param& params_)
+      : Data(params_) {
     cao.print(tick.date(), "start parsing BEAGLE format");
     // TODO: ask user to use --pcangsd explicitly
-    p_miss = 1.0; // enable EM-PCA in halko and arnoldi
-    original = buffer = (char *)calloc(bufsize, sizeof(char));
+    p_miss = 1.0;  // enable EM-PCA in halko and arnoldi
+    original = buffer = (char*)calloc(bufsize, sizeof(char));
     if (params.nsnps > 0 && params.nsamples > 0) {
       cao.print(tick.date(), "use nsamples and nsnps given by user");
       nsamples = params.nsamples;
@@ -20,7 +21,7 @@ class FileBeagle : public Data {
       tgets(fp, &buffer, &bufsize);
       int nCol = 1;
       if (buffer != original) original = buffer;
-      const char *delims = "\t \n";
+      const char* delims = "\t \n";
       strtok_r(buffer, delims, &buffer);
       while (strtok_r(NULL, delims, &buffer)) nCol++;
       if (nCol % 3) cao.error("Number of columns should be a multiple of 3.");
@@ -31,9 +32,9 @@ class FileBeagle : public Data {
       // continue getting the number of sites
       while (tgets(fp, &buffer, &bufsize)) {
         nsnps++;
-      } 
+      }
     }
-    if(params.dopca) F = Mat1D::Zero(nsnps);  // initial F
+    if (params.dopca) F = Mat1D::Zero(nsnps);  // initial F
     cao.print(tick.date(), "N (# samples):", nsamples, ", M (# SNPs):", nsnps);
   }
 
@@ -43,13 +44,13 @@ class FileBeagle : public Data {
   }
 
   void read_all() final;
-  
+
   // below are for blockwise
   void check_file_offset_first_var() final;
 
   void read_block_initial(uint64, uint64, bool) final;
 
-  void read_block_update(uint64, uint64, const Mat2D &, const Mat1D &, const Mat2D &, bool) final {}
+  void read_block_update(uint64, uint64, const Mat2D&, const Mat1D&, const Mat2D&, bool) final {}
 
  private:
   gzFile fp = nullptr;

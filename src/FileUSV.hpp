@@ -7,9 +7,10 @@
 // To get \Pi mainly
 class FileUSV : public Data {
  public:
-  FileUSV(const Param &params_) : Data(params_) {
+  FileUSV(const Param& params_)
+      : Data(params_) {
     cao.print(tick.date(), "start parsing U:", params.fileU, ", S:", params.fileS, ", V:", params.fileV);
-    read_sigvals(params.fileS, nsamples, nsnps, S); // could not structual bindings
+    read_sigvals(params.fileS, nsamples, nsnps, S);  // could not structual bindings
     if (S.size() != params.k) cao.warn("the value of -k not equal the number of rows in " + params.fileS);
     K = fmin(S.size(), params.k);
     cao.print(tick.date(), "start parsing mbim and read allele frequency of SNPs from", params.filebim);
@@ -23,13 +24,13 @@ class FileUSV : public Data {
   ~FileUSV() override = default;
 
   void read_all() final;
-  
+
   // for blockwise
   void check_file_offset_first_var() final {}
 
   void read_block_initial(uint64, uint64, bool) final;
 
-  void read_block_update(uint64, uint64, const Mat2D &, const Mat1D &, const Mat2D &, bool) final {}
+  void read_block_update(uint64, uint64, const Mat2D&, const Mat1D&, const Mat2D&, bool) final {}
 
  private:
   int K;

@@ -1,8 +1,8 @@
 #ifndef CMD_H_
 #define CMD_H_
 
-#include <sstream>
 #include <cstdint>
+#include <sstream>
 
 #include "Common.hpp"
 
@@ -31,8 +31,8 @@ class Param {
   uint threads = 12;
   uint bands = 64;
   bool genetic = true;  // bifle,pgen,bgen
-  bool dopca = true;   // false for projection, selection, inbreeding
-  bool perm = false;  // wheather data is permuted
+  bool dopca = true;    // false for projection, selection, inbreeding
+  bool perm = false;    // wheather data is permuted
   // for normalization
   double scaleFactor = 1;
   // for emu iteration
@@ -57,8 +57,8 @@ class Param {
   std::string filebim;  // the 7-th column can be MAF
   int ld_stats = 0;     // 0: adj; 1: std
   double ld_r2 = 0;
-  bool ld = false;  // true if tolld > 0
-  uint ld_bp = 1000000;   // base pairs not number of snps
+  bool ld = false;       // true if tolld > 0
+  uint ld_bp = 1000000;  // base pairs not number of snps
   // for clumping
   std::string clump;
   std::string assoc_colnames;
@@ -74,12 +74,12 @@ class Param {
   int selection = 0;
 
   // general
-  uint verbose = 1; // verbose level. 0: no verbose; 1: output to screen; 2: debug info 
+  uint verbose = 1;                       // verbose level. 0: no verbose; 1: output to screen; 2: debug info
   int scale = SCALE_STANDARDIZE_GENETIC;  // default: standardize genetic data by sqrt(ploidy*f*(1-f))
   bool hardcall = false;
   bool groff = false;
   bool printv = false;
-  bool missme = false; // keep track of missing information
+  bool missme = false;  // keep track of missing information
   bool noshuffle = false;
   bool emu = false;
   bool pcangsd = false;  // enable pcangsd procedure
@@ -87,9 +87,9 @@ class Param {
   bool mev = true;
   bool out_of_core = false;  // otherwise load all matrix into RAM.
   int ploidy = 2;
-  int seed = 112; // seeding 
-  bool filterSNP = false; // filter snps
-  bool center = true; // false if G is raw data likelihood or inbred mode
+  int seed = 112;          // seeding
+  bool filterSNP = false;  // filter snps
+  bool center = true;      // false if G is raw data likelihood or inbred mode
   // bool estpi = false; // true if output pi is needed
 
   std::ostringstream ss;

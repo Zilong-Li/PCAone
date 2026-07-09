@@ -52,8 +52,7 @@ void Data::prepare() {
       else
         cao.warn("minimum RAM required is ", m, " GB. trying to allocate more RAM.");
       blocksize = (unsigned int)ceil(
-          (double)((m + params.memory) * 134217728 - 3 * nsamples * l - 2 * nsnps * l - 5 * nsnps) /
-          nsamples);
+          (double)((m + params.memory) * 134217728 - 3 * nsamples * l - 2 * nsnps * l - 5 * nsnps) / nsamples);
     }
   } else {
     // ram of non-pca run
@@ -357,7 +356,7 @@ void Data::standardize_E() {
     const double f = F(i);
     const double sd = sqrt(f * (1.0 - f));
     if (sd > VAR_TOL) {  // in case denominator is too small.
-        G.col(i) *= sqrt((double)params.ploidy) / sd;
+      G.col(i) *= sqrt((double)params.ploidy) / sd;
     }
   }
 }

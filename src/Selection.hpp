@@ -6,4 +6,4 @@
 
 void run_selection(Data* data, const Param& params);
 
-#endif // PCAONE_SELECTION_H
+#endif  // PCAONE_SELECTION_H

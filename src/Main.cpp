@@ -24,9 +24,9 @@
 #include "Selection.hpp"
 
 #ifdef WITH_OPENBLAS
-#include "lapacke.h"
+  #include "lapacke.h"
 #elif defined WITH_MKL
-#include "mkl_lapacke.h"
+  #include "mkl_lapacke.h"
 #endif
 
 // clang-on
@@ -136,8 +136,8 @@ int main(int argc, char* argv[]) {
       data = new FileBgen(params);
       data->perm = perm;
     } else if (params.file_t == FileType::CSV) {
-      auto perm = shuffle_csvzstd_to_bin(params.filein, params.fileout, params.buffer, params.scale,
-                                         params.scaleFactor);
+      auto perm =
+          shuffle_csvzstd_to_bin(params.filein, params.fileout, params.buffer, params.scale, params.scaleFactor);
       params.file_t = FileType::BINARY;
       data = new FileBin(params);
       data->perm = perm;
@@ -181,8 +181,7 @@ int main(int argc, char* argv[]) {
     if (params.file_t == FileType::PLINK || params.file_t == FileType::BGEN || params.file_t == FileType::PGEN)
       data->standardize_E();
     cao.print(tick.date(), "running exact PCA with in-core eigendecomposition (PLINK-like).");
-    const Eigen::Index ncomp =
-        std::min<Eigen::Index>(params.k, std::min<Eigen::Index>(data->G.rows(), data->G.cols()));
+    const Eigen::Index ncomp = std::min<Eigen::Index>(params.k, std::min<Eigen::Index>(data->G.rows(), data->G.cols()));
     Mat1D evals(ncomp), svals(ncomp);
     Mat2D U(data->nsamples, ncomp), V(data->nsnps, ncomp);
     if (data->nsamples <= data->nsnps) {

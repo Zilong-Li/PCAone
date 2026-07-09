@@ -7,12 +7,13 @@
 #define PCAONE_FILEPGEN_
 
 #include "Data.hpp"
-#include "Utils.hpp"
 #include "pgenlib/pgenlibr.h"
+#include "Utils.hpp"
 
 class FilePgen : public Data {
  public:
-  FilePgen(const Param& params_) : Data(params_) {
+  FilePgen(const Param& params_)
+      : Data(params_) {
     cao.print(tick.date(), "start parsing PLINK2 PGEN format");
     std::string fpsam = params.filein + ".psam";
     std::string fpgen = params.filein + ".pgen";
@@ -29,12 +30,11 @@ class FilePgen : public Data {
     nsnps = reader.GetVariantCt();
     dosage_mode = (!params.hardcall) && reader.DosagePresent();
     cao.print(tick.date(), "N (# samples):", nsamples, ", M (# SNPs):", nsnps, ". dosage_mode:", dosage_mode);
-    
+
     snpmajor = true;
     thread_bufs.resize(reader_threads, std::vector<double>(nsamples));
     if (params.center) centered_geno_lookup = Arr2D::Zero(4, nsnps);
     if (params.dopca) F = Mat1D::Zero(nsnps);  // initial F
-
   }
 
   ~FilePgen() override = default;

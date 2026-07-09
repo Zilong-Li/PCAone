@@ -7,7 +7,8 @@
 class FileBed : public Data {
  public:
   //
-  FileBed(const Param &params_) : Data(params_) {
+  FileBed(const Param& params_)
+      : Data(params_) {
     cao.print(tick.date(), "start parsing PLINK format");
     std::string fbim = params.filein + ".bim";
     std::string ffam = params.filein + ".fam";
@@ -21,7 +22,7 @@ class FileBed : public Data {
     if (!bed_ifstream.is_open()) cao.error("Cannot open bed file.");
     // check magic number of bed file
     uchar header[3];
-    bed_ifstream.read(reinterpret_cast<char *>(&header[0]), 3);
+    bed_ifstream.read(reinterpret_cast<char*>(&header[0]), 3);
     if ((header[0] != 0x6c) || (header[1] != 0x1b) || (header[2] != 0x01))
       cao.error("Incorrect magic number in plink bed file.");
     if (params.center) centered_geno_lookup = Arr2D::Zero(4, nsnps);
@@ -36,7 +37,7 @@ class FileBed : public Data {
 
   void read_block_initial(uint64, uint64, bool) final;
 
-  void read_block_update(uint64, uint64, const Mat2D &, const Mat1D &, const Mat2D &, bool) final;
+  void read_block_update(uint64, uint64, const Mat2D&, const Mat1D&, const Mat2D&, bool) final;
 
  private:
   std::ifstream bed_ifstream;
@@ -45,6 +46,6 @@ class FileBed : public Data {
   std::vector<uchar> inbed;
 };
 
-PermMat permute_plink(std::string &fin, const std::string &fout, uint gb, uint nbands);
+PermMat permute_plink(std::string& fin, const std::string& fout, uint gb, uint nbands);
 
 #endif  // PCAONE_FILEPLINK_

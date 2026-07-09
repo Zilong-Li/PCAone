@@ -5,9 +5,10 @@
  ******************************************************************************/
 
 #include "FileBgen.hpp"
-#include "bgen/writer.h"
 
 #include <thread>
+
+#include "bgen/writer.h"
 
 using namespace std;
 
@@ -52,7 +53,7 @@ void FileBgen::read_all() {
           }
         }
         k++;
-      } catch (const std::out_of_range &e) {
+      } catch (const std::out_of_range& e) {
         throw e.what();
       }
     }
@@ -78,7 +79,7 @@ void FileBgen::read_all() {
           P(i * 2 + 1, j) = probs1d[i * 3 + 1];
           // no need to parse probs1d[i * 3 + 2]
         }
-      } catch (const std::out_of_range &e) {
+      } catch (const std::out_of_range& e) {
         throw e.what();
       }
     }
@@ -123,7 +124,7 @@ void FileBgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standa
         }
         if (standardize && params.scale == SCALE_STANDARDIZE_GENETIC) {
           double sd = sqrt(F(snp_idx) * (1 - F(snp_idx)));
-          if (sd > VAR_TOL) G(j, i) = (G(j, i) * sqrt((double) params.ploidy)) / sd;
+          if (sd > VAR_TOL) G(j, i) = (G(j, i) * sqrt((double)params.ploidy)) / sd;
         }
       }
     }
@@ -158,7 +159,7 @@ void FileBgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standa
         }
         if (standardize && params.scale == SCALE_STANDARDIZE_GENETIC) {
           double sd = sqrt(F(snp_idx) * (1 - F(snp_idx)));
-          if (sd > VAR_TOL) G(j, i) = (G(j, i) * sqrt((double) params.ploidy)) / sd;
+          if (sd > VAR_TOL) G(j, i) = (G(j, i) * sqrt((double)params.ploidy)) / sd;
         }
       }
     }
@@ -178,7 +179,7 @@ void permute_bgen_thread(std::vector<int> idx, std::string fin, std::string fout
   }
 }
 
-PermMat permute_bgen(std::string &fin, std::string fout, int nthreads) {
+PermMat permute_bgen(std::string& fin, std::string fout, int nthreads) {
   cao.print(tick.date(), "begin to permute BGEN file");
   bgen::CppBgenReader br(fin, "", true);
   uint nsnps = br.header.nvariants;
@@ -196,7 +197,7 @@ PermMat permute_bgen(std::string &fin, std::string fout, int nthreads) {
     threads.emplace_back(permute_bgen_thread, idx, fin, fout, i);
   }
   // Wait for all threads to finish execution
-  for (auto &t : threads) t.join();
+  for (auto& t : threads) t.join();
   // now cat all bgen files into big one
   std::ostreambuf_iterator<char> outIt(bw.handle);
   for (int i = 0; i < nthreads; i++) {

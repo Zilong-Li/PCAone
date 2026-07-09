@@ -7,8 +7,9 @@
 #include "Utils.hpp"
 
 #include <sys/utsname.h>
-#include <cstdlib> // strtod
+
 #include <cstddef>
+#include <cstdlib>  // strtod
 #include <cstring>  // strtok_r
 #include <fstream>
 
@@ -236,8 +237,7 @@ void make_plink2_eigenvec_file(int K, std::string fout, const std::string& fin, 
   }
 }
 
-void make_plink2_eigenvec_from_psam(int K, const std::string& fout, const std::string& fin,
-                                    const std::string& fpsam) {
+void make_plink2_eigenvec_from_psam(int K, const std::string& fout, const std::string& fin, const std::string& fpsam) {
   std::ifstream ipsam(fpsam);
   std::ifstream ifin(fin);
   std::ofstream ofs(fout);
@@ -424,8 +424,7 @@ std::string bim_flip_key(const String1D& tokens, const std::string& path, const 
 std::string pvar_line_to_bim_line(const std::string& line, const std::string& path) {
   const std::string sep{" \t"};
   auto tokens = pvar_tokens_to_bim_tokens(split_string(line, sep), path, line);
-  return tokens[0] + "\t" + tokens[1] + "\t" + tokens[2] + "\t" + tokens[3] + "\t" + tokens[4] + "\t" +
-         tokens[5];
+  return tokens[0] + "\t" + tokens[1] + "\t" + tokens[2] + "\t" + tokens[3] + "\t" + tokens[4] + "\t" + tokens[5];
 }
 
 BimMatch match_bim_to_mbim(const std::string& bim_file, const std::string& mbim_file) {
@@ -560,8 +559,7 @@ BimMatch match_beagle_to_mbim(const std::string& beagle_file, const std::string&
     char* marker = strtok_r(buffer, delims, &buffer);
     char* allele1 = strtok_r(NULL, delims, &buffer);
     char* allele2 = strtok_r(NULL, delims, &buffer);
-    if (!marker || !allele1 || !allele2)
-      cao.error("invalid BEAGLE record while matching markers:\n => " + beagle_file);
+    if (!marker || !allele1 || !allele2) cao.error("invalid BEAGLE record while matching markers:\n => " + beagle_file);
     beagle_markers.push_back(std::string(marker) + "_" + decode_beagle_allele(allele1) + "_" +
                              decode_beagle_allele(allele2));
     buffer = original;
@@ -737,8 +735,7 @@ void zstd_compress_file(const std::string& fname, std::string outname, int level
       finished = lastChunk ? (zbuf.lastRet == 0) : (input.pos == input.size);
     } while (!finished);
 
-    if (input.pos != input.size)
-      cao.error("Impossible: zstd only returns 0 when the input is completely consumed!");
+    if (input.pos != input.size) cao.error("Impossible: zstd only returns 0 when the input is completely consumed!");
     if (lastChunk) break;
   }
 
@@ -792,13 +789,11 @@ double qchisq(double p, int df) {
   double t;
   if (p < 0.5) {
     t = std::sqrt(-2.0 * std::log(p));
-    t = t -
-        (2.515517 + t * (0.802853 + t * 0.010328)) / (1.0 + t * (1.432788 + t * (0.189269 + t * 0.001308)));
+    t = t - (2.515517 + t * (0.802853 + t * 0.010328)) / (1.0 + t * (1.432788 + t * (0.189269 + t * 0.001308)));
     t = -t;  // negative side
   } else {
     t = std::sqrt(-2.0 * std::log(1.0 - p));
-    t = t -
-        (2.515517 + t * (0.802853 + t * 0.010328)) / (1.0 + t * (1.432788 + t * (0.189269 + t * 0.001308)));
+    t = t - (2.515517 + t * (0.802853 + t * 0.010328)) / (1.0 + t * (1.432788 + t * (0.189269 + t * 0.001308)));
   }
 
   double a = 2.0 / (9.0 * df);

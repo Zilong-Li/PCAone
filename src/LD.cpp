@@ -17,9 +17,7 @@
 using namespace std;
 
 namespace {
-bool is_pvar_header(const std::string& line) {
-  return !line.empty() && line[0] == '#';
-}
+bool is_pvar_header(const std::string& line) { return !line.empty() && line[0] == '#'; }
 
 String1D variant_tokens_for_bimish_line(const std::string& line, const std::string& path) {
   if (is_pvar_header(line)) return {};
@@ -182,15 +180,17 @@ void write_pruned_snp_ids(const std::string& filebim, const std::string& fileout
     // only output rsids, i.e the second column
     const auto fields = variant_tokens_for_bimish_line(line, filebim);
     if (keep(i))
-      ofs_in << fields[0] << "\t" << fields[1] << "\t" << fields[2] << "\t" << fields[3] << "\t" << fields[4] << "\t" << fields[5] << std::endl;
+      ofs_in << fields[0] << "\t" << fields[1] << "\t" << fields[2] << "\t" << fields[3] << "\t" << fields[4] << "\t"
+             << fields[5] << std::endl;
     else
-      ofs_out << fields[0] << "\t" << fields[1] << "\t" << fields[2] << "\t" << fields[3] << "\t" << fields[4] << "\t" << fields[5] << std::endl;
+      ofs_out << fields[0] << "\t" << fields[1] << "\t" << fields[2] << "\t" << fields[3] << "\t" << fields[4] << "\t"
+              << fields[5] << std::endl;
     i++;
   }
 }
 
-void ld_prune_small(Data* data, const std::string& fileout, const std::string& filebim, const SNPld& snp,
-                    const double r2_tol) {
+void ld_prune_small(
+    Data* data, const std::string& fileout, const std::string& filebim, const SNPld& snp, const double r2_tol) {
   const bool pick_random_one = snp.af.size() > 0 ? false : true;
   cao.print(tick.date(),
             "LD pruning, choose sites to be kept randomly or with high MAF? "
@@ -237,8 +237,8 @@ void ld_prune_small(Data* data, const std::string& fileout, const std::string& f
   write_pruned_snp_ids(filebim, fileout, keep);
 }
 
-void ld_prune_big(const Mat2D& G, const SNPld& snp, double r2_tol, const std::string& fileout,
-                  const std::string& filebim) {
+void ld_prune_big(
+    const Mat2D& G, const SNPld& snp, double r2_tol, const std::string& fileout, const std::string& filebim) {
   if ((long int)snp.pos.size() != G.cols()) cao.error("The number of variants is not matching the LD matrix");
   // TODO: maybe add an option in CLI
   const bool pick_random_one = snp.af.size() > 0 ? false : true;
@@ -320,9 +320,15 @@ std::vector<UMapIntPds> map_index_snps(const std::string& fileassoc, const Int1D
   return vm;
 }
 
-void ld_clump_single_pheno(const std::string& fileout, const std::string& head, const int clump_bp,
-                           const double clump_r2, const double clump_p1, const double clump_p2,
-                           const Mat2D& G, const Int2D& idx_per_chr, const Int2D& bp_per_chr,
+void ld_clump_single_pheno(const std::string& fileout,
+                           const std::string& head,
+                           const int clump_bp,
+                           const double clump_r2,
+                           const double clump_p1,
+                           const double clump_p2,
+                           const Mat2D& G,
+                           const Int2D& idx_per_chr,
+                           const Int2D& bp_per_chr,
                            const std::vector<UMapIntPds>& pvals_per_chr) {
   // sort by pvalues and get new idx
   const Arr1D sds = 1.0 / calc_sds(G);
@@ -531,8 +537,8 @@ void run_ld_stuff(Data* data, const Param& params) {
 
       } else {
         ld_clump_single_pheno(params.fileout + ".p" + std::to_string(i) + ".clump", head, params.clump_bp,
-                              params.clump_r2, params.clump_p1, params.clump_p2, data->G, idx_per_chr,
-                              bp_per_chr, pvals_per_chr);
+                              params.clump_r2, params.clump_p1, params.clump_p2, data->G, idx_per_chr, bp_per_chr,
+                              pvals_per_chr);
       }
     }
   }

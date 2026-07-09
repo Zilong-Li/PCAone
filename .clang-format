@@ -1,4 +1,13 @@
 ﻿Language:               Cpp
-Standard:               Cpp11
+Standard:               c++17
 BasedOnStyle:           Google
-ColumnLimit:            110
+ColumnLimit:            120
+UseTab:          Never
+AlignAfterOpenBracket: Align
+BinPackParameters: false
+AlignEscapedNewlines: Left
+AlwaysBreakTemplateDeclarations: Yes
+PackConstructorInitializers: Never
+BreakConstructorInitializersBeforeComma: false
+IndentPPDirectives: BeforeHash
+SortIncludes: CaseInsensitive
