@@ -68,6 +68,8 @@ class Param {
   uint clump_bp = 250000;
   // for projection
   int project = 0;
+  uint project_bootstrap = 0;
+  bool project_bootstrap_save = false;
   // for inbreeding
   int inbreed = 0;
   // for selection. 1: Galinsky et al. 2. pcadapt

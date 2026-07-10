@@ -100,6 +100,8 @@ Param::Param(int argc, char** argv) {
                                       "2: by solving the least squares system Vx=g. skip sites with missingness;\n"
                                       "3: by EM to account for genotype uncertainty (BEAGLE input);\n"
                                       "4: by Augmentation, Decomposition and Procrusters transformation.\n", project, &project);
+  opts.add<Value<uint>>("", "project-bootstrap", "run SNP bootstrap diagnostics for --project 2 using this many replicates.", project_bootstrap, &project_bootstrap);
+  opts.add<Switch>("", "project-bootstrap-save", "save raw bootstrap projection coordinates to *.proj.bootstrap.eigvecs.", &project_bootstrap_save);
   opts.add<Value<int>>("", "inbreed", "compute the inbreeding coefficient accounting for population structure. Options are\n"
                                       "0: disabled;\n"
                                       "1: compute per-site inbreeding coefficient and HWE test.\n", inbreed, &inbreed);
@@ -186,8 +188,12 @@ Param::Param(int argc, char** argv) {
     if (project > 0) {
       if (project < 1 || project > 3) throw std::invalid_argument("--project supports only 1, 2, or 3 in this release");
       if (fileV.empty() || fileS.empty()) throw std::invalid_argument("please use --USV together with --project");
+      if (project_bootstrap > 0 && project != 2)
+        throw std::invalid_argument("--project-bootstrap currently supports only --project 2");
       dopca = false, missme = true, out_of_core = false;
       memory = 0;
+    } else if (project_bootstrap > 0 || project_bootstrap_save) {
+      throw std::invalid_argument("--project-bootstrap requires --project 2");
     }
 
     // handle selection

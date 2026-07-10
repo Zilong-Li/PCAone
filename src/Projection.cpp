@@ -6,10 +6,155 @@
 
 #include "Projection.hpp"
 
+#include <limits>
+
 #include "Cmd.hpp"
 #include "Common.hpp"
 #include "Data.hpp"
 #include "Utils.hpp"
+
+Mat2D solve_bootstrap_projection_no_missing(const Mat2D& design, const Mat2D& G, const std::vector<uint>& counts) {
+  const int M = design.rows();
+  const int K = design.cols();
+  const int N = G.rows();
+  Mat2D ata = Mat2D::Zero(K, K);
+  Mat2D atg = Mat2D::Zero(K, N);
+  for (int j = 0; j < M; ++j) {
+    const uint w = counts[j];
+    if (w == 0) continue;
+    ata.noalias() += (double)w * design.row(j).transpose() * design.row(j);
+    atg.noalias() += (double)w * design.row(j).transpose() * G.col(j).transpose();
+  }
+  return ata.ldlt().solve(atg).transpose();
+}
+
+Mat2D solve_bootstrap_projection_missing(const Mat2D& design,
+                                         const ArrBool& C,
+                                         const Mat2D& G,
+                                         const std::vector<uint>& counts) {
+  const int M = design.rows();
+  const int K = design.cols();
+  const int N = G.rows();
+  Mat2D U(N, K);
+#pragma omp parallel for
+  for (int i = 0; i < N; ++i) {
+    Mat2D ata = Mat2D::Zero(K, K);
+    Mat1D atg = Mat1D::Zero(K);
+    int observed = 0;
+    for (int j = 0; j < M; ++j) {
+      const uint w = counts[j];
+      if (w == 0 || C(j * N + i)) continue;
+      ata.noalias() += (double)w * design.row(j).transpose() * design.row(j);
+      atg.noalias() += (double)w * design.row(j).transpose() * G(i, j);
+      observed += w;
+    }
+    if (observed < K) {
+      U.row(i).setConstant(std::numeric_limits<double>::quiet_NaN());
+    } else {
+      U.row(i) = ata.ldlt().solve(atg).transpose();
+    }
+  }
+  return U;
+}
+
+void write_projection_bootstrap_stats(
+    const Mat2D& design, const ArrBool& C, const Mat2D& G, const Mat2D& U0, uint nreps, const Param& params) {
+  const int M = design.rows();
+  const int N = G.rows();
+  const int K = design.cols();
+  if (nreps < 2) cao.error("--project-bootstrap must be at least 2");
+  if (M < K) cao.error("projection bootstrap requires at least as many matched SNPs as PCs");
+
+  cao.print(tick.date(), "run projection SNP bootstrap with", nreps, "replicates");
+  const bool has_missing = C.size() && C.count() > 0;
+  std::mt19937_64 rng(params.seed);
+  std::uniform_int_distribution<int> snp_dist(0, M - 1);
+
+  Mat2D sum = Mat2D::Zero(N, K);
+  Mat2D sumsq = Mat2D::Zero(N, K);
+  Mat2D diff_sumsq = Mat2D::Zero(N, K);
+  Mat2D minv = Mat2D::Constant(N, K, std::numeric_limits<double>::infinity());
+  Mat2D maxv = Mat2D::Constant(N, K, -std::numeric_limits<double>::infinity());
+
+  std::vector<std::pair<int, int>> pairs;
+  pairs.reserve(static_cast<size_t>(K) * (K - 1) / 2);
+  for (int a = 0; a < K; ++a) {
+    for (int b = a + 1; b < K; ++b) pairs.emplace_back(a, b);
+  }
+  Mat2D cross_sum = Mat2D::Zero(N, pairs.size());
+
+  std::ofstream raw;
+  if (params.project_bootstrap_save) {
+    raw.open(params.fileout + ".proj.bootstrap.eigvecs");
+    if (!raw.is_open()) cao.error("can not open " + params.fileout + ".proj.bootstrap.eigvecs");
+    raw << "replicate\tsample";
+    for (int k = 0; k < K; ++k) raw << "\tPC" << k + 1;
+    raw << '\n';
+  }
+
+  std::vector<uint> counts(M);
+  for (uint r = 0; r < nreps; ++r) {
+    std::fill(counts.begin(), counts.end(), 0);
+    for (int draw = 0; draw < M; ++draw) counts[snp_dist(rng)]++;
+
+    Mat2D Ub = has_missing ? solve_bootstrap_projection_missing(design, C, G, counts)
+                           : solve_bootstrap_projection_no_missing(design, G, counts);
+
+    for (int k = 0; k < K; ++k) {
+      if (Ub.col(k).allFinite() && Ub.col(k).dot(U0.col(k)) < 0.0) Ub.col(k) *= -1.0;
+    }
+
+    sum += Ub;
+    sumsq += Ub.array().square().matrix();
+    diff_sumsq += (Ub - U0).array().square().matrix();
+    minv = minv.cwiseMin(Ub);
+    maxv = maxv.cwiseMax(Ub);
+    for (int p = 0; p < (int)pairs.size(); ++p) {
+      cross_sum.col(p).array() += Ub.col(pairs[p].first).array() * Ub.col(pairs[p].second).array();
+    }
+
+    if (raw.is_open()) {
+      for (int i = 0; i < N; ++i) {
+        raw << r + 1 << '\t' << i + 1;
+        for (int k = 0; k < K; ++k) raw << '\t' << Ub(i, k);
+        raw << '\n';
+      }
+    }
+  }
+
+  const double R = (double)nreps;
+  Mat2D mean = sum / R;
+  Mat2D variance = (sumsq.array() - (sum.array().square() / R)).max(0.0) / std::max(1.0, R - 1.0);
+  Mat2D sd = variance.array().sqrt().matrix();
+  Mat2D rmsd = (diff_sumsq.array() / R).sqrt().matrix();
+
+  std::ofstream out(params.fileout + ".proj.bootstrap.tsv");
+  if (!out.is_open()) cao.error("can not open " + params.fileout + ".proj.bootstrap.tsv");
+  out << "sample\tpc\tbaseline\tmean\tbootstrap_se\tmin\tmax\trmsd\n";
+  for (int i = 0; i < N; ++i) {
+    for (int k = 0; k < K; ++k) {
+      out << i + 1 << "\tPC" << k + 1 << '\t' << U0(i, k) << '\t' << mean(i, k) << '\t' << sd(i, k) << '\t'
+          << minv(i, k) << '\t' << maxv(i, k) << '\t' << rmsd(i, k) << '\n';
+    }
+  }
+
+  std::ofstream covout(params.fileout + ".proj.bootstrap.cov.tsv");
+  if (!covout.is_open()) cao.error("can not open " + params.fileout + ".proj.bootstrap.cov.tsv");
+  covout << "sample\tpc_x\tpc_y\tbaseline_x\tbaseline_y\tmean_x\tmean_y\tvar_x\tvar_y\tcov\tcorr\n";
+  for (int i = 0; i < N; ++i) {
+    for (int p = 0; p < (int)pairs.size(); ++p) {
+      const int a = pairs[p].first;
+      const int b = pairs[p].second;
+      const double cov = (cross_sum(i, p) - R * mean(i, a) * mean(i, b)) / std::max(1.0, R - 1.0);
+      const double denom = std::sqrt(variance(i, a) * variance(i, b));
+      const double corr = denom > 0.0 ? cov / denom : std::numeric_limits<double>::quiet_NaN();
+      covout << i + 1 << "\tPC" << a + 1 << "\tPC" << b + 1 << '\t' << U0(i, a) << '\t' << U0(i, b) << '\t'
+             << mean(i, a) << '\t' << mean(i, b) << '\t' << variance(i, a) << '\t' << variance(i, b) << '\t' << cov
+             << '\t' << corr << '\n';
+    }
+  }
+  cao.print(tick.date(), "projection bootstrap diagnostics saved to", params.fileout + ".proj.bootstrap.tsv");
+}
 
 void solve_projection_scores(const Mat2D& V, const ArrBool& C, const Mat2D& G, Mat2D& U) {
   if (U.rows() == 0 || U.cols() == 0) return;
@@ -98,6 +243,8 @@ void run_projection(Data* data, const Param& params) {
     V = V * S.asDiagonal();
     if (p_miss == 0.0) cao.warn("there is no missing genotypes");
     solve_projection_scores(V, data->C, data->G, U);
+    if (params.project_bootstrap > 0)
+      write_projection_bootstrap_stats(V, data->C, data->G, U, params.project_bootstrap, params);
   } else if (params.project == 3) {
     // project == 3: iterative GL-aware projection (EM)
     // E-step: update expected G (0, 1) using individual allele frequencies PI

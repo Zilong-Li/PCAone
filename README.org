@@ -439,6 +439,22 @@ PCAone -b example/new \
        -o new
 #+end_src
 
+To visualize uncertainty in projected coordinates, use =--project-bootstrap= to
+resample matched SNPs with replacement after the baseline =--project 2=
+projection. PCAone writes per-sample/per-PC summaries to =.proj.bootstrap.tsv=
+and PC-pair covariance matrices to =.proj.bootstrap.cov.tsv=, which can be used
+to draw uncertainty ellipses around the baseline estimates. Add
+=--project-bootstrap-save= to write raw bootstrap replicate coordinates to
+=.proj.bootstrap.eigvecs=.
+
+#+begin_src shell
+PCAone -b example/new \
+       --USV ref \
+       --project 2 \
+       --project-bootstrap 100 \
+       -o new
+#+end_src
+
 For BEAGLE genotype likelihood input, use =--project 3= to perform
 genotype-likelihood aware projection with an EM procedure:
 

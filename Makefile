@@ -210,8 +210,8 @@ example_tests:
 	./PCAone --csv example/BrainSpinalCord.csv.zst -k 10 -m 4 --scale 2 -S
 
 projection:
-	./PCAone -b example/ref -V -o ref -v3
-	./PCAone -b example/new --USV ref --project 2 -o new -v3
+	./PCAone -b example/ref -k 3 -V -o ref -v3
+	./PCAone -b example/new --USV ref -k 3 --project 2 --project-bootstrap 100 -o new -v3
 
 hwe:
 	./PCAone -b example/plink -k 3 -V -m 1
