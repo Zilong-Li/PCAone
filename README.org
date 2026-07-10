@@ -1,5 +1,5 @@
-#+TITLE: Principal Component Analysis All in One (v0.7.1)
-#+subtitle: Version 0.7.1
+#+TITLE: Principal Component Analysis All in One (v0.7.2)
+#+subtitle: Version 0.7.2
 #+author: Zilong Li 
 #+email: zilong.dk@gmail.com
 #+options: toc:2 num:nil email:t -:nil ^:nil
@@ -41,7 +41,7 @@ missingness and uncertainty. The PDF manual can be downloaded [[https://github.c
 #+BEGIN_QUOTE
 - [[#introduction][Introduction]]
 - [[#features][Features]]
-- [[#whats-new-in-v070][What's new in v0.7.0]]
+- [[#whats-new-in-version-about-070][What's new in version about 0.7.0]]
 - [[#cite-the-work][Cite the work]]
 - [[#quick-start][Quick start]]
 - [[#installation][Installation]]
@@ -88,7 +88,7 @@ See [[file:CHANGELOG.org][change log]] here.
 - Projection from BEAGLE genotype likelihoods onto a reference space via =--project 3=.
 - HWE test taking population structure into account.
 
-* What's new in v0.7.0
+* What's new in version about 0.7.0 
 
 - Added PLINK2 =PGEN= input support with =--pgen= for PCA workflows.
 - =PGEN= reads dosages when available, and can be forced to use hard calls with =--hardcall=.
@@ -97,6 +97,7 @@ See [[file:CHANGELOG.org][change log]] here.
 - Added genome-wide selection scans via =--selection 1= (Galinsky/FastPCA) and =--selection 2= (pcadapt).
 - Bug fixes for projection with missing data
 - Fast Eigendecomposition when =N<<M= with =-d 3=
+- Projection with bootstraps
 
 * Cite the work
 
