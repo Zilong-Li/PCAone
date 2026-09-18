@@ -1,19 +1,37 @@
-# A bug in `--inbreed`: the HWE likelihood ratio test is not on a common scale
+# Two bugs in `--inbreed`: the HWE test removes 23% of markers instead of 0.3%
 
 `PCAone --inbreed 1` implements the structured-population Hardy–Weinberg test of
-Meisner & Albrechtsen (2019, *Mol Ecol Resour* 19:1144). On our test data it
-returns a **negative likelihood ratio statistic for 68% of markers**, the most
-extreme being −9898. That is impossible: the alternative model nests the null,
-so the maximised log-likelihood can only increase and `2(logAlt − logNull) ≥ 0`.
+Meisner & Albrechtsen (2019, *Mol Ecol Resour* 19:1144). On our test data v0.7.2
+removed **22.97%** of common markers where PCAngsd removed **0.12%** and the
+truth is **0.30%**, and it returned a **negative likelihood ratio statistic for
+68% of markers** (most extreme −9898), which is impossible when the alternative
+nests the null.
 
-The consequence is a badly over-conservative filter. Against PCAngsd on the same
-data, the same markers and the same K, PCAone removed **23%** of common markers
-where PCAngsd removed **0.12%**.
+There are two independent defects. With both fixed, PCAone agrees with PCAngsd.
 
-## The cause
+| | median F | removed at p<1e-6 | negative LRT | r(F, PCAngsd) |
+|---|---|---|---|---|
+| v0.7.2 as shipped | −0.0436 | **22.97%** | 4,399 | 0.168 |
+| + fix 1 (LRT) | −0.0436 | 8.60% | 0 | 0.168 |
+| + fix 2 (π scale) | **+0.0103** | **0.05%** | **0** | **0.751** |
+| PCAngsd v1.36.4 | +0.0074 | 0.12% | — | — |
+| stratified truth | | 0.30% | | |
 
-In `calc_inbreed_site_lrt()` (`src/InbredSites.cpp`), the **alternative** model
-floors each genotype probability at `1e-4` and then renormalises:
+Test data: chromosome 22 of a simulated cohort, 10,000 individuals, 20
+populations in 4 continental groups, 6,455 markers at MAF ≥ 5%, K = 3. Ground
+truth is a stratified test — HWE within each of the 20 populations, chi-squares
+summed over 20 df — which has the same total sample size as the pooled test but
+no Wahlund effect. Only 0.3% of these markers genuinely deviate.
+
+Both fixes work with the plain default SVD; neither `--emu` nor `--pcangsd` is
+needed.
+
+---
+
+## Fix 1 — `calc_inbreed_site_lrt()`: the two models are not on a common scale
+
+In `src/InbredSites.cpp` the **alternative** model floors each genotype
+probability at `1e-4` and then renormalises:
 
 ```cpp
 p0 = fmax(1e-4, (1.0 - PI(i,j)) * (1.0 - PI(i,j)) + Fadj);
@@ -23,123 +41,125 @@ pSum = 1.0 / (p0 + p1 + p2);
 p0 *= pSum;  p1 *= pSum;  p2 *= pSum;
 ```
 
-while the **null** model, a few lines below, is left raw:
+while the **null**, a few lines below, is left raw:
 
 ```cpp
 logNull += log((1.0 - PI(i,j)) * (1.0 - PI(i,j)));
 ```
 
-Unclamped, the three probabilities sum to exactly 1:
+Unclamped the three sum to exactly 1:
 
 ```
-[(1−π)² + π(1−π)F] + [2π(1−π)(1−F)] + [π² + π(1−π)F]
-  = (1−π)² + 2π(1−π) + π² + 2π(1−π)F − 2π(1−π)F = 1
+[(1−π)² + π(1−π)F] + [2π(1−π)(1−F)] + [π² + π(1−π)F] = 1
 ```
 
-so `pSum` is 1 and the renormalisation does nothing. It only bites when the
-floor fires — and with **individual** allele frequencies it fires constantly,
-because at a marker differentiated between groups many individuals have π close
-to 0 or 1, making `(1−π)²` or `π²` smaller than `1e-4`.
+so `pSum` is 1 and the renormalisation is a no-op. It only bites when the floor
+fires — and with **individual** allele frequencies it fires constantly, because
+at a differentiated marker many individuals have π near 0 or 1, making `(1−π)²`
+or `π²` smaller than `1e-4`.
 
-When it fires, `p0 + p1 + p2 > 1`, so `pSum < 1` and **every** alternative
-probability is scaled down — including the one belonging to the genotype that
-was actually observed, which is usually the common homozygote with probability
-near 1. The alternative is then penalised relative to an unpenalised null, and
-`logAlt < logNull`.
+When it fires, `p0 + p1 + p2 > 1`, so `pSum < 1` and every alternative
+probability is scaled down, including the one for the genotype actually
+observed — usually the common homozygote with probability near 1. The
+alternative is penalised against an unpenalised null, `logAlt < logNull`, and
+the statistic goes negative. The models are no longer nested once one has been
+renormalised and the other has not.
 
-The two models are no longer nested, because one has been renormalised and the
-other has not. The statistic stops being a likelihood ratio.
+**Fix:** drop the per-term floor and the renormalisation; apply a shared
+`PROB_EPS = 1e-12` to both models purely to keep `log()` finite; guard the
+statistic with `fmax(0.0, …)`. The same floor replaces `1e-4` in
+`inbreed_coef_site()`.
 
-The same floor is applied in `inbreed_coef_site()`, so the estimate of `F` is
-distorted too: PCAone's F spans **−1.000 to +0.435** with many values pinned at
-the −1 boundary, against PCAngsd's **−0.044 to +0.165** on identical input.
+---
 
-## The fix in this branch
+## Fix 2 — `FileUSV::read_all()`: π is reconstructed at half the correct scale
 
-`src/InbredSites.cpp`, three changes:
-
-1. **Drop the per-term floor and the renormalisation from the alternative.**
-   The probabilities sum to one by construction; a shared `PROB_EPS = 1e-12`
-   floor is applied only so `log()` stays finite.
-2. **Apply the same floor to the null**, so both sides are treated alike.
-3. **Guard the statistic with `fmax(0.0, ...)`.** With 1 and 2 in place this
-   should never bind; if it ever does it signals a remaining problem rather than
-   emitting an impossible value.
-
-The same `PROB_EPS` replaces `1e-4` in `inbreed_coef_site()`.
-
-## Effect
-
-Chromosome 22 of a simulated cohort: 10,000 individuals, 20 populations in 4
-continental groups, 6,455 markers at MAF ≥ 5%, K = 3.
-
-| | median F | removed at p < 1e-6 | negative LRT |
-|---|---|---|---|
-| PCAone v0.7.2 | −0.0436 | 22.97% | **4,399 / 6,455** |
-| PCAone + this branch | −0.0436 | 8.60% | **0** |
-| PCAngsd v1.36.4 | +0.0074 | 0.12% | 1,500 (small, near F = 0) |
-| independent reimplementation | +0.0074 | 0.05% | 0 |
-
-Ground truth for this dataset is **0.3%**: testing HWE within each of the 20
-populations separately and summing the per-population chi-squares (20 df) — same
-total sample size as the pooled test, so comparable power, but no Wahlund
-effect. Only 0.3% of these markers genuinely deviate.
-
-## A second, separate difference: π is estimated once, not iterated
-
-The fix above removes the impossible statistics and most of the excess, but 8.6%
-against 0.05% remains. That residual is **not** in `InbredSites.cpp`.
-
-With called genotypes the posterior probability of heterozygosity is simply the
-indicator — you either observed a heterozygote or you did not — so the EM update
-reduces to
-
-```
-F = 1 − obsHet / expHet,     expHet = Σᵢ 2πᵢ(1−πᵢ)
-```
-
-`obsHet` is an observed count and is identical in both programs. Therefore **any
-difference in F is a difference in π, and nothing else.**
-
-PCAone forms π once, in `FileUSV::read_all()`:
+This is the one that made the test wrong rather than merely ill-defined. Two
+scale factors are missing, and they compound.
 
 ```cpp
 G = U * S.asDiagonal() * V.transpose();
-G(j,i) = (G(j,i) + 2.0 * F(i)) * 0.5;
-G(j,i) = fmin(fmax(G(j,i), 1e-4), 1.0 - 1e-4);
+G(j, i) = (G(j, i) + 2.0 * F(i)) * 0.5;      // <- no rescaling
+G(j, i) = fmin(fmax(G(j, i), 1e-4), 1.0 - 1e-4);
 ```
 
-a single rank-K reconstruction of a matrix in which missing genotypes were
-filled with the site mean. PCAngsd instead iterates: it estimates π, refills the
-missing entries from the current π, refits, and repeats to convergence (its log
-reports *"converged in 2 iterations using 3 eigenvectors"*). Mean-imputed entries
-pull the fitted surface toward the population average; iterating replaces each
-missing genotype with that individual's own expected frequency.
+**(a) The reconstruction is on the standardised scale.**
+`Data::standardize_E()` divides each column by `sd = sqrt(f(1-f))` and
+multiplies by `sqrt(ploidy)`, so `U·S·Vᵀ` is not on the genotype scale and must
+be returned to it before `2f` is added.
 
-The `[1e-4, 1−1e-4]` clip compounds it: a π pinned at `1e-4` contributes
-≈ 0.0002 to `expHet`, and because `F = 1 − obsHet/expHet`, a deflated
-denominator inflates F.
+**(b) The stored singular values are half their true value.** On the same
+matrix:
 
-Fixing this means iterating π in the SVD step, which is outside the scope of
-this branch.
+| | PC1 | PC2 | PC3 |
+|---|---|---|---|
+| PCAone `.sigvals` | 2390.75 | 1841.50 | 979.894 |
+| true singular values | 4781.51 | 3683.00 | 1959.79 |
+| ratio | 2.0000 | 2.0000 | 2.0000 |
+
+This is internally consistent — `.eigvals` (885.469) equals `s_stored²/M` — so
+the halving is upstream of both outputs, not a write bug in one file. **It may
+therefore affect every other consumer of the USV files, not only `--inbreed`.**
+
+**Fix:** multiply the reconstruction by `sd * sqrt(2)` — that is `sd/sqrt(2)`
+for (a) and a further `×2` for (b) — in both `read_all()` and the block-wise
+`read_block_initial()` used out of core.
+
+### Why this produced exactly the symptoms observed
+
+Only half the structure was being applied, so π sat too close to the population
+mean and expected heterozygosity was too high. Backing the implied `expHet` out
+of each program's F (`F = 1 − obsHet/expHet`, and `obsHet` is an observed count
+identical in all of them):
+
+| | expHet | implied F |
+|---|---|---|
+| no structure at all, 2f(1−f)N | 3193.6 | +0.121 |
+| PCAone, fix 1 only | 3031.8 | +0.074 |
+| PCAngsd | 2826.6 | +0.007 |
+
+PCAone sat nearest the no-structure value because it was applying half the
+structure. This also explains:
+
+- **Rare variants were catastrophic.** The error scales as `1/sd`, so it is
+  worst where `sd` is smallest. At MAF < 1% median F was **+0.83** with 96.6% of
+  markers spuriously significant. PCAngsd defaults to `--maf 0.05`; PCAone
+  defaults to `--maf 0`, so it will happily run where the method cannot work.
+- **More components made it worse** — each added a further wrongly-scaled
+  deviation.
+
+---
+
+## What was ruled out
+
+Recorded so nobody repeats it: the residual was **not** caused by the number of
+principal components (F is flat across K = 5, 20, 40), by missingness (0.177 vs
+0.182 with and without), by the SVD solver (`--svd 0` and the default window
+method give bit-identical output), by iterating the individual allele
+frequencies (0.03% either way), or by the `read_usv()` row-major fix — which is
+not on this path at all, since `FileUSV` uses `read_eigvecs()`.
+
+---
 
 ## Reproducing
 
 ```bash
-# common markers only -- PCAngsd defaults to --maf 0.05 for good reason:
-# below ~5% MAF the rank-K approximation of pi is poor and this test breaks down
-# (median F was +0.83 with 96.6% spurious significance at MAF < 1%)
-plink2 --bfile data --maf 0.05 --make-bed --out common
+plink2 --bfile data --maf 0.05 --make-bed --out common   # see the MAF note above
 
 PCAone -b common -k 3 --svd 0 --printv -o svd
 PCAone -b common --inbreed 1 -P svd -k 3 --svd 0 -o hwe
-awk 'NR>1 && $3 < 0' hwe.hwe | wc -l        # negative LRTs: many before, 0 after
+
+awk 'NR>1 && $3 < 0' hwe.hwe | wc -l                     # negative LRTs
+awk 'NR>1 && $2 < 1e-6' hwe.hwe | wc -l                  # markers removed
 ```
 
-## Notes for anyone else running `--inbreed`
+Compare against `pcangsd -p common -e 3 --inbreed-sites -o ref`.
 
-Four invocation requirements that are currently undocumented, three of which
-fail by crashing rather than by erroring:
+---
+
+## Undocumented invocation requirements
+
+Four, three of which fail by crashing rather than erroring:
 
 - `--inbreed` requires `--USV`; without it, a clean exit with a message.
 - `-k` must match the SVD's k, or **segfault** (after only a warning).
