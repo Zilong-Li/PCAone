@@ -313,7 +313,15 @@ Mat2D read_usv(const std::string& path) {
     }
     j++;
   }
-  return Eigen::Map<Mat2D>(V.data(), j, k);
+  // a single-row file never enters the branch above, so k is still 0
+  if (j == 1) k = (int)V.size();
+  if (j < 1 || k < 1) cao.error("can not parse a matrix from file\n =>" + path);
+  if ((int)V.size() != j * k) cao.error("the columns are not aligned!\n =>" + path);
+  // V is filled row by row, so it must be mapped as row-major. Mapping it with
+  // Eigen::Map<Mat2D> (column-major) transposes the contents of any file with
+  // more than one column.
+  using MatRowMajor = Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+  return Eigen::Map<MatRowMajor>(V.data(), j, k);
 }
 
 // parse .sigvals file

@@ -25,6 +25,10 @@
  * Note PCAone codes genotypes on the 0..1 scale (BED2GENO = {1, NA, 0.5, 0}),
  * i.e. x = g/2. Both bhat and chat are correlation matrices, so the constant
  * factor between the x and g scales cancels and no rescaling is needed.
+ *
+ * The PC scores are read with Utils::read_usv(), which this branch also fixes:
+ * it used to map a row-major buffer as column-major, transposing any file with
+ * more than one column. --evaladmix-k is a direct regression test for that.
  ******************************************************************************/
 #include "EvalAdmix.hpp"
 
@@ -35,32 +39,6 @@
 #include <vector>
 
 #include "Utils.hpp"
-
-// Read a whitespace/tab separated numeric matrix.
-// NOTE: not using Utils' read_usv() here -- it maps a row-major buffer with
-// Eigen::Map<Mat2D> (column-major), which scrambles any file with >1 column.
-static Mat2D read_matrix_rowmajor(const std::string& path) {
-  std::ifstream fin(path);
-  if (!fin.is_open()) cao.error("can not open file: " + path);
-  std::vector<std::vector<double>> rows;
-  std::string line;
-  while (std::getline(fin, line)) {
-    if (line.empty()) continue;
-    std::istringstream iss(line);
-    std::vector<double> r;
-    double v;
-    while (iss >> v) r.push_back(v);
-    if (!r.empty()) rows.push_back(std::move(r));
-  }
-  if (rows.empty()) cao.error("empty matrix file: " + path);
-  const Eigen::Index n = rows.size(), k = rows[0].size();
-  Mat2D M(n, k);
-  for (Eigen::Index i = 0; i < n; ++i) {
-    if ((Eigen::Index)rows[i].size() != k) cao.error("ragged matrix in file: " + path);
-    for (Eigen::Index j = 0; j < k; ++j) M(i, j) = rows[i][j];
-  }
-  return M;
-}
 
 // turn a symmetric PSD matrix into a correlation matrix
 static Mat2D cov2cor(const Mat2D& C) {
@@ -93,7 +71,7 @@ void run_evaladmix(Data* data, const Param& params) {
 
   // ---- 1. principal component scores -------------------------------------
   std::string fpcs = params.fileU.empty() ? params.fileout + ".eigvecs" : params.fileU;
-  Mat2D U = read_matrix_rowmajor(fpcs);  // N x kmax
+  Mat2D U = read_usv(fpcs);  // N x kmax
   cao.print(tick.date(), "evalAdmix: read", U.rows(), "x", U.cols(), "PC scores from", fpcs);
   if (U.rows() != N) cao.error("number of samples in .eigvecs does not match the genotype file");
   Eigen::Index k = params.evaladmix_k > 0 ? params.evaladmix_k : U.cols();
