@@ -12,6 +12,11 @@
 #include "FilePlink.hpp"
 #include "Utils.hpp"
 
+// Shared floor for genotype probabilities, applied identically to the null
+// and the alternative model, solely to keep log() finite.  See
+// docs/hwe-lrt-fix.md for why a one-sided floor was a bug.
+static constexpr double PROB_EPS = 1e-12;
+
 // type 1: Genotype input, {1, -9, 0.5, 0}, GL is N x M
 // type 2: Genotype likelihood input, GL is (N x 2) x M
 void inbreed_coef_site(
@@ -27,11 +32,13 @@ void inbreed_coef_site(
       // Fadj = (1-pi)*pi*F;
       Fadj = (1.0 - PI(i, j)) * PI(i, j) * F(jj);
       // (1-pi)^2 + pi(1-pi)*F
-      p0 = fmax(1e-4, (1.0 - PI(i, j)) * (1.0 - PI(i, j)) + Fadj);
+      // FIX: floor at PROB_EPS rather than 1e-4, so the three still sum to
+      // one and the normalisation below leaves them unchanged.
+      p0 = fmax(PROB_EPS, (1.0 - PI(i, j)) * (1.0 - PI(i, j)) + Fadj);
       // 2pi(1-pi)(1-F)
-      p1 = fmax(1e-4, 2.0 * PI(i, j) * (1.0 - PI(i, j)) * (1.0 - F(jj)));
+      p1 = fmax(PROB_EPS, 2.0 * PI(i, j) * (1.0 - PI(i, j)) * (1.0 - F(jj)));
       // pi^2 + pi(1-pi)*F
-      p2 = fmax(1e-4, PI(i, j) * PI(i, j) + Fadj);
+      p2 = fmax(PROB_EPS, PI(i, j) * PI(i, j) + Fadj);
       // normalize
       pSum = 1.0 / (p0 + p1 + p2);
       p0 *= pSum;
@@ -90,29 +97,27 @@ void calc_inbreed_site_lrt(
       // Fadj = (1-pi)*pi*F;
       Fadj = (1.0 - PI(i, j)) * PI(i, j) * F(jj);
       // (1-pi)^2 + pi(1-pi)*F
-      p0 = fmax(1e-4, (1.0 - PI(i, j)) * (1.0 - PI(i, j)) + Fadj);
-      // 2pi(1-pi)(1-F)
-      // p1 = fmax(1e-4, 2.0 * PI(i, j) * (1.0 - PI(i, j)) * (1.0 - F(jj)));
-      p1 = fmax(1e-4, 2.0 * PI(i, j) * (1.0 - PI(i, j)) - (2.0 * Fadj));
-      // pi^2 + pi(1-pi)*F
-      p2 = fmax(1e-4, PI(i, j) * PI(i, j) + Fadj);
-      // normalize
-      pSum = 1.0 / (p0 + p1 + p2);
-      p0 *= pSum;
-      p1 *= pSum;
-      p2 *= pSum;
+      // FIX: no per-term floor and no renormalisation here.  Unclamped these
+      // satisfy p0 + p1 + p2 = 1 exactly, so the renormalisation was a no-op
+      // in the ordinary case and wrong whenever the floor fired: it rescaled
+      // the ALTERNATIVE while the NULL below was left raw, so the two models
+      // were no longer on a common scale and the statistic could come out
+      // negative.  See docs/hwe-lrt-fix.md.
+      p0 = fmax(PROB_EPS, (1.0 - PI(i, j)) * (1.0 - PI(i, j)) + Fadj);
+      p1 = fmax(PROB_EPS, 2.0 * PI(i, j) * (1.0 - PI(i, j)) * (1.0 - F(jj)));
+      p2 = fmax(PROB_EPS, PI(i, j) * PI(i, j) + Fadj);
 
       // posterior // Likelihood*prior
       if (type == 1) {
         if (GL(i, j) == BED2GENO[3]) {
           logAlt += log(p0);
-          logNull += log((1.0 - PI(i, j)) * (1.0 - PI(i, j)));
+          logNull += log(fmax(PROB_EPS, (1.0 - PI(i, j)) * (1.0 - PI(i, j))));
         } else if (GL(i, j) == BED2GENO[2]) {
           logAlt += log(p1);
-          logNull += log(2.0 * PI(i, j) * (1.0 - PI(i, j)));
+          logNull += log(fmax(PROB_EPS, 2.0 * PI(i, j) * (1.0 - PI(i, j))));
         } else if (GL(i, j) == BED2GENO[0]) {
           logAlt += log(p2);
-          logNull += log(PI(i, j) * PI(i, j));
+          logNull += log(fmax(PROB_EPS, PI(i, j) * PI(i, j)));
         } else {
           logAlt += log(0.333333 * (p0 + p1 + p2));
           logNull += log(0.333333 * ((1.0 - PI(i, j)) * (1.0 - PI(i, j)) + 2.0 * PI(i, j) * (1.0 - PI(i, j)) +
@@ -130,7 +135,10 @@ void calc_inbreed_site_lrt(
         logNull += log(l0 + l1 + l2);
       }
     }
-    T(jj) = 2.0 * (logAlt - logNull);
+    // With both models on a common scale this is non-negative by
+    // construction (the alternative nests the null).  The guard turns any
+    // residual numerical noise into 0 rather than an impossible statistic.
+    T(jj) = fmax(0.0, 2.0 * (logAlt - logNull));
   }
 }
 
