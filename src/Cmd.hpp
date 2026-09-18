@@ -92,6 +92,8 @@ class Param {
   int seed = 112;          // seeding
   bool filterSNP = false;  // filter snps
   bool center = true;      // false if G is raw data likelihood or inbred mode
+  bool evaladmix = false;  // compute correlation of residuals (evalAdmix)
+  int evaladmix_k = 0;     // PCs used by --evaladmix; 0 means all available
   // bool estpi = false; // true if output pi is needed
 
   std::ostringstream ss;

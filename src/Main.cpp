@@ -9,6 +9,7 @@
 #include "Cmd.hpp"
 #include "Common.hpp"
 #include "Data.hpp"
+#include "EvalAdmix.hpp"
 #include "FileBeagle.hpp"
 #include "FileBgen.hpp"
 #include "FileBinary.hpp"
@@ -222,6 +223,23 @@ int main(int argc, char* argv[]) {
   cao.print(tick.date(), "total elapsed reading time: ", data->readtime, " seconds");
 
   delete data;
+
+  // evalAdmix: correlation of residuals given the PCs just computed.
+  // needs a second pass over the raw (uncentered, unstandardized) genotypes.
+  if (params.evaladmix) {
+    if (params.file_t != FileType::PLINK && params.file_t != FileType::PGEN)
+      cao.error("--evaladmix currently supports PLINK bed/pgen input only");
+    // Second pass over the RAW genotypes. Param is not copyable, so mutate in
+    // place -- the PCA is finished by now. center=false gives untransformed
+    // {0, 0.5, 1} codes; read_all()/read_block_initial(.., false) never
+    // standardize, and dopca stays on so the same --maf filter selects the
+    // same sites the PCA used.
+    params.center = false;
+    Data* d2 = (params.file_t == FileType::PLINK) ? (Data*)new FileBed(params) : (Data*)new FilePgen(params);
+    d2->prepare();
+    run_evaladmix(d2, params);
+    delete d2;
+  }
 
   if (params.file_t == FileType::PLINK)
     make_plink2_eigenvec_file(params.k, params.fileout + ".eigvecs2", params.fileout + ".eigvecs",
