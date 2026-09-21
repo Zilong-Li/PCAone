@@ -37,24 +37,25 @@
 
 #include <fstream>
 #include <iomanip>
+#include <new>
 #include <sstream>
 #include <string>
 #include <vector>
 
 #include "Utils.hpp"
 
-// turn a symmetric PSD matrix into a correlation matrix
-static Mat2D cov2cor(const Mat2D& C) {
+// turn a symmetric PSD matrix into a correlation matrix, in place -- these are
+// N x N, so returning a copy would cost another one of them
+static void cov2cor(Mat2D& C) {
   const Eigen::Index n = C.rows();
-  Mat1D s(n);
-  for (Eigen::Index i = 0; i < n; ++i) s(i) = std::sqrt(std::max(C(i, i), 1e-300));
-  Mat2D R(n, n);
-  for (Eigen::Index i = 0; i < n; ++i)
-    for (Eigen::Index j = 0; j < n; ++j) R(i, j) = C(i, j) / (s(i) * s(j));
-  return R;
+  Mat1D inv(n);
+  for (Eigen::Index i = 0; i < n; ++i) inv(i) = 1.0 / std::sqrt(std::max(C(i, i), 1e-300));
+  for (Eigen::Index j = 0; j < n; ++j)  // column-major order
+    for (Eigen::Index i = 0; i < n; ++i) C(i, j) *= inv(i) * inv(j);
 }
 
-static void write_matrix(const std::string& fn, const Mat2D& M, const std::vector<std::string>& ids) {
+static void write_matrix(const std::string& fn, const Mat2D& M, const std::vector<std::string>& ids,
+                         double scale = 1.0) {
   std::ofstream ofs(fn);
   if (!ofs.is_open()) cao.error("can not open file for writing: " + fn);
   ofs << std::fixed << std::setprecision(6);
@@ -63,14 +64,33 @@ static void write_matrix(const std::string& fn, const Mat2D& M, const std::vecto
     ofs << "\n";
   }
   for (Eigen::Index i = 0; i < M.rows(); ++i) {
-    for (Eigen::Index j = 0; j < M.cols(); ++j) ofs << (j ? "\t" : "") << M(i, j);
+    for (Eigen::Index j = 0; j < M.cols(); ++j) ofs << (j ? "\t" : "") << M(i, j) * scale;
     ofs << "\n";
   }
 }
 
+// bytes of one N x N double matrix, in GiB
+static double nn_gib(Eigen::Index N) { return (double)N * (double)N * 8.0 / 1073741824.0; }
+
 void run_evaladmix(Data* data, const Param& params) {
   const Eigen::Index N = data->nsamples;
   const uint M = data->nsnps;
+
+  // ---- 0. size -----------------------------------------------------------
+  // Everything below is dense N x N: four such matrices at peak, and two dense
+  // N x N text files on the way out. Both grow with the square of the sample
+  // count and neither depends on the number of sites, so a cohort whose PCA
+  // runs comfortably out-of-core can still be far out of reach here. Say so
+  // before spending a pass over the genotypes rather than dying in the
+  // allocator afterwards.
+  const double ram = 4.0 * nn_gib(N);
+  const double perfile = (double)N * (double)N * 9.0 / 1073741824.0;  // ~9 bytes per printed value
+  cao.print(tick.date(), "evalAdmix:", N, "samples needs about", ram, "GB of RAM, and writes two files of about",
+            perfile, "GB each");
+  if (ram > 8.0)
+    cao.warn("evalAdmix needs about ", ram, " GB of RAM for the ", N, " x ", N,
+             " matrices. this does not go down with --memory, which only bounds the genotype blocks. reduce the "
+             "sample set if that is more than this machine has.");
 
   // ---- 1. principal component scores -------------------------------------
   std::string fpcs = params.fileU.empty() ? params.fileout + ".eigvecs" : params.fileU;
@@ -102,9 +122,15 @@ void run_evaladmix(Data* data, const Param& params) {
   // of a missing call towards zero, so heavily missing samples get a slightly
   // shrunk statistic; pairwise-complete counts would avoid that but cannot be
   // folded into the single O(N^2) pass.
-  Mat2D A = Mat2D::Zero(N, N);  // G'G
-  Mat1D b = Mat1D::Zero(N);     // sum_s g_s
-  Mat1D d = Mat1D::Zero(N);     // sum_s g_s .* (1 - g_s)   (0..1 scale)
+  Mat2D A;
+  try {
+    A = Mat2D::Zero(N, N);  // G'G
+  } catch (const std::bad_alloc&) {
+    cao.error("evalAdmix: out of memory allocating the ", N, " x ", N, " Gram matrix (", nn_gib(N),
+              " GB); the whole statistic needs about ", ram, " GB");
+  }
+  Mat1D b = Mat1D::Zero(N);  // sum_s g_s
+  Mat1D d = Mat1D::Zero(N);  // sum_s g_s .* (1 - g_s)   (0..1 scale)
   tick.clock();
   if (!params.out_of_core) {
     // G is nsamples x nsnps, centred, not standardized.
@@ -142,20 +168,42 @@ void run_evaladmix(Data* data, const Param& params) {
 
   // ---- 3. projection onto [PCs, intercept] -------------------------------
   Mat2D V(N, k + 1);
-  V.leftCols(k) = U.leftCols(k);
-  V.col(k).setOnes();
-  Mat2D VtV = V.transpose() * V;
-  Mat2D P = V * VtV.completeOrthogonalDecomposition().pseudoInverse() * V.transpose();
-  Mat2D IP = Mat2D::Identity(N, N) - P;
+  Mat2D IP;
+  {
+    Mat2D V(N, k + 1);
+    V.leftCols(k) = U.leftCols(k);
+    V.col(k).setOnes();
+    const Mat2D VtV = V.transpose() * V;
+    IP.noalias() = V * VtV.completeOrthogonalDecomposition().pseudoInverse() * V.transpose();
+  }
+  IP = -IP;                      // IP = I - P, without materialising I
+  IP.diagonal().array() += 1.0;
 
   // ---- 4. bhat and chat --------------------------------------------------
-  Mat2D Cw = IP * (A - (double)M * b * b.transpose()) * IP;
-  Mat2D bhat = cov2cor(Cw);
-  Mat2D chat = cov2cor(IP * d.asDiagonal() * IP);
-  Mat2D corres = bhat - chat;
+  // Written to hold four N x N matrices at peak rather than eight: A is reused
+  // for every intermediate and ends up holding corres, and chat is folded in as
+  // soon as it exists. At N = 10,000 that is the difference between 3 GB and
+  // 6 GB.
+  try {
+    Mat2D W(N, N), C(N, N);
+    // chat = cov2cor( (I-P) Dhat (I-P) ), Dhat diagonal so the left product is
+    // a column scaling rather than a matrix multiply
+    W = IP * d.asDiagonal();
+    C.noalias() = W * IP;
+    cov2cor(C);
+    // bhat = cov2cor( (I-P) [A - M gbar gbar'] (I-P) )
+    A.noalias() -= (double)M * b * b.transpose();
+    W.noalias() = IP * A;
+    A.noalias() = W * IP;
+    cov2cor(A);
+    A -= C;  // corres = bhat - chat
+  } catch (const std::bad_alloc&) {
+    cao.error("evalAdmix: out of memory; the ", N, " x ", N, " matrices need about ", ram, " GB in total");
+  }
+  IP.resize(0, 0);
   // a correlation cannot leave [-1, 1]
-  corres = corres.cwiseMax(-1.0).cwiseMin(1.0);
-  corres.diagonal().setZero();
+  A = A.cwiseMax(-1.0).cwiseMin(1.0);
+  A.diagonal().setZero();
 
   // ---- 5. output ---------------------------------------------------------
   std::vector<std::string> ids;
@@ -168,10 +216,10 @@ void run_evaladmix(Data* data, const Param& params) {
     }
   }
   if ((Eigen::Index)ids.size() != N) ids.clear();
-  write_matrix(params.fileout + ".corres", corres, ids);
-  Mat2D kin = corres * 0.5;  // correlation of residuals estimates 2*phi
-  kin.diagonal().setZero();
-  write_matrix(params.fileout + ".kinship", kin, ids);
+  write_matrix(params.fileout + ".corres", A, ids);
+  // the correlation of residuals estimates 2*phi, so halve it for kinship. done
+  // at write time rather than in another N x N copy; the diagonal is already 0.
+  write_matrix(params.fileout + ".kinship", A, ids, 0.5);
   cao.print(tick.date(), "evalAdmix: correlation of residuals saved to", params.fileout + ".corres");
   cao.print(tick.date(), "evalAdmix: kinship (corres/2) saved to", params.fileout + ".kinship");
 }
