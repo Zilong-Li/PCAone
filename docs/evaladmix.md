@@ -128,7 +128,7 @@ pairs alone:
 | evalAdmix (EM) | 0.00378 | 0.00378 | 0.00292 | −0.00120 |
 | PCA + projection (R) | 0.00387 | 0.00386 | 0.00443 | +0.00084 |
 | **`PCAone --evaladmix`** | 0.00385 | 0.00386 | **0.00251** | −0.00055 |
-| PC-Relate, `small.samp.correct=FALSE` | 0.00824 | 0.00823 | 0.00989 | −0.00842 |
+| PC-Relate, `small.samp.correct=FALSE` | 0.00824 | 0.00822 | 0.00962 | −0.00789 |
 
 **The ranking inverts between the columns.** On overall RMSE, RelateAdmix looks
 best by a factor of four. On the 60 pairs that actually have relatedness to
@@ -156,6 +156,10 @@ subtracts the fit. Disable it and PC-Relate lands in the last row above. The raw
 estimator is biased downward because the pair's own genotypes sit inside the
 fitted allele frequencies; PC-Relate does not avoid that, it measures and
 subtracts it afterwards.
+
+Every number in these tables is produced by
+[`scripts/benchmark/`](../scripts/benchmark/) — see
+[reproducing-the-benchmark.md](reproducing-the-benchmark.md).
 
 ## Getting the number of PCs wrong is the dominant risk
 

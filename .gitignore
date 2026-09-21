@@ -38,6 +38,8 @@ Rplots.pdf
 !/scripts/Makefile
 !/scripts/MergePlink.cpp
 !/scripts/MergePgen.cpp
+!/scripts/benchmark/
+!/scripts/benchmark/*
 /dataset
 /results
 /inbreeding
