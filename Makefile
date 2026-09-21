@@ -143,6 +143,15 @@ OBJ = src/Arnoldi.o src/Halko.o src/Data.o src/Utils.o src/Cmd.o \
 		src/InbredSites.o src/InbredSamples.o src/Selection.o src/EvalAdmix.o \
 		src/kfunc.o
 
+# Header dependency tracking. Without it, editing a .hpp does not rebuild the
+# .cpp files that include it, and you silently link stale objects. -MMD writes
+# a .d per object listing the headers it used; -MP adds a phony target for each
+# so a deleted or renamed header does not break the build with "No rule to make
+# target". DEPFLAGS is kept out of CXXFLAGS so the external sub-makes, which are
+# handed CXXFLAGS verbatim, are unaffected.
+DEPFLAGS = -MMD -MP
+DEPS = $(OBJ:.o=.d) src/Main.d
+
 SLIBS += ./external/bgen/bgenlib.a ./external/zstd/lib/libzstd.a  ./external/pgenlib/pgenlib.a
 
 LIBS += $(SLIBS) $(DLIBS) -lpthread -ldl -lm
@@ -155,10 +164,12 @@ ${program}: zstdlib bgenlib pgenlib $(PCALIB) src/Main.o
 	$(CXX) $(CXXFLAGS) -o $(program) src/Main.o $(PCALIB) $(LPATHS) $(LIBS) $(LDFLAGS)
 
 %.o: %.cpp
-	$(CXX) $(CXXFLAGS) $(MYFLAGS) -o $@ -c $< $(INC) $(CPPFLAGS)
+	$(CXX) $(CXXFLAGS) $(DEPFLAGS) $(MYFLAGS) -o $@ -c $< $(INC) $(CPPFLAGS)
 
 tests/%.o: tests/%.cpp
-	$(CXX) $(CXXFLAGS) $(MYFLAGS) -o $@ -c $< $(INC) $(CPPFLAGS)
+	$(CXX) $(CXXFLAGS) $(DEPFLAGS) $(MYFLAGS) -o $@ -c $< $(INC) $(CPPFLAGS)
+
+-include $(DEPS)
 
 zstdlib:
 	$(MAKE) -C external/zstd/lib lib-nomt
@@ -176,11 +187,11 @@ test_pgen_plink_equivalence: ${program}
 	python3 tests/pgen_plink_equivalence.py
 
 rm:
-	(rm -f src/*.o $(program))
+	(rm -f src/*.o src/*.d tests/*.d $(program))
 	(cd ./external/bgen/; $(MAKE) clean)
 
 clean:
-	(rm -f src/*.o $(program))
+	(rm -f src/*.o src/*.d tests/*.d $(program))
 	(cd ./external/bgen/; $(MAKE) clean)
 	(cd ./external/pgenlib/; $(MAKE) clean)
 	(cd ./external/zstd/lib/; $(MAKE) clean)

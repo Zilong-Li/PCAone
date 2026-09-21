@@ -6,6 +6,7 @@ GPATH
 .RData
 .Rhistory
 *.o
+*.d
 *.makefile
 external/*/*.a
 *.dylib
