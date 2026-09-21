@@ -325,16 +325,34 @@ Mat2D read_usv(const std::string& path) {
 }
 
 // parse .sigvals file
-void read_sigvals(const std::string& path, uint& N, uint& M, Mat1D& S) {
+//
+// header is  #nsamples,nsnps[,key=value]...
+// The key=value fields were added later; std::stoi stops at the next comma, so
+// an older PCAone reads a newer file correctly and simply ignores them, and a
+// newer PCAone reading an older file just finds none.
+void read_sigvals(const std::string& path, uint& N, uint& M, Mat1D& S, UsvTransform* transform) {
   double val;
   Double1D V;
   std::ifstream fin(path);
+  if (!fin.is_open()) cao.error("can not open the singular values file\n => " + path);
   std::string line;
   getline(fin, line);
   // parse line #nsamples,nsnps
   size_t comma = line.find(',');
   N = std::stoi(line.substr(1, comma - 1));
   M = std::stoi(line.substr(comma + 1));
+  if (transform != nullptr) {
+    for (const auto& tok : split_string(line, ",")) {
+      const size_t eq = tok.find('=');
+      if (eq == std::string::npos) continue;
+      const std::string key = tok.substr(0, eq), val_s = tok.substr(eq + 1);
+      if (key == "scale") transform->scale = std::stoi(val_s);
+      else if (key == "ploidy") transform->ploidy = std::stoi(val_s);
+      else if (key == "gscale") transform->gscale = std::stoi(val_s);
+      else continue;
+      transform->known = true;
+    }
+  }
   // parse the rest
   while (getline(fin, line)) {
     val = std::stod(line);

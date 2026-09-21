@@ -80,7 +80,21 @@ bool isZstdCompressed(const char* filename);
 
 Mat2D read_usv(const std::string& path);
 
-void read_sigvals(const std::string& path, uint& N, uint& M, Mat1D& S);
+// How the matrix that a PCA decomposed relates to the 0..1 allele-frequency
+// scale, recorded in .sigvals so that -P/--USV can invert U*S*V' later.
+//
+// Nothing in .eigvecs/.sigvals/.loadings used to say this, so --inbreed had to
+// assume the reference run used the defaults. It does not always: --missme
+// without --emu leaves the final decomposition unstandardised, and the pcangsd
+// path decomposes centred *dosages* rather than PCAone's 0..1 coding.
+struct UsvTransform {
+  bool known = false;                     // false for a .sigvals written before this was recorded
+  int scale = SCALE_STANDARDIZE_GENETIC;  // scaling actually applied: -9 standardised, 0 none
+  int ploidy = 2;                         // ploidy of the reference run
+  int gscale = 1;                         // 1: genotypes coded 0..1; 2: dosages coded 0..2
+};
+
+void read_sigvals(const std::string& path, uint& N, uint& M, Mat1D& S, UsvTransform* transform = nullptr);
 
 Mat1D read_eigvals(const std::string& path);
 

@@ -27,6 +27,11 @@ class Data {
   void pcangsd_standardize_E(const Mat2D& U, const Mat1D& svals, const Mat2D& VT);
   void fit_with_pi(const Mat2D& U, const Mat1D& svals, const Mat2D& VT);
   void write_eigs_files(const Mat1D& E, const Mat1D& S, const Mat2D& U, const Mat2D& V);
+  // Record how the matrix that was just decomposed relates to the 0..1
+  // allele-frequency scale, so write_eigs_files() can put it in .sigvals and
+  // -P/--USV can invert U*S*V' later. Call right before write_eigs_files(),
+  // passing whether the FINAL decomposition standardized.
+  void set_svd_transform(bool standardized);
   void write_residuals(const Mat1D& S, const Mat2D& U, const Mat2D& VT);
   // for blockwise
   // void fit_with_pi_block(const Mat2D& U, const Mat1D& svals, const Mat2D& VT);
@@ -53,6 +58,8 @@ class Data {
   Mat1D Dc;                    // diagnal vector of covariance matrix
   ArrBool C;                   // nsnps x nsample, if there is missing value
   Arr2D centered_geno_lookup;  // lookup table for centering genotypes
+  int svd_scale = SCALE_STANDARDIZE_GENETIC;  // scaling applied to the decomposed matrix; 0 = none
+  int svd_gscale = 1;                         // 1: genotypes coded 0..1; 2: dosages coded 0..2
   Int1D keepSNPs;              // store index of SNPs to keep
   Int1D keepRefSNPs;           // store matching SNP indices in the reference .mbim
   Int1D flipSNPs;              // local SNP indices (into keepSNPs order) with flipped alleles

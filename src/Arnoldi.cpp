@@ -57,7 +57,8 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
   if (!params.out_of_core) {
     // SpMatrix sG = data->G.sparseView();
     PartialSVDSolver<Mat2D> svds(data->G, params.k, params.ncv);
-    if (!(params.missme || params.ld)) data->standardize_E();
+    bool standardized = !(params.missme || params.ld);
+    if (standardized) data->standardize_E();
     nconv = svds.compute(params.imaxiter, params.itol);
     if (nconv != params.k) cao.error("the nconv is not equal to k.");
     U = svds.matrix_U(params.k);
@@ -104,6 +105,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
 
       if (params.emu) {
         cao.print(tick.date(), "standardize the final matrix");
+        standardized = true;
         data->standardize_E();
         svds.compute(params.imaxiter, params.itol);
         svals = svds.singular_values();
@@ -115,6 +117,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
     }
     // write to files; NOTE: pcangsd only gives us evals of covariance matrix
     if (params.ld && !params.pcangsd) data->write_residuals(svals, U, V.transpose());
+    data->set_svd_transform(standardized);
     data->write_eigs_files(evals, svals, U, V);
   } else {
     // for blockwise
@@ -190,6 +193,9 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
     }
 
     if (params.ld && !params.pcangsd) data->write_residuals(op->S, op->U, op->VT);
+    // both branches above end with setFlags(.., true), so the decomposition
+    // that produced op->U/S/VT was standardized either way
+    data->set_svd_transform(true);
     data->write_eigs_files(evals, op->S, op->U, op->VT.transpose());
 
     delete op;

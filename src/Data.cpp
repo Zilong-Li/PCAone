@@ -208,13 +208,27 @@ void Data::calcu_vt_update(const Mat2D& T, const Mat2D& U, const Mat1D& svals, M
 
 // S: signular values
 // E: eigen values
+void Data::set_svd_transform(bool standardized) {
+  // standardize_E() is a no-op unless params.scale is the genetic default, so a
+  // decomposition that "standardized" under any other --scale did not actually
+  // get the sqrt(ploidy)/sd transform that -P knows how to undo.
+  svd_scale = (standardized && params.scale == SCALE_STANDARDIZE_GENETIC) ? SCALE_STANDARDIZE_GENETIC : params.scale;
+  if (!standardized && params.scale == SCALE_STANDARDIZE_GENETIC) svd_scale = 0;  // centred only
+  // fit_with_pi() builds the pcangsd matrix as dosage - 2f, on the 0..2 scale,
+  // rather than PCAone's usual 0..1 coding.
+  svd_gscale = params.pcangsd ? 2 : 1;
+}
+
 void Data::write_eigs_files(const Mat1D& E, const Mat1D& S, const Mat2D& U, const Mat2D& V) {
   std::ofstream outs(params.fileout + ".sigvals");
   std::ofstream oute(params.fileout + ".eigvals");
   std::ofstream outu(params.fileout + ".eigvecs");
   Eigen::IOFormat fmt(6, Eigen::DontAlignCols, "\t", "\n");
   if (outs.is_open()) {
-    outs << '#' << U.rows() << ',' << V.rows() << '\n';
+    // key=value fields are appended after nsamples,nsnps; older PCAone parses
+    // the first two with stoi and ignores the rest. See UsvTransform.
+    outs << '#' << U.rows() << ',' << V.rows() << ",scale=" << svd_scale << ",ploidy=" << params.ploidy
+         << ",gscale=" << svd_gscale << '\n';
     outs << S.format(fmt) << '\n';
   }
   if (oute.is_open()) oute << E.format(fmt) << '\n';

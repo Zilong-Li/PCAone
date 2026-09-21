@@ -336,6 +336,7 @@ void run_pca_with_halko(Data* data, const Param& params) {
   }
   // output PI
   if (params.ld) data->write_residuals(rsvd->S, rsvd->U, rsvd->V.transpose());
+  data->set_svd_transform(rsvd->standardize);
   data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->S, rsvd->U, rsvd->V);
 
   delete rsvd;
