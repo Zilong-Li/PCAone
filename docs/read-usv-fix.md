@@ -132,3 +132,8 @@ PCAone -b plink -k 4 -d 0 --evaladmix --evaladmix-k 1 --maf 0.05 -o four
 
 Both runs use the same PC1 and must therefore produce the same matrix. Before
 the fix the maximum absolute difference was 8.8e-02; after it, 0.
+
+## See also
+
+Two unrelated robustness bugs in the same LD path, found while validating this
+fix: [ld-robustness-fixes.md](ld-robustness-fixes.md).

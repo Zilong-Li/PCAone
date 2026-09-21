@@ -44,10 +44,41 @@ String1D read_variant_labels(const std::string& filebim) {
 }  // namespace
 
 // compute sample standard deviation
-// return 1e-9 when sd is 0
 Arr1D calc_sds(const Mat2D& X) {
   const double df = 1.0 / (X.rows() - 1);  // N-1
   return (X.array().square().colwise().sum() * df).sqrt();
+}
+
+// Inverse sample standard deviation per column, with zero-variance columns set
+// to 0 instead of infinity.
+//
+// A variant that is monomorphic, or whose genotypes lie entirely in the span of
+// the PCs being adjusted for, has no residual variance. Taking 1/sd gives inf,
+// and the correlation inf * inf * 0 is NaN, which then propagates into every
+// pair involving that variant and into the .ld.gz output. Reporting 0 instead
+// says what is actually true -- a variant with no variance carries no LD
+// information -- and keeps the output numeric.
+Arr1D calc_inv_sds(const Mat2D& X, int& nzero) {
+  const Arr1D sds = calc_sds(X);
+  Arr1D inv(sds.size());
+  nzero = 0;
+  for (Eigen::Index i = 0; i < sds.size(); ++i) {
+    if (sds(i) > 1e-9) {
+      inv(i) = 1.0 / sds(i);
+    } else {
+      inv(i) = 0.0;
+      ++nzero;
+    }
+  }
+  return inv;
+}
+
+// shared warning so every LD entry point reports this the same way
+static void warn_zero_variance(int nzero, int ntotal) {
+  if (nzero > 0)
+    cao.warn(nzero, " of ", ntotal,
+             " variants have no variance after ancestry adjustment (monomorphic, or fully explained by the "
+             "PCs). their R2 is reported as 0 rather than NaN. consider --maf to remove them.");
 }
 
 // compute the peason correlation coefficient
@@ -246,7 +277,9 @@ void ld_prune_big(
             "LD pruning, choose sites to be kept randomly or with high MAF? "
             "1(random) : 0(high MAF). =>",
             pick_random_one);
-  Arr1D sds = 1.0 / calc_sds(G);
+  int nzero = 0;
+  Arr1D sds = calc_inv_sds(G, nzero);
+  warn_zero_variance(nzero, G.cols());
   ArrBool keep = ArrBool::Constant(G.cols(), true);
   const double df = 1.0 / (G.rows() - 1);  // N-1
   for (int w = 0; w < (int)snp.ws.size(); w++) {
@@ -331,7 +364,9 @@ void ld_clump_single_pheno(const std::string& fileout,
                            const Int2D& bp_per_chr,
                            const std::vector<UMapIntPds>& pvals_per_chr) {
   // sort by pvalues and get new idx
-  const Arr1D sds = 1.0 / calc_sds(G);
+  int nzero = 0;
+  const Arr1D sds = calc_inv_sds(G, nzero);
+  warn_zero_variance(nzero, G.cols());
   const double df = 1.0 / (G.rows() - 1);  // N-1
   std::ofstream ofs(fileout);
   ofs << head + "\tSP2" << std::endl;
@@ -451,7 +486,9 @@ void ld_r2_big(const Mat2D& G, const SNPld& snp, const std::string& filebim, con
   std::ifstream fin(filebim);
   if (!fin.is_open()) cao.error("can not open " + filebim);
   String1D bims = read_variant_labels(filebim);
-  Arr1D sds = 1.0 / calc_sds(G);
+  int nzero = 0;
+  Arr1D sds = calc_inv_sds(G, nzero);
+  warn_zero_variance(nzero, G.cols());
   const double df = 1.0 / (G.rows() - 1);  // N-1
   gzFile gzfp = gzopen(fileout.c_str(), "wb");
   std::string line{"CHR_A\tBP_A\tSNP_A\tCHR_B\tBP_B\tSNP_B\tR2\n"};
