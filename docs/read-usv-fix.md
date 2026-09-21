@@ -64,6 +64,61 @@ the row length in that case. And the total element count is checked against
 
 - `src/EvalAdmix.cpp` (this branch), via `--evaladmix-k`.
 
+## Measured effect on ancestry-adjusted LD
+
+Built both versions and ran the affected path on the 126-sample test data with
+**K = 2**:
+
+```bash
+PCAone -b smallPlink -k 2 -D -o pcs2                       # 2-column .eigvecs + .mbim
+PCAone -b smallPlink -P pcs2 -R --ld-bp 1000000 -o ld      # the path that calls read_usv
+```
+
+Both runs emit the same 4,611,677 SNP pairs with identical keys, so only the R²
+column moves — but it moves almost everywhere:
+
+| | |
+|---|---|
+| finite pairs compared | 4,611,432 |
+| R² values that differ | 4,609,439 (**99.96%**) |
+| correlation between old and new R² | **0.694** |
+| mean R² | 0.01240 (old) → 0.01014 (new) |
+| mean absolute difference | 0.0072 |
+| largest single change | 0.2226 (rs2772239–rs16854621: **0.2556 → 0.0329**) |
+
+The old code **systematically inflates LD**, because the scrambled `U` spans the
+wrong subspace and so removes the wrong component of the genotypes. The effect
+on pruning is not subtle:
+
+| pairs with R² > 0.2 | count |
+|---|---|
+| old | 370 |
+| new | 58 |
+| flagged by old but not new | 322 |
+| flagged by new but not old | 10 |
+
+So at an `--ld-r2 0.2` threshold the pre-fix code would have pruned roughly six
+times as many pairs as it should.
+
+**Which one is right.** R² was recomputed independently in R for the six
+most-affected pairs, replicating what `LD.cpp` does — centre `g/2` by the `.mbim`
+allele frequency, residualise on `U U'`, correlate — using the same `.eigvecs`
+read correctly:
+
+| SNP A | SNP B | R² old | R² new | independent | matches |
+|---|---|---|---|---|---|
+| rs2772239 | rs16854621 | 0.255570 | 0.032934 | 0.032934 | **new** |
+| rs3011777 | rs10822288 | 0.234191 | 0.020818 | 0.020818 | **new** |
+| rs4713994 | rs9369005 | 0.218378 | 0.005801 | 0.005801 | **new** |
+| rs6443784 | rs675924 | 0.221030 | 0.009264 | 0.009264 | **new** |
+| rs739856 | rs2732439 | 0.242211 | 0.035463 | 0.035463 | **new** |
+| rs10991574 | rs4742988 | 0.351003 | 0.144807 | 0.144807 | **new** |
+
+Exact agreement with the fixed version in every case.
+
+Anyone who has run `-D`/`-R`/`--ld-r2`/`--clump` with `-P` and `-k > 1` should
+regenerate those results.
+
 ## Regression test
 
 `--evaladmix-k` reads a multi-column `.eigvecs` and projects on a subset of it,
