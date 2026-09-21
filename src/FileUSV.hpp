@@ -19,6 +19,16 @@ class FileUSV : public Data {
     cao.print(tick.date(), "N (# samples):", nsamples, ", M (# SNPs):", nsnps);
     V = read_eigvecs(params.fileV, nsnps, K);
     U = read_eigvecs(params.fileU, nsamples, K);
+    // The rescaling in read_all() / read_block_initial() inverts
+    // Data::standardize_E(), which only runs under the default -C/--scale -9.
+    // Under any other scaling the reconstruction lives on a different scale and
+    // pi would come out silently wrong, so refuse instead.
+    //
+    // One case cannot be caught here: --missme without --emu leaves the final
+    // SVD unstandardized, and nothing in .eigvecs/.sigvals/.loadings records
+    // which scaling produced them. -P assumes the reference run used defaults.
+    if (params.inbreed && params.scale != SCALE_STANDARDIZE_GENETIC)
+      cao.error("--inbreed inverts the default standardisation of the reference PCA; rerun without -C/--scale");
   }
 
   ~FileUSV() override = default;
