@@ -375,6 +375,63 @@ void Data::standardize_E() {
   }
 }
 
+// Decide how to scale a target genotype matrix so it matches the matrix a
+// reference PCA decomposed.
+//
+// Before the transform was recorded in .sigvals, projection and selection
+// scaled their G from this run's --scale, which silently mismatched whenever
+// the reference had used anything else. That included the case where the user
+// passed no --scale at all: a reference built with -D/--ld has standardisation
+// turned off, and -D is a documented way to get the .mbim that -P needs.
+bool Data::resolve_ref_scaling(const UsvTransform& t, const std::string& src) const {
+  if (!t.known) {
+    cao.warn(src,
+             " predates the recording of the PCA scaling, so the reference is assumed to have used this run's "
+             "-C/--scale. that is wrong if the reference was built with -D/--ld, or with a non-default --scale; "
+             "rerun it to record the transform.");
+    return params.scale == SCALE_STANDARDIZE_GENETIC;
+  }
+  if (t.scale > 0)
+    cao.error("the reference PCA used -C/--scale ", t.scale,
+              ", which cannot be replayed on the target genotypes here");
+  if (t.gscale != 1)
+    cao.error("the reference PCA decomposed dosages on the 0..2 scale (gscale=", t.gscale,
+              "), which is not the 0..1 coding used here. this combination was silently mis-scaled before; "
+              "rerun the reference on the same genotype coding");
+  if (t.ploidy != params.ploidy)
+    cao.error("the reference PCA used ploidy ", t.ploidy, " but this run uses ", params.ploidy,
+              "; pass --haploid consistently");
+  const bool standardize = (t.scale == SCALE_STANDARDIZE_GENETIC);
+  cao.print(tick.date(), "scaling the target genotypes as the reference did:",
+            standardize ? "standardized" : "centred only", "(scale =", t.scale, ", ploidy =", t.ploidy, ")");
+  if (params.scale != t.scale)
+    cao.warn("-C/--scale ", params.scale, " is ignored here; the scaling is taken from the reference PCA");
+  return standardize;
+}
+
+// standardize_E() but driven by the reference's transform rather than this
+// run's --scale, and using the reference's ploidy.
+void Data::standardize_E_ref(const UsvTransform& t) {
+  const double rploidy = sqrt((double)t.ploidy);
+#pragma omp parallel for
+  for (uint i = 0; i < nsnps; ++i) {
+    const double f = F(i);
+    const double sd = sqrt(f * (1.0 - f));
+    if (sd > VAR_TOL) G.col(i) *= rploidy / sd;
+  }
+}
+
+// the same, for one out-of-core block already read unstandardized
+void Data::standardize_block_ref(const UsvTransform& t, uint64 start_idx, uint block_cols) {
+  const double rploidy = sqrt((double)t.ploidy);
+#pragma omp parallel for
+  for (uint i = 0; i < block_cols; ++i) {
+    const double f = F(start_idx + i);
+    const double sd = sqrt(f * (1.0 - f));
+    if (sd > VAR_TOL) G.col(i) *= rploidy / sd;
+  }
+}
+
 void Data::pcangsd_standardize_E(const Mat2D& U, const Mat1D& svals, const Mat2D& VT) {
   if (params.scale != -9) return;
   cao.print(tick.date(), "begin to standardize the matrix for pcangsd procedure");

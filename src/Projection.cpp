@@ -213,12 +213,17 @@ void run_projection(Data* data, const Param& params) {
       cao.warn(data->flipSNPs.size(), " SNPs have flipped ref/alt alleles and will be corrected");
   }
   cao.print(tick.date(), "run projection");
-  data->prepare();  // read AF and resize F to matched size
-  if (params.project != 3) data->standardize_E();
   cao.print(tick.date(), "start parsing V:", params.fileV, ", S:", params.fileS);
   uint nsamples, nsnps;
   Mat1D S;
-  read_sigvals(params.fileS, nsamples, nsnps, S);
+  // read the reference's transform before touching G: the target has to be put
+  // on the same scale as the matrix that produced V and S, which is not
+  // necessarily what this run's -C/--scale says. --project 3 never scales G at
+  // all -- it runs its own EM on the 0..1 domain -- so it is left alone.
+  UsvTransform usv;
+  read_sigvals(params.fileS, nsamples, nsnps, S, &usv);
+  data->prepare();  // read AF and resize F to matched size
+  if (params.project != 3 && data->resolve_ref_scaling(usv, params.fileS)) data->standardize_E_ref(usv);
   // target number of PCs for getting individual allele frequency
   const int K = fmin(S.size(), params.k);
   Mat2D V = read_eigvecs(params.fileV, nsnps, K);

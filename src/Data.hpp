@@ -3,6 +3,7 @@
 
 #include "Cmd.hpp"
 #include "Common.hpp"
+#include "Utils.hpp"  // UsvTransform
 
 const double VAR_TOL = 1e-9;
 
@@ -32,6 +33,15 @@ class Data {
   // -P/--USV can invert U*S*V' later. Call right before write_eigs_files(),
   // passing whether the FINAL decomposition standardized.
   void set_svd_transform(bool standardized);
+  // Projection and selection read U/S/V from a reference PCA and compare them
+  // against a genotype matrix they scale themselves, so that matrix has to
+  // carry the transform the REFERENCE applied -- not the one this run's
+  // -C/--scale asks for. resolve_ref_scaling() says whether to standardize and
+  // rejects transforms that cannot be replayed; the other two apply it, in
+  // place of standardize_E(), which is gated on this run's --scale.
+  bool resolve_ref_scaling(const UsvTransform& t, const std::string& src) const;
+  void standardize_E_ref(const UsvTransform& t);
+  void standardize_block_ref(const UsvTransform& t, uint64 start_idx, uint block_cols);
   void write_residuals(const Mat1D& S, const Mat2D& U, const Mat2D& VT);
   // for blockwise
   // void fit_with_pi_block(const Mat2D& U, const Mat1D& svals, const Mat2D& VT);

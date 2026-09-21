@@ -13,8 +13,20 @@ void run_selection(Data* data, const Param& params) {
   Mat1D y_norm2(data->nsnps);
   uint j;
 
+  // Selection reads only .eigvals and .eigvecs, so the reference's transform --
+  // which lives in .sigvals -- has to be fetched separately. Without it G was
+  // scaled from this run's -C/--scale and silently mismatched the reference.
+  UsvTransform usv;
+  if (!params.fileS.empty()) {
+    uint rn, rm;
+    Mat1D rs;
+    read_sigvals(params.fileS, rn, rm, rs, &usv);
+  }
+  const bool standardize =
+      data->resolve_ref_scaling(usv, params.fileS.empty() ? "the reference PCA" : params.fileS);
+
   if (!params.out_of_core) {
-    data->standardize_E();
+    if (standardize) data->standardize_E_ref(usv);
 #pragma omp parallel for private(j) schedule(static)
     for (j = 0; j < data->nsnps; j++) {
       V.row(j) = U.transpose() * data->G.col(j);
@@ -23,8 +35,12 @@ void run_selection(Data* data, const Param& params) {
   } else {
     data->check_file_offset_first_var();
     for (uint b = 0; b < data->nblocks; b++) {
-      data->read_block_initial(data->start[b], data->stop[b], true);
+      // read unstandardized and scale here, so the factor follows the
+      // reference rather than this run's --scale, which is what the reader
+      // would consult
+      data->read_block_initial(data->start[b], data->stop[b], false);
       uint64 actual_block_size = data->stop[b] - data->start[b] + 1;
+      if (standardize) data->standardize_block_ref(usv, data->start[b], actual_block_size);
 #pragma omp parallel for private(j) schedule(static)
       for (j = 0; j < actual_block_size; j++) {
         V.row(j + data->start[b]) = U.transpose() * data->G.col(j);
