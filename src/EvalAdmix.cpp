@@ -13,14 +13,17 @@
  *   bhat = cov2cor( Rtilde' Rtilde ),  Rtilde = column-centred R
  *   chat = cov2cor( (I-P) Dhat (I-P) ),  Dhat = diag(mean heterozygosity)
  *
- * Assuming no missing genotypes, Rtilde'Rtilde can be written without ever
- * forming R:
+ * Rtilde'Rtilde can be written without ever forming R:
  *
  *   Rtilde'Rtilde = (I-P) [ G'G - M gbar gbar' ] (I-P)
  *
  * so one streaming pass accumulating the N x N Gram matrix G'G, the per-sample
  * mean genotype gbar and the per-sample mean heterozygosity is sufficient.
  * Memory is O(N^2), independent of the number of sites.
+ *
+ * Missing genotypes are imputed to the site mean, which is what keeps the
+ * projection -- taken across individuals within a site -- well defined. The
+ * identity above then holds exactly for the imputed matrix.
  *
  * Note PCAone codes genotypes on the 0..1 scale (BED2GENO = {1, NA, 0.5, 0}),
  * i.e. x = g/2. Both bhat and chat are correlation matrices, so the constant
@@ -79,26 +82,42 @@ void run_evaladmix(Data* data, const Param& params) {
   cao.print(tick.date(), "evalAdmix: using", k, "PC(s) + intercept =", k + 1, "dimensions");
 
   // ---- 2. one streaming pass: Gram matrix, mean genotype, heterozygosity --
+  //
+  // Both branches below see *centred* genotypes (x - f) with missing calls
+  // imputed to the site mean (centred value 0). That is deliberate:
+  //
+  //   * A and b need no correction. Per-site centring subtracts c_s * 1 from
+  //     column s, and every resulting term carries a factor (I-P)1 = 0 because
+  //     the projection contains the intercept. So (I-P)[A - M gbar gbar'](I-P)
+  //     is identical for centred and raw genotypes.
+  //   * Only d is affected, so the centring is undone column by column to get
+  //     the genotype back onto the 0..1 scale.
+  //
+  // Asking the readers for raw genotypes instead (params.center = false) is
+  // NOT an option: read_all() then leaves missing calls as BED_MISSING_VALUE
+  // (-9), which poisons G*G' and makes d negative. See Main.cpp.
+  //
+  // Mean imputation keeps the projection (I-P), which mixes individuals within
+  // a site, well defined when a genotype is absent. It attenuates the residual
+  // of a missing call towards zero, so heavily missing samples get a slightly
+  // shrunk statistic; pairwise-complete counts would avoid that but cannot be
+  // folded into the single O(N^2) pass.
   Mat2D A = Mat2D::Zero(N, N);  // G'G
   Mat1D b = Mat1D::Zero(N);     // sum_s g_s
   Mat1D d = Mat1D::Zero(N);     // sum_s g_s .* (1 - g_s)   (0..1 scale)
   tick.clock();
   if (!params.out_of_core) {
-    // G is nsamples x nsnps, raw (params.center forced false, not standardized)
+    // G is nsamples x nsnps, centred, not standardized.
     const Mat2D& G = data->G;
     A.noalias() = G * G.transpose();
     b = G.rowwise().sum();
-    d = (G.array() * (1.0 - G.array())).rowwise().sum().matrix();
+    for (Eigen::Index i = 0; i < G.cols(); ++i) {
+      const double f = data->F(i);
+      d.array() += (G.col(i).array() + f) * (1.0 - (G.col(i).array() + f));
+    }
   } else {
-    // Out-of-core. read_block_initial() estimates F on the fly and always
-    // returns *centred* genotypes (it uses centered_geno_lookup regardless of
-    // params.center), so both must be allocated here, and the centring has to
-    // be undone to recover heterozygosity.
-    //
-    // A and b need no such correction: per-site centring subtracts c_s * 1 from
-    // column s, and every resulting term carries a factor (I-P)1 = 0 because
-    // the projection contains the intercept. So (I-P)[A - M gbar gbar'](I-P) is
-    // identical for centred and raw genotypes. Only d is affected.
+    // Out-of-core. read_block_initial() estimates F on the fly, so F and the
+    // lookup table must be allocated here before the first block.
     data->F = Mat1D::Zero(data->nsnps);
     data->centered_geno_lookup = Arr2D::Zero(4, data->nsnps);
     data->check_file_offset_first_var();
@@ -115,7 +134,11 @@ void run_evaladmix(Data* data, const Param& params) {
   }
   b /= (double)M;
   d /= (double)M;
-  cao.print(tick.date(), "evalAdmix: accumulated summary statistics over", M, "sites in", tick.reltime(), "seconds");
+  cao.print(tick.date(), "evalAdmix: accumulated summary statistics over", M, "sites in", tick.reltime(),
+            "seconds");
+  cao.print(tick.date(),
+            "evalAdmix: missing genotypes, if any, were imputed to the site mean; high missingness shrinks the "
+            "statistic towards zero");
 
   // ---- 3. projection onto [PCs, intercept] -------------------------------
   Mat2D V(N, k + 1);

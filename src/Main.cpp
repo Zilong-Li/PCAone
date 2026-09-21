@@ -229,12 +229,28 @@ int main(int argc, char* argv[]) {
   if (params.evaladmix) {
     if (params.file_t != FileType::PLINK && params.file_t != FileType::PGEN)
       cao.error("--evaladmix currently supports PLINK bed/pgen input only");
-    // Second pass over the RAW genotypes. Param is not copyable, so mutate in
-    // place -- the PCA is finished by now. center=false gives untransformed
-    // {0, 0.5, 1} codes; read_all()/read_block_initial(.., false) never
-    // standardize, and dopca stays on so the same --maf filter selects the
-    // same sites the PCA used.
-    params.center = false;
+    // Second pass over the genotypes: centred, never standardized. Param is
+    // not copyable, so mutate in place -- the PCA is finished by now.
+    //
+    // center must stay TRUE. With center=false, read_all() leaves missing
+    // calls as BED_MISSING_VALUE (-9), because the imputation in FileBed /
+    // FilePgen sits inside `if (params.center)`. Those -9s poison G*G' and
+    // drive the heterozygosity accumulator negative, so the statistic comes
+    // out saturated at the +-1 clamp. Centring costs nothing: the statistic is
+    // invariant to it (see run_evaladmix), and missing calls are then imputed
+    // to the site mean, the convention used everywhere else in PCAone.
+    //
+    // dopca stays on so the same --maf filter selects the sites the PCA used,
+    // and read_all() / read_block_initial(.., false) never standardize.
+    params.center = true;
+    // perm must be off. For PGEN the permutation is *logical*: FilePgen maps
+    // every read through perm.indices(), and Main only initializes that on the
+    // first Data object (above, once its blocksize is known). d2 would index an
+    // empty permutation and segfault. For PLINK the permutation is already
+    // baked into the temp .bed on disk, so clearing the flag simply reads that
+    // file in stored order. Either way the site order does not matter here: A,
+    // b and d are all sums over sites.
+    params.perm = false;
     Data* d2 = (params.file_t == FileType::PLINK) ? (Data*)new FileBed(params) : (Data*)new FilePgen(params);
     d2->prepare();
     run_evaladmix(d2, params);
