@@ -93,12 +93,19 @@ void run_evaladmix(Data* data, const Param& params) {
              "sample set if that is more than this machine has.");
 
   // ---- 1. principal component scores -------------------------------------
-  std::string fpcs = params.fileU.empty() ? params.fileout + ".eigvecs" : params.fileU;
+  // Always the .eigvecs this run just wrote, never params.fileU. The statistic
+  // is the residual of THIS genotype matrix after projecting out THESE PCs, so
+  // taking the scores from a -P/--USV prefix would silently pair one run's
+  // residuals with another run's ancestry, and only a row-count mismatch would
+  // ever catch it.
+  const std::string fpcs = params.fileout + ".eigvecs";
   Mat2D U = read_usv(fpcs);  // N x kmax
   cao.print(tick.date(), "evalAdmix: read", U.rows(), "x", U.cols(), "PC scores from", fpcs);
-  if (U.rows() != N) cao.error("number of samples in .eigvecs does not match the genotype file");
+  if (U.rows() != N)
+    cao.error("evalAdmix: ", fpcs, " has ", U.rows(), " rows but the genotype file has ", N, " samples");
   Eigen::Index k = params.evaladmix_k > 0 ? params.evaladmix_k : U.cols();
-  if (k > U.cols()) cao.error("--evaladmix-k is larger than the number of PCs available");
+  if (k > U.cols())
+    cao.error("--evaladmix-k is ", k, " but only ", U.cols(), " PCs were computed; raise -k or lower --evaladmix-k");
   cao.print(tick.date(), "evalAdmix: using", k, "PC(s) + intercept =", k + 1, "dimensions");
 
   // ---- 2. one streaming pass: Gram matrix, mean genotype, heterozygosity --

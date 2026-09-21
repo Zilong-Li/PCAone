@@ -58,12 +58,12 @@ Arr1D calc_sds(const Mat2D& X) {
 // pair involving that variant and into the .ld.gz output. Reporting 0 instead
 // says what is actually true -- a variant with no variance carries no LD
 // information -- and keeps the output numeric.
-Arr1D calc_inv_sds(const Mat2D& X, int& nzero) {
+Arr1D calc_inv_sds(const Mat2D& X, Eigen::Index& nzero) {
   const Arr1D sds = calc_sds(X);
   Arr1D inv(sds.size());
   nzero = 0;
   for (Eigen::Index i = 0; i < sds.size(); ++i) {
-    if (sds(i) > 1e-9) {
+    if (sds(i) > VAR_TOL) {
       inv(i) = 1.0 / sds(i);
     } else {
       inv(i) = 0.0;
@@ -74,7 +74,7 @@ Arr1D calc_inv_sds(const Mat2D& X, int& nzero) {
 }
 
 // shared warning so every LD entry point reports this the same way
-static void warn_zero_variance(int nzero, int ntotal) {
+static void warn_zero_variance(Eigen::Index nzero, Eigen::Index ntotal) {
   if (nzero > 0)
     cao.warn(nzero, " of ", ntotal,
              " variants have no variance after ancestry adjustment (monomorphic, or fully explained by the "
@@ -277,7 +277,7 @@ void ld_prune_big(
             "LD pruning, choose sites to be kept randomly or with high MAF? "
             "1(random) : 0(high MAF). =>",
             pick_random_one);
-  int nzero = 0;
+  Eigen::Index nzero = 0;
   Arr1D sds = calc_inv_sds(G, nzero);
   warn_zero_variance(nzero, G.cols());
   ArrBool keep = ArrBool::Constant(G.cols(), true);
@@ -364,7 +364,7 @@ void ld_clump_single_pheno(const std::string& fileout,
                            const Int2D& bp_per_chr,
                            const std::vector<UMapIntPds>& pvals_per_chr) {
   // sort by pvalues and get new idx
-  int nzero = 0;
+  Eigen::Index nzero = 0;
   const Arr1D sds = calc_inv_sds(G, nzero);
   warn_zero_variance(nzero, G.cols());
   const double df = 1.0 / (G.rows() - 1);  // N-1
@@ -486,7 +486,7 @@ void ld_r2_big(const Mat2D& G, const SNPld& snp, const std::string& filebim, con
   std::ifstream fin(filebim);
   if (!fin.is_open()) cao.error("can not open " + filebim);
   String1D bims = read_variant_labels(filebim);
-  int nzero = 0;
+  Eigen::Index nzero = 0;
   Arr1D sds = calc_inv_sds(G, nzero);
   warn_zero_variance(nzero, G.cols());
   const double df = 1.0 / (G.rows() - 1);  // N-1
