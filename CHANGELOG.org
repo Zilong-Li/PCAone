@@ -1,3 +1,30 @@
+- v0.8.0
+  - *results change*: =-P/--USV= with =-R=, =--ld-r2= or =--clump= and =-k > 1=. =read_usv()= mapped a
+    row-major buffer as column-major, scrambling the PC matrix, so the ancestry-adjusted residuals
+    were taken against the wrong subspace. Only =-k 1= was correct before.
+  - *results change*: =-P --inbreed 1=. The individual allele frequencies were reconstructed on the
+    wrong scale, and the HWE likelihood ratio put the null and the alternative on different scales,
+    which made the statistic negative at many markers and removed far too many of them.
+  - =.sigvals= now records how the reference PCA scaled its matrix, as =scale=, =ploidy= and =gscale=
+    fields on the header line, so =-P= inverts exactly that rather than assuming the defaults. The
+    defaults are wrong when the reference run passed =-D/--ld=, and when it was a genotype-likelihood
+    (pcangsd) run, which decomposes dosages rather than PCAone's 0..1 coding. An older PCAone reads a
+    new =.sigvals= correctly and ignores the fields; this version warns and assumes the old behaviour
+    when they are absent, and refuses the combinations it cannot invert.
+  - new: =--evaladmix= computes the correlation of residuals (evalAdmix) from the top PCs, writing
+    =.corres= and =.kinship=. =--evaladmix-k= selects how many PCs enter the projection; use =K-1= for a
+    =K=-population admixture model. PLINK and PGEN input, in-core and out-of-core. Missing genotypes
+    are imputed to the site mean. It holds four dense N x N matrices and writes two N x N files, so
+    it prints the RAM and output size it will need before reading the genotypes.
+  - fix: LD =R2= came out =-nan= for monomorphic variants, and for variants with no variance left after
+    the ancestry adjustment, spreading to every pair involving them. Reported as 0 now, with a
+    warning naming the count.
+  - fix: a missing =.mbim= under =-P= segfaulted with no message.
+  - =--inbreed= now reports how many markers have a negative likelihood ratio instead of silently
+    reporting them as 0. Such markers are never significant, but the count is worth seeing.
+  - build: the Makefile tracks header dependencies, so editing a =.hpp= rebuilds the =.cpp= files that
+    include it instead of silently linking stale objects.
+
 - v0.7.2
   - bug fix for out_of_range issue #23
   - add =--project-bootstrap=
