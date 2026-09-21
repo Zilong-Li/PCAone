@@ -89,20 +89,32 @@ void calc_inbreed_site_lrt(
   if (type != 1 && type != 2) cao.error("type must be 1 or 2");
   const int nsnps = size;
   const int nsamples = PI.rows();
-#pragma omp parallel for
+  int nneg = 0;       // sites where the statistic came out negative
+  double worst = 0.0;  // and the most negative value among them
+#pragma omp parallel for reduction(+ : nneg) reduction(min : worst)
   for (int j = 0; j < nsnps; j++) {
-    double logAlt = 0.0, logNull = 0.0, Fadj, p0, p1, p2, pSum, l0, l1, l2;
+    double logAlt = 0.0, logNull = 0.0, Fadj, p0, p1, p2, l0, l1, l2;
     int jj = j + start;
     for (int i = 0; i < nsamples; i++) {
       // Fadj = (1-pi)*pi*F;
       Fadj = (1.0 - PI(i, j)) * PI(i, j) * F(jj);
       // (1-pi)^2 + pi(1-pi)*F
-      // FIX: no per-term floor and no renormalisation here.  Unclamped these
-      // satisfy p0 + p1 + p2 = 1 exactly, so the renormalisation was a no-op
-      // in the ordinary case and wrong whenever the floor fired: it rescaled
-      // the ALTERNATIVE while the NULL below was left raw, so the two models
-      // were no longer on a common scale and the statistic could come out
-      // negative.  See docs/hwe-lrt-fix.md.
+      // No per-term floor beyond PROB_EPS, and no renormalisation. Whenever F
+      // lies in the range where all three are non-negative they sum to one
+      // exactly, so renormalising was a no-op; when the old 1e-4 floor fired it
+      // rescaled the ALTERNATIVE while the NULL below was left raw, putting the
+      // two models on different scales. See docs/hwe-lrt-fix.md.
+      //
+      // F is only bounded to [-1, 1], so it can leave that range: measured at
+      // 2.5% of sites on example/plink.chr1 (400 samples, K=3). There a
+      // homozygote term goes slightly negative and PROB_EPS lifts it, so the
+      // three sum to a little over one. The effect is small because the term
+      // that goes negative is the one whose genotype is least likely to be
+      // observed: over those 50,736 sites it shifted the statistic by at most
+      // 2.08 on the chi-square scale and changed one call at p < 1e-6.
+      // Constraining F instead would let the single most extreme individual
+      // allele frequency -- a PCA reconstruction, not an observation -- dictate
+      // a site-level parameter, which is worse.
       p0 = fmax(PROB_EPS, (1.0 - PI(i, j)) * (1.0 - PI(i, j)) + Fadj);
       p1 = fmax(PROB_EPS, 2.0 * PI(i, j) * (1.0 - PI(i, j)) * (1.0 - F(jj)));
       p2 = fmax(PROB_EPS, PI(i, j) * PI(i, j) + Fadj);
@@ -135,11 +147,33 @@ void calc_inbreed_site_lrt(
         logNull += log(l0 + l1 + l2);
       }
     }
-    // With both models on a common scale this is non-negative by
-    // construction (the alternative nests the null).  The guard turns any
-    // residual numerical noise into 0 rather than an impossible statistic.
-    T(jj) = fmax(0.0, 2.0 * (logAlt - logNull));
+    // This is NOT guaranteed to be non-negative, and the guard below is not
+    // merely mopping up rounding error.
+    //
+    // A likelihood ratio cannot be negative when the alternative is maximised
+    // over a family that contains the null. log L(F) is concave in F -- each
+    // genotype probability is linear in F -- so the constrained maximiser
+    // always beats F = 0. But F here is not that maximiser: for called
+    // genotypes the posteriors in inbreed_coef_site() are deterministic, so the
+    // EM converges in a single step to F = 1 - obsHet/expHet, a moment
+    // estimator that matches the heterozygote cell only. It can fit the data
+    // worse than F = 0, and then the statistic is negative.
+    //
+    // Measured on example/plink.chr1 (400 samples, 50,736 sites, K=3): negative
+    // at 5.45% of sites, worst -19.52. Replacing the estimator with the true
+    // constrained MLE removes every one of them (min +2.5e-10) but moves only 4
+    // calls at p < 1e-6 while costing several times the runtime, so the moment
+    // estimator is kept and the count is reported instead of being swallowed.
+    const double t = 2.0 * (logAlt - logNull);
+    if (t < worst) worst = t;
+    if (t < 0.0) nneg++;
+    T(jj) = fmax(0.0, t);
   }
+  if (nneg > 0)
+    cao.warn(nneg, " of ", nsnps,
+             " sites have a negative likelihood ratio (most negative ", worst,
+             ") and are reported as 0. this is the F estimator being a moment estimator rather than the maximum "
+             "likelihood one, not a numerical artefact; such sites are never significant.");
 }
 
 void inbreed_coef_site_em(int type, const Mat2D& GL, const Mat2D& PI, const Param& params) {

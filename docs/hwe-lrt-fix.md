@@ -143,6 +143,40 @@ does not distort F either.
 unchanged, because with called genotypes the EM update reduces to
 `F = 1 − obsHet/expHet` and the floor almost never touches an observed genotype.
 
+### Negative statistics are reduced, not eliminated
+
+On the dataset above none survive. That is not general. Re-measured on
+`example/plink.chr1` (400 samples, 50,736 markers, K = 3), **5.45% of markers
+still come out negative**, worst −19.52.
+
+The reason is that `T ≥ 0` needs the alternative to be *maximised* over a family
+containing the null. `log L(F)` is concave in F — every genotype probability is
+linear in F — so the constrained maximiser always beats `F = 0`. But the F used
+here is not that maximiser. With called genotypes the posteriors in
+`inbreed_coef_site()` are deterministic, so the EM converges in one step to
+`F = 1 − obsHet/expHet`, a moment estimator that matches the heterozygote cell
+only. It can fit worse than `F = 0`.
+
+Substituting the true constrained MLE removes all of them (minimum +2.5e-10) and
+barely moves anything else — `cor(F, F_MLE) = 0.989`, and of 50,736 markers the
+calls at p < 1e-6 go 280 → 278 — while costing several times the runtime. So the
+moment estimator is kept, `fmax(0, ·)` stays, and the count is now reported:
+
+```
+2766 of 50736 sites have a negative likelihood ratio (most negative -19.5157)
+and are reported as 0. ...
+```
+
+Such markers are never significant, so no call depends on this; it was worth
+surfacing rather than silently zeroing.
+
+### Relation to PCAngsd
+
+PCAngsd's `loglike()` in `inbreed_cy.pyx` has the *same* asymmetry this fix
+removes — the alternative is floored at 1e-4 and renormalised, the null is used
+raw — bounds F only to [−1, 1], and applies no guard to the statistic. So this
+is a fix relative to PCAngsd, not a change that reproduces it.
+
 ---
 
 # Fix 2 — `src/FileUSV.cpp`: π was reconstructed at half the correct scale
