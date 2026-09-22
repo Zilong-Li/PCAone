@@ -21,7 +21,7 @@ log
 .DS_Store
 lib*.a
 out.*
-test*
+tests/*
 run.sh
 tutorial
 .ccls

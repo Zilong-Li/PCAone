@@ -156,7 +156,7 @@ SLIBS += ./external/bgen/bgenlib.a ./external/zstd/lib/libzstd.a  ./external/pge
 
 LIBS += $(SLIBS) $(DLIBS) -lpthread -ldl -lm
 
-.PHONY: all clean island projection hwe ld_matrix ld_r2 ld_prune ld_clump ld_tests test_full test_aarch64 test_pgen_plink_equivalence
+.PHONY: all clean island projection hwe ld_matrix ld_r2 ld_prune ld_clump ld_tests test_full test_aarch64 test_pgen_plink_equivalence test_em_snp_order
 
 all: ${program}
 
@@ -185,6 +185,9 @@ $(PCALIB): $(OBJ)
 
 test_pgen_plink_equivalence: ${program}
 	python3 tests/pgen_plink_equivalence.py
+
+test_em_snp_order: ${program}
+	python3 tests/test_em_snp_order.py
 
 rm:
 	(rm -f src/*.o src/*.d tests/*.d $(program))

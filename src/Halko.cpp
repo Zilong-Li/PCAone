@@ -180,9 +180,11 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
       blocksize = (unsigned int)ceil((double)data->nsnps / data->params.bands);
       if (blocksize < data->params.bands)
         cao.warn("block size < window size. please consider the IRAM method with --svd 0");
-      if (data->params.perm && !(update && data->params.emu)) {
+      // Keep the same column order across EM iterations and final scaling.
+      if (data->params.perm && !data->in_core_permuted) {
         cao.print(tick.date(), "permuting data matrix by columns in place");
         PCAone::permute_matrix(data->G, data->perm);
+        data->in_core_permuted = true;
       }
     }
     // bandsize: how many blocks in each band, 2, 4, 8, 16, 32, 64, ...

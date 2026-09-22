@@ -27,6 +27,11 @@ class Data {
   void save_snps_in_mbim();
   void pcangsd_standardize_E(const Mat2D& U, const Mat1D& svals, const Mat2D& VT);
   void fit_with_pi(const Mat2D& U, const Mat1D& svals, const Mat2D& VT);
+  // In-core winSVD keeps G and V in shuffled order, but F and C retain
+  // filtered input order. P additionally needs the keepSNPs mapping.
+  uint unpermuted_snp_index(uint j) const {
+    return in_core_permuted ? static_cast<uint>(perm.indices()(j)) : j;
+  }
   void write_eigs_files(const Mat1D& E, const Mat1D& S, const Mat2D& U, const Mat2D& V);
   // Record how the matrix that was just decomposed relates to the 0..1
   // allele-frequency scale, so write_eigs_files() can put it in .sigvals and
@@ -62,6 +67,7 @@ class Data {
   std::vector<uint> start, stop;
   double p_miss = 0.0;         // proportion of genotype missingness
   PermMat perm;                // permuation order of SNPs
+  bool in_core_permuted = false;  // true only after G has actually been shuffled
   Mat2D G;                     // genotype matrix, can be initial E or centered E, which is nsamples x nsnps;
   Mat2D P;                     // normalized genotype likelihoods, (nsamples x 2) x nsnps.
   Mat1D F;                     // observed or estimated population allele frequency

@@ -311,51 +311,38 @@ void Data::fit_with_pi(const Mat2D& U, const Mat1D& svals, const Mat2D& VT) {
 #pragma omp parallel for
     for (uint j = 0; j < nsnps; ++j) {
       double p0, p1, p2;
-      uint s = params.filterSNP ? keepSNPs[j] : j;
+      const uint original = unpermuted_snp_index(j);
+      const double f = F(original);
+      uint s = params.filterSNP ? keepSNPs[original] : original;
       for (uint i = 0; i < nsamples; ++i) {
         // Rescale individual allele frequencies
         double pt = 0.0;
         for (uint k = 0; k < ks; ++k) {
           pt += U(i, k) * svals(k) * VT(k, j);
         }
-        pt = (pt + 2.0 * F(j)) / 2.0;
+        pt = (pt + 2.0 * f) / 2.0;
         pt = fmin(fmax(pt, 1e-4), 1.0 - 1e-4);
         // update E, which is G here
         p0 = P(2 * i + 0, s) * (1.0 - pt) * (1.0 - pt);
         p1 = P(2 * i + 1, s) * 2 * pt * (1.0 - pt);
         p2 = (1 - P(2 * i + 0, s) - P(2 * i + 1, s)) * pt * pt;
-        G(i, j) = (p1 + 2.0 * p2) / (p0 + p1 + p2) - 2.0 * F(j);
+        G(i, j) = (p1 + 2.0 * p2) / (p0 + p1 + p2) - 2.0 * f;
       }
     }
   }
 
-  if (params.emu && params.perm) {  // for emu with permuted data, -d 2
+  if (params.emu) {
 #pragma omp parallel for
     for (uint i = 0; i < nsnps; ++i) {
+      const uint original = unpermuted_snp_index(i);
+      const double f = F(original);
       for (uint j = 0; j < nsamples; ++j) {
-        if (C[perm.indices()[i] * nsamples + j])  // no bool & 1
-        {                                         // sites need to be predicted
+        if (C[original * nsamples + j]) {  // sites need to be predicted
           G(j, i) = 0.0;
           for (uint k = 0; k < ks; ++k) {
             G(j, i) += U(j, k) * svals(k) * VT(k, i);
           }
-          G(j, i) = fmin(fmax(G(j, i), -F(i)), 1 - F(i));
-        }
-      }
-    }
-  }
-
-  if (params.emu && !params.perm) {  // for emu without permuted data, -d 0
-#pragma omp parallel for
-    for (uint i = 0; i < nsnps; ++i) {
-      for (uint j = 0; j < nsamples; ++j) {
-        if (C[i * nsamples + j])  // no bool & 1
-        {                         // sites need to be predicted
-          G(j, i) = 0.0;
-          for (uint k = 0; k < ks; ++k) {
-            G(j, i) += U(j, k) * svals(k) * VT(k, i);
-          }
-          G(j, i) = fmin(fmax(G(j, i), -F(i)), 1 - F(i));
+          G(j, i) = fmin(fmax(G(j, i), -f), 1 - f);
         }
       }
     }
@@ -367,7 +354,7 @@ void Data::standardize_E() {
   if (params.scale != -9) return;
 #pragma omp parallel for
   for (uint i = 0; i < nsnps; ++i) {
-    const double f = F(i);
+    const double f = F(unpermuted_snp_index(i));
     const double sd = sqrt(f * (1.0 - f));
     if (sd > VAR_TOL) {  // in case denominator is too small.
       G.col(i) *= sqrt((double)params.ploidy) / sd;
@@ -443,29 +430,31 @@ void Data::pcangsd_standardize_E(const Mat2D& U, const Mat1D& svals, const Mat2D
 #pragma omp for
     for (uint j = 0; j < nsnps; j++) {
       double p0, p1, p2, pt, pSum, tmp;
-      double norm = sqrt(2.0 * F(j) * (1.0 - F(j)));
-      uint s = params.filterSNP ? keepSNPs[j] : j;
+      const uint original = unpermuted_snp_index(j);
+      const double f = F(original);
+      double norm = sqrt(2.0 * f * (1.0 - f));
+      uint s = params.filterSNP ? keepSNPs[original] : original;
       for (uint i = 0; i < nsamples; i++) {
         // Rescale individual allele frequencies
         pt = 0.0;
         for (uint k = 0; k < nk; ++k) {
           pt += U(i, k) * svals(k) * VT(k, j);
         }
-        pt = (pt + 2.0 * F(j)) / 2.0;
+        pt = (pt + 2.0 * f) / 2.0;
         pt = fmin(fmax(pt, 1e-4), 1.0 - 1e-4);
         // Update e
         p0 = P(2 * i + 0, s) * (1.0 - pt) * (1.0 - pt);
         p1 = P(2 * i + 1, s) * 2 * pt * (1.0 - pt);
         p2 = (1 - P(2 * i + 0, s) - P(2 * i + 1, s)) * pt * pt;
         pSum = p0 + p1 + p2;
-        G(i, j) = (p1 + 2 * p2) / pSum - 2.0 * F(j);
+        G(i, j) = (p1 + 2 * p2) / pSum - 2.0 * f;
         if (norm > VAR_TOL) G(i, j) /= norm;
 
         // Update diag
-        tmp = (0.0 - 2.0 * F(j)) * (0.0 - 2.0 * F(j)) * (p0 / pSum);
-        tmp += (1.0 - 2.0 * F(j)) * (1.0 - 2.0 * F(j)) * (p1 / pSum);
-        tmp += (2.0 - 2.0 * F(j)) * (2.0 - 2.0 * F(j)) * (p2 / pSum);
-        diag_private[i] += tmp / (2.0 * F(j) * (1.0 - F(j)));
+        tmp = (0.0 - 2.0 * f) * (0.0 - 2.0 * f) * (p0 / pSum);
+        tmp += (1.0 - 2.0 * f) * (1.0 - 2.0 * f) * (p1 / pSum);
+        tmp += (2.0 - 2.0 * f) * (2.0 - 2.0 * f) * (p2 / pSum);
+        diag_private[i] += tmp / (2.0 * f * (1.0 - f));
       }
     }
 #pragma omp critical

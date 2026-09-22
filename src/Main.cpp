@@ -119,9 +119,6 @@ int main(int argc, char* argv[]) {
   }
 
   const bool ooc_permutation = params.perm && params.out_of_core;
-  if (params.perm && params.out_of_core && params.svd_t == SvdType::IRAM) {
-    cao.warn("permutation is disabled for the Arnoldi/IRAM method");
-  }
 
   if (ooc_permutation) {
     tick.clock();
