@@ -900,95 +900,207 @@ void galinsky_selection_stat(Mat2D& V) {
 }
 
 namespace {
-// `buf` is scratch the caller owns and we are free to reorder and overwrite.
-// Threading it through instead of allocating here keeps one buffer alive per
-// thread for the whole of robust_cov_gk() rather than three per call.
-double robust_mad(const Mat1D& x, std::vector<double>& buf) {
-  buf.assign(x.data(), x.data() + x.size());
-  double med = median_inplace(buf);
-  for (double& v : buf) v = std::abs(v - med);
-  double mad = 1.482602218505602 * median_inplace(buf);
-  if (mad > 0.0 && std::isfinite(mad)) return mad;
 
-  // degenerate column (more than half the values identical): fall back to the
-  // sd, read from the untouched input rather than the buffer we just rewrote
-  if (x.size() <= 1) return 1.0;
-  double mean = x.mean();
-  double var = (x.array() - mean).square().sum() / std::max(1.0, static_cast<double>(x.size() - 1));
-  double sd = std::sqrt(var);
-  return (sd > 0.0 && std::isfinite(sd)) ? sd : 1.0;
+// ---------------------------------------------------------------------------
+// Orthogonalized Gnanadesikan-Kettenring (Maronna & Zamar 2002), matching
+// bigutilsr::dist_ogk() -- which is what pcadapt calls -- with its defaults
+// niter = 2, beta = 0.9 and the tau scale of Yohai & Zamar (1998).
+//
+// The plain pairwise GK estimator this replaces was not even scale
+// equivariant: rescaling one column of z-scores changed the Mahalanobis
+// distances, so the statistic depended on an arbitrary normalization. The
+// orthogonalization step fixes that, and the final reweighted estimate is a
+// classical covariance of the retained rows, so it is positive definite by
+// construction rather than by flooring eigenvalues.
+// ---------------------------------------------------------------------------
+
+constexpr double TAU_C1 = 4.5;
+constexpr double TAU_C2 = 3.0;
+constexpr double QNORM_3_4 = 0.6744897501960817;   // qnorm(3/4)
+constexpr double INV_SQRT2 = 0.7071067811865475244;
+constexpr double SQRT_2PI = 2.5066282746310005024;
+
+// E[rho] for the consistency factor of the tau scale at the normal, exactly as
+// robustbase::scaleTau2 computes it: Es2(c2) = Erho(c2 * qnorm(3/4)).
+double tau_Erho(double b) {
+  const double Phi = 0.5 * std::erfc(-b * INV_SQRT2);
+  const double phi = std::exp(-0.5 * b * b) / SQRT_2PI;
+  return 2.0 * ((1.0 - b * b) * Phi - b * phi + b * b) - 1.0;
+}
+const double TAU_ES2 = tau_Erho(TAU_C2 * QNORM_3_4);
+
+// scaleTau2 with robustbase's defaults (c1 = 4.5, c2 = 3, consistency at the
+// normal, iter = 1). Returns the scale, and the location too when asked.
+// `buf` is scratch the caller owns; we reorder and overwrite it.
+double scale_tau2(const double* x, Eigen::Index n, std::vector<double>& buf, double* mu_out = nullptr) {
+  buf.assign(x, x + n);
+  const double mu0 = median_inplace(buf);
+  for (Eigen::Index i = 0; i < n; ++i) buf[i] = std::abs(x[i] - mu0);
+  const double sigma0 = median_inplace(buf);  // MAD without the consistency factor
+  if (!(sigma0 > 0.0)) {  // more than half the column is a single value
+    if (mu_out) *mu_out = mu0;
+    return 0.0;
+  }
+
+  // location: a one-step weighted mean, weights falling to zero at c1 * sigma0
+  const double inv = 1.0 / (sigma0 * TAU_C1);
+  double sw = 0.0, sxw = 0.0;
+  for (Eigen::Index i = 0; i < n; ++i) {
+    const double t = std::abs(x[i] - mu0) * inv;
+    const double u = 1.0 - t * t;
+    if (u > 0.0) {
+      const double w = u * u;
+      sw += w;
+      sxw += x[i] * w;
+    }
+  }
+  const double mu = (sw > 0.0) ? sxw / sw : mu0;
+
+  // scale: the winsorized second moment about that location
+  const double c2sq = TAU_C2 * TAU_C2;
+  double rho = 0.0;
+  for (Eigen::Index i = 0; i < n; ++i) {
+    const double z = (x[i] - mu) / sigma0;
+    rho += std::min(z * z, c2sq);
+  }
+  if (mu_out) *mu_out = mu;
+  return sigma0 * std::sqrt(rho / ((double)n * TAU_ES2));
 }
 
-Mat1D robust_center(const Mat2D& X) {
-  const int p = (int)X.cols();
-  Mat1D center(p);
+// One Maronna-Zamar step, in place: scale every column to unit tau scale, form
+// the pairwise GK matrix of the scaled columns, and rotate onto its
+// eigenvectors. `tmp` is scratch of the same shape as Z.
+void ogk_step(Mat2D& Z, Mat2D& tmp) {
+  const int p = (int)Z.cols();
+  const Eigen::Index n = Z.rows();
+
 #pragma omp parallel
   {
     std::vector<double> buf;
 #pragma omp for schedule(static)
     for (int j = 0; j < p; ++j) {
-      buf.assign(X.col(j).data(), X.col(j).data() + X.rows());
-      center(j) = median_inplace(buf);
+      const double s = scale_tau2(Z.col(j).data(), n, buf);
+      if (s > 0.0) Z.col(j) /= s;
     }
   }
-  return center;
-}
 
-Mat2D robust_cov_gk(const Mat2D& X, const Mat1D& center) {
-  const int p = X.cols();
-  Mat2D cov = Mat2D::Zero(p, p);
-  Mat2D Xc = X.rowwise() - center.transpose();
-
-  // Every entry costs two MADs, i.e. four passes over all M sites, so this is
-  // where --selection 2 spends its time: for K=20 and M=656k it is 578 million
-  // element-medians. The p(p+1)/2 entries are independent, so flatten the
-  // triangle into one list and hand it to OpenMP; each thread keeps a single
-  // scratch buffer and a single pair of vectors for the whole loop.
+  // the diagonal is 1 by construction, the columns now having unit tau scale
+  Mat2D S = Mat2D::Identity(p, p);
   Int1D pi, pj;
-  pi.reserve(p * (p + 1) / 2);
-  pj.reserve(p * (p + 1) / 2);
+  pi.reserve(p * (p - 1) / 2);
+  pj.reserve(p * (p - 1) / 2);
   for (int i = 0; i < p; ++i)
-    for (int j = i; j < p; ++j) pi.push_back(i), pj.push_back(j);
+    for (int j = i + 1; j < p; ++j) pi.push_back(i), pj.push_back(j);
   const int npairs = (int)pi.size();
 
 #pragma omp parallel
   {
     std::vector<double> buf;
-    Mat1D plus(X.rows()), minus(X.rows());
+    Mat1D plus(n), minus(n);
 #pragma omp for schedule(dynamic)
     for (int t = 0; t < npairs; ++t) {
       const int i = pi[t], j = pj[t];
-      if (i == j) {
-        plus = Xc.col(i);
-        const double scale = robust_mad(plus, buf);
-        cov(i, i) = scale * scale;
-        continue;
-      }
-      plus = Xc.col(i) + Xc.col(j);
-      minus = Xc.col(i) - Xc.col(j);
-      const double splus = robust_mad(plus, buf);
-      const double sminus = robust_mad(minus, buf);
-      const double cij = 0.25 * (splus * splus - sminus * sminus);
-      cov(i, j) = cij;
-      cov(j, i) = cij;
+      plus = Z.col(i) + Z.col(j);
+      minus = Z.col(i) - Z.col(j);
+      const double sp = scale_tau2(plus.data(), n, buf);
+      const double sm = scale_tau2(minus.data(), n, buf);
+      const double cij = 0.25 * (sp * sp - sm * sm);
+      S(i, j) = cij;
+      S(j, i) = cij;
     }
   }
 
-  Eigen::SelfAdjointEigenSolver<Mat2D> eig(cov);
-  if (eig.info() != Eigen::Success) cao.error("failed eigendecomposition of pcadapt robust covariance.");
-  Mat1D evals = eig.eigenvalues();
-  double max_eval = std::max(1.0, evals.maxCoeff());
-  double floor = max_eval * 1e-8;
-  for (int i = 0; i < evals.size(); ++i) evals(i) = std::max(evals(i), floor);
-  return eig.eigenvectors() * evals.asDiagonal() * eig.eigenvectors().transpose();
+  Eigen::SelfAdjointEigenSolver<Mat2D> eig(S);
+  if (eig.info() != Eigen::Success) cao.error("failed eigendecomposition of the pcadapt OGK matrix.");
+  tmp.noalias() = Z * eig.eigenvectors();
+  Z.swap(tmp);
+}
+
+// Robust location and scatter by OGK, followed by the hard-rejection
+// reweighting that bigutilsr::covrob_ogk() applies.
+void robust_cov_ogk(const Mat2D& U, Mat1D& wcenter, Mat2D& wcov, int niter, double beta) {
+  const int p = (int)U.cols();
+  const Eigen::Index n = U.rows();
+
+  Mat2D Z = U, tmp(n, p);
+  for (int it = 0; it < niter; ++it) ogk_step(Z, tmp);
+  tmp.resize(0, 0);
+
+  // location and scale of the orthogonalized data; the distance is then just
+  // the standardized sum of squares in that basis
+  Mat1D ctr(p), sg(p);
+#pragma omp parallel
+  {
+    std::vector<double> buf;
+#pragma omp for schedule(static)
+    for (int j = 0; j < p; ++j) {
+      double m = 0.0;
+      sg(j) = scale_tau2(Z.col(j).data(), n, buf, &m);
+      ctr(j) = m;
+    }
+  }
+
+  Mat1D d(n);
+#pragma omp parallel for schedule(static)
+  for (Eigen::Index i = 0; i < n; ++i) {
+    double acc = 0.0;
+    for (int j = 0; j < p; ++j) {
+      if (!(sg(j) > 0.0)) continue;  // degenerate direction carries no information
+      const double t = (Z(i, j) - ctr(j)) / sg(j);
+      acc += t * t;
+    }
+    d(i) = acc;
+  }
+  Z.resize(0, 0);
+
+  std::vector<double> dv(d.data(), d.data() + n);
+  const double cdelta = median_inplace(dv) / qchisq(0.5, p);
+  const double cutoff = qchisq(beta, p) * cdelta;
+
+  Eigen::Index nkeep = 0;
+  for (Eigen::Index i = 0; i < n; ++i)
+    if (d(i) < cutoff) ++nkeep;
+  const bool use_all = (nkeep <= (Eigen::Index)p);
+  if (use_all)
+    cao.warn("pcadapt: the OGK reweighting kept only ", nkeep,
+             " sites, too few to estimate a covariance; using all sites instead");
+
+  auto kept = [&](Eigen::Index i) { return use_all || d(i) < cutoff; };
+  const double nk = (double)(use_all ? n : nkeep);
+
+  wcenter = Mat1D::Zero(p);
+  for (Eigen::Index i = 0; i < n; ++i)
+    if (kept(i)) wcenter += U.row(i).transpose();
+  wcenter /= nk;
+
+  wcov = Mat2D::Zero(p, p);
+#pragma omp parallel
+  {
+    Mat2D acc = Mat2D::Zero(p, p);
+    Mat1D v(p);
+#pragma omp for schedule(static)
+    for (Eigen::Index i = 0; i < n; ++i) {
+      if (!kept(i)) continue;
+      v = U.row(i).transpose() - wcenter;
+      acc.selfadjointView<Eigen::Lower>().rankUpdate(v);
+    }
+#pragma omp critical
+    wcov += acc;
+  }
+  for (int a = 0; a < p; ++a)  // rankUpdate only filled the lower triangle
+    for (int b = a + 1; b < p; ++b) wcov(a, b) = wcov(b, a);
+  wcov /= nk;
 }
 }  // namespace
 
 void pcadapt_selection_stats(const Mat2D& Z, Mat1D& stat, Mat1D& chi2_stat, Mat1D& pval, double& gif) {
   const int k = Z.cols();
-  Mat1D center = robust_center(Z);
-  Mat2D cov = robust_cov_gk(Z, center);
+  Mat1D center;
+  Mat2D cov;
+  robust_cov_ogk(Z, center, cov, 2, 0.9);  // bigutilsr::covrob_ogk defaults
   Mat2D inv_cov = cov.inverse();
+  if (!inv_cov.allFinite())
+    cao.error("pcadapt: the robust covariance of the z-scores is singular; try a smaller -k");
 
   stat = Mat1D::Zero(Z.rows());
 #pragma omp parallel for
