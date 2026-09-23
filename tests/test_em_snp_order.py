@@ -21,8 +21,11 @@ M = 48
 
 
 def matrix(path):
-    return [[float(x) for x in line.split()] for line in path.read_text().splitlines()
-            if line and not line.startswith("#")]
+    return [
+        [float(x) for x in line.split()]
+        for line in path.read_text().splitlines()
+        if line and not line.startswith("#")
+    ]
 
 
 def close(left, right, label, tolerance=2e-4):
@@ -65,7 +68,9 @@ def fixture(tmp):
     prefix = tmp / "input"
     prefix.with_suffix(".bed").write_bytes(bed)
     prefix.with_suffix(".bim").write_text("".join(bim))
-    prefix.with_suffix(".fam").write_text("".join(f"s{i} s{i} 0 0 0 -9\n" for i in range(N)))
+    prefix.with_suffix(".fam").write_text(
+        "".join(f"s{i} s{i} 0 0 0 -9\n" for i in range(N))
+    )
     beagle = tmp / "input.beagle.gz"
     with gzip.open(beagle, "wt") as out:
         out.write("\n".join(gl) + "\n")
@@ -75,9 +80,32 @@ def fixture(tmp):
 
 def run(tmp, name, input_args, extra, solver):
     prefix = tmp / f"{name}_{solver}"
-    cmd = [str(PCAONE), *input_args, "-k", "2", "--oversamples", "10", "-w", "4",
-           "--maxp", "20", "--tol-rsvd", "1e-12", "--tol-em", "0", "--maxiter", "4",
-           "-V", "-n", "1", "-v", "0", "-o", str(prefix), *extra]
+    cmd = [
+        str(PCAONE),
+        *input_args,
+        "-k",
+        "2",
+        "--oversamples",
+        "10",
+        "-w",
+        "4",
+        "--maxp",
+        "20",
+        "--tol-rsvd",
+        "1e-12",
+        "--tol-em",
+        "0",
+        "--maxiter",
+        "4",
+        "-V",
+        "-n",
+        "1",
+        "-v",
+        "0",
+        "-o",
+        str(prefix),
+        *extra,
+    ]
     cmd += ["-d", "1"] if solver == "single" else ["-d", "2"]
     if solver == "ordered":
         cmd.append("-S")
@@ -85,7 +113,9 @@ def run(tmp, name, input_args, extra, solver):
     assert result.returncode == 0, (cmd, result.stdout, result.stderr)
     if solver == "shuffled":
         # The same permutation must survive every EM iteration.
-        assert Path(str(prefix) + ".log").read_text().count("permuting data matrix") == 1
+        assert (
+            Path(str(prefix) + ".log").read_text().count("permuting data matrix") == 1
+        )
     return prefix
 
 
@@ -103,20 +133,32 @@ def main():
             ("pcangsd_filtered", ["-G", str(beagle)], ["--maf", "0.15"]),
         ]
         for name, inputs, extra in cases:
-            outputs = [run(tmp, name, inputs, extra, solver)
-                       for solver in ("single", "ordered", "shuffled")]
+            outputs = [
+                run(tmp, name, inputs, extra, solver)
+                for solver in ("single", "ordered", "shuffled")
+            ]
             reference = outputs[0]
             ref_mbim = Path(str(reference) + ".mbim").read_text()
             if "filtered" in name:
-                assert 16 <= len(ref_mbim.splitlines()) < M, "fixture must exercise filtering"
+                assert 16 <= len(ref_mbim.splitlines()) < M, (
+                    "fixture must exercise filtering"
+                )
             for output in outputs[1:]:
-                close(matrix(Path(str(reference) + ".sigvals")),
-                      matrix(Path(str(output) + ".sigvals")), name + " singular values")
+                close(
+                    matrix(Path(str(reference) + ".sigvals")),
+                    matrix(Path(str(output) + ".sigvals")),
+                    name + " singular values",
+                )
                 close(reconstructed(reference), reconstructed(output), name + " USV")
-                assert ref_mbim == Path(str(output) + ".mbim").read_text(), name + " SNP frequencies"
+                assert ref_mbim == Path(str(output) + ".mbim").read_text(), (
+                    name + " SNP frequencies"
+                )
                 if name.startswith("pcangsd"):
-                    close(matrix(Path(str(reference) + ".cov")),
-                          matrix(Path(str(output) + ".cov")), name + " covariance")
+                    close(
+                        matrix(Path(str(reference) + ".cov")),
+                        matrix(Path(str(output) + ".cov")),
+                        name + " covariance",
+                    )
             print("PASS:", name)
 
 

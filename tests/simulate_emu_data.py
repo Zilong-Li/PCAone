@@ -52,14 +52,14 @@ BED_MAGIC = b"\x6c\x1b\x01"
 # Drift parameters of the population tree, in Balding-Nichols Fst units.
 # Chosen so the pairwise Fst values land near the HGDP trio used in the paper
 # (Han-Dai ~ 0.006, Han-Uygur ~ 0.019, Dai-Uygur ~ 0.024).
-DRIFT_EAST_ASIA = 0.020   # global ancestral -> East Asian branch
+DRIFT_EAST_ASIA = 0.020  # global ancestral -> East Asian branch
 DRIFT_WEST_EURASIA = 0.080  # global ancestral -> West Eurasian branch
 # The tip drift is larger than the paper's closest pair (Fst ~ 0.006 between
 # Han and Dai).  This panel carries ~20K sites against the paper's ~350K, so at
 # the paper's value the Han/Dai axis sits at the edge of detectability and the
 # test would be flaky; 0.010 puts that pair at Fst ~ 0.02, still well inside the
 # low-Fst regime.  Pass --drift 0.4 to recover the paper's distances.
-DRIFT_TIP = 0.010         # branch -> population tip
+DRIFT_TIP = 0.010  # branch -> population tip
 UYGUR_WEST_FRACTION = 0.5  # West Eurasian ancestry of the third population
 
 POP_NAMES = ("HAN", "DAI", "UYG")
@@ -82,13 +82,15 @@ def site_frequencies(rng: random.Random, drift: float) -> list[float]:
     west = balding_nichols(rng, ancestral, DRIFT_WEST_EURASIA * drift)
     han = balding_nichols(rng, east, DRIFT_TIP * drift)
     dai = balding_nichols(rng, east, DRIFT_TIP * drift)
-    uygur = ((1.0 - UYGUR_WEST_FRACTION) * balding_nichols(rng, east, DRIFT_TIP * drift)
-             + UYGUR_WEST_FRACTION * balding_nichols(rng, west, DRIFT_TIP * drift))
+    uygur = (1.0 - UYGUR_WEST_FRACTION) * balding_nichols(
+        rng, east, DRIFT_TIP * drift
+    ) + UYGUR_WEST_FRACTION * balding_nichols(rng, west, DRIFT_TIP * drift)
     return [han, dai, uygur]
 
 
-def ancestry_proportions(rng: random.Random, per_pop: int, nadmixed: int,
-                         alpha: float) -> tuple[list[list[float]], list[str]]:
+def ancestry_proportions(
+    rng: random.Random, per_pop: int, nadmixed: int, alpha: float
+) -> tuple[list[list[float]], list[str]]:
     """Per-individual ancestry proportions and population labels."""
     proportions: list[list[float]] = []
     labels: list[str] = []
@@ -106,9 +108,18 @@ def ancestry_proportions(rng: random.Random, per_pop: int, nadmixed: int,
     return proportions, labels
 
 
-def simulate(nsnps: int, per_pop: int, nadmixed: int, seed: int, maf: float,
-             alpha: float, drift: float, diploid: bool,
-             miss_low: float, miss_high: float):
+def simulate(
+    nsnps: int,
+    per_pop: int,
+    nadmixed: int,
+    seed: int,
+    maf: float,
+    alpha: float,
+    drift: float,
+    diploid: bool,
+    miss_low: float,
+    miss_high: float,
+):
     """Return (rows, labels, proportions, rates, realised) for the whole panel.
 
     Each element of `rows` is the list of PLINK codes for one kept site.
@@ -165,28 +176,43 @@ def write_plink(prefix: Path, rows, labels) -> None:
     Path(str(prefix) + ".bed").write_bytes(bytes(bed))
     Path(str(prefix) + ".bim").write_text("".join(bim))
     Path(str(prefix) + ".fam").write_text(
-        "".join(f"{labels[i]}_{i + 1} {labels[i]}_{i + 1} 0 0 0 -9\n"
-                for i in range(nsamples)))
+        "".join(
+            f"{labels[i]}_{i + 1} {labels[i]}_{i + 1} 0 0 0 -9\n"
+            for i in range(nsamples)
+        )
+    )
 
 
 def write_truth(prefix: Path, labels, proportions, rates, realised) -> None:
     Path(str(prefix) + ".pop").write_text(
-        "".join(f"{labels[i]}_{i + 1}\t{labels[i]}\n" for i in range(len(labels))))
+        "".join(f"{labels[i]}_{i + 1}\t{labels[i]}\n" for i in range(len(labels)))
+    )
     Path(str(prefix) + ".q").write_text(
-        "".join("\t".join(f"{x:.6f}" for x in q) + "\n" for q in proportions))
+        "".join("\t".join(f"{x:.6f}" for x in q) + "\n" for q in proportions)
+    )
     Path(str(prefix) + ".miss").write_text(
         "#target\trealised\n"
-        + "".join(f"{rates[i]:.6f}\t{realised[i]:.6f}\n" for i in range(len(rates))))
+        + "".join(f"{rates[i]:.6f}\t{realised[i]:.6f}\n" for i in range(len(rates)))
+    )
 
 
-def build(prefix: Path, nsnps: int = 20000, per_pop: int = 84, nadmixed: int = 48,
-          seed: int = 2021, maf: float = 0.05, alpha: float = 1.0,
-          drift: float = 1.0, diploid: bool = False,
-          miss_low: float = 0.05, miss_high: float = 0.50) -> Path:
+def build(
+    prefix: Path,
+    nsnps: int = 20000,
+    per_pop: int = 84,
+    nadmixed: int = 48,
+    seed: int = 2021,
+    maf: float = 0.05,
+    alpha: float = 1.0,
+    drift: float = 1.0,
+    diploid: bool = False,
+    miss_low: float = 0.05,
+    miss_high: float = 0.50,
+) -> Path:
     """Simulate and write the panel; returns the PLINK prefix."""
     rows, labels, proportions, rates, realised = simulate(
-        nsnps, per_pop, nadmixed, seed, maf, alpha, drift, diploid,
-        miss_low, miss_high)
+        nsnps, per_pop, nadmixed, seed, maf, alpha, drift, diploid, miss_low, miss_high
+    )
     prefix.parent.mkdir(parents=True, exist_ok=True)
     write_plink(prefix, rows, labels)
     write_truth(prefix, labels, proportions, rates, realised)
@@ -194,40 +220,80 @@ def build(prefix: Path, nsnps: int = 20000, per_pop: int = 84, nadmixed: int = 4
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("prefix", type=Path, help="output PLINK prefix")
-    parser.add_argument("--nsnps", type=int, default=20000,
-                        help="sites kept after the MAF filter (default 20000)")
-    parser.add_argument("--per-pop", type=int, default=84,
-                        help="unadmixed individuals per population (default 84)")
-    parser.add_argument("--nadmixed", type=int, default=48,
-                        help="admixed individuals (default 48)")
+    parser.add_argument(
+        "--nsnps",
+        type=int,
+        default=20000,
+        help="sites kept after the MAF filter (default 20000)",
+    )
+    parser.add_argument(
+        "--per-pop",
+        type=int,
+        default=84,
+        help="unadmixed individuals per population (default 84)",
+    )
+    parser.add_argument(
+        "--nadmixed", type=int, default=48, help="admixed individuals (default 48)"
+    )
     parser.add_argument("--seed", type=int, default=2021)
-    parser.add_argument("--maf", type=float, default=0.05,
-                        help="minor allele frequency threshold (default 0.05)")
-    parser.add_argument("--alpha", type=float, default=1.0,
-                        help="Dirichlet concentration for admixed individuals")
-    parser.add_argument("--drift", type=float, default=1.0,
-                        help="multiplier on all Fst values; >1 makes the "
-                             "populations easier to separate")
-    parser.add_argument("--diploid", action="store_true",
-                        help="keep diploid genotypes instead of the paper's "
-                             "pseudo-haploid single-read calls")
+    parser.add_argument(
+        "--maf",
+        type=float,
+        default=0.05,
+        help="minor allele frequency threshold (default 0.05)",
+    )
+    parser.add_argument(
+        "--alpha",
+        type=float,
+        default=1.0,
+        help="Dirichlet concentration for admixed individuals",
+    )
+    parser.add_argument(
+        "--drift",
+        type=float,
+        default=1.0,
+        help="multiplier on all Fst values; >1 makes the "
+        "populations easier to separate",
+    )
+    parser.add_argument(
+        "--diploid",
+        action="store_true",
+        help="keep diploid genotypes instead of the paper's "
+        "pseudo-haploid single-read calls",
+    )
     parser.add_argument("--miss-low", type=float, default=0.05)
-    parser.add_argument("--miss-high", type=float, default=0.50,
-                        help="per-individual missingness is uniform on "
-                             "[--miss-low, --miss-high]; the paper's scenario 1 "
-                             "is 0.05-0.50 and its scenario 2 is 0.90-0.99")
+    parser.add_argument(
+        "--miss-high",
+        type=float,
+        default=0.50,
+        help="per-individual missingness is uniform on "
+        "[--miss-low, --miss-high]; the paper's scenario 1 "
+        "is 0.05-0.50 and its scenario 2 is 0.90-0.99",
+    )
     args = parser.parse_args()
 
-    build(args.prefix, nsnps=args.nsnps, per_pop=args.per_pop,
-          nadmixed=args.nadmixed, seed=args.seed, maf=args.maf,
-          alpha=args.alpha, drift=args.drift, diploid=args.diploid,
-          miss_low=args.miss_low, miss_high=args.miss_high)
+    build(
+        args.prefix,
+        nsnps=args.nsnps,
+        per_pop=args.per_pop,
+        nadmixed=args.nadmixed,
+        seed=args.seed,
+        maf=args.maf,
+        alpha=args.alpha,
+        drift=args.drift,
+        diploid=args.diploid,
+        miss_low=args.miss_low,
+        miss_high=args.miss_high,
+    )
     nsamples = 3 * args.per_pop + args.nadmixed
-    print(f"wrote {args.prefix}.bed/.bim/.fam: {nsamples} individuals x "
-          f"{args.nsnps} sites")
+    print(
+        f"wrote {args.prefix}.bed/.bim/.fam: {nsamples} individuals x "
+        f"{args.nsnps} sites"
+    )
 
 
 if __name__ == "__main__":

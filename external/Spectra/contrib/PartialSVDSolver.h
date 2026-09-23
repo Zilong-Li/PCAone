@@ -159,6 +159,13 @@ public:
     // Computation
     Index compute(Index maxit = 1000, Scalar tol = 1e-10)
     {
+        // PCAone patch: matrix_U()/matrix_V() cache the eigenvectors in
+        // m_evecs and only fetch them when the cache is empty. A solver whose
+        // matrix is updated in place and re-computed -- which is exactly what
+        // the EM-PCA loop in Arnoldi.cpp does -- then keeps handing back the
+        // singular vectors of the FIRST decomposition forever. Invalidate the
+        // cache here so every compute() is observed by the accessors.
+        m_evecs.resize(0, 0);
         m_eigs->init();
         m_nconv = m_eigs->compute(SortRule::LargestAlge, maxit, tol);
 

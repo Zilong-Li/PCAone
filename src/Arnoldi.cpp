@@ -77,9 +77,18 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
         U = svds.matrix_U(params.k);
         V2 = svds.matrix_V(params.k);
         flip_UV(U, V2);
-        diff = rmse(V2, V);
+        // Same measure as run_pca_with_halko() and the FULL solver, so that a
+        // given --tol-em means the same thing whichever -d the user picked.
+        // This used to be rmse(), which divides by sqrt(nsnps * k) and so hit
+        // any fixed tolerance far earlier -- IRAM stopped after 4 EM
+        // iterations where the other solvers took 10, and settled short of the
+        // EM fixed point despite being the more accurate decomposition.
+        if (params.mev)
+          diff = 1.0 - mev(V2, V);
+        else
+          diff = minSSE(V2, V).sum() / V.cols();
         if (params.verbose)
-          cao.print(tick.date(), "individual allele frequencies estimated (iter =", i, "), RMSE =", diff);
+          cao.print(tick.date(), "individual allele frequencies estimated (iter =", i, "), diff =", diff);
         V = V2;
         if (diff < params.tolem) {
           cao.print(tick.date(), "come to convergence!");
@@ -156,7 +165,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
       data->calcu_vt_initial(U, op->VT, false);
       flip_UV(op->U, op->VT);
       op->setFlags(true, false);
-      for (uint i = 1; i < params.maxiter; ++i) {
+      for (uint i = 1; i <= params.maxiter; ++i) {  // in-core runs maxiter, not maxiter - 1
         V = op->VT;
         eigs->init();
         nconv = eigs->compute(SortRule::LargestAlge, params.imaxiter, params.itol);
@@ -171,10 +180,17 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
         op->S = eigs->eigenvalues().cwiseSqrt();
         op->U = eigs->eigenvectors().leftCols(nu);
         flip_UV(op->U, op->VT);
-        diff = rmse(op->VT, V);
+        // VT is k x nsnps here, so transpose before measuring like the in-core
+        // loop above does. The stopping threshold is --tol-em; this compared
+        // against params.tol (--tol-rsvd, and ten times looser by default),
+        // which left --tol-em with no effect at all on out-of-core IRAM.
+        if (params.mev)
+          diff = 1.0 - mev(op->VT.transpose(), V.transpose());
+        else
+          diff = minSSE(op->VT.transpose(), V.transpose()).sum() / op->VT.rows();
         if (params.verbose)
-          cao.print(tick.date(), "individual allele frequencies estimated (iter =", i, "), RMSE =", diff);
-        if (diff < params.tol) {
+          cao.print(tick.date(), "individual allele frequencies estimated (iter =", i, "), diff =", diff);
+        if (diff < params.tolem) {
           cao.print(tick.date(), "come to convergence!");
           break;
         }

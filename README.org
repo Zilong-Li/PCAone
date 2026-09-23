@@ -240,7 +240,7 @@ PCA algorithms:
                                  0: the Implicitly Restarted Arnoldi Method (IRAM);
                                  1: the Yu's single-pass Randomized SVD with power iterations;
                                  2: the accurate window-based Randomized SVD method (PCAone);
-                                 3: the full Singular Value Decomposition.
+                                 3: the full Singular Value Decomposition (no EM-PCA support).
   -k, --pc arg (=10)             top k principal components (PCs) to be calculated
   -C, --scale arg (=-9)          do normalization or scaling for input file. Options are
                                  -9: standardize genetic data by sqrt(ploidy*f*(1-f));
@@ -252,8 +252,8 @@ PCA algorithms:
   --maxp arg (=20)               maximum number of power iterations for RSVD algorithm.
   -S, --no-shuffle               do not shuffle columns of data for --svd 2 (if not locally correlated).
   --seed arg (=112)              seeds for reproducing results.
-  --emu                          use EMU algorithm for genotype input with missingness.
-  --pcangsd                      use PCAngsd algorithm for genotype likelihood input.
+  --emu                          use EMU algorithm for genotype input with missingness. not with --svd 3.
+  --pcangsd                      use PCAngsd algorithm for genotype likelihood input. not with --svd 3.
 
 Input options:
   -b, --bfile arg                prefix of PLINK .bed/.bim/.fam files.

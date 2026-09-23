@@ -42,7 +42,7 @@ Param::Param(int argc, char** argv) {
                                                    "0: the Implicitly Restarted Arnoldi Method (IRAM);\n"
                                                    "1: the Yu's single-pass Randomized SVD with power iterations;\n"
                                                    "2: the accurate window-based Randomized SVD method (PCAone);\n"
-                                                   "3: the full Singular Value Decomposition.", 2);
+                                                   "3: the full Singular Value Decomposition (no EM-PCA support).", 2);
   opts.add<Value<uint>>("k", "pc", "top k principal components (PCs) to be calculated", k, &k);
   opts.add<Value<int>>("C", "scale", "do normalization or scaling for input file. Options are\n"
                                      "-9: standardize genetic data by sqrt(ploidy*f*(1-f));\n"
@@ -55,8 +55,8 @@ Param::Param(int argc, char** argv) {
   opts.add<Switch>("S", "no-shuffle", "do not shuffle columns of data for --svd 2 (if not locally correlated).", &noshuffle);
   opts.add<Value<uint>, Attribute::advanced>("w", "batches", "the number of mini-batches used by --svd 2.", bands, &bands);
   opts.add<Value<int>>("", "seed", "seeds for reproducing results.\n", seed, &seed);
-  opts.add<Switch>("", "emu", "use EMU algorithm for genotype input with missingness.", &emu);
-  opts.add<Switch>("", "pcangsd", "use PCAngsd algorithm for genotype likelihood input.", &pcangsd);
+  opts.add<Switch>("", "emu", "use EMU algorithm for genotype input with missingness. not with --svd 3.", &emu);
+  opts.add<Switch>("", "pcangsd", "use PCAngsd algorithm for genotype likelihood input. not with --svd 3.", &pcangsd);
   opts.add<Value<uint>, Attribute::advanced>("", "M", "the number of features (eg. SNPs) if already known.", 0, &nsnps);
   opts.add<Value<uint>, Attribute::advanced>("", "N", "the number of samples if already known.", 0, &nsamples);
   opts.add<Value<double>, Attribute::advanced>("", "scale-factor", "feature counts for each sample are normalized and multiplied by this value", 1.0, &scaleFactor);
@@ -232,6 +232,14 @@ Param::Param(int argc, char** argv) {
     } else if (dopca) {
       maxiter = 0;
     }
+    // The full SVD (--svd 3) is a single exact eigendecomposition with no EM
+    // loop around it, so it cannot fit individual allele frequencies. Refuse
+    // the combination instead of returning mean-imputed PCA in files that are
+    // indistinguishable from real EM-PCA output.
+    if (missme && svd_t == SvdType::FULL)
+      throw std::invalid_argument(
+          "EM-PCA is not supported with --svd 3 (full SVD). please use --svd 0, 1 or 2 instead. note that "
+          "--emu, --pcangsd and BEAGLE input (which implies --pcangsd) all request EM-PCA");
     if (out_of_core && pcangsd && (file_t == FileType::BEAGLE))
       throw std::invalid_argument("not supporting -m option (out-of-core) for PCAngsd and BEAGLE input yet!");
     if (bands < 4 || bands % 2 != 0)
