@@ -126,7 +126,11 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
     // SymEigsSolver< double, LARGEST_ALGE, ArnoldiOpData >(op, params.k,
     // params.ncv);
     SymEigsSolver<ArnoldiOpData>* eigs = new SymEigsSolver<ArnoldiOpData>(*op, params.k, params.ncv);
-    if (!params.missme) op->setFlags(false, true);
+    // write_residuals() re-reads the blocks unstandardized, so under --ld the
+    // decomposition it subtracts has to be unstandardized too. This is the
+    // convention in-core IRAM (Arnoldi.cpp above) and Halko already follow.
+    bool standardized = !(params.missme || params.ld);
+    op->setFlags(false, standardized);
     eigs->init();
     nconv = eigs->compute(SortRule::LargestAlge, params.imaxiter, params.itol);
     if (nconv < params.k) cao.error("the nconv is not equal to k");
@@ -143,7 +147,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
     U = (eigs->eigenvectors().leftCols(nu).transpose().array().colwise() / eigs->eigenvalues().head(nu).array().sqrt())
             .matrix();
     op->VT = Mat2D::Zero(U.rows(), data->nsnps);
-    data->calcu_vt_initial(U, op->VT, true);
+    data->calcu_vt_initial(U, op->VT, standardized);
     evals.noalias() = eigs->eigenvalues() / data->nsnps;
     // impute information via EM-PCA
     if (params.missme) {
@@ -152,7 +156,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
       data->calcu_vt_initial(U, op->VT, false);
       flip_UV(op->U, op->VT);
       op->setFlags(true, false);
-      for (uint i = 1; i <= params.maxiter; ++i) {
+      for (uint i = 1; i < params.maxiter; ++i) {
         V = op->VT;
         eigs->init();
         nconv = eigs->compute(SortRule::LargestAlge, params.imaxiter, params.itol);
@@ -176,7 +180,8 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
         }
       }
 
-      op->setFlags(true, true);
+      standardized = !params.ld;
+      op->setFlags(true, standardized);
       eigs->init();
       nconv = eigs->compute(SortRule::LargestAlge, params.imaxiter, params.itol);
       if (nconv < params.k) cao.error("the nconv is not equal to k.");
@@ -186,16 +191,19 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
            eigs->eigenvalues().head(nu).array().sqrt())
               .matrix();
 
-      data->calcu_vt_update(U, op->U, op->S, op->VT, true);
+      data->calcu_vt_update(U, op->U, op->S, op->VT, standardized);
+      // S comes from this final solve as well. op->U, op->VT and evals all do,
+      // so keeping the previous iteration's S left .sigvals disagreeing with
+      // .eigvals and with the U/V written beside it.
+      op->S = eigs->eigenvalues().cwiseSqrt();
       op->U = eigs->eigenvectors().leftCols(nu);
       flip_UV(op->U, op->VT);
       evals.noalias() = eigs->eigenvalues() / data->nsnps;
     }
 
     if (params.ld && !params.pcangsd) data->write_residuals(op->S, op->U, op->VT);
-    // both branches above end with setFlags(.., true), so the decomposition
-    // that produced op->U/S/VT was standardized either way
-    data->set_svd_transform(true);
+    // `standardized` is the flag the solve that produced op->U/S/VT ran with
+    data->set_svd_transform(standardized);
     data->write_eigs_files(evals, op->S, op->U, op->VT.transpose());
 
     delete op;

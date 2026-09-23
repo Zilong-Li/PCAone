@@ -189,6 +189,9 @@ test_pgen_plink_equivalence: ${program}
 test_em_snp_order: ${program}
 	python3 tests/test_em_snp_order.py
 
+test_emu_simulated: ${program}
+	python3 tests/test_emu_simulated.py
+
 rm:
 	(rm -f src/*.o src/*.d tests/*.d $(program))
 	(cd ./external/bgen/; $(MAKE) clean)
