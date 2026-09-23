@@ -900,13 +900,18 @@ void galinsky_selection_stat(Mat2D& V) {
 }
 
 namespace {
-double robust_mad(const Mat1D& x) {
-  std::vector<double> vals(x.data(), x.data() + x.size());
-  double med = get_median(vals);
-  for (double& v : vals) v = std::abs(v - med);
-  double mad = 1.482602218505602 * get_median(vals);
+// `buf` is scratch the caller owns and we are free to reorder and overwrite.
+// Threading it through instead of allocating here keeps one buffer alive per
+// thread for the whole of robust_cov_gk() rather than three per call.
+double robust_mad(const Mat1D& x, std::vector<double>& buf) {
+  buf.assign(x.data(), x.data() + x.size());
+  double med = median_inplace(buf);
+  for (double& v : buf) v = std::abs(v - med);
+  double mad = 1.482602218505602 * median_inplace(buf);
   if (mad > 0.0 && std::isfinite(mad)) return mad;
 
+  // degenerate column (more than half the values identical): fall back to the
+  // sd, read from the untouched input rather than the buffer we just rewrote
   if (x.size() <= 1) return 1.0;
   double mean = x.mean();
   double var = (x.array() - mean).square().sum() / std::max(1.0, static_cast<double>(x.size() - 1));
@@ -915,11 +920,16 @@ double robust_mad(const Mat1D& x) {
 }
 
 Mat1D robust_center(const Mat2D& X) {
-  Mat1D center(X.cols());
-  for (int j = 0; j < X.cols(); ++j) {
-    std::vector<double> vals(X.rows());
-    for (int i = 0; i < X.rows(); ++i) vals[i] = X(i, j);
-    center(j) = get_median(vals);
+  const int p = (int)X.cols();
+  Mat1D center(p);
+#pragma omp parallel
+  {
+    std::vector<double> buf;
+#pragma omp for schedule(static)
+    for (int j = 0; j < p; ++j) {
+      buf.assign(X.col(j).data(), X.col(j).data() + X.rows());
+      center(j) = median_inplace(buf);
+    }
   }
   return center;
 }
@@ -929,18 +939,36 @@ Mat2D robust_cov_gk(const Mat2D& X, const Mat1D& center) {
   Mat2D cov = Mat2D::Zero(p, p);
   Mat2D Xc = X.rowwise() - center.transpose();
 
-  for (int i = 0; i < p; ++i) {
-    double scale = robust_mad(Xc.col(i));
-    cov(i, i) = scale * scale;
-  }
+  // Every entry costs two MADs, i.e. four passes over all M sites, so this is
+  // where --selection 2 spends its time: for K=20 and M=656k it is 578 million
+  // element-medians. The p(p+1)/2 entries are independent, so flatten the
+  // triangle into one list and hand it to OpenMP; each thread keeps a single
+  // scratch buffer and a single pair of vectors for the whole loop.
+  Int1D pi, pj;
+  pi.reserve(p * (p + 1) / 2);
+  pj.reserve(p * (p + 1) / 2);
+  for (int i = 0; i < p; ++i)
+    for (int j = i; j < p; ++j) pi.push_back(i), pj.push_back(j);
+  const int npairs = (int)pi.size();
 
-  for (int i = 0; i < p; ++i) {
-    for (int j = i + 1; j < p; ++j) {
-      Mat1D plus = Xc.col(i) + Xc.col(j);
-      Mat1D minus = Xc.col(i) - Xc.col(j);
-      double splus = robust_mad(plus);
-      double sminus = robust_mad(minus);
-      double cij = 0.25 * (splus * splus - sminus * sminus);
+#pragma omp parallel
+  {
+    std::vector<double> buf;
+    Mat1D plus(X.rows()), minus(X.rows());
+#pragma omp for schedule(dynamic)
+    for (int t = 0; t < npairs; ++t) {
+      const int i = pi[t], j = pj[t];
+      if (i == j) {
+        plus = Xc.col(i);
+        const double scale = robust_mad(plus, buf);
+        cov(i, i) = scale * scale;
+        continue;
+      }
+      plus = Xc.col(i) + Xc.col(j);
+      minus = Xc.col(i) - Xc.col(j);
+      const double splus = robust_mad(plus, buf);
+      const double sminus = robust_mad(minus, buf);
+      const double cij = 0.25 * (splus * splus - sminus * sminus);
       cov(i, j) = cij;
       cov(j, i) = cij;
     }
@@ -970,7 +998,7 @@ void pcadapt_selection_stats(const Mat2D& Z, Mat1D& stat, Mat1D& chi2_stat, Mat1
   }
 
   std::vector<double> stat_vec(stat.data(), stat.data() + stat.size());
-  gif = get_median(stat_vec) / qchisq(0.5, k);
+  gif = median_inplace(stat_vec) / qchisq(0.5, k);  // stat_vec is ours to reorder
   if (!(gif > 0.0) || !std::isfinite(gif)) gif = 1.0;
 
   chi2_stat = stat / gif;

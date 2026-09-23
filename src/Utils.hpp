@@ -56,21 +56,31 @@ void mev_rmse_byk(const Mat2D& X, const Mat2D& Y, Mat1D& Vm, Mat1D& Vr);
 
 String1D split_string(const std::string& s, const std::string& separators);
 
+// Median of a buffer the caller is done with: reorders it in place.
+//
+// std::nth_element is O(n) where std::sort is O(n log n), and the value is
+// identical -- after nth_element every element below `mid` is <= v[mid], so the
+// largest of them is the other central order statistic. robust_cov_gk() calls
+// this millions of times, so the difference is the runtime of --selection 2.
 template <typename T>
-auto get_median(std::vector<T> v) {
+auto median_inplace(std::vector<T>& v) {
   static_assert(!std::is_same_v<T, bool>, "Boolean type is not supported");
 
   if (v.empty()) {
     throw std::invalid_argument("Cannot calculate median of an empty vector");
   }
 
-  std::sort(v.begin(), v.end());
-  size_t n = v.size();
-  if (n % 2 == 0) {
-    return (v[n / 2 - 1] + v[n / 2]) / static_cast<T>(2);
-  } else {
-    return v[n / 2];
-  }
+  const size_t n = v.size();
+  const size_t mid = n / 2;
+  std::nth_element(v.begin(), v.begin() + mid, v.end());
+  if (n % 2 != 0) return v[mid];
+  const T lo = *std::max_element(v.begin(), v.begin() + mid);
+  return static_cast<T>((lo + v[mid]) / static_cast<T>(2));
+}
+
+template <typename T>
+auto get_median(std::vector<T> v) {
+  return median_inplace(v);
 }
 
 void make_plink2_eigenvec_file(int K, std::string fout, const std::string& fin, const std::string& fam);
