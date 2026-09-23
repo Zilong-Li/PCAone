@@ -8,6 +8,22 @@
 
 using namespace std;
 
+// normalize count x of sample i according to --scale. libsize is only
+// populated for the modes that need it (see csv_needs_libsize).
+static inline double normalize_count(double x,
+                                     int scale,
+                                     const std::vector<double>& libsize,
+                                     size_t i,
+                                     double median_libsize,
+                                     double scaleFactor) {
+  if (!csv_needs_libsize(scale)) return x;
+  const double total = libsize[i];
+  if (total <= 0) return 0.0;  // empty sample: all its counts are zero, keep them at 0 instead of 0/0
+  if (scale == 2) return log10(x * median_libsize / total + 1);
+  if (scale == 3) return log1p(x / total * scaleFactor);
+  return x / total * scaleFactor;  // scale == 4
+}
+
 void FileCsv::read_all() {
   check_file_offset_first_var();
 
@@ -38,14 +54,7 @@ void FileCsv::read_all() {
 #pragma omp parallel for
         for (size_t i = 0; i < nsamples; i++) {
           auto entry = std::stof(buffLine.substr(tidx[i], tidx[i + 1] - tidx[i] - 1));
-          if (params.scale == 2)
-            G(i, lastSNP) = log10((double)entry * median_libsize / libsize[i] + 1);
-          else if (params.scale == 3)
-            G(i, lastSNP) = log1p((double)entry / libsize[i] * params.scaleFactor);
-          else if (params.scale == 4)
-            G(i, lastSNP) = (double)entry / libsize[i] * params.scaleFactor;
-          else
-            G(i, lastSNP) = entry;
+          G(i, lastSNP) = normalize_count(entry, params.scale, libsize, i, median_libsize, params.scaleFactor);
         }
 
         lastSNP++;
@@ -83,13 +92,14 @@ void parse_csvzstd(ZstdDS& zbuf,
                    uint& nsamples,
                    uint& nsnps,
                    uint scale,
-                   std::vector<int>& libsize,
+                   std::vector<double>& libsize,
                    std::vector<size_t>& tidx,
                    double& median_libsize) {
   auto buffIn = const_cast<void*>(static_cast<const void*>(zbuf.buffInTmp.c_str()));
   auto buffOut = const_cast<void*>(static_cast<const void*>(zbuf.buffOutTmp.c_str()));
   size_t read, i, j, p, ncol = 0, lastCol = 0;
   int isEmpty = 1;
+  const bool need_libsize = csv_needs_libsize(scale);
   nsnps = 0;
   std::string buffLine{""}, buffCur{""};
   while ((read = freadOrDie(buffIn, zbuf.buffInSize, zbuf.fin))) {
@@ -116,7 +126,7 @@ void parse_csvzstd(ZstdDS& zbuf,
         }
         // get ncol from the first line or header
         if (nsnps == 1) {
-          libsize.resize(ncol);
+          libsize.assign(ncol, 0.0);
           tidx.resize(ncol + 1);
           for (i = 0, j = 1; i < buffLine.size(); i++) {
             if (buffLine[i] == ',') {
@@ -126,11 +136,11 @@ void parse_csvzstd(ZstdDS& zbuf,
         }
 
         tidx[ncol] = buffLine.size() + 1;
-        if (scale == 2)  // cpmed
+        if (need_libsize)  // total counts per sample for --scale 2/3/4
         {
 #pragma omp parallel for
           for (size_t i = 0; i < ncol; i++) {
-            libsize[i] += std::stoi(buffLine.substr(tidx[i], tidx[i + 1] - tidx[i] - 1));
+            libsize[i] += std::stod(buffLine.substr(tidx[i], tidx[i + 1] - tidx[i] - 1));
           }
         }
         if (nsnps > 2 && (lastCol != ncol)) cao.error("the csv file has unaligned columns");
@@ -143,7 +153,20 @@ void parse_csvzstd(ZstdDS& zbuf,
 
   nsamples = ncol;
   zbuf.lastRet = 1;
-  if (scale == 2) median_libsize = get_median(libsize);
+  if (need_libsize) {
+    std::vector<double> positive;
+    positive.reserve(libsize.size());
+    for (auto s : libsize) {
+      if (s < 0) cao.error("negative total counts found. --scale 2, 3 and 4 expect non-negative counts.");
+      if (s > 0) positive.push_back(s);
+    }
+    if (positive.empty()) cao.error("all samples have zero total counts. cannot normalize with --scale 2, 3 or 4.");
+    if (positive.size() < libsize.size())
+      cao.warn(std::to_string(libsize.size() - positive.size()) +
+               " sample(s) have zero total counts. their normalized values are set to 0.");
+    // median over non-empty samples, so empty samples do not drag the CPMED target to 0
+    if (scale == 2) median_libsize = get_median(positive);
+  }
 }
 
 void read_csvzstd_block(ZstdDS& zbuf,
@@ -153,7 +176,7 @@ void read_csvzstd_block(ZstdDS& zbuf,
                         uint64 stop_idx,
                         Mat2D& G,
                         uint nsamples,
-                        std::vector<int>& libsize,
+                        std::vector<double>& libsize,
                         std::vector<size_t>& tidx,
                         double median_libsize,
                         uint scale,
@@ -181,14 +204,7 @@ void read_csvzstd_block(ZstdDS& zbuf,
 #pragma omp parallel for
       for (size_t i = 0; i < nsamples; i++) {
         auto entry = std::stof(buffLine.substr(tidx[i], tidx[i + 1] - tidx[i] - 1));
-        if (scale == 2)
-          G(i, lastSNP) = log10((double)entry * median_libsize / libsize[i] + 1);
-        else if (scale == 3)
-          G(i, lastSNP) = log1p((double)entry / libsize[i] * scaleFactor);
-        else if (scale == 4)
-          G(i, lastSNP) = (double)entry / libsize[i] * scaleFactor;
-        else
-          G(i, lastSNP) = entry;
+        G(i, lastSNP) = normalize_count(entry, scale, libsize, i, median_libsize, scaleFactor);
       }
 
       lastSNP++;
@@ -217,14 +233,7 @@ void read_csvzstd_block(ZstdDS& zbuf,
 #pragma omp parallel for
           for (size_t i = 0; i < nsamples; i++) {
             auto entry = std::stof(buffLine.substr(tidx[i], tidx[i + 1] - tidx[i] - 1));
-            if (scale == 2)
-              G(i, lastSNP) = log10((double)entry * median_libsize / libsize[i] + 1);
-            else if (scale == 3)
-              G(i, lastSNP) = log1p((double)entry / libsize[i] * scaleFactor);
-            else if (scale == 4)
-              G(i, lastSNP) = (double)entry / libsize[i] * scaleFactor;
-            else
-              G(i, lastSNP) = entry;
+            G(i, lastSNP) = normalize_count(entry, scale, libsize, i, median_libsize, scaleFactor);
           }
 
           lastSNP++;
@@ -240,8 +249,8 @@ void read_csvzstd_block(ZstdDS& zbuf,
 
 PermMat shuffle_csvzstd_to_bin(std::string& fin, std::string fout, uint gb, uint scale, double scaleFactor) {
   std::vector<size_t> tidx;
-  std::vector<int> libsize;
-  double median_libsize;
+  std::vector<double> libsize;
+  double median_libsize{0};
   uint nsnps, nsamples;
   const uint ibyte = 4;
   ZstdDS zbuf;

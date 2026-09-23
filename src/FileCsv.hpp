@@ -4,11 +4,15 @@
 #include "Data.hpp"
 #include "Utils.hpp"
 
+// CSV normalization modes 2 (CPMED), 3 (log1p) and 4 (relative counts) all
+// divide each count by the sample's total count (library size).
+inline bool csv_needs_libsize(int scale) { return scale == 2 || scale == 3 || scale == 4; }
+
 void parse_csvzstd(ZstdDS& zbuf,
                    uint& nsamples,
                    uint& nsnps,
                    uint scale,
-                   std::vector<int>& libsize,
+                   std::vector<double>& libsize,
                    std::vector<size_t>& tidx,
                    double& median_libsize);
 
@@ -19,7 +23,7 @@ void read_csvzstd_block(ZstdDS& zbuf,
                         uint64 stop_idx,
                         Mat2D& G,
                         uint nsamples,
-                        std::vector<int>& libsize,
+                        std::vector<double>& libsize,
                         std::vector<size_t>& tidx,
                         double median_libsize,
                         uint scale,
@@ -34,10 +38,11 @@ class FileCsv : public Data {
       : Data(params_) {
     cao.print(tick.date(), "start parsing CSV format compressed by ZSTD");
 
-    if (params.nsnps > 0 && params.nsamples > 0 && params.scale != 2) {
+    if (params.nsnps > 0 && params.nsamples > 0 && !csv_needs_libsize(params.scale)) {
       cao.print(tick.date(), "use nsamples and nsnps given by user.");
       nsamples = params.nsamples;
       nsnps = params.nsnps;
+      tidx.resize(nsamples + 1);
     } else {
       zbuf.fin = fopenOrDie(params.filein.c_str(), "rb");
       parse_csvzstd(zbuf, nsamples, nsnps, params.scale, libsize, tidx, median_libsize);
@@ -58,8 +63,8 @@ class FileCsv : public Data {
  private:
   ZstdDS zbuf;
   std::vector<size_t> tidx;
-  std::vector<int> libsize;
-  double median_libsize;
+  std::vector<double> libsize;
+  double median_libsize{0};
   std::string buffCur{""};
 };
 
