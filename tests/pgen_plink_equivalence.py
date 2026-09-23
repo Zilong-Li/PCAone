@@ -323,6 +323,80 @@ def run_selection_pair(tmp: Path, pgen_prefix: Path, ref: Path) -> None:
             assert_close_matrix(out(plink, suffix), out(pgen, suffix), 2e-5)
 
 
+def write_toy_bed(prefix: Path, n: int, m: int, n_mono: int, seed: int = 7) -> None:
+    """A small PLINK trio whose first `n_mono` sites are monomorphic."""
+    import random
+
+    rng = random.Random(seed)
+    # two populations, so the PCs have something to find
+    freqs = [(rng.uniform(0.15, 0.85), rng.uniform(0.15, 0.85)) for _ in range(m)]
+    with open(f"{prefix}.bed", "wb") as f:
+        f.write(bytes([0x6C, 0x1B, 0x01]))
+        for j in range(m):
+            codes = []
+            for i in range(n):
+                if j < n_mono:
+                    dose = 0  # every sample homozygous for the same allele
+                else:
+                    p = freqs[j][0 if i < n // 2 else 1]
+                    dose = sum(1 for _ in range(2) if rng.random() < p)
+                codes.append({2: 0, 1: 2, 0: 3}[dose])  # PLINK bed coding
+            for i in range(0, n, 4):
+                byte = 0
+                for b, c in enumerate(codes[i : i + 4]):
+                    byte |= c << (2 * b)
+                f.write(bytes([byte]))
+    with open(f"{prefix}.bim", "w") as f:
+        for j in range(m):
+            f.write(f"1\trs{j}\t0\t{j + 1}\tA\tG\n")
+    with open(f"{prefix}.fam", "w") as f:
+        for i in range(n):
+            f.write(f"F{i} I{i} 0 0 0 -9\n")
+
+
+def run_selection_zero_variance(tmp: Path) -> None:
+    """Sites with no variance must be reported as NA, not as p = 1.
+
+    They have an undefined z-score, so leaving them in put them into the robust
+    covariance, the genomic-inflation median and the output as if they were
+    ordinary sites. pcadapt drops them (`zscores[pass, ]`) and reports NA.
+    """
+    n, m, n_mono = 300, 1000, 10
+    toy = tmp / "zerovar"
+    write_toy_bed(toy, n, m, n_mono)
+
+    ref = tmp / "zerovar_ref"
+    # --svd 0: winSVD needs more sites than this toy set has
+    run([str(PCAONE), "-b", str(toy), "-k", "2", "--svd", "0", "-o", str(ref), "-v", "0"])
+
+    for method, suffixes in (
+        ("1", [".galinsky", ".galinsky.pval"]),
+        ("2", [".zscore", ".pcadapt", ".pcadapt.chi2", ".pcadapt.pval"]),
+    ):
+        target = tmp / f"zerovar_selection_{method}"
+        run(
+            [
+                str(PCAONE), "-b", str(toy), "--USV", str(ref), "--selection", method,
+                "-k", "2", "-o", str(target), "-v", "0",
+            ]
+        )
+        for suffix in suffixes:
+            rows = [
+                line.split()
+                for line in out(target, suffix).read_text().splitlines()
+                if line and not line.startswith("#")
+            ]
+            if len(rows) != m:
+                raise AssertionError(f"{suffix}: expected {m} rows, got {len(rows)}")
+            for i, row in enumerate(rows):
+                is_na = all(v == "NA" for v in row)
+                any_na = any(v == "NA" for v in row)
+                if i < n_mono and not is_na:
+                    raise AssertionError(f"{suffix}: site {i} is monomorphic but reads {row}")
+                if i >= n_mono and any_na:
+                    raise AssertionError(f"{suffix}: site {i} has variance but reads NA")
+
+
 def run_selection_ooc(tmp: Path) -> None:
     """--selection must give the same answer in-core and out-of-core.
 
@@ -499,10 +573,11 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="pcaone-pgen-plink-") as tmpdir:
         tmp = Path(tmpdir)
         run_selection_ooc(tmp)
+        run_selection_zero_variance(tmp)
 
         pgen_prefix = maybe_make_pgen_from_plink(tmp)
         if pgen_prefix is None:
-            print("PGEN out-of-core selection checks passed")
+            print("PGEN out-of-core and zero-variance selection checks passed")
             return 0
 
         ref = run_pca_pair(tmp, pgen_prefix)

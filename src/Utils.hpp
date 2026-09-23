@@ -193,6 +193,9 @@ double pchisq(double x, int df, bool lower_tail);
 double qchisq(double p, int df);
 
 void galinsky_selection_stat(Mat2D& V);
-void pcadapt_selection_stats(const Mat2D& Z, Mat1D& stat, Mat1D& chi2_stat, Mat1D& pval, double& gif);
+// `keep[i] == 0` marks a site with no residual variance: it is left out of the
+// robust fit and the inflation factor, and its outputs come back as NaN.
+void pcadapt_selection_stats(const Mat2D& Z, const std::vector<char>& keep, Mat1D& stat, Mat1D& chi2_stat,
+                             Mat1D& pval, double& gif);
 
 #endif  // PCAONE_UTILES_

@@ -1093,30 +1093,58 @@ void robust_cov_ogk(const Mat2D& U, Mat1D& wcenter, Mat2D& wcov, int niter, doub
 }
 }  // namespace
 
-void pcadapt_selection_stats(const Mat2D& Z, Mat1D& stat, Mat1D& chi2_stat, Mat1D& pval, double& gif) {
-  const int k = Z.cols();
+void pcadapt_selection_stats(const Mat2D& Z, const std::vector<char>& keep, Mat1D& stat, Mat1D& chi2_stat,
+                             Mat1D& pval, double& gif) {
+  const int k = (int)Z.cols();
+  const Eigen::Index n = Z.rows();
+
+  // Sites with no residual variance have an undefined z-score. They must not
+  // reach the robust covariance, the inflation median or the output: pcadapt
+  // fits on `zscores[pass, ]` and leaves the rest NA, and so do we. The common
+  // case drops nothing, and then no copy is made.
+  std::vector<Eigen::Index> idx;
+  for (Eigen::Index i = 0; i < n; ++i)
+    if (keep[i]) idx.push_back(i);
+  const Eigen::Index nk = (Eigen::Index)idx.size();
+  if (nk <= k)
+    cao.error("pcadapt: only ", nk, " of ", n,
+              " sites have any residual variance, too few to fit a ", k, "-dimensional covariance");
+
+  const bool subset = (nk != n);
+  Mat2D Zs;
+  if (subset) {
+    Zs.resize(nk, k);
+    for (Eigen::Index i = 0; i < nk; ++i) Zs.row(i) = Z.row(idx[i]);
+  }
+  const Mat2D& W = subset ? Zs : Z;
+
   Mat1D center;
   Mat2D cov;
-  robust_cov_ogk(Z, center, cov, 2, 0.9);  // bigutilsr::covrob_ogk defaults
+  robust_cov_ogk(W, center, cov, 2, 0.9);  // bigutilsr::covrob_ogk defaults
   Mat2D inv_cov = cov.inverse();
   if (!inv_cov.allFinite())
     cao.error("pcadapt: the robust covariance of the z-scores is singular; try a smaller -k");
 
-  stat = Mat1D::Zero(Z.rows());
-#pragma omp parallel for
-  for (int i = 0; i < Z.rows(); ++i) {
-    Mat1D dz = Z.row(i).transpose() - center;
-    stat(i) = dz.transpose() * inv_cov * dz;
+  Mat1D s(nk);
+#pragma omp parallel for schedule(static)
+  for (Eigen::Index i = 0; i < nk; ++i) {
+    Mat1D dz = W.row(i).transpose() - center;
+    s(i) = dz.transpose() * inv_cov * dz;
   }
 
-  std::vector<double> stat_vec(stat.data(), stat.data() + stat.size());
+  std::vector<double> stat_vec(s.data(), s.data() + nk);
   gif = median_inplace(stat_vec) / qchisq(0.5, k);  // stat_vec is ours to reorder
   if (!(gif > 0.0) || !std::isfinite(gif)) gif = 1.0;
 
-  chi2_stat = stat / gif;
-  pval = Mat1D::Zero(Z.rows());
-#pragma omp parallel for
-  for (int i = 0; i < pval.size(); ++i) {
-    pval(i) = pchisq(chi2_stat(i), k, false);
+  const double NA = std::numeric_limits<double>::quiet_NaN();
+  stat = Mat1D::Constant(n, NA);
+  chi2_stat = Mat1D::Constant(n, NA);
+  pval = Mat1D::Constant(n, NA);
+#pragma omp parallel for schedule(static)
+  for (Eigen::Index i = 0; i < nk; ++i) {
+    const Eigen::Index r = idx[i];
+    stat(r) = s(i);
+    chi2_stat(r) = s(i) / gif;
+    pval(r) = pchisq(chi2_stat(r), k, false);
   }
 }
