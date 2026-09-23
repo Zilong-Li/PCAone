@@ -44,6 +44,11 @@ static void setEnvironmentVariables(int threadCount) {
   setenv("MKL_NUM_THREADS", countStr.c_str(), 1);
   setenv("OMP_NUM_THREADS", countStr.c_str(), 1);
   setenv("OPENBLAS_NUM_THREADS", countStr.c_str(), 1);
+  // setenv alone does not bound OpenMP: the runtime reads OMP_NUM_THREADS when
+  // it initializes, before main() runs, so setting it here is too late and -n
+  // was silently ignored -- every parallel region used the whole machine. MKL
+  // and OpenBLAS read their variables lazily, so those two do take effect.
+  omp_set_num_threads(threadCount > 0 ? threadCount : 1);
 }
 
 int main(int argc, char* argv[]) {
@@ -55,7 +60,7 @@ int main(int argc, char* argv[]) {
   uint max_threads = std::thread::hardware_concurrency();
   max_threads = params.threads > max_threads ? max_threads : params.threads;
   setEnvironmentVariables(max_threads);
-  cao.print(tick.date(), "program started");
+  cao.print(tick.date(), "program started with " + std::to_string(max_threads) + " threads");
   Data* data = nullptr;
 
   // particular case for inbreeding sites
