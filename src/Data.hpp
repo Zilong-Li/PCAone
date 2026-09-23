@@ -44,7 +44,9 @@ class Data {
   // -C/--scale asks for. resolve_ref_scaling() says whether to standardize and
   // rejects transforms that cannot be replayed; the other two apply it, in
   // place of standardize_E(), which is gated on this run's --scale.
-  bool resolve_ref_scaling(const UsvTransform& t, const std::string& src) const;
+  // allow_dosage accepts a reference that decomposed 0..2 dosages (gscale=2);
+  // only --project 3 can replay that, since it rescales the target per site.
+  bool resolve_ref_scaling(const UsvTransform& t, const std::string& src, bool allow_dosage = false) const;
   void standardize_E_ref(const UsvTransform& t);
   void standardize_block_ref(const UsvTransform& t, uint64 start_idx, uint block_cols);
   void write_residuals(const Mat1D& S, const Mat2D& U, const Mat2D& VT);

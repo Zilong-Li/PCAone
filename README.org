@@ -463,9 +463,11 @@ genotype-likelihood aware projection with an EM procedure:
 PCAone -G example/target.beagle.gz \
        --USV ref \
        --project 3 \
-       --scale 0 \
        -o target
 #+end_src
+
+The target is scaled as the reference PCA was (recorded in its =.sigvals=), so
+=--scale= is not needed here.
 
 *NB:* Make sure the first allele in BEAGLE is the ref allele in the reference
 samples! Use angsd --doMajorMinor 3 option to produce the BEAGLE file.

@@ -177,6 +177,26 @@ void solve_projection_scores(const Mat2D& V, const ArrBool& C, const Mat2D& G, M
   }
 }
 
+// Per-site factor a_j for --project 3, where X_ref = a_j * (g/2 - f) is what the
+// reference PCA decomposed in terms of PCAone's 0..1 centred coding. The EM
+// regresses a_j * (E[g]/2 - f) on V*S, so U lands on the reference's scale, and
+// maps the reconstruction back with pi = f + (U*S*V')_j / a_j. PCAngsd's
+// Algorithm 1 is the a_j = 2 case: pi = f + recon/2 on centred dosages.
+//
+//   standardized (scale=-9)      sqrt(ploidy)/sd   as standardize_E_ref()
+//   centred dosages (gscale=2)   2                 pcangsd: dosage - 2f
+//   centred 0..1                 1                 -D/--ld, --scale 0
+static Mat1D gl_site_scale(const Mat1D& F, bool standardize, const UsvTransform& t) {
+  Mat1D a = Mat1D::Constant(F.size(), (double)t.gscale);
+  if (!standardize) return a;
+  const double rploidy = sqrt((double)t.ploidy);
+  for (Eigen::Index j = 0; j < F.size(); ++j) {
+    const double sd = sqrt(F(j) * (1.0 - F(j)));
+    if (sd > VAR_TOL) a(j) = rploidy / sd;
+  }
+  return a;
+}
+
 /**
  * options:
  * 1: simple, assume no missingness
@@ -218,12 +238,14 @@ void run_projection(Data* data, const Param& params) {
   Mat1D S;
   // read the reference's transform before touching G: the target has to be put
   // on the same scale as the matrix that produced V and S, which is not
-  // necessarily what this run's -C/--scale says. --project 3 never scales G at
-  // all -- it runs its own EM on the 0..1 domain -- so it is left alone.
+  // necessarily what this run's -C/--scale says. --project 3 also accepts a
+  // dosage-scale (pcangsd) reference, and applies the transform per site
+  // inside its EM (gl_site_scale) rather than to G up front.
   UsvTransform usv;
   read_sigvals(params.fileS, nsamples, nsnps, S, &usv);
   data->prepare();  // read AF and resize F to matched size
-  if (params.project != 3 && data->resolve_ref_scaling(usv, params.fileS)) data->standardize_E_ref(usv);
+  const bool standardize = data->resolve_ref_scaling(usv, params.fileS, params.project == 3);
+  if (params.project != 3 && standardize) data->standardize_E_ref(usv);
   // target number of PCs for getting individual allele frequency
   const int K = fmin(S.size(), params.k);
   Mat2D V = read_eigvecs(params.fileV, nsnps, K);
@@ -252,31 +274,34 @@ void run_projection(Data* data, const Param& params) {
       write_projection_bootstrap_stats(V, data->C, data->G, U, params.project_bootstrap, params);
   } else if (params.project == 3) {
     // project == 3: iterative GL-aware projection (EM)
-    // E-step: update expected G (0, 1) using individual allele frequencies PI
+    // E-step: update expected G using individual allele frequencies PI
     // M-step: solve U with new G
     if (params.file_t != FileType::BEAGLE) cao.error("--project 3 requires BEAGLE genotype likelihood input");
     const bool filter = !data->keepSNPs.empty();
+
+    // FileBeagle::read_all() leaves G = E[g]/2 - f; put it on the scale of the
+    // matrix the reference decomposed before the first solve, as modes 1 and 2 do
+    const Mat1D a = gl_site_scale(data->F, standardize, usv);
+    data->G.array().rowwise() *= a.transpose().array();
 
     V = V * S.asDiagonal();  // VS
     solve_projection_scores(V, data->C, data->G, U);
 
     cao.print(tick.date(), "run EM to update expected G and solve U iteratively");
-    // NOTE: First, we map G to domain [0,1]; Second, we can't standarize/scale G.
     for (uint iter = 0; iter < params.maxiter; ++iter) {
       Mat2D Uprev = U;
 
       // E-step: update G using individual allele frequencies
 #pragma omp parallel for
       for (uint j = 0; j < data->nsnps; ++j) {
-        // const double norm = sqrt(2.0 * data->F(j) * (1.0 - data->F(j)));
         uint s = filter ? data->keepSNPs[j] : (uint)j;
         for (uint i = 0; i < data->nsamples; ++i) {
           double pt = 0.0;
           for (int k = 0; k < K; ++k) {
             pt += U(i, k) * V(j, k);
           }
-          // if (params.scale == SCALE_STANDARDIZE_GENETIC && norm > VAR_TOL) pt *= norm;
-          pt = fmin(fmax(pt * 0.5 + data->F(j), 1e-4), 1.0 - 1e-4);  //
+          // pt is on the reference's scale, the same as G; undo a_j to get pi
+          pt = fmin(fmax(pt / a(j) + data->F(j), 1e-4), 1.0 - 1e-4);
           const double p0 = data->P(2 * i + 0, s) * (1.0 - pt) * (1.0 - pt);
           const double p1 = data->P(2 * i + 1, s) * 2.0 * pt * (1.0 - pt);
           const double p2 = (1.0 - data->P(2 * i + 0, s) - data->P(2 * i + 1, s)) * pt * pt;
@@ -287,8 +312,7 @@ void run_projection(Data* data, const Param& params) {
             continue;
           }
           data->C[j * data->nsamples + i] = 0;
-          data->G(i, j) = (p1 + 2.0 * p2) / (2.0 * psum) - data->F(j);  // domain (0,1)
-          // if (params.scale == SCALE_STANDARDIZE_GENETIC && norm > VAR_TOL) data->G(i, j) /= norm;
+          data->G(i, j) = a(j) * ((p1 + 2.0 * p2) / (2.0 * psum) - data->F(j));
         }
       }
 
