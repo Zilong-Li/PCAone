@@ -323,6 +323,55 @@ def run_selection_pair(tmp: Path, pgen_prefix: Path, ref: Path) -> None:
             assert_close_matrix(out(plink, suffix), out(pgen, suffix), 2e-5)
 
 
+def run_selection_ooc(tmp: Path) -> None:
+    """--selection must give the same answer in-core and out-of-core.
+
+    Needs no plink2: it compares a PGEN run against itself. Out-of-core PGEN
+    selection used to segfault, because params.perm is on by default while the
+    permutation it announces is only built on the PCA path, which --selection
+    skips -- FilePgen then indexed an empty permutation. PLINK was unaffected,
+    so a PLINK-only check would not have caught it.
+    """
+    pgen = ROOT / "example" / "plink2.chr1"
+    if not Path(f"{pgen}.pgen").exists():
+        print("SKIP: example/plink2.chr1.pgen is not available")
+        return
+
+    ref = tmp / "ooc_ref"
+    run([str(PCAONE), "-p", str(pgen), "-k", "3", "-o", str(ref), "-v", "0"])
+
+    for method, suffixes in (
+        ("1", [".galinsky", ".galinsky.pval"]),
+        (
+            "2",
+            [".zscore", ".pcadapt", ".pcadapt.chi2", ".pcadapt.pval", ".pcadapt.gif"],
+        ),
+    ):
+        incore = tmp / f"ooc_selection_{method}_incore"
+        blocked = tmp / f"ooc_selection_{method}_blocked"
+        for target, extra in ((incore, []), (blocked, ["-m", "0.002"])):
+            run(
+                [
+                    str(PCAONE),
+                    "-p",
+                    str(pgen),
+                    "--USV",
+                    str(ref),
+                    "--selection",
+                    method,
+                    "-k",
+                    "3",
+                    "-o",
+                    str(target),
+                    "-v",
+                    "0",
+                ]
+                + extra
+            )
+        for suffix in suffixes:
+            assert_close_matrix(out(incore, suffix), out(blocked, suffix), 0.0)
+
+
 def run_inbreeding_pair(tmp: Path, pgen_prefix: Path, ref: Path) -> None:
     plink = tmp / "plink_inbreed"
     pgen = tmp / "pgen_inbreed"
@@ -449,8 +498,11 @@ def main() -> int:
         raise SystemExit(f"Missing binary: {PCAONE}")
     with tempfile.TemporaryDirectory(prefix="pcaone-pgen-plink-") as tmpdir:
         tmp = Path(tmpdir)
+        run_selection_ooc(tmp)
+
         pgen_prefix = maybe_make_pgen_from_plink(tmp)
         if pgen_prefix is None:
+            print("PGEN out-of-core selection checks passed")
             return 0
 
         ref = run_pca_pair(tmp, pgen_prefix)

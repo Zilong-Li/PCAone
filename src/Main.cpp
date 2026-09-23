@@ -109,6 +109,23 @@ int main(int argc, char* argv[]) {
 
   // particular case for Selection
   if ((params.selection > 0) && (params.file_t == FileType::PLINK || params.file_t == FileType::PGEN)) {
+    // perm must be off, and here it is not merely safe but required.
+    //
+    // params.perm is on by default, since the default --svd 2 is winSVD and
+    // --no-shuffle is off. But --selection decomposes nothing: it reads a
+    // reference U and passes over the genotypes once. The permutation this flag
+    // announces is only built further down, past this early return, so nothing
+    // initializes it here. For PGEN the permutation is *logical* -- FilePgen
+    // maps every read through perm.indices() -- so read_block_initial() indexes
+    // an empty permutation and segfaults out-of-core. PLINK escaped it only
+    // because its permutation lives in a temp .bed that --selection never
+    // writes, leaving it to read the original file in stored order.
+    //
+    // Unlike --evaladmix, whose statistic is a sum over sites, site order
+    // matters here: the rows of .zscore / .galinsky / .pcadapt* are positional
+    // against the .bim/.pvar. So the fix is to clear the flag rather than to
+    // build a permutation.
+    params.perm = false;
     if (params.file_t == FileType::PLINK)
       data = new FileBed(params);
     else

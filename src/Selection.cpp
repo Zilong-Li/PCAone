@@ -49,10 +49,17 @@ void run_selection(Data* data, const Param& params) {
     }
   }
 
-  E = E.head(K) * V.rows();                             // downscale
-  V.array().rowwise() /= E.transpose().array().sqrt();  // divid by singluar values
+  // V holds the regression coefficients U' g_j of each site on the orthonormal
+  // PCs. Galinsky turns them into normalized loadings; pcadapt keeps the
+  // coefficients themselves, and needs ||U' g||^2 to form the residual sum of
+  // squares, so the division below belongs inside the Galinsky branch only.
+  // Dividing first made the pcadapt residual variance ~ ||g||^2 for every site,
+  // which deflates z exactly where the PCs explain the most -- the sites the
+  // scan is for -- by a per-site factor no genomic-inflation step can undo.
   Eigen::IOFormat fmt(6, Eigen::DontAlignCols, "\t", "\n");
   if (params.selection == 1) {
+    E = E.head(K) * V.rows();                             // downscale
+    V.array().rowwise() /= E.transpose().array().sqrt();  // divide by singular values
     cao.print(tick.date(), "calculate galinksky statistics");
     std::ofstream out(params.fileout + ".galinsky");
     galinsky_selection_stat(V);
