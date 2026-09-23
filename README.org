@@ -469,8 +469,12 @@ PCAone -G example/target.beagle.gz \
 The target is scaled as the reference PCA was (recorded in its =.sigvals=), so
 =--scale= is not needed here.
 
-*NB:* Make sure the first allele in BEAGLE is the ref allele in the reference
-samples! Use angsd --doMajorMinor 3 option to produce the BEAGLE file.
+*NB:* The two BEAGLE alleles must be the two alleles of the reference =.mbim=,
+in either order. BEAGLE likelihoods count =allele2=, which PCAone matches to the
+reference's counted allele =A1= (5th column of =.mbim=), and sites where they
+are swapped are flipped automatically; sites with other alleles are dropped.
+Use angsd =-doMajorMinor 3= with a =-sites= file taken from the reference
+=.mbim= to fix the alleles.
 
 ** GENOME-wide selection scan
 

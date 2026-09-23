@@ -12,6 +12,11 @@
     projected samples on a different scale from the reference samples. The target is now put on the
     scale recorded in =.sigvals= and the reconstruction is inverted with the same per-site factor;
     equivalent 0..1 and 0..2 references give identical coordinates.
+  - *results change*: =--project 3= matched BEAGLE alleles to the =.mbim= the wrong way round. BEAGLE
+    likelihoods count =allele2= and the =.mbim= counts =A1=, but =allele1= was compared to =A1=, so
+    aligned sites were flipped and swapped ones were not: against a PLINK or PGEN reference, either
+    allele order gave mirrored, offset coordinates. =allele2= is now matched to =A1=, and either
+    order works.
   - =.sigvals= now records how the reference PCA scaled its matrix, as =scale=, =ploidy= and =gscale=
     fields on the header line, so =-P= inverts exactly that rather than assuming the defaults. The
     defaults are wrong when the reference run passed =-D/--ld=, and when it was a genotype-likelihood

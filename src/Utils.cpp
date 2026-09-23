@@ -586,7 +586,10 @@ BimMatch match_pvar_to_mbim(const std::string& pvar_file, const std::string& mbi
 }
 
 BimMatch match_beagle_to_mbim(const std::string& beagle_file, const std::string& mbim_file) {
-  // Parse BEAGLE rows as marker_allele1_allele2 so matching respects allele order.
+  // Key BEAGLE rows as marker_allele2_allele1. BEAGLE GLs count allele2 (AA, AB,
+  // BB), while the .mbim counts A1 (BED2GENO; PGEN exposes ALT as A1), so the
+  // counted alleles line up only with allele2 first. Keying allele1 first
+  // flipped exactly the sites that were already aligned.
   gzFile fp = gzopen(beagle_file.c_str(), "r");
   if (!fp) cao.error("can not open " + beagle_file);
   uint64 bufsize = (uint64)128 * 1024 * 1024;
@@ -603,8 +606,8 @@ BimMatch match_beagle_to_mbim(const std::string& beagle_file, const std::string&
     char* allele1 = strtok_r(NULL, delims, &buffer);
     char* allele2 = strtok_r(NULL, delims, &buffer);
     if (!marker || !allele1 || !allele2) cao.error("invalid BEAGLE record while matching markers:\n => " + beagle_file);
-    beagle_markers.push_back(std::string(marker) + "_" + decode_beagle_allele(allele1) + "_" +
-                             decode_beagle_allele(allele2));
+    beagle_markers.push_back(std::string(marker) + "_" + decode_beagle_allele(allele2) + "_" +
+                             decode_beagle_allele(allele1));
     buffer = original;
   }
   gzclose(fp);
