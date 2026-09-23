@@ -397,6 +397,52 @@ def run_selection_zero_variance(tmp: Path) -> None:
                     raise AssertionError(f"{suffix}: site {i} has variance but reads NA")
 
 
+def run_expect_error(cmd: list[str], needle: str) -> None:
+    result = subprocess.run(cmd, cwd=ROOT, text=True, capture_output=True, timeout=180)
+    if result.returncode == 0:
+        raise AssertionError(f"expected a failure, but the command succeeded: {' '.join(cmd)}")
+    blob = result.stdout + result.stderr
+    if needle not in blob:
+        raise AssertionError(f"expected {needle!r} in the error output, got:\n{blob[-1500:]}")
+
+
+def run_selection_bad_eigvecs(tmp: Path) -> None:
+    """A mismatched .eigvecs must be refused, not read past the end of the matrix.
+
+    read_eigvecs() used to fill M(j, k1) for every line in the file and only
+    compare the row count with n afterwards, so a .eigvecs from a bigger cohort
+    wrote past the end of the matrix -- a 200x overflow segfaults. Its inner loop
+    stopped only on k1 == k, so a line with fewer than K fields ran off the end
+    of the string and the run finished with rc=0 and garbage.
+    """
+    n, m = 200, 800
+    toy = tmp / "badusv"
+    write_toy_bed(toy, n, m, 0)
+    ref = tmp / "badusv_ref"
+    run([str(PCAONE), "-b", str(toy), "-k", "3", "--svd", "0", "-o", str(ref), "-v", "0"])
+
+    lines = out(ref, ".eigvecs").read_text().split("\n")
+    lines = [ln for ln in lines if ln.strip()]
+    cases = {
+        "toomany": lines * 2,
+        "toofew": lines[: n // 2],
+        "narrow": ["\t".join(ln.split()[:2]) for ln in lines],
+    }
+    for name, rows in cases.items():
+        bad = tmp / f"badusv_{name}"
+        out(bad, ".eigvecs").write_text("\n".join(rows) + "\n")
+        for suffix in (".eigvals", ".sigvals"):
+            out(bad, suffix).write_text(out(ref, suffix).read_text())
+        for method in ("1", "2"):
+            run_expect_error(
+                [
+                    str(PCAONE), "-b", str(toy), "--USV", str(bad), "--selection", method,
+                    "-k", "3", "-o", str(tmp / f"badusv_out_{name}_{method}"), "-v", "0",
+                ],
+                f"badusv_{name}.eigvecs",
+            )
+
+
 def run_selection_ooc(tmp: Path) -> None:
     """--selection must give the same answer in-core and out-of-core.
 
@@ -574,10 +620,11 @@ def main() -> int:
         tmp = Path(tmpdir)
         run_selection_ooc(tmp)
         run_selection_zero_variance(tmp)
+        run_selection_bad_eigvecs(tmp)
 
         pgen_prefix = maybe_make_pgen_from_plink(tmp)
         if pgen_prefix is None:
-            print("PGEN out-of-core and zero-variance selection checks passed")
+            print("PGEN out-of-core, zero-variance and bad-.eigvecs selection checks passed")
             return 0
 
         ref = run_pca_pair(tmp, pgen_prefix)

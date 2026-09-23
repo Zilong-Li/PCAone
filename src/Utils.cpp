@@ -377,28 +377,39 @@ Mat1D read_eigvals(const std::string& path) {
 // parse .eigvecs or .loadings file assume rows and cols are known
 Mat2D read_eigvecs(const std::string& path, int n, int k) {
   cao.print(tick.date(), "read matrix from " + path);
-  Mat2D M(n, k);
-  const char sep = '\t';
-  bool is_seperator[256] = {false};
-  is_seperator[(unsigned int)sep] = true;
-  int begin{0}, j{0}, i{0}, k1{0};
-  std::ifstream fin(path);
-  std::string line;
-  while (std::getline(fin, line)) {
-    const char* p = line.c_str();
-    for (begin = 0, k1 = 0, i = 0; k1 < k; i++) {
-      if (is_seperator[(uint8_t)line[i]] || i == (int)line.size()) {
-        char* end;
-        M(j, k1) = std::strtod(p + begin, &end);
-        begin = i + 1;
-        k1++;
-      }
-    }
-    if (k1 != k) cao.error("the number of columns is not alignd with K!\n =>" + path);
-    j++;
-  }
+  if (n <= 0 || k <= 0) cao.error("read_eigvecs: asked for a ", n, " x ", k, " matrix from ", path);
 
-  if (j != n) cao.error("the number of rows differs from the input!\n =>" + path);
+  std::ifstream fin(path);
+  if (!fin.is_open()) cao.error("can not open ", path);
+
+  // Every bound is checked BEFORE the write it guards. The previous version
+  // filled M(j, k1) for every line in the file and only compared j with n after
+  // the loop, so a .eigvecs from a bigger cohort wrote past the end of the
+  // matrix -- silently, since Eigen has no bounds check under -DNDEBUG. Its
+  // inner loop had the mirror problem: it stopped only on k1 == k, so a short
+  // line ran i past the end of the string, and the "columns not aligned" check
+  // below it could never fire.
+  Mat2D M(n, k);
+  std::string line;
+  int j = 0;
+  while (std::getline(fin, line)) {
+    while (!line.empty() && (line.back() == '\r' || line.back() == '\n')) line.pop_back();
+    if (line.find_first_not_of(" \t") == std::string::npos) continue;  // blank line
+    if (j >= n)
+      cao.error(path, " has more than the ", n, " rows this dataset needs. is it from a different cohort?");
+    const char* p = line.c_str();
+    for (int c = 0; c < k; ++c) {
+      char* end = nullptr;
+      const double v = std::strtod(p, &end);  // strtod skips leading blanks itself
+      if (end == p)
+        cao.error(path, ": row ", j + 1, " has only ", c, " values but ", k,
+                  " are needed. rerun the reference with a larger -k, or use a smaller one here");
+      M(j, c) = v;
+      p = end;
+    }
+    ++j;
+  }
+  if (j != n) cao.error(path, " has ", j, " rows but this dataset needs ", n);
 
   return M;
 }
