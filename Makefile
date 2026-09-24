@@ -156,7 +156,7 @@ SLIBS += ./external/bgen/bgenlib.a ./external/zstd/lib/libzstd.a  ./external/pge
 
 LIBS += $(SLIBS) $(DLIBS) -lpthread -ldl -lm
 
-.PHONY: all clean projection hwe ld_matrix ld_r2 ld_prune ld_clump ld_tests test_full test_aarch64 test_pgen_plink_equivalence test_em_snp_order test_projection_bootstrap
+.PHONY: all clean projection hwe ld_matrix ld_r2 ld_prune ld_clump ld_tests test_full test_aarch64 test_pgen_plink_equivalence test_em_snp_order test_projection_bootstrap test_cmd_guards
 
 all: ${program}
 
@@ -185,6 +185,9 @@ $(PCALIB): $(OBJ)
 
 test_pgen_plink_equivalence: ${program}
 	python3 tests/pgen_plink_equivalence.py
+
+test_cmd_guards: ${program}
+	sh tests/test_cmd_guards.sh
 
 test_em_snp_order: ${program}
 	python3 tests/test_em_snp_order.py
@@ -317,9 +320,9 @@ example_tests_fast:
 	diff m0.eigvals m1.eigvals
 
 # The fast test suite for aarch64
-test_aarch64: data example_tests_fast hwe ld_matrix ld_r2 ld_prune ld_clump
+test_aarch64: test_cmd_guards data example_tests_fast hwe ld_matrix ld_r2 ld_prune ld_clump
 	@echo "SUCCESS: aarch64 fast test suite completed."
 
 # The complete test suite for other architectures like x86_64
-test_full: data example_tests projection hwe ld_matrix ld_r2 ld_prune ld_clump ld_tests
+test_full: test_cmd_guards data example_tests projection hwe ld_matrix ld_r2 ld_prune ld_clump ld_tests
 	@echo "SUCCESS: Full test suite completed."

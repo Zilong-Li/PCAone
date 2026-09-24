@@ -421,9 +421,11 @@ Below is a command using example PLINK data to project new target samples onto
 the reference coordinates.
 
 #+begin_src shell
+## --USV: prefix to .eigvecs, .eigvals, .loadings, .mbim
+## --project: check the manual on projection methods
 PCAone -b example/new \
-       --USV ref \      ## prefix to .eigvecs, .eigvals, .loadings, .mbim
-       --project 2 \    ## check the manual on projection methods
+       --USV ref \
+       --project 2 \
        -o new
 #+end_src
 
@@ -514,8 +516,8 @@ coefficient per-site. The per-site statistics is outputted to a file with suffix
 
 #+begin_src shell
 PCAone -b example/plink \
-       --USV pcaone \  
-       --inbreed 1 \ 
+       --USV pcaone \
+       --inbreed 1 \
        -o inbreed
 #+end_src
 
@@ -591,8 +593,8 @@ user-defined association results
 ./PCAone -b example/plink \
          -P adj \
          --clump example/plink.pheno0.assoc,example/plink.pheno1.assoc  \
-         --clump-p1 0.05 \
-         --clump-p2 0.01 \
+         --clump-p1 0.01 \
+         --clump-p2 0.05 \
          --clump-r2 0.1 \
          --clump-bp 10000000 \
          -o adj

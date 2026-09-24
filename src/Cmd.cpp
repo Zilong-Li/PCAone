@@ -6,11 +6,48 @@
 
 #include "Cmd.hpp"
 
+#include <cstring>
 #include <iterator>
 
 #include "popl/popl.hpp"
 
 using namespace popl;
+
+namespace {
+
+// popl reads "-1" into an unsigned option as 4294967295 (istream wraps it), so
+// a negative value would pass every range check below. Refuse the sign instead.
+class Unsigned : public Value<uint> {
+ public:
+  using Value<uint>::Value;
+
+ protected:
+  void parse(OptionName what_name, const char* value) override {
+    if (value != nullptr && std::strchr(value, '-') != nullptr)
+      throw invalid_option(
+          this, invalid_option::Error::invalid_argument, what_name, value,
+          "invalid argument for " + name(what_name, true) + ": '" + value + "' (must be a non-negative integer)");
+    Value<uint>::parse(what_name, value);
+  }
+};
+
+void require(bool ok, const std::string& msg) {
+  if (!ok) throw std::invalid_argument(msg);
+}
+
+// true if s is exactly three non-empty comma-separated names, e.g. CHR,BP,P
+bool three_names(const std::string& s) {
+  std::istringstream in(s);
+  std::string f;
+  int n = 0;
+  while (std::getline(in, f, ',')) {
+    if (f.empty()) return false;
+    ++n;
+  }
+  return n == 3 && s.back() != ',';
+}
+
+}  // namespace
 
 Param::Param(int argc, char** argv) {
   // clang-format off
@@ -30,20 +67,20 @@ Param::Param(int argc, char** argv) {
   opts.add<Value<std::string>, Attribute::headline>("","PCAone","General options:");
   auto help_opt = opts.add<Switch>("h", "help", "print all options including hidden advanced options");
   opts.add<Value<double>>("m", "memory", "RAM usage in GB unit for out-of-core mode. default is in-core mode", memory, &memory);
-  opts.add<Value<uint>>("n", "threads", "the number of threads to be used", threads, &threads);
-  opts.add<Value<uint>>("v", "verbose", "verbosity level for logs. Options are\n"
-                                        "0: silent, no messages on screen;\n"
-                                        "1: concise messages to screen;\n"
-                                        "2: more verbose information;\n"
-                                        "3: enable debug information."
-                        , verbose, &verbose);
+  opts.add<Unsigned>("n", "threads", "the number of threads to be used", threads, &threads);
+  opts.add<Unsigned>("v", "verbose", "verbosity level for logs. Options are\n"
+                                     "0: silent, no messages on screen;\n"
+                                     "1: concise messages to screen;\n"
+                                     "2: more verbose information;\n"
+                                     "3: enable debug information."
+                     , verbose, &verbose);
   opts.add<Value<std::string>, Attribute::headline>("","PCA","PCA algorithms:");
-  auto svd_opt = opts.add<Value<uint>>("d", "svd", "SVD method to be applied. default 2 is recommended for big data. Options are\n"
-                                                   "0: the Implicitly Restarted Arnoldi Method (IRAM);\n"
-                                                   "1: the Yu's single-pass Randomized SVD with power iterations;\n"
-                                                   "2: the accurate window-based Randomized SVD method (PCAone);\n"
-                                                   "3: the full Singular Value Decomposition (no EM-PCA support).", 2);
-  opts.add<Value<uint>>("k", "pc", "top k principal components (PCs) to be calculated", k, &k);
+  auto svd_opt = opts.add<Unsigned>("d", "svd", "SVD method to be applied. default 2 is recommended for big data. Options are\n"
+                                                "0: the Implicitly Restarted Arnoldi Method (IRAM);\n"
+                                                "1: the Yu's single-pass Randomized SVD with power iterations;\n"
+                                                "2: the accurate window-based Randomized SVD method (PCAone);\n"
+                                                "3: the full Singular Value Decomposition (no EM-PCA support).", 2);
+  opts.add<Unsigned>("k", "pc", "top k principal components (PCs) to be calculated", k, &k);
   opts.add<Value<int>>("C", "scale", "do normalization or scaling for input file. Options are\n"
                                      "-9: standardize genetic data by sqrt(ploidy*f*(1-f));\n"
                                      " 0: do nothing and proceed to SVD;\n"
@@ -51,22 +88,22 @@ Param::Param(int argc, char** argv) {
                                      " 2: do first count per median log transformation (CPMED), then standardization;\n"
                                      " 3: do first log1p transformation, then standardization;\n"
                                      " 4: do first relative counts, then standardization.", scale,  &scale);
-  opts.add<Value<uint>>("", "maxp", "maximum number of power iterations for RSVD algorithm.", maxp, &maxp);
+  opts.add<Unsigned>("", "maxp", "maximum number of power iterations for RSVD algorithm.", maxp, &maxp);
   opts.add<Switch>("S", "no-shuffle", "do not shuffle columns of data for --svd 2 (if not locally correlated).", &noshuffle);
-  opts.add<Value<uint>, Attribute::advanced>("w", "batches", "the number of mini-batches used by --svd 2.", bands, &bands);
+  opts.add<Unsigned, Attribute::advanced>("w", "batches", "the number of mini-batches used by --svd 2.", bands, &bands);
   opts.add<Value<int>>("", "seed", "seeds for reproducing results.\n", seed, &seed);
   opts.add<Switch>("", "emu", "use EMU algorithm for genotype input with missingness. not with --svd 3.", &emu);
   opts.add<Switch>("", "pcangsd", "use PCAngsd algorithm for genotype likelihood input. not with --svd 3.", &pcangsd);
-  opts.add<Value<uint>, Attribute::advanced>("", "M", "the number of features (eg. SNPs) if already known.", 0, &nsnps);
-  opts.add<Value<uint>, Attribute::advanced>("", "N", "the number of samples if already known.", 0, &nsamples);
+  opts.add<Unsigned, Attribute::advanced>("", "M", "the number of features (eg. SNPs) if already known.", 0, &nsnps);
+  opts.add<Unsigned, Attribute::advanced>("", "N", "the number of samples if already known.", 0, &nsamples);
   opts.add<Value<double>, Attribute::advanced>("", "scale-factor", "feature counts for each sample are normalized and multiplied by this value", 1.0, &scaleFactor);
-  opts.add<Value<uint>, Attribute::advanced>("", "buffer", "memory buffer in GB unit for permuting the data.", buffer, &buffer);
-  opts.add<Value<uint>, Attribute::advanced>("", "imaxiter", "maximum number of IRAM iterations.", imaxiter, &imaxiter);
+  opts.add<Unsigned, Attribute::advanced>("", "buffer", "memory buffer in GB unit for permuting the data.", buffer, &buffer);
+  opts.add<Unsigned, Attribute::advanced>("", "imaxiter", "maximum number of IRAM iterations.", imaxiter, &imaxiter);
   opts.add<Value<double>, Attribute::advanced>("", "itol", "stopping tolerance for IRAM algorithm.", itol, &itol);
-  opts.add<Value<uint>, Attribute::advanced>("", "ncv", "the number of Lanzcos basis vectors for IRAM.", ncv, &ncv);
-  opts.add<Value<uint>, Attribute::advanced>("", "oversamples", "the number of oversampling columns for RSVD.", oversamples, &oversamples);
-  opts.add<Value<uint>, Attribute::advanced>("", "rand", "the random matrix type. 0: uniform; 1: guassian.", rand, &rand);
-  opts.add<Value<uint>, Attribute::advanced>("", "maxiter", "maximum number of EM iterations.", maxiter, &maxiter);
+  auto ncv_opt = opts.add<Unsigned, Attribute::advanced>("", "ncv", "the number of Lanzcos basis vectors for IRAM.", ncv, &ncv);
+  opts.add<Unsigned, Attribute::advanced>("", "oversamples", "the number of oversampling columns for RSVD.", oversamples, &oversamples);
+  opts.add<Unsigned, Attribute::advanced>("", "rand", "the random matrix type. 0: uniform; 1: guassian.", rand, &rand);
+  opts.add<Unsigned, Attribute::advanced>("", "maxiter", "maximum number of EM iterations.", maxiter, &maxiter);
   opts.add<Value<double>, Attribute::advanced>("", "tol-rsvd", "tolerance for RSVD algorithm.", tol, &tol);
   opts.add<Value<double>, Attribute::advanced>("", "tol-em", "tolerance for EMU/PCAngsd algorithm.", tolem, &tolem);
   opts.add<Value<double>, Attribute::advanced>("", "tol-maf", "tolerance for MAF estimation by EM.", tolmaf, &tolmaf);
@@ -101,7 +138,7 @@ Param::Param(int argc, char** argv) {
                                       "2: by solving the least squares system Vx=g. skip sites with missingness;\n"
                                       "3: by EM to account for genotype uncertainty (BEAGLE input);\n"
                                       "4: by Augmentation, Decomposition and Procrusters transformation.\n", project, &project);
-  opts.add<Value<uint>>("", "project-bootstrap", "run SNP bootstrap diagnostics for --project 2 using this many replicates.", project_bootstrap, &project_bootstrap);
+  opts.add<Unsigned>("", "project-bootstrap", "run SNP bootstrap diagnostics for --project 2 using this many replicates.", project_bootstrap, &project_bootstrap);
   opts.add<Switch>("", "project-bootstrap-save", "save raw bootstrap projection coordinates to *.proj.bootstrap.eigvecs.", &project_bootstrap_save);
   opts.add<Value<int>>("", "inbreed", "compute the inbreeding coefficient accounting for population structure. Options are\n"
                                       "0: disabled;\n"
@@ -113,7 +150,7 @@ Param::Param(int argc, char** argv) {
                                       "1: perform selection scan using Galinsky et al method;\n"
                                       "2: perform selection scan using PCAdapt method.\n", selection, &selection);
   opts.add<Value<double>>("", "ld-r2", "R2 cutoff for LD-based pruning (usually 0.2).", ld_r2, &ld_r2);
-  opts.add<Value<uint>>("", "ld-bp", "physical distance threshold in bases for LD window.", ld_bp, &ld_bp);
+  opts.add<Unsigned>("", "ld-bp", "physical distance threshold in bases for LD window.", ld_bp, &ld_bp);
   opts.add<Value<int>>("", "ld-stats", "statistics to compute LD R2 for pairwise SNPs. Options are\n"
                                        "0: the ancestry adjusted, i.e. correlation between the residuals after\n"
                                        "   removing the PCs given by -P/--USV (reads .eigvecs of the same samples);\n"
@@ -123,7 +160,7 @@ Param::Param(int argc, char** argv) {
   opts.add<Value<double>>("", "clump-p1", "significance threshold for index SNPs.", clump_p1, &clump_p1);
   opts.add<Value<double>>("", "clump-p2", "secondary significance threshold for clumped SNPs.", clump_p2, &clump_p2);
   opts.add<Value<double>>("", "clump-r2", "r2 cutoff for LD-based clumping.", clump_r2, &clump_r2);
-  opts.add<Value<uint>>("", "clump-bp", "physical distance threshold in bases for clumping.", clump_bp, &clump_bp);
+  opts.add<Unsigned>("", "clump-bp", "physical distance threshold in bases for clumping.", clump_bp, &clump_bp);
   opts.add<Switch, Attribute::hidden>("", "groff", "PCAone 1 \"24 December 2024\" \"PCAone-v"+ std::string(VERSION)+"\"  \"Bioinformatics tools\"", &groff);
   
   // collect command line options acutal in effect
@@ -142,6 +179,10 @@ Param::Param(int argc, char** argv) {
       for (const auto& uo : opts.unknown_options()) std::cerr << "unknown option: " << uo << "\n";
       exit(EXIT_FAILURE);
     }
+    if (!opts.non_option_args().empty()) {
+      for (const auto& a : opts.non_option_args()) std::cerr << "unexpected argument: " << a << "\n";
+      exit(EXIT_FAILURE);
+    }
     if (svd_opt->value() == 0)
       svd_t = SvdType::IRAM;
     else if (svd_opt->value() == 1)
@@ -151,7 +192,7 @@ Param::Param(int argc, char** argv) {
     else if (svd_opt->value() == 3)
       svd_t = SvdType::FULL;
     else
-      svd_t = SvdType::PCAoneAlg2;
+      throw std::invalid_argument("-d/--svd supports only 0, 1, 2 or 3");
 
     if (binfile->is_set() || ld_opt->is_set())
       throw std::invalid_argument(
@@ -160,6 +201,11 @@ Param::Param(int argc, char** argv) {
           "  PCAone -b plink -k 2 -o pcs\n"
           "  PCAone -b plink -P pcs --ld-r2 0.8 --ld-bp 1000000 -o adj\n"
           "-D/--ld computed its PCs without standardizing the sites; add --scale 0 to the first run to do the same");
+
+    // all the inputs write to filein, so a second one would silently replace the first
+    const int ninputs =
+        plinkfile->is_set() + pgenfile->is_set() + csvfile->is_set() + bgenfile->is_set() + beaglefile->is_set();
+    require(ninputs <= 1, "please give only one of -b/--bfile, -p/--pgen, -c/--csv, -g/--bgen and -G/--beagle");
 
     if (plinkfile->is_set())
       file_t = FileType::PLINK;
@@ -171,14 +217,57 @@ Param::Param(int argc, char** argv) {
       file_t = FileType::CSV;
     else if (pgenfile->is_set())
       file_t = FileType::PGEN;
-    else if (help_opt->count() == 1) {
+    else if (help_opt->is_set()) {
       std::cout << opts.help(Attribute::advanced) << "\n";
       exit(EXIT_SUCCESS);
     } else if (argc == 1) {
       std::cout << opts << "\n";
       exit(EXIT_SUCCESS);
+    } else {
+      throw std::invalid_argument(
+          "no input file. please give one of -b/--bfile, -p/--pgen, -c/--csv, -g/--bgen or -G/--beagle");
     }
     genetic = (file_t == FileType::PLINK || file_t == FileType::BGEN || file_t == FileType::PGEN);
+    // guard the option values; popl checks only their type
+    require(threads >= 1, "-n/--threads must be at least 1");
+    require(verbose <= 3, "-v/--verbose supports only 0, 1, 2 or 3");
+    require(memory >= 0, "-m/--memory must be >= 0 (0 for in-core mode)");
+    require(k >= 1, "-k/--pc must be at least 1");
+    require(scale == SCALE_STANDARDIZE_GENETIC || (scale >= 0 && scale <= 4),
+            "-C/--scale supports only -9, 0, 1, 2, 3 or 4");
+    require(maxp >= 1, "--maxp must be at least 1");
+    // the window-based RSVD doubles the band size every epoch up to -w (Halko.cpp)
+    require(bands >= 4 && (bands & (bands - 1)) == 0, "-w/--batches must be a power of 2 and at least 4");
+    require(scaleFactor > 0, "--scale-factor must be > 0");
+    require(buffer >= 1, "--buffer must be at least 1 (GB)");
+    require(imaxiter >= 1, "--imaxiter must be at least 1");
+    require(itol > 0, "--itol must be > 0");
+    require(rand <= 1, "--rand supports only 0 (uniform) or 1 (gaussian)");
+    require(tol > 0, "--tol-rsvd must be > 0");
+    require(tolem > 0, "--tol-em must be > 0");
+    require(tolmaf > 0, "--tol-maf must be > 0");
+    require(maf >= 0 && maf < 0.5, "--maf has to be in [0, 0.5); 0 disables the filter");
+    require(project >= 0 && project <= 3, "--project supports only 0, 1, 2 or 3 in this release");
+    require(project_bootstrap != 1, "--project-bootstrap needs at least 2 replicates");
+    require(!project_bootstrap_save || project_bootstrap > 0, "--project-bootstrap-save requires --project-bootstrap");
+    require(inbreed == 0 || inbreed == 1, "--inbreed supports only 0 or 1");
+    require(selection >= 0 && selection <= 2, "--selection supports only 0, 1 or 2");
+    require(evaladmix_k >= 0, "--evaladmix-k must be >= 0 (0 uses all computed PCs)");
+    require(evaladmix_k == 0 || evaladmix, "--evaladmix-k requires --evaladmix");
+    require(evaladmix_k <= (int)k, "--evaladmix-k cannot be larger than -k/--pc");
+    require(ld_r2 >= 0 && ld_r2 <= 1, "--ld-r2 has to be in [0, 1]; 0 disables the pruning");
+    require(ld_bp >= 1, "--ld-bp must be at least 1");
+    require(ld_stats == 0 || ld_stats == 1, "--ld-stats supports only 0 or 1");
+    require(clump_p1 > 0 && clump_p1 <= 1, "--clump-p1 has to be in (0, 1]");
+    require(clump_p2 > 0 && clump_p2 <= 1, "--clump-p2 has to be in (0, 1]");
+    // only the SNPs with p <= --clump-p2 are read (map_index_snps), so a larger
+    // --clump-p1 would silently act as --clump-p2
+    require(clump_p1 <= clump_p2, "--clump-p1 cannot be larger than --clump-p2");
+    require(clump_r2 > 0 && clump_r2 <= 1, "--clump-r2 has to be in (0, 1]");
+    require(clump_bp >= 1, "--clump-bp must be at least 1");
+    require(three_names(assoc_colnames),
+            "--clump-names needs 3 comma-separated column names for chr, pos and pvalue, e.g. CHR,BP,P");
+
     // handle PI, i.e U,S,V
     if (usvprefix->is_set()) {
       if (fileU.empty()) fileU = usvprefix->value() + ".eigvecs";
@@ -196,7 +285,6 @@ Param::Param(int argc, char** argv) {
       ld = true;
       if (file_t != FileType::PLINK && file_t != FileType::PGEN)
         throw std::invalid_argument("--print-r2, --ld-r2 and --clump support only --bfile/--pgen input");
-      if (ld_stats != 0 && ld_stats != 1) throw std::invalid_argument("--ld-stats supports only 0 or 1");
       if (ld_stats == 0 && fileU.empty())
         throw std::invalid_argument(
             "the ancestry adjusted LD (--ld-stats 0, the default) removes the PCs of a previous run of the same "
@@ -206,7 +294,6 @@ Param::Param(int argc, char** argv) {
 
     // handle projection
     if (project > 0) {
-      if (project < 1 || project > 3) throw std::invalid_argument("--project supports only 1, 2, or 3 in this release");
       if (fileV.empty() || fileS.empty()) throw std::invalid_argument("please use --USV together with --project");
       if (project_bootstrap > 0 && project != 2)
         throw std::invalid_argument("--project-bootstrap currently supports only --project 2");
@@ -232,19 +319,24 @@ Param::Param(int argc, char** argv) {
     }
 
     // handle memory and misc options
-    ncv = 20 > (2 * k + 1) ? 20 : (2 * k + 1);
+    // --ncv was always overwritten before. Spectra needs k < ncv
+    if (!ncv_opt->is_set())
+      ncv = 20 > (2 * k + 1) ? 20 : (2 * k + 1);
+    else
+      require(ncv > k, "--ncv must be greater than -k/--pc");
     oversamples = oversamples > k ? oversamples : k;
     if (haploid && genetic) ploidy = 1;
     if (memory > 0 && svd_t != SvdType::FULL) out_of_core = true;
 
     filterSNP = maf > 0 ? true : false;  // filter SNP if MAf applied
     if (filterSNP) {
-      if (!(maf > 0 && maf < 0.5)) throw std::invalid_argument("--maf has to be between (0, 0.5)");
       if (out_of_core) throw std::invalid_argument("does not support --maf filters for out-of-core mode yet! ");
     }
 
     // handle EM-PCA
     if (dopca && file_t == FileType::BEAGLE) pcangsd = true;
+    // both would run their own EM update on the same matrix (Data::fit_with_pi)
+    require(!(emu && pcangsd), "--emu cannot be used with --pcangsd or BEAGLE input (which implies --pcangsd)");
     if (emu || pcangsd) {
       missme = true;
     } else if (dopca) {
@@ -260,8 +352,6 @@ Param::Param(int argc, char** argv) {
           "--emu, --pcangsd and BEAGLE input (which implies --pcangsd) all request EM-PCA");
     if (out_of_core && pcangsd && (file_t == FileType::BEAGLE))
       throw std::invalid_argument("not supporting -m option (out-of-core) for PCAngsd and BEAGLE input yet!");
-    if (bands < 4 || bands % 2 != 0)
-      throw std::invalid_argument("the -w/--batches must be a power of 2 and the minimun is 4.");
 
     // LD walks the sites in .bim/.pvar order, so they are never shuffled
     if (svd_t == SvdType::PCAoneAlg2 && !noshuffle && !ld) perm = true;

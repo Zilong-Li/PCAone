@@ -1,4 +1,15 @@
 - v0.8.0
+  - invalid option values now stop with a message naming the option instead of running on
+    silently: e.g. =--maxp 0=, =-k 0=, =-n 0=, =-d 7= (fell back to =-d 2=), =-w 12= (only evenness
+    was checked, not a power of 2), negative =--maf=/=--ld-r2=/=--project=, out-of-range
+    =--inbreed=/=--selection=/=--ld-stats=/=--rand=/=-C=, non-positive tolerances and window sizes,
+    =--clump-p1= above =--clump-p2= (it silently acted as =--clump-p2=), =--clump-names= without
+    three columns, =--evaladmix-k= above =-k=, =--emu= with =--pcangsd= or BEAGLE input. A negative
+    value for an unsigned option (=--maxp -1=) was read as 4294967295 and is now refused. Also
+    refused: no input file, more than one input file (the last one silently won), and stray
+    arguments (=-b plink 3=).
+  - fix: =--ncv= was always overwritten by max(20, 2k+1); it is now used when given, and must
+    exceed =-k=.
   - *breaking*: removed =-D/--ld=, =-B/--binary= and the =.residuals= file. =-R=, =--ld-r2= and
     =--clump= now read the PLINK/PGEN genotypes directly and remove the PCs of a previous run, given
     by =-P/--USV=, as the genotypes are read:
