@@ -156,7 +156,7 @@ SLIBS += ./external/bgen/bgenlib.a ./external/zstd/lib/libzstd.a  ./external/pge
 
 LIBS += $(SLIBS) $(DLIBS) -lpthread -ldl -lm
 
-.PHONY: all clean island projection hwe ld_matrix ld_r2 ld_prune ld_clump ld_tests test_full test_aarch64 test_pgen_plink_equivalence test_em_snp_order
+.PHONY: all clean projection hwe ld_matrix ld_r2 ld_prune ld_clump ld_tests test_full test_aarch64 test_pgen_plink_equivalence test_em_snp_order test_projection_bootstrap
 
 all: ${program}
 
@@ -192,6 +192,10 @@ test_em_snp_order: ${program}
 test_emu_simulated: ${program}
 	python3 tests/test_emu_simulated.py
 
+test_projection_bootstrap: zstdlib bgenlib pgenlib $(PCALIB) tests/test_projection_bootstrap.o
+	$(CXX) $(CXXFLAGS) -o tests/$@ tests/$@.o $(PCALIB) $(LPATHS) $(LIBS) $(LDFLAGS)
+	d=$$(mktemp -d) && ./tests/$@ $$d && rm -rf $$d
+
 rm:
 	(rm -f src/*.o src/*.d tests/*.d $(program))
 	(cd ./external/bgen/; $(MAKE) clean)
@@ -209,9 +213,6 @@ data:
 ###################################################################
 #####                   EXAMPLE TESTS
 ###################################################################
-island:
-	./PCAone -b inbreeding/plink-miss0.3 -k 3 -d 0 --emu -o emu -V
-	./PCAone -b inbreeding/plink-miss0.3 -k 3 -d 2 --emu -o emu -V -m 1
 
 example_tests:
 	./PCAone -b example/plink -n 4 -o m0 

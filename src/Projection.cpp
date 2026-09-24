@@ -100,9 +100,10 @@ void write_projection_bootstrap_stats(
     Mat2D Ub = has_missing ? solve_bootstrap_projection_missing(design, C, G, counts)
                            : solve_bootstrap_projection_no_missing(design, G, counts);
 
-    for (int k = 0; k < K; ++k) {
-      if (Ub.col(k).allFinite() && Ub.col(k).dot(U0.col(k)) < 0.0) Ub.col(k) *= -1.0;
-    }
+    // no sign alignment: the design V*S is fixed, so Ub is an ordinary
+    // least-squares estimate with no arbitrary sign. Flipping it towards U0
+    // would fold the replicates onto the baseline's side and bias the mean,
+    // variance and covariance.
 
     sum += Ub;
     sumsq += Ub.array().square().matrix();

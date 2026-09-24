@@ -46,6 +46,11 @@
     aligned sites were flipped and swapped ones were not: against a PLINK or PGEN reference, either
     allele order gave mirrored, offset coordinates. =allele2= is now matched to =A1=, and either
     order works.
+  - *results change*: =--project-bootstrap=. Each replicate PC was sign-flipped to point the same way
+    as the baseline, but the reference design is fixed, so a replicate is an ordinary least-squares
+    fit with no arbitrary sign. The flip folded replicates onto the baseline's side, which biased the
+    bootstrap mean away from zero and shrank the SE, min/max range and PC-pair covariance, most for
+    PCs on which the projected samples sit near zero. The replicates are no longer flipped.
   - =.sigvals= now records how the reference PCA scaled its matrix, as =scale=, =ploidy= and =gscale=
     fields on the header line, so =-P= inverts exactly that rather than assuming the defaults. The
     defaults are wrong when the reference run passed =-D/--ld=, and when it was a genotype-likelihood
