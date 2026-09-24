@@ -201,7 +201,7 @@ Param::Param(int argc, char** argv) {
         throw std::invalid_argument(
             "the ancestry adjusted LD (--ld-stats 0, the default) removes the PCs of a previous run of the same "
             "samples. please give its prefix with -P/--USV, or use --ld-stats 1 for the standard LD");
-      memory /= 2.0;  // two blocks of genotypes are held at a time
+      memory /= 2.0;  // two blocks of genotypes are held at a time (LDColumns)
     }
 
     // handle projection

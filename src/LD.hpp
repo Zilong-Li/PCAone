@@ -26,10 +26,6 @@ struct BIM {
   }
 };
 
-Arr1D calc_sds(const Mat2D& X);
-
-double calc_cor(const Mat1D& x, const Mat1D& y, const double df);
-
 std::string get_snp_pos_bim(SNPld& snp, const std::string& filebim, bool header = false, Int1D idx = Int1D{0, 3});
 
 // chr and pos of the variants in `variants` (lines in .bim format)
@@ -47,21 +43,46 @@ Mat2D read_ld_pcs(const Param& params, uint nsamples);
 // a no-op when Q is empty.
 void adjust_for_pcs(Mat2D& G, const Mat2D& Q);
 
+// The residuals of the sites in memory, each column scaled to unit norm, so the
+// correlation of two sites is the dot product of their columns. In-core that is
+// every site, prepared once. With -m it is the two consecutive blocks the
+// current windows need, read on demand by need(); a window has to fit in two
+// blocks.
+class LDColumns {
+ public:
+  LDColumns(Data* data, const Mat2D& Q);
+  void rewind();                    // start another pass over the blocks (-m)
+  void need(uint lo, uint hi);      // make sites lo..hi available
+  uint max_reach(uint lo) const;    // the last site that fits in memory with lo
+  Eigen::Ref<const Mat1D> col(uint k) const;
+  // sites lo..hi as one matrix: a view, or a copy into buf across two blocks
+  Eigen::Ref<const Mat2D> span(uint lo, uint hi, Mat2D& buf) const;
+  uint nsamples() const { return data->nsamples; }
+  uint batch_cols() const;  // columns per batch buffer of ld_prune/ld_r2
+  Eigen::Index zero_variance() const { return nzero; }  // since the last rewind
+
+ private:
+  void load(uint blk);
+  Data* data;
+  const Mat2D& Q;
+  const bool ooc;
+  uint b = 0;          // block in data->G; block b - 1 is in prev
+  Mat2D prev;
+  Eigen::Index nzero = 0;
+};
+
 std::tuple<Int2D, Int2D> get_target_snp_idx(const SNPld& snp_t, const SNPld& snp);
 
 void divide_pos_by_window(SNPld& snp, const int ld_window_bp);
 
 void write_pruned_snp_ids(const String1D& variants, const std::string& fileout, const ArrBool& keep);
 
-void ld_prune_small(
-    Data* data, const Mat2D& Q, const String1D& variants, const SNPld& snp, double r2_tol, const std::string& fileout);
-
-void ld_prune_big(const Mat2D& G,
-                  const Mat1D& F,
-                  const String1D& variants,
-                  const SNPld& snp,
-                  double r2_tol,
-                  const std::string& fileout);
+void ld_prune(LDColumns& X,
+              const Mat1D& F,
+              const String1D& variants,
+              const SNPld& snp,
+              double r2_tol,
+              const std::string& fileout);
 
 void ld_clump_single_pheno(const std::string& fileout,
                            const std::string& head,
@@ -80,9 +101,7 @@ std::vector<UMapIntPds> map_index_snps(const std::string& fileassoc, const Int1D
 
 std::vector<UMapIntString> map_assoc_file(const std::string& fileassoc, const Int1D& colidx);
 
-void ld_r2_big(const Mat2D& G, const String1D& variants, const SNPld& snp, const std::string& fileout);
-
-void ld_r2_small(Data* data, const Mat2D& Q, const String1D& variants, const SNPld& snp, const std::string& fileout);
+void ld_r2(LDColumns& X, const String1D& variants, const SNPld& snp, const std::string& fileout, uint verbose);
 
 void run_ld_stuff(Data* data, const Param& params);
 

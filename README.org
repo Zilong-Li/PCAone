@@ -543,7 +543,9 @@ are read, and computes the LD from the residuals, so no residual matrix is
 written to disk. The PCs must come from the same samples in the same order, but
 the variants need not be the ones the PCA used (e.g. a different =--maf=). This
 works in-core and out-of-core (=-m=), for PLINK (=-b=) and PGEN (=-p=) input.
-Use =--ld-stats 1= without =-P= for the standard LD instead.
+Use =--ld-stats 1= without =-P= for the standard LD instead. See
+[[./docs/ld-ancestry-adjusted.md][docs/ld-ancestry-adjusted.md]] for why these residuals equal the old
+=G - USV'= and how they are computed.
 
 *NB:* before v0.8.0 this took a =.residuals= file, written by =-D/--ld= and read
 by =-B/--binary=. Both options are removed. =-D/--ld= also ran the PCA without

@@ -17,6 +17,13 @@
     assuming it listed every variant of the genotype file in order; a prefix from a PCA with =--maf=
     misaligned them silently (R2 off by up to 1 on =example/plink.chr1=). They are now estimated
     from the genotypes.
+  - faster LD. The correlations of a batch of windows come from one matrix product instead of one
+    dot product per pair, and the out-of-core path no longer copies both columns and recomputes both
+    variances for every pair. On 2,000-20,000 samples (N x M = 1e8, 1 Mb windows) pruning is
+    1.4-3.4x faster in-core and 5-14x faster with =-m=, and =-R= is 2.5-10x faster in-core and up
+    to 38x with =-m=; =-m= now runs as fast as in-core. The output is unchanged. =-R= formats and
+    compresses on all threads: the =.ld.gz= is a series of gzip members, which zcat, gzip, R and
+    Python read as one file.
   - fix: out-of-core clumping indexed past the block in memory when the target variants skipped a
     whole block, and a chromosome in the association file that the genotypes lack was read out of
     bounds.

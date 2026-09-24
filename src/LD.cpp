@@ -6,6 +6,7 @@
 
 #include "LD.hpp"
 
+#include <omp.h>
 #include <zlib.h>
 
 #include <cstddef>
@@ -52,43 +53,43 @@ void push_snp_pos(SNPld& snp, const std::string& chr, int pos, std::string& chr_
   i++;
 }
 
-// every out-of-core read in the LD code goes through here, so a block is never
-// used before the PCs are removed from it
-void read_ld_block(Data* data, uint b, const Mat2D& Q) {
-  data->read_block_initial(data->start[b], data->stop[b], false);
-  adjust_for_pcs(data->G, Q);
-}
-}  // namespace
-
-// compute sample standard deviation
-Arr1D calc_sds(const Mat2D& X) {
-  const double df = 1.0 / (X.rows() - 1);  // N-1
-  return (X.array().square().colwise().sum() * df).sqrt();
-}
-
-// Inverse sample standard deviation per column, with zero-variance columns set
-// to 0 instead of infinity.
-//
-// A variant that is monomorphic, or whose genotypes lie entirely in the span of
-// the PCs being adjusted for, has no residual variance. Taking 1/sd gives inf,
-// and the correlation inf * inf * 0 is NaN, which then propagates into every
-// pair involving that variant and into the .ld.gz output. Reporting 0 instead
-// says what is actually true -- a variant with no variance carries no LD
-// information -- and keeps the output numeric.
-Arr1D calc_inv_sds(const Mat2D& X, Eigen::Index& nzero) {
-  const Arr1D sds = calc_sds(X);
-  Arr1D inv(sds.size());
-  nzero = 0;
-  for (Eigen::Index i = 0; i < sds.size(); ++i) {
-    if (sds(i) > VAR_TOL) {
-      inv(i) = 1.0 / sds(i);
+// scale each column to unit norm, so the correlation of two sites is the dot
+// product of their columns. A site with no variance -- monomorphic, or fully
+// explained by the PCs -- becomes a zero column: its R2 is 0, not NaN.
+void normalize_ld_columns(Mat2D& G, Eigen::Index& nzero) {
+  const double n1 = (double)G.rows() - 1.0;
+  Eigen::Index nz = 0;
+#pragma omp parallel for reduction(+ : nz)
+  for (Eigen::Index j = 0; j < G.cols(); ++j) {
+    const double ss = G.col(j).squaredNorm();
+    if (std::sqrt(ss / n1) > VAR_TOL) {
+      G.col(j) /= std::sqrt(ss);
     } else {
-      inv(i) = 0.0;
-      ++nzero;
+      G.col(j).setZero();
+      ++nz;
     }
   }
-  return inv;
+  nzero += nz;
 }
+
+// one gzip member (RFC 1952). Concatenated members are a valid .gz file, as
+// zcat, gzip -d, R and Python read it, so every thread compresses its own part
+// of the .ld.gz output.
+void gzip_member(const std::string& in, std::string& out) {
+  z_stream s{};
+  if (deflateInit2(&s, Z_DEFAULT_COMPRESSION, Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY) != Z_OK)
+    cao.error("failed to initialize zlib");
+  out.resize(deflateBound(&s, in.size()));
+  s.next_in = (Bytef*)in.data();
+  s.avail_in = in.size();
+  s.next_out = (Bytef*)&out[0];
+  s.avail_out = out.size();
+  if (deflate(&s, Z_FINISH) != Z_STREAM_END) cao.error("failed to compress the .ld.gz output");
+  out.resize(s.total_out);
+  deflateEnd(&s);
+}
+
+}  // namespace
 
 // shared warning so every LD entry point reports this the same way
 static void warn_zero_variance(Eigen::Index nzero, Eigen::Index ntotal) {
@@ -96,34 +97,6 @@ static void warn_zero_variance(Eigen::Index nzero, Eigen::Index ntotal) {
     cao.warn(nzero, " of ", ntotal,
              " variants have no variance after ancestry adjustment (monomorphic, or fully explained by the "
              "PCs). their R2 is reported as 0 rather than NaN. consider --maf to remove them.");
-}
-
-// compute the peason correlation coefficient
-// should check x.size()==y.size()
-double calc_cor(const Mat1D& x, const Mat1D& y, const double df) {
-  int N = x.size();
-  double numerator = x.dot(y);
-  // Calculate variances with N-1 degrees of freedom
-  double var_x = x.dot(x) / (N - 1);
-  double var_y = y.dot(y) / (N - 1);
-  // const double epsilon = std::numeric_limits<double>::epsilon();
-  // const double min_variance = epsilon * epsilon;
-  // if (var_x < min_variance || var_y < min_variance) {
-  //   if (var_x < min_variance && var_y < min_variance) {
-  //     // Both variances are essentially zero
-  //     // Perfect correlation if both vectors are constant
-  //     return 1.0;
-  //   } else {
-  //     // No correlation if one variance is essentially zero, the other is not
-  //     return 0.0;
-  //   }
-  // }
-
-  // no variance, no LD information: 0 rather than NaN, as calc_inv_sds() does
-  if (!(std::sqrt(var_x) > VAR_TOL) || !(std::sqrt(var_y) > VAR_TOL)) return 0.0;
-  double sd_x = 1.0 / std::sqrt(var_x);
-  double sd_y = 1.0 / std::sqrt(var_y);
-  return numerator * sd_x * sd_y * df;
 }
 
 std::string get_snp_pos_bim(SNPld& snp, const std::string& filebim, bool header, Int1D idx) {
@@ -200,10 +173,81 @@ Mat2D read_ld_pcs(const Param& params, uint nsamples) {
 // centred data and are orthogonal to the intercept, so the residuals stay
 // centred; re-centring only removes rounding. Per-site scaling commutes with
 // the projection, so whether the PCA standardised the sites does not matter.
+// Why this equals the old G - USV': docs/ld-ancestry-adjusted.md
 void adjust_for_pcs(Mat2D& G, const Mat2D& Q) {
   if (Q.size() == 0) return;
   G.noalias() -= Q * (Q.transpose() * G);
   G.rowwise() -= G.colwise().mean();
+}
+
+LDColumns::LDColumns(Data* data_, const Mat2D& Q_)
+    : data(data_), Q(Q_), ooc(data_->params.out_of_core) {
+  if (ooc) {
+    rewind();
+  } else {
+    adjust_for_pcs(data->G, Q);
+    normalize_ld_columns(data->G, nzero);
+  }
+}
+
+void LDColumns::load(uint blk) {
+  data->read_block_initial(data->start[blk], data->stop[blk], false);
+  adjust_for_pcs(data->G, Q);
+  normalize_ld_columns(data->G, nzero);
+}
+
+void LDColumns::rewind() {
+  if (!ooc) return;
+  nzero = 0;
+  b = 0;
+  data->check_file_offset_first_var();
+  load(0);
+}
+
+uint LDColumns::max_reach(uint lo) const {
+  if (!ooc) return data->nsnps - 1;
+  const uint bl = std::min<uint>(lo / data->blocksize + 1, data->nblocks - 1);
+  return data->stop[bl];
+}
+
+void LDColumns::need(uint lo, uint hi) {
+  if (!ooc) return;
+  while (hi > data->stop[b]) {
+    prev.swap(data->G);  // keep block b; its buffer is reused for block b + 1
+    load(++b);
+  }
+  if (lo < (b > 0 ? data->start[b - 1] : 0))
+    cao.error("an LD window spans more than two blocks of -m. please increase -m or decrease --ld-bp");
+}
+
+// Batches of sites whose columns are multiplied at once: C = X_rows' X_cols is
+// one matrix product (BLAS-3) instead of one dot product per pair, which reuses
+// each column R times while it is in cache. Each batch buffer holds this many
+// columns: about 64 MB, and with -m at most an eighth of a block, so the three
+// buffers add under half a block to the two blocks that -m budgets for.
+uint LDColumns::batch_cols() const {
+  uint n = (1u << 23) / std::max<uint>(1, data->nsamples);
+  if (ooc) n = std::min<uint>(n, data->blocksize / 8);
+  return std::max<uint>(16, n);
+}
+
+Eigen::Ref<const Mat1D> LDColumns::col(uint k) const {
+  if (!ooc) return data->G.col(k);
+  if (k >= data->start[b]) return data->G.col(k - data->start[b]);
+  return prev.col(k - data->start[b - 1]);
+}
+
+Eigen::Ref<const Mat2D> LDColumns::span(uint lo, uint hi, Mat2D& buf) const {
+  const Eigen::Index n = hi - lo + 1;
+  if (!ooc) return data->G.middleCols(lo, n);
+  if (lo >= data->start[b]) return data->G.middleCols(lo - data->start[b], n);
+  if (hi < data->start[b]) return prev.middleCols(lo - data->start[b - 1], n);
+  // the two blocks in memory are separate matrices: copy the span across them
+  const Eigen::Index n1 = data->start[b] - lo;
+  buf.resize(data->nsamples, n);
+  buf.leftCols(n1) = prev.middleCols(lo - data->start[b - 1], n1);
+  buf.rightCols(n - n1) = data->G.leftCols(n - n1);
+  return buf;
 }
 
 // given a list of snps, find its index per chr in the original pos
@@ -289,78 +333,84 @@ void write_pruned_snp_ids(const String1D& variants, const std::string& fileout, 
   }
 }
 
-// of each pair above the cutoff, the site with the lower MAF is removed. F is
-// read as the blocks are: every site compared has been read by then.
-void ld_prune_small(
-    Data* data, const Mat2D& Q, const String1D& variants, const SNPld& snp, double r2_tol, const std::string& fileout) {
+// Greedy pruning, in window order: of each pair above the cutoff, the site with
+// the lower MAF is removed. The windows are taken in batches of R whose lead
+// site is still kept, and the correlations of a batch with the kept sites in
+// its span come from one matrix product. Processing the batch in order makes
+// the same decisions as one window at a time. Leads removed within their own
+// batch waste their row, so R grows while most leads survive and shrinks when
+// they do not. F is filled as blocks are read (-m); every site used is read.
+void ld_prune(LDColumns& X, const Mat1D& F, const String1D& variants, const SNPld& snp, double r2_tol,
+              const std::string& fileout) {
   cao.print(tick.date(), "LD pruning, the site with the lower MAF of each pair is removed");
-  const Mat1D& F = data->F;
-  ArrBool keep = ArrBool::Constant(data->nsnps, true);
-  const double df = 1.0 / (data->nsamples - 1);  // N-1
-  uint b = 0, start = 0, end = 0;
-  data->check_file_offset_first_var();
-  read_ld_block(data, b, Q);
-  Mat2D G = data->G;  // make a copy. we need two G anyway
-  b++;
-  read_ld_block(data, b, Q);
-  for (size_t w = 0; w < snp.ws.size(); w++) {
-    uint i = snp.ws[w];
-    if (!keep(i)) continue;
-    start = i;  // ensure start >= data->start[b-1]
-    if (start < data->start[b - 1]) cao.error("BUG: ld_prune_small ");
-    end = snp.we[w] + i - 1;
-    if (end > data->stop[b]) {  // renew G and data->G
-      G = data->G;              // copy
-      b++;
-      read_ld_block(data, b, Q);
+  const uint N = X.nsamples();
+  const uint tile = X.batch_cols(), Rmax = std::min<uint>(1024, tile), Rmin = std::min<uint>(16, Rmax);
+  ArrBool keep = ArrBool::Constant(variants.size(), true);
+  Mat2D C, Xr, buf, Cg;
+  std::vector<size_t> wins;
+  std::vector<uint> kept;
+  uint R = std::min<uint>(64, Rmax);
+  const size_t nw = snp.ws.size();
+  for (size_t w = 0; w < nw;) {
+    // the next R windows whose lead site is still kept, all within reach of -m
+    wins.clear();
+    uint lo = 0, hi = 0, reach = 0;
+    size_t w1 = w;
+    for (; w1 < nw && wins.size() < R; ++w1) {
+      const uint i = snp.ws[w1], e = i + snp.we[w1] - 1;
+      if (!keep(i)) continue;
+      if (wins.empty()) {
+        lo = i;
+        hi = e;
+        reach = X.max_reach(i);
+      }
+      if (e > reach) {
+        if (wins.empty())
+          cao.error("an LD window spans more than two blocks of -m. please increase -m or decrease --ld-bp");
+        break;
+      }
+      wins.push_back(w1);
+      hi = std::max(hi, e);
     }
-#pragma omp parallel for
-    for (int j = 1; j < snp.we[w]; j++) {
-      uint k = i + j;
-      if (!keep(k)) continue;
-      double r = 0;
-      if (i >= data->start[b - 1] && k <= data->stop[b - 1]) {
-        r = calc_cor(G.col(i - data->start[b - 1]), G.col(k - data->start[b - 1]), df);
-      } else if (i >= data->start[b] && k <= data->stop[b]) {
-        r = calc_cor(data->G.col(i - data->start[b]), data->G.col(k - data->start[b]), df);
+    w = w1;
+    if (wins.empty()) continue;
+    X.need(lo, hi);
+    Xr.resize(N, wins.size());
+    for (size_t t = 0; t < wins.size(); ++t) Xr.col(t) = X.col(snp.ws[wins[t]]);
+    // C(t, k - lo) for the kept sites k in lo..hi. A tile that is mostly kept is
+    // multiplied as it is; a sparse one is gathered first.
+    C.resize(wins.size(), hi - lo + 1);
+    for (uint c0 = lo; c0 <= hi; c0 += tile) {
+      const uint c1 = std::min(hi, c0 + tile - 1);
+      kept.clear();
+      for (uint k = c0; k <= c1; ++k)
+        if (keep(k)) kept.push_back(k);
+      if (kept.empty()) continue;
+      if (2 * kept.size() >= c1 - c0 + 1) {
+        C.middleCols(c0 - lo, c1 - c0 + 1).noalias() = Xr.transpose() * X.span(c0, c1, buf);
       } else {
-        r = calc_cor(G.col(i - data->start[b - 1]), data->G.col(k - data->start[b]), df);
-      }
-      if (r * r > r2_tol) {
-        const uint o = MAF(F(k)) > MAF(F(i)) ? i : k;
-        keep(o) = false;
-      }
-    }
-  }
-  write_pruned_snp_ids(variants, fileout, keep);
-}
-
-void ld_prune_big(const Mat2D& G,
-                  const Mat1D& F,
-                  const String1D& variants,
-                  const SNPld& snp,
-                  double r2_tol,
-                  const std::string& fileout) {
-  if ((long int)snp.pos.size() != G.cols()) cao.error("The number of variants is not matching the LD matrix");
-  cao.print(tick.date(), "LD pruning, the site with the lower MAF of each pair is removed");
-  Eigen::Index nzero = 0;
-  Arr1D sds = calc_inv_sds(G, nzero);
-  warn_zero_variance(nzero, G.cols());
-  ArrBool keep = ArrBool::Constant(G.cols(), true);
-  const double df = 1.0 / (G.rows() - 1);  // N-1
-  for (int w = 0; w < (int)snp.ws.size(); w++) {
-    int i = snp.ws[w];
-    if (!keep(i)) continue;
-#pragma omp parallel for
-    for (int j = 1; j < snp.we[w]; j++) {
-      int k = i + j;
-      if (!keep(k)) continue;
-      double r = G.col(i).dot(G.col(k)) * (sds(i) * sds(k) * df);
-      if (r * r > r2_tol) {
-        const int o = MAF(F(k)) > MAF(F(i)) ? i : k;
-        keep(o) = false;
+        buf.resize(N, kept.size());
+        for (size_t t = 0; t < kept.size(); ++t) buf.col(t) = X.col(kept[t]);
+        Cg.noalias() = Xr.transpose() * buf;
+        for (size_t t = 0; t < kept.size(); ++t) C.col(kept[t] - lo) = Cg.col(t);
       }
     }
+    size_t used = 0;
+    for (size_t t = 0; t < wins.size(); ++t) {
+      const uint i = snp.ws[wins[t]];
+      if (!keep(i)) continue;  // removed by an earlier window of this batch
+      ++used;
+      for (int j = 1; j < snp.we[wins[t]]; ++j) {
+        const uint k = i + j;
+        if (!keep(k)) continue;
+        const double r = C(t, k - lo);
+        if (r * r > r2_tol) keep(MAF(F(k)) > MAF(F(i)) ? i : k) = false;
+      }
+    }
+    if (used == wins.size())
+      R = std::min(2 * R, Rmax);
+    else if (2 * used < wins.size())
+      R = std::max(R / 2, Rmin);
   }
   write_pruned_snp_ids(variants, fileout, keep);
 }
@@ -428,11 +478,7 @@ void ld_clump_single_pheno(const std::string& fileout,
                            const Int2D& idx_per_chr,
                            const Int2D& bp_per_chr,
                            const std::vector<UMapIntPds>& pvals_per_chr) {
-  // sort by pvalues and get new idx
-  Eigen::Index nzero = 0;
-  const Arr1D sds = calc_inv_sds(G, nzero);
-  warn_zero_variance(nzero, G.cols());
-  const double df = 1.0 / (G.rows() - 1);  // N-1
+  // the columns of G have unit norm (LDColumns), so r is their dot product
   std::ofstream ofs(fileout);
   ofs << head + "\tSP2" << std::endl;
   for (int c = 0; c < (int)bp_per_chr.size(); c++) {
@@ -472,7 +518,7 @@ void ld_clump_single_pheno(const std::string& fileout,
         }
         p2 = bp[k];
         if (mpp.count(p2) == 0) continue;
-        double r = G.col(idx[j]).dot(G.col(idx[k])) * (sds(idx[j]) * sds(idx[k]) * df);
+        const double r = G.col(idx[j]).dot(G.col(idx[k]));
         if (r * r >= clump_r2) {
           clumped.push_back(p2);
           mpp.erase(p2);
@@ -500,74 +546,68 @@ void ld_clump_single_pheno(const std::string& fileout,
   }
 }
 
-void ld_r2_small(Data* data, const Mat2D& Q, const String1D& variants, const SNPld& snp, const std::string& fileout) {
+// All pairs within each window, written in window order. A batch of R
+// consecutive windows is one matrix product over the span of their sites; the
+// lines are then formatted and compressed by all threads, each into its own
+// gzip member, and written in order.
+void ld_r2(LDColumns& X, const String1D& variants, const SNPld& snp, const std::string& fileout, uint verbose) {
   const String1D bims = variant_labels(variants);
-  const double df = 1.0 / (data->nsamples - 1);  // N-1
-  int b = 0;
-  data->check_file_offset_first_var();
-  read_ld_block(data, b, Q);
-  Mat2D G = data->G;  // make a copy. we need two G anyway
-  b++;
-  read_ld_block(data, b, Q);
-
-  gzFile gzfp = gzopen(fileout.c_str(), "wb");
-  std::string line{"CHR_A\tBP_A\tSNP_A\tCHR_B\tBP_B\tSNP_B\tR2\n"};
-  gzwrite(gzfp, line.c_str(), line.size());
-
-  for (size_t w = 0; w < snp.ws.size(); w++) {
-    uint i = snp.ws[w];
-    if (snp.we[w] + i - 1 > data->stop[b]) {  // renew G and data->G
-      G = data->G;                            // copy
-      b++;
-      read_ld_block(data, b, Q);
+  const uint tile = X.batch_cols(), R = std::min<uint>(1024, tile);
+  FILE* fp = fopen(fileout.c_str(), "wb");
+  if (!fp) cao.error("can not open " + fileout);
+  const int nthreads = omp_get_max_threads();
+  std::vector<std::string> text(nthreads), gz(nthreads);
+  gzip_member("CHR_A\tBP_A\tSNP_A\tCHR_B\tBP_B\tSNP_B\tR2\n", gz[0]);
+  fwrite(gz[0].data(), 1, gz[0].size(), fp);
+  Mat2D C, bufr, bufc;
+  const size_t nw = snp.ws.size();
+  for (size_t w = 0; w < nw;) {
+    const uint lo = snp.ws[w], reach = X.max_reach(lo);
+    uint hi = lo;
+    size_t w1 = w;
+    for (; w1 < nw && w1 - w < R; ++w1) {
+      const uint e = snp.ws[w1] + snp.we[w1] - 1;
+      if (e > reach) break;
+      hi = std::max(hi, e);
     }
-
-    if (data->params.verbose) cao.print(tick.date(), "process window", w, ", the index SNP is", i);
-
-    for (int j = 1; j < snp.we[w]; j++) {
-      uint k = i + j;
-      double r = 0;
-      if (i >= data->start[b - 1] && k <= data->stop[b - 1]) {
-        r = calc_cor(G.col(i - data->start[b - 1]), G.col(k - data->start[b - 1]), df);
-      } else if (i >= data->start[b] && k <= data->stop[b]) {
-        r = calc_cor(data->G.col(i - data->start[b]), data->G.col(k - data->start[b]), df);
-
-      } else {
-        r = calc_cor(G.col(i - data->start[b - 1]), data->G.col(k - data->start[b]), df);
+    if (w1 == w) cao.error("an LD window spans more than two blocks of -m. please increase -m or decrease --ld-bp");
+    if (verbose > 1) cao.print(tick.date(), "process windows", w, "to", w1 - 1);
+    X.need(lo, hi);
+    const uint rlast = snp.ws[w1 - 1];
+    const auto Xr = X.span(lo, rlast, bufr);
+    C.resize(rlast - lo + 1, hi - lo + 1);
+    for (uint c0 = lo; c0 <= hi; c0 += tile) {
+      const uint c1 = std::min(hi, c0 + tile - 1);
+      C.middleCols(c0 - lo, c1 - c0 + 1).noalias() = Xr.transpose() * X.span(c0, c1, bufc);
+    }
+    const size_t nb = w1 - w;
+    for (auto& g : gz) g.clear();
+#pragma omp parallel num_threads(nthreads)
+    {
+      const int t = omp_get_thread_num(), T = omp_get_num_threads();
+      std::string& s = text[t];
+      s.clear();
+      for (size_t x = w + nb * t / T; x < w + nb * (t + 1) / T; ++x) {
+        const uint i = snp.ws[x];
+        for (int j = 1; j < snp.we[x]; ++j) {
+          const uint k = i + j;
+          const double r = C(i - lo, k - lo);
+          s += bims[i];
+          s += '\t';
+          s += bims[k];
+          s += '\t';
+          s += std::to_string(r * r);
+          s += '\n';
+        }
       }
-      //// FIXME: this would be slow
-      line = bims[i] + "\t" + bims[k] + "\t" + std::to_string(r * r) + "\n";
-
-      if (gzwrite(gzfp, line.c_str(), line.size()) != static_cast<int>(line.size()))
-        cao.error("failed to write data to ld.gz file");
+      if (!s.empty()) gzip_member(s, gz[t]);
     }
-  }
-  gzclose(gzfp);
-}
-
-void ld_r2_big(const Mat2D& G, const String1D& variants, const SNPld& snp, const std::string& fileout) {
-  const String1D bims = variant_labels(variants);
-  Eigen::Index nzero = 0;
-  Arr1D sds = calc_inv_sds(G, nzero);
-  warn_zero_variance(nzero, G.cols());
-  const double df = 1.0 / (G.rows() - 1);  // N-1
-  gzFile gzfp = gzopen(fileout.c_str(), "wb");
-  std::string line{"CHR_A\tBP_A\tSNP_A\tCHR_B\tBP_B\tSNP_B\tR2\n"};
-  gzwrite(gzfp, line.c_str(), line.size());
-
-  for (int w = 0; w < (int)snp.ws.size(); w++) {
-    int i = snp.ws[w];
-
-    for (int j = 1; j < snp.we[w]; j++) {
-      int k = i + j;
-      double r = G.col(i).dot(G.col(k)) * (sds(i) * sds(k) * df);
-      //// FIXME: this would be slow
-      line = bims[i] + "\t" + bims[k] + "\t" + std::to_string(r * r) + "\n";
-      if (gzwrite(gzfp, line.c_str(), line.size()) != static_cast<int>(line.size()))
+    for (int t = 0; t < nthreads; ++t)
+      if (!gz[t].empty() && fwrite(gz[t].data(), 1, gz[t].size(), fp) != gz[t].size())
         cao.error("failed to write data to ld.gz file");
-    }
+    w = w1;
   }
-  gzclose(gzfp);
+  if (fclose(fp) != 0) cao.error("failed to write data to ld.gz file");
 }
 
 // The LD statistics are correlations between the columns of (I - QQ')G, where G
@@ -582,25 +622,16 @@ void run_ld_stuff(Data* data, const Param& params) {
   const String1D variants = read_ld_variants(data, params);
   SNPld snp;  // SNPs information for LD prunning
   get_snp_pos_variants(snp, variants);
-  if (!params.out_of_core) adjust_for_pcs(data->G, Q);
+  LDColumns X(data, Q);  // in-core: every site, adjusted and normalized, now
 
   if (params.clump.empty()) {
     divide_pos_by_window(snp, params.ld_bp);
-
-    if (params.out_of_core) {
-      if (params.print_r2) {
-        ld_r2_small(data, Q, variants, snp, params.fileout + ".ld.gz");
-      } else {
-        ld_prune_small(data, Q, variants, snp, params.ld_r2, params.fileout);
-      }
+    if (params.print_r2) {
+      ld_r2(X, variants, snp, params.fileout + ".ld.gz", params.verbose);
     } else {
-      if (params.print_r2) {
-        ld_r2_big(data->G, variants, snp, params.fileout + ".ld.gz");
-      } else {
-        ld_prune_big(data->G, data->F, variants, snp, params.ld_r2, params.fileout);
-      }
+      ld_prune(X, data->F, variants, snp, params.ld_r2, params.fileout);
     }
-
+    warn_zero_variance(X.zero_variance(), data->nsnps);
   } else {
     const auto assocfiles = split_string(params.clump, ",");
     for (size_t i = 0; i < assocfiles.size(); i++) {
@@ -611,35 +642,25 @@ void run_ld_stuff(Data* data, const Param& params) {
       const auto pvals_per_chr = map_index_snps(assocfiles[i], colidx, params.clump_p2);
       Int2D idx_per_chr, bp_per_chr;
       std::tie(idx_per_chr, bp_per_chr) = get_target_snp_idx(snp_t, snp);
+      const std::string out = params.fileout + ".p" + std::to_string(i) + ".clump";
       if (params.out_of_core) {
+        // gather the target sites; they are sorted, but may skip whole blocks
+        if (i > 0) X.rewind();
         Mat2D G(data->nsamples, snp_t.pos.size());
-        int b = 0;
-        data->check_file_offset_first_var();
-        read_ld_block(data, b, Q);
         for (int sidx = 0, c = 0; c < (int)idx_per_chr.size(); c++) {
-          int i = 0;
-          for (auto icol : idx_per_chr[c]) {
-            // the target sites are sorted, but may skip a whole block
-            while (icol > (int)data->stop[b]) {
-              b++;
-              read_ld_block(data, b, Q);
-            }
-            G.col(sidx) = data->G.col(icol - data->start[b]);
-            idx_per_chr[c][i] = sidx;
-            sidx++;
-            i++;
+          for (auto& icol : idx_per_chr[c]) {
+            X.need(icol, icol);
+            G.col(sidx) = X.col(icol);
+            icol = sidx++;
           }
         }
-
-        ld_clump_single_pheno(params.fileout + ".p" + std::to_string(i) + ".clump", head, params.clump_bp,
-                              params.clump_r2, params.clump_p1, params.clump_p2, G, idx_per_chr, bp_per_chr,
-                              pvals_per_chr);
-
+        ld_clump_single_pheno(out, head, params.clump_bp, params.clump_r2, params.clump_p1, params.clump_p2, G,
+                              idx_per_chr, bp_per_chr, pvals_per_chr);
       } else {
-        ld_clump_single_pheno(params.fileout + ".p" + std::to_string(i) + ".clump", head, params.clump_bp,
-                              params.clump_r2, params.clump_p1, params.clump_p2, data->G, idx_per_chr, bp_per_chr,
-                              pvals_per_chr);
+        ld_clump_single_pheno(out, head, params.clump_bp, params.clump_r2, params.clump_p1, params.clump_p2, data->G,
+                              idx_per_chr, bp_per_chr, pvals_per_chr);
       }
     }
+    warn_zero_variance(X.zero_variance(), data->nsnps);
   }
 }
