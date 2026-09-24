@@ -9,6 +9,7 @@
 using uint = std::uint32_t;
 using uint64 = std::uint64_t;
 
+// BINARY is internal: the shuffled copy of a CSV that -m writes (FileCsv.cpp)
 enum class FileType { PLINK, CSV, BEAGLE, BINARY, BGEN, PGEN };
 
 enum class SvdType { IRAM, PCAoneAlg1, PCAoneAlg2, FULL };
@@ -57,7 +58,7 @@ class Param {
   std::string filebim;  // the 7-th column can be MAF
   int ld_stats = 0;     // 0: adj; 1: std
   double ld_r2 = 0;
-  bool ld = false;       // true if tolld > 0
+  bool ld = false;       // true for the LD analyses: -R, --ld-r2 and --clump
   uint ld_bp = 1000000;  // base pairs not number of snps
   // for clumping
   std::string clump;

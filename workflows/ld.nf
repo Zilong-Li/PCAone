@@ -73,13 +73,13 @@ process adj_ld_matrix {
     tuple val(K), val(pop), path(bed), path(bim), path(fam)
 
     output:
-    tuple val(pop), val(K), path("adj.${K}.residuals"), emit: residuals
-    tuple val(pop), val(K), path("adj.${K}.mbim"), emit: kept
+    tuple val(pop), val(K), path(bed), path(bim), path(fam), path("adj.${K}.eigvecs"), emit: pcs
 
     script:
     base = bed.baseName
+    // --scale 0 gives the unstandardized PCs the removed -D/--ld used
     """
-    PCAone --bfile $base -k ${K} -d 0 --ld-stats 0 --ld --out adj.${K}
+    PCAone --bfile $base -k ${K} -d 0 --scale 0 --out adj.${K}
     """
 }
 
@@ -87,31 +87,15 @@ process adj_ld_r2 {
     publishDir "${params.results}/${pop}/thin_${params.thin}/${params.run_step}"
     
     input:
-    tuple val(pop), val(K), path(residuals)
-    tuple val(pop), val(K), path(kept)
+    tuple val(pop), val(K), path(bed), path(bim), path(fam), path(eigvecs)
 
     output:
     tuple val(pop), val(K), path("adj.${K}.ld.gz"), emit: adjr2
 
     script:
-    """
-    PCAone -B ${residuals} --match-bim ${kept} --ld-bp ${params.ld_bp} --print-r2 --out adj.${K}
-    """
-}
-
-process std_ld_matrix {
-    // publishDir "${params.results}/${pop}/thin_${params.thin}/${params.run_step}"
-    
-    input:
-    tuple val(pop), path(bed), path(bim), path(fam)
-
-    output:
-    tuple val(pop), path("std.residuals"), path("std.mbim")
-
-    script:
     base = bed.baseName
     """
-    PCAone --bfile $base -k 1 -d 0 --ld-stats 1 --ld --out std 
+    PCAone --bfile $base --USV adj.${K} --ld-bp ${params.ld_bp} --print-r2 --out adj.${K}
     """
 }
 
@@ -119,14 +103,15 @@ process std_ld_r2 {
     publishDir "${params.results}/${pop}/thin_${params.thin}/${params.run_step}"
     
     input:
-    tuple val(pop), path("std.residuals"), path("std.mbim")
+    tuple val(pop), path(bed), path(bim), path(fam)
 
     output:
     tuple val(pop), path("std.ld.gz"), emit: stdr2
 
     script:
+    base = bed.baseName
     """
-    PCAone -B std.residuals --match-bim std.mbim --ld-bp ${params.ld_bp} --print-r2 --out std
+    PCAone --bfile $base --ld-stats 1 --ld-bp ${params.ld_bp} --print-r2 --out std
     """
 }
 
@@ -259,7 +244,7 @@ workflow ld_curve {
 
     main:
     adj = adj_ld_matrix(K.combine(data)) | adj_ld_r2 | make_adj_ld_bin
-    std = std_ld_matrix(data) | std_ld_r2 | make_std_ld_bin
+    std = std_ld_r2(data) | make_std_ld_bin
     ld = adj.combine(std, by: 0)
     // ld.view()
     plot_ld_curve(ld)
@@ -276,7 +261,7 @@ workflow ld_cross {
     main:
     ch_perm = permute_plink(data)
     adj = adj_ld_matrix(K.combine(ch_perm)) | adj_ld_r2 | cross_adj_ld_r2
-    std = std_ld_matrix(ch_perm) | std_ld_r2 | cross_std_ld_r2
+    std = std_ld_r2(ch_perm) | cross_std_ld_r2
     ld = adj.combine(std, by: 0)
 
     emit:

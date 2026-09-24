@@ -274,7 +274,6 @@ void run_pca_with_halko(Data* data, const Param& params) {
   Mat2D Vpre;
   RsvdOpData* rsvd;
   if (params.svd_t == SvdType::PCAoneAlg2) {
-    if (params.ld) cao.warn("You are recommended to use --svd 1 for outputting the LD residual matrix");
     cao.print(tick.date(), "initialize window-based RSVD (winSVD) with",
               params.out_of_core ? "out-of-core" : "in-core");
     rsvd = new FancyRsvdOpData(data, params.k, params.oversamples);
@@ -284,7 +283,7 @@ void run_pca_with_halko(Data* data, const Param& params) {
   }
   if (!params.missme) {
     if (params.genetic) {
-      rsvd->setFlags(false, params.ld ? false : true);
+      rsvd->setFlags(false, true);
     } else {
       rsvd->setFlags(false, false);
     }
@@ -337,7 +336,6 @@ void run_pca_with_halko(Data* data, const Param& params) {
     }
   }
   // output PI
-  if (params.ld) data->write_residuals(rsvd->S, rsvd->U, rsvd->V.transpose());
   data->set_svd_transform(rsvd->standardize);
   data->write_eigs_files(rsvd->S.array().square() / data->nsnps, rsvd->S, rsvd->U, rsvd->V);
 

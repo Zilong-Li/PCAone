@@ -47,8 +47,6 @@ void FilePgen::read_all() {
       }
       F(i) = (c > 0) ? sum / c : 0.0;
       if (F(i) == 0.0 || F(i) == 1.0) cao.warn("sites with MAF=0 found! remove them first! SNP index:", i);
-      if (params.ld && params.verbose > 1 && F(i) == 0.5)
-        cao.warn("sites with MAF=0.5 found in LD estimation. NaN values expected! SNP index:", i);
     }
     filter_snps_resize_F();
   }
@@ -213,8 +211,6 @@ void FilePgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standa
       }
       F(snp_idx) = (c > 0) ? sum / c : 0.0;
       if (F(snp_idx) == 0.0 || F(snp_idx) == 1.0) cao.warn("sites with MAF=0 found! remove them first!");
-      if (params.ld && params.verbose > 1 && F(snp_idx) == 0.5)
-        cao.warn("MAF for site ", snp_idx, " is 0.5. NaN values expected in calculating LD R2.");
       if (!dosage_mode) {
         // centered_geno_lookup: rows 0=HomRef, 1=Het, 2=HomAlt, 3=missing
         centered_geno_lookup(3, snp_idx) = 0.0;               // missing: impute to mean

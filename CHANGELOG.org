@@ -1,4 +1,26 @@
 - v0.8.0
+  - *breaking*: removed =-D/--ld=, =-B/--binary= and the =.residuals= file. =-R=, =--ld-r2= and
+    =--clump= now read the PLINK/PGEN genotypes directly and remove the PCs of a previous run, given
+    by =-P/--USV=, as the genotypes are read:
+    =PCAone -b plink -k 3 -o pcs= then =PCAone -b plink -P pcs --ld-r2 0.8 -o adj=. A =.residuals=
+    took 4 bytes per genotype, 16 times the =.bed=, and is no longer written at all. In-core and
+    out-of-core (=-m=) work for both formats and give identical output, =--maf= applies in-core, and
+    no =.mbim= is needed. =--ld-stats 0= (default) requires =-P=; =--ld-stats 1= is the standard LD
+    and takes no PCs. BGEN, BEAGLE and CSV input no longer support LD. Old command lines stop with a
+    message showing the new ones.
+  - *results change*: the ancestry adjusted LD, when the PCs come from a default PCA. =-D/--ld= ran
+    its PCA without standardizing the sites; a default PCA standardizes them, which gives different
+    PCs. =--scale 0= in the PCA reproduces the old PCs exactly, and then R2 agrees with the old
+    =.residuals= path to the printed precision (1e-6) and pruning and clumping are identical.
+  - *results change*: =-b/-p -P --clump= in-core clumped on the standard LD: the PCs were removed
+    for =-R= and =--ld-r2= only. And =-b/-p -P= LD took the allele frequencies from =<prefix>.mbim=,
+    assuming it listed every variant of the genotype file in order; a prefix from a PCA with =--maf=
+    misaligned them silently (R2 off by up to 1 on =example/plink.chr1=). They are now estimated
+    from the genotypes.
+  - fix: out-of-core clumping indexed past the block in memory when the target variants skipped a
+    whole block, and a chromosome in the association file that the genotypes lack was read out of
+    bounds.
+  - fix: =-c -m= with shuffling left the temporary =<out>.perm.bin= behind.
   - *results change*: =-P/--USV= with =-R=, =--ld-r2= or =--clump= and =-k > 1=. =read_usv()= mapped a
     row-major buffer as column-major, scrambling the PC matrix, so the ancestry-adjusted residuals
     were taken against the wrong subspace. Only =-k 1= was correct before.

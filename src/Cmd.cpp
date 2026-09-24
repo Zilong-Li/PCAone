@@ -22,9 +22,9 @@ Param::Param(int argc, char** argv) {
                     "       $ PCAone -b plink \n\n" +
                     "       2) use CSV file as input and apply the Implicitly Restarted Arnoldi Method\n" +
                     "       $ PCAone -c csv.zst -d 0 \n\n" +
-                    "       3) compute ancestry adjusted LD matrix and R2\n" +
-                    "       $ PCAone -b plink -k 2 -D -o adj \n" +
-                    "       $ PCAone -B adj.residuals -f adj.mbim -R --ld-bp 1000" +
+                    "       3) compute the ancestry adjusted LD R2, removing the PCs of a previous run\n" +
+                    "       $ PCAone -b plink -k 2 -o pcs \n" +
+                    "       $ PCAone -b plink -P pcs -R --ld-bp 1000 -o adj" +
   "\n"};
   OptionParser opts(copyr);
   opts.add<Value<std::string>, Attribute::headline>("","PCAone","General options:");
@@ -76,7 +76,8 @@ Param::Param(int argc, char** argv) {
   opts.add<Switch, Attribute::advanced>("", "haploid", "the plink format represents haploid data.", &haploid);
   auto pgenfile = opts.add<Value<std::string>>("p", "pgen", "prefix of PLINK2 .pgen/.pvar/.psam files.", "", &filein);
   opts.add<Switch, Attribute::advanced>("", "hardcall", "use hardcall genotype instead of dosages.", &hardcall);
-  auto binfile = opts.add<Value<std::string>>("B", "binary", "path of binary file.", "", &filein);
+  // removed in v0.8.0; kept hidden only to say what replaces them
+  auto binfile = opts.add<Value<std::string>, Attribute::hidden>("B", "binary", "removed. LD now reads the genotypes directly.");
   auto csvfile = opts.add<Value<std::string>>("c", "csv", "path of comma seperated CSV file compressed by zstd.", "", &filein);
   auto bgenfile = opts.add<Value<std::string>>("g", "bgen", "path of BGEN file compressed by gzip/zstd.", "", &filein);
   auto beaglefile = opts.add<Value<std::string>>("G", "beagle", "path of BEAGLE file compressed by gzip.", "", &filein);
@@ -89,7 +90,7 @@ Param::Param(int argc, char** argv) {
   opts.add<Value<std::string>, Attribute::headline>("","OUTPUT","Output options:");
   opts.add<Value<std::string>>("o", "out", "prefix of output files. default [pcaone].", fileout, &fileout);
   opts.add<Switch>("V", "printv", "output the right eigenvectors with suffix .loadings.", &printv);
-  opts.add<Switch>("D", "ld", "output a binary matrix for downstream LD related analysis.", &ld);
+  auto ld_opt = opts.add<Switch, Attribute::hidden>("D", "ld", "removed. LD no longer needs a residual matrix.");
   opts.add<Switch>("R", "print-r2", "print LD R2 to *.ld.gz file for pairwise SNPs within a window controlled by --ld-bp.", &print_r2);
   
   opts.add<Value<std::string>, Attribute::headline>("","MISC","Misc options:");
@@ -114,7 +115,8 @@ Param::Param(int argc, char** argv) {
   opts.add<Value<double>>("", "ld-r2", "R2 cutoff for LD-based pruning (usually 0.2).", ld_r2, &ld_r2);
   opts.add<Value<uint>>("", "ld-bp", "physical distance threshold in bases for LD window.", ld_bp, &ld_bp);
   opts.add<Value<int>>("", "ld-stats", "statistics to compute LD R2 for pairwise SNPs. Options are\n"
-                                       "0: the ancestry adjusted, i.e. correlation between residuals;\n"
+                                       "0: the ancestry adjusted, i.e. correlation between the residuals after\n"
+                                       "   removing the PCs given by -P/--USV (reads .eigvecs of the same samples);\n"
                                        "1: the standard, i.e. correlation between two alleles.\n", ld_stats, &ld_stats);
   auto clumpfile = opts.add<Value<std::string>>("", "clump", "assoc-like file with target variants and pvalues for clumping.", "", &clump);
   auto assocnames = opts.add<Value<std::string>>("", "clump-names", "column names in assoc-like file for locating chr, pos and pvalue.", "CHR,BP,P", &assoc_colnames);
@@ -151,10 +153,16 @@ Param::Param(int argc, char** argv) {
     else
       svd_t = SvdType::PCAoneAlg2;
 
+    if (binfile->is_set() || ld_opt->is_set())
+      throw std::invalid_argument(
+          "-B/--binary, -D/--ld and the .residuals file were removed in v0.8.0. run the LD analysis on the genotypes "
+          "directly, removing the PCs of a previous run:\n"
+          "  PCAone -b plink -k 2 -o pcs\n"
+          "  PCAone -b plink -P pcs --ld-r2 0.8 --ld-bp 1000000 -o adj\n"
+          "-D/--ld computed its PCs without standardizing the sites; add --scale 0 to the first run to do the same");
+
     if (plinkfile->is_set())
       file_t = FileType::PLINK;
-    else if (binfile->is_set())
-      file_t = FileType::BINARY;
     else if (bgenfile->is_set())
       file_t = FileType::BGEN;
     else if (beaglefile->is_set())
@@ -180,10 +188,20 @@ Param::Param(int argc, char** argv) {
       if (filebim.empty()) filebim = usvprefix->value() + ".mbim";
     }
 
-    // handle LD
+    // handle LD. no PCA is run: the genotypes are read again and the PCs of
+    // -P/--USV are removed from them as they are read (see run_ld_stuff).
+    // dopca stays on, so the allele frequencies are estimated from these
+    // genotypes and --maf filters them, as in a PCA run.
     if (print_r2 || ld_r2 > 0 || !clump.empty()) {
-      dopca = false;  // we always want to center the G for calculating R2
-      memory /= 2.0;  // adjust memory estimator
+      ld = true;
+      if (file_t != FileType::PLINK && file_t != FileType::PGEN)
+        throw std::invalid_argument("--print-r2, --ld-r2 and --clump support only --bfile/--pgen input");
+      if (ld_stats != 0 && ld_stats != 1) throw std::invalid_argument("--ld-stats supports only 0 or 1");
+      if (ld_stats == 0 && fileU.empty())
+        throw std::invalid_argument(
+            "the ancestry adjusted LD (--ld-stats 0, the default) removes the PCs of a previous run of the same "
+            "samples. please give its prefix with -P/--USV, or use --ld-stats 1 for the standard LD");
+      memory /= 2.0;  // two blocks of genotypes are held at a time
     }
 
     // handle projection
@@ -245,7 +263,8 @@ Param::Param(int argc, char** argv) {
     if (bands < 4 || bands % 2 != 0)
       throw std::invalid_argument("the -w/--batches must be a power of 2 and the minimun is 4.");
 
-    if (svd_t == SvdType::PCAoneAlg2 && !noshuffle) perm = true;
+    // LD walks the sites in .bim/.pvar order, so they are never shuffled
+    if (svd_t == SvdType::PCAoneAlg2 && !noshuffle && !ld) perm = true;
 
   } catch (const popl::invalid_option& e) {
     std::cerr << "Invalid Option Exception: " << e.what() << "\n";

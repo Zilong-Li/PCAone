@@ -38,8 +38,10 @@ void Data::prepare() {
     return;
   }
 
-  // some common settings for out-of-core
-  if (params.dopca) {
+  // some common settings for out-of-core. LD keeps dopca on to estimate F, but
+  // runs no PCA, so its blocks are sized like any other non-PCA run
+  const bool pca_blocks = params.dopca && !params.ld;
+  if (pca_blocks) {
     if (params.svd_t == SvdType::IRAM) {
       // ram of arnoldi = n * b * 8 / 1024 kb
       blocksize = (uint)ceil((double)params.memory * 134217728 / nsamples);
@@ -63,7 +65,7 @@ void Data::prepare() {
   cao.print(tick.date(), "initial setting by -m/--memory: blocksize =", blocksize, ", nblocks =", nblocks,
             ", factor =", bandFactor);
   if (nblocks == 1) cao.error("only one block exists. please remove -m option");
-  if (params.dopca && params.svd_t == SvdType::PCAoneAlg2) {
+  if (pca_blocks && params.svd_t == SvdType::PCAoneAlg2) {
     // decrease blocksize for the winSVD
     if (nblocks < params.bands) {
       blocksize = (unsigned int)ceil((double)nsnps / params.bands);
@@ -251,57 +253,6 @@ void Data::write_eigs_files(const Mat1D& E, const Mat1D& S, const Mat2D& U, cons
   }
 
   cao.print(tick.date(), "eigen vectors and values saved");
-}
-
-void Data::write_residuals(const Mat1D& S, const Mat2D& U, const Mat2D& VT) {
-  // we always filter snps for in-core mode
-  if (params.ld_stats == 1) {
-    cao.print(tick.date(), "ld-stats=1: calculate standardized genotype matrix!");
-  } else {
-    cao.print(tick.date(), "ld-stats=0: calculate the ancestry adjusted LD matrix!");
-  }
-  std::setlocale(LC_ALL, "C");
-  std::ios_base::sync_with_stdio(false);
-  std::ofstream ofs(params.fileout + ".residuals", std::ios::binary);
-  const uint64 ibyte = 4;
-  const uint64 magic = ibyte * 2;
-  uint64 bytes_per_snp = nsamples * ibyte;
-  ofs.write((char*)&nsnps, ibyte);
-  ofs.write((char*)&nsamples, ibyte);
-  Eigen::VectorXf fg;
-  uint64 idx;
-  if (!params.out_of_core) {
-    if (params.ld_stats == 0) G -= U * S.asDiagonal() * VT;  // get residuals matrix
-    G.rowwise() -= G.colwise().mean();                       // Centering
-    for (Eigen::Index ib = 0; ib < G.cols(); ib++) {
-      fg = G.col(ib).cast<float>();
-      if (params.perm) {
-        idx = magic + (uint64)perm.indices()[ib] * bytes_per_snp;
-        ofs.seekp(idx, std::ios_base::beg);
-      }
-      ofs.write((char*)fg.data(), bytes_per_snp);
-    }
-  } else {
-    check_file_offset_first_var();
-    int i = 0;
-    for (uint b = 0; b < nblocks; ++b) {
-      read_block_initial(start[b], stop[b], false);
-      // G (nsamples, actual_block_size)
-      if (params.ld_stats == 0) G -= U * S.asDiagonal() * VT.middleCols(start[b], G.cols());
-      G.rowwise() -= G.colwise().mean();  // Centering
-      for (Eigen::Index ib = 0; ib <= stop[b] - start[b]; ib++, i++) {
-        fg = G.col(ib).cast<float>();
-        if (params.perm) {
-          idx = magic + (uint64)perm.indices()[i] * bytes_per_snp;
-          ofs.seekp(idx, std::ios_base::beg);
-        }
-        ofs.write((char*)fg.data(), bytes_per_snp);
-      }
-    }
-  }
-
-  save_snps_in_mbim();
-  cao.print(tick.date(), "the LD matrix and SNPs info are saved");
 }
 
 void Data::fit_with_pi(const Mat2D& U, const Mat1D& svals, const Mat2D& VT) {

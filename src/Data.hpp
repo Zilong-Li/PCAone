@@ -49,7 +49,6 @@ class Data {
   bool resolve_ref_scaling(const UsvTransform& t, const std::string& src, bool allow_dosage = false) const;
   void standardize_E_ref(const UsvTransform& t);
   void standardize_block_ref(const UsvTransform& t, uint64 start_idx, uint block_cols);
-  void write_residuals(const Mat1D& S, const Mat2D& U, const Mat2D& VT);
   // for blockwise
   // void fit_with_pi_block(const Mat2D& U, const Mat1D& svals, const Mat2D& VT);
   void calcu_vt_initial(const Mat2D& T, Mat2D& VT, bool standardize);

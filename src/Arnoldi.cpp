@@ -57,7 +57,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
   if (!params.out_of_core) {
     // SpMatrix sG = data->G.sparseView();
     PartialSVDSolver<Mat2D> svds(data->G, params.k, params.ncv);
-    bool standardized = !(params.missme || params.ld);
+    bool standardized = !params.missme;
     if (standardized) data->standardize_E();
     nconv = svds.compute(params.imaxiter, params.itol);
     if (nconv != params.k) cao.error("the nconv is not equal to k.");
@@ -125,7 +125,6 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
       }
     }
     // write to files; NOTE: pcangsd only gives us evals of covariance matrix
-    if (params.ld && !params.pcangsd) data->write_residuals(svals, U, V.transpose());
     data->set_svd_transform(standardized);
     data->write_eigs_files(evals, svals, U, V);
   } else {
@@ -135,10 +134,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
     // SymEigsSolver< double, LARGEST_ALGE, ArnoldiOpData >(op, params.k,
     // params.ncv);
     SymEigsSolver<ArnoldiOpData>* eigs = new SymEigsSolver<ArnoldiOpData>(*op, params.k, params.ncv);
-    // write_residuals() re-reads the blocks unstandardized, so under --ld the
-    // decomposition it subtracts has to be unstandardized too. This is the
-    // convention in-core IRAM (Arnoldi.cpp above) and Halko already follow.
-    bool standardized = !(params.missme || params.ld);
+    bool standardized = !params.missme;
     op->setFlags(false, standardized);
     eigs->init();
     nconv = eigs->compute(SortRule::LargestAlge, params.imaxiter, params.itol);
@@ -196,7 +192,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
         }
       }
 
-      standardized = !params.ld;
+      standardized = true;
       op->setFlags(true, standardized);
       eigs->init();
       nconv = eigs->compute(SortRule::LargestAlge, params.imaxiter, params.itol);
@@ -217,7 +213,6 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
       evals.noalias() = eigs->eigenvalues() / data->nsnps;
     }
 
-    if (params.ld && !params.pcangsd) data->write_residuals(op->S, op->U, op->VT);
     // `standardized` is the flag the solve that produced op->U/S/VT ran with
     data->set_svd_transform(standardized);
     data->write_eigs_files(evals, op->S, op->U, op->VT.transpose());

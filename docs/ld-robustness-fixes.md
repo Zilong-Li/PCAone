@@ -101,8 +101,12 @@ if (!fin.is_open()) cao.error("can not open the allele frequency file\n => " + p
 if (V.empty()) cao.error("no allele frequencies found in\n => " + path);
 ```
 
-The same command now names the missing file and exits cleanly. Use `-D` when
-generating the prefix you intend to pass to `-P`.
+The same command now names the missing file and exits cleanly.
+
+*Since v0.8.0* `-D/--ld` is removed and the LD analyses no longer read a
+`.mbim`: they estimate the allele frequencies from the genotypes themselves, so
+the command above works with a prefix from a plain PCA run. `--project` and
+`--inbreed` still need the `.mbim`, which `-V/--printv` writes.
 
 ## Regression
 

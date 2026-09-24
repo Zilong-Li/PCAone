@@ -79,20 +79,14 @@ int main(int argc, char* argv[]) {
   //   return bye();
   // }
 
-  // particular case for LD
-  if (((params.file_t == FileType::BINARY ||
-        (((params.file_t == FileType::PLINK) || (params.file_t == FileType::PGEN)) && !params.fileU.empty())) &&
-       (params.print_r2 || params.ld_r2 > 0 || !params.clump.empty()))) {
-    if (params.filebim.empty()) params.filebim = params.filein + (params.file_t == FileType::PGEN ? ".pvar" : ".bim");
-    if (params.file_t == FileType::BINARY)
-      data = new FileBin(params);
-    else if (params.file_t == FileType::PLINK) {
-      params.memory = 0, params.out_of_core = false;
+  // particular case for LD: R2, pruning and clumping on the genotypes, with the
+  // PCs of -P/--USV removed as they are read. Cmd.cpp allows only PLINK/PGEN
+  // here and turns off the shuffling, as LD walks the sites in file order.
+  if (params.ld) {
+    if (params.file_t == FileType::PLINK)
       data = new FileBed(params);
-    } else {
-      params.memory = 0, params.out_of_core = false;
+    else
       data = new FilePgen(params);
-    }
     run_ld_stuff(data, params);
     delete data;
     return bye();
@@ -175,8 +169,6 @@ int main(int argc, char* argv[]) {
       data = new FileBgen(params);
     } else if (params.file_t == FileType::BEAGLE) {
       data = new FileBeagle(params);
-    } else if (params.file_t == FileType::BINARY) {
-      data = new FileBin(params);
     } else if (params.file_t == FileType::CSV) {
       data = new FileCsv(params);
     } else {
@@ -293,7 +285,9 @@ int main(int argc, char* argv[]) {
         std::filesystem::remove(tmpfile);
       }
     }
-    if ((params.file_t == FileType::BGEN) || (params.file_t == FileType::CSV)) {
+    // a shuffled CSV is read back as BINARY, from <out>.perm.bin
+    if ((params.file_t == FileType::BGEN) || (params.file_t == FileType::CSV) ||
+        (params.file_t == FileType::BINARY)) {
       std::filesystem::path tmpfile{params.filein};
       std::filesystem::remove(tmpfile);
     }

@@ -236,53 +236,65 @@ hwe:
 	./PCAone -b example/plink --USV pcaone -k 3 --inbreed 1 -o m1 -m 1
 	rm -f m0.* m1.*
 
+# The LD analyses read the genotypes and remove the PCs of -P/--USV as they go.
+# ld_matrix makes those PCs, and checks the .mbim order in-core and out-of-core.
 ld_matrix:
-	./PCAone -b example/plink -k 3 --ld -o adj -d 2
-	./PCAone -b example/plink -k 3 --ld -o pcaone -d 2 -m 1
+	./PCAone -b example/plink -k 3 -V -o adj -d 2
+	./PCAone -b example/plink -k 3 -V -o pcaone -d 2 -m 1
 	diff adj.mbim pcaone.mbim
 	cut -f1 adj.mbim | sort -cn  ## check if sorted
 	awk '$$1==3' adj.mbim | cut -f4 | sort -cn
 	rm -f pcaone.*
 
 ld_r2:
-	./PCAone -B adj.residuals --match-bim adj.mbim --ld-bp 1000 --print-r2 -o adj_r2
-
+	./PCAone -b example/plink -P adj --ld-bp 1000 --print-r2 -o adj_r2 -m 0
+	./PCAone -b example/plink -P adj --ld-bp 1000 --print-r2 -o adj_r2_m1 -m 1
+	gunzip -c adj_r2.ld.gz > adj_r2.ld && gunzip -c adj_r2_m1.ld.gz > adj_r2_m1.ld
+	diff adj_r2.ld adj_r2_m1.ld > /dev/null && rm -f adj_r2.ld adj_r2_m1.ld
 
 ld_prune:
-	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0
-	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 1
+	./PCAone -b example/plink -P adj --ld-r2 0.8 --ld-bp 1000000 -o adj_prune_m0 -m 0
+	./PCAone -b example/plink -P adj --ld-r2 0.8 --ld-bp 1000000 -o adj_prune_m1 -m 1
 	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
 
 ld_clump:
-	./PCAone -B adj.residuals --match-bim adj.mbim --clump example/plink.pheno0.assoc --clump-p1 0.01 --clump-p2 0.05 --clump-r2 0.1 --clump-bp 10000000 -m 0 -o adj_clump_m0
-	./PCAone -B adj.residuals --match-bim adj.mbim --clump example/plink.pheno0.assoc --clump-p1 0.01 --clump-p2 0.05 --clump-r2 0.1 --clump-bp 10000000 -m 1 -o adj_clump_m1
+	./PCAone -b example/plink -P adj --clump example/plink.pheno0.assoc --clump-p1 0.01 --clump-p2 0.05 --clump-r2 0.1 --clump-bp 10000000 -m 0 -o adj_clump_m0
+	./PCAone -b example/plink -P adj --clump example/plink.pheno0.assoc --clump-p1 0.01 --clump-p2 0.05 --clump-r2 0.1 --clump-bp 10000000 -m 1 -o adj_clump_m1
 	diff adj_clump_m0.p0.clump adj_clump_m1.p0.clump > /dev/null
 
 ld_tests:
-	./PCAone -b example/plink -k 3 --ld -o adj -d 0 --maf 0.1
-	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0
-	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 1
+	./PCAone -b example/plink -k 3 -o adj -d 0
+	./PCAone -b example/plink -P adj --ld-r2 0.8 --ld-bp 1000000 -o adj_prune_m0 -m 0
+	./PCAone -b example/plink -P adj --ld-r2 0.8 --ld-bp 1000000 -o adj_prune_m1 -m 1
 	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
-	./PCAone -b example/plink -k 3 --ld -o adj -d 0 -m 1
-	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0
-	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 1
+	./PCAone -b example/plink -k 3 -o adj -d 0 -m 1
+	./PCAone -b example/plink -P adj --ld-r2 0.8 --ld-bp 1000000 -o adj_prune_m0 -m 0
+	./PCAone -b example/plink -P adj --ld-r2 0.8 --ld-bp 1000000 -o adj_prune_m1 -m 1
 	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
-	./PCAone -b example/plink -k 3 --ld -o adj -d 1 --maxp 10 --maf 0.1
-	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0
-	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 1
+	./PCAone -b example/plink -k 3 -o adj -d 1 --maxp 10
+	./PCAone -b example/plink -P adj --ld-r2 0.8 --ld-bp 1000000 -o adj_prune_m0 -m 0
+	./PCAone -b example/plink -P adj --ld-r2 0.8 --ld-bp 1000000 -o adj_prune_m1 -m 1
 	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
-	./PCAone -b example/plink -k 3 --ld -o adj -d 1 --maxp 10 -m 1
-	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0
-	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 1
+	./PCAone -b example/plink -k 3 -o adj -d 1 --maxp 10 -m 1
+	./PCAone -b example/plink -P adj --ld-r2 0.8 --ld-bp 1000000 -o adj_prune_m0 -m 0
+	./PCAone -b example/plink -P adj --ld-r2 0.8 --ld-bp 1000000 -o adj_prune_m1 -m 1
 	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
-	./PCAone -b example/plink -k 3 --ld -o adj -d 2 --maf 0.1
-	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0
-	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 1
+	./PCAone -b example/plink -k 3 -o adj -d 2 -m 1
+	./PCAone -b example/plink -P adj --ld-r2 0.8 --ld-bp 1000000 -o adj_prune_m0 -m 0
+	./PCAone -b example/plink -P adj --ld-r2 0.8 --ld-bp 1000000 -o adj_prune_m1 -m 1
 	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
-	./PCAone -b example/plink -k 3 --ld -o adj -d 2 -m 1
-	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m0 -m 0
-	./PCAone -B adj.residuals --match-bim adj.mbim  --ld-r2 0.8  --ld-bp 1000000 -o adj_prune_m1 -m 1
-	diff adj_prune_m0.ld.prune.out adj_prune_m1.ld.prune.out > /dev/null
+	## the LD sites need not be the PCA sites. --maf is in-core only
+	./PCAone -b example/plink -k 3 -o adj -d 2 --maf 0.1
+	./PCAone -b example/plink -P adj --maf 0.1 --ld-r2 0.8 --ld-bp 1000000 -o adj_prune_maf
+	## the standard LD needs no PCs
+	./PCAone -b example/plink --ld-stats 1 --ld-r2 0.8 --ld-bp 1000000 -o std_prune_m0 -m 0
+	./PCAone -b example/plink --ld-stats 1 --ld-r2 0.8 --ld-bp 1000000 -o std_prune_m1 -m 1
+	diff std_prune_m0.ld.prune.out std_prune_m1.ld.prune.out > /dev/null
+	## PGEN goes through the same LD path
+	./PCAone -p example/plink2 -k 3 -o adjp
+	./PCAone -p example/plink2 -P adjp --ld-r2 0.8 --ld-bp 1000000 -o adjp_prune_m0 -m 0
+	./PCAone -p example/plink2 -P adjp --ld-r2 0.8 --ld-bp 1000000 -o adjp_prune_m1 -m 1
+	diff adjp_prune_m0.ld.prune.out adjp_prune_m1.ld.prune.out > /dev/null
 
 #################################################################
 # CI/CD Test Suites

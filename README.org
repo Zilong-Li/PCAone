@@ -58,7 +58,7 @@ missingness and uncertainty. The PDF manual can be downloaded [[https://github.c
   - [[#projection][Projection]]
   - [[#genome-wide-selection-scan][GENOME-wide selection scan]]
   - [[#hwe-accounting-for-population-structure][HWE accounting for population structure]]
-  - [[#ancestry-adjusted-ld-matrix][Ancestry adjusted LD matrix]]
+  - [[#ancestry-adjusted-ld][Ancestry adjusted LD]]
   - [[#report-ld-statistics][Report LD statistics]]
   - [[#prunning-based-on-ancestry-adjusted-ld][Prunning based on ancestry adjusted LD]]
   - [[#clumping-based-on-ancestry-adjusted-ld][Clumping based on ancestry adjusted LD]]
@@ -258,7 +258,6 @@ PCA algorithms:
 Input options:
   -b, --bfile arg                prefix of PLINK .bed/.bim/.fam files.
   -p, --pgen arg                 prefix of PLINK2 .pgen/.pvar/.psam files.
-  -B, --binary arg               path of binary file.
   -c, --csv arg                  path of comma seperated CSV file compressed by zstd.
   -g, --bgen arg                 path of BGEN file compressed by gzip/zstd.
   -G, --beagle arg               path of BEAGLE file compressed by gzip.
@@ -268,7 +267,6 @@ Input options:
 Output options:
   -o, --out arg (=pcaone)        prefix of output files. default [pcaone].
   -V, --printv                   output the right eigenvectors with suffix .loadings.
-  -D, --ld                       output a binary matrix for downstream LD related analysis.
   -R, --print-r2                 print LD R2 to *.ld.gz file for pairwise SNPs within a window controlled by --ld-bp.
 
 Misc options:
@@ -288,7 +286,8 @@ Misc options:
   --ld-r2 arg (=0)               R2 cutoff for LD-based pruning (usually 0.2).
   --ld-bp arg (=1000000)         physical distance threshold in bases for LD window.
   --ld-stats arg (=0)            statistics to compute LD R2 for pairwise SNPs. Options are
-                                 0: the ancestry adjusted, i.e. correlation between residuals;
+                                 0: the ancestry adjusted, i.e. correlation between the residuals after
+                                    removing the PCs given by -P/--USV (reads .eigvecs of the same samples);
                                  1: the standard, i.e. correlation between two alleles.
   --clump arg                    assoc-like file with target variants and pvalues for clumping.
   --clump-names arg (=CHR,BP,P)  column names in assoc-like file for locating chr, pos and pvalue.
@@ -351,19 +350,7 @@ represents a feature and each column represents a corresponding PC. Use
 A plink-like bim file named with =.mbim= is used to store the variants list
 with extra information. Currently, the =mbim= file has 7 columns with the 7th
 being the allele frequency. PCAone writes this file automatically whenever
-it outputs =.loadings= via =--printv=, and for LD-related outputs that need
-variant metadata downstream.
-
-*** LD matrix
-
-The matrix for calculating the ancestry-adjusted LD is saved in a file
-with suffix =.residuals=, and its associated variants information is
-stored in =mbim= file. For the binary file, the first
-4-bytes stores the number of variants/SNPs, and the second 4-bytes stores
-the number of samples in the matrix. Then, the rest of the file is a
-sequence of *M* blocks of *N x 4* bytes each, where *M* is the number of
-variants and *N* is the number of samples. The first block corresponds to
-the first marker in the =.mbim= file, etc.
+it outputs =.loadings= via =--printv=.
 
 *** LD R2
 
@@ -532,7 +519,7 @@ PCAone -b example/plink \
        -o inbreed
 #+end_src
 
-** Ancestry adjusted LD matrix
+** Ancestry adjusted LD
 
 LD patterns vary across diverse ancestry and structured groups, and
 conventional LD statistics, e.g. the implementation in =plink --ld=, failed to
@@ -540,23 +527,36 @@ model the LD in admixed populations. Thus, we can use the so-called
 ancestry-adjusted LD statistics to account for population structure in
 LD. See our [[https://doi.org/10.1101/2024.05.02.592187][paper]] for more details.
 
-To calculate the ancestry-adjusted LD matrix, we first figure out the number
-of principal components (=-k/--pc=) that capture population structure. In this
-example, assuming that 3 PCs can accout for population structure, we enable
-=--ld= option to calculate and output the ancestry adjusted LD matrix in a
-file with suffix =.residuals=.
+The ancestry-adjusted LD is the correlation between the residuals of the
+genotypes after removing the top principal components, which capture the
+population structure. We first figure out the number of PCs (=-k/--pc=) that
+capture population structure and run the PCA. In this example, assuming that 3
+PCs can account for population structure:
 
 #+begin_src shell
-./PCAone -b example/plink -k 3 --ld -o adj
+./PCAone -b example/plink -k 3 -o adj
 #+end_src
+
+Then pass its prefix to =-P/--USV= in any of the LD analyses below. PCAone
+reads the genotypes again, removes the PCs in =adj.eigvecs= from them as they
+are read, and computes the LD from the residuals, so no residual matrix is
+written to disk. The PCs must come from the same samples in the same order, but
+the variants need not be the ones the PCA used (e.g. a different =--maf=). This
+works in-core and out-of-core (=-m=), for PLINK (=-b=) and PGEN (=-p=) input.
+Use =--ld-stats 1= without =-P= for the standard LD instead.
+
+*NB:* before v0.8.0 this took a =.residuals= file, written by =-D/--ld= and read
+by =-B/--binary=. Both options are removed. =-D/--ld= also ran the PCA without
+standardizing the sites; add =--scale 0= to the PCA above to get the same PCs,
+and hence the same R2, as before.
 
 ** Report LD statistics
 
 Currently, the LD R2 for pairwise SNPs within a window can be outputted via =--print-r2= option.
 
 #+begin_src shell
-./PCAone -B adj.residuals \
-         --match-bim adj.mbim \
+./PCAone -b example/plink \
+         -P adj \
          --ld-bp 1000000 \
          --print-r2 \
          -o adj
@@ -567,12 +567,14 @@ bin as well as plotting. We also provide the nextflow [[https://github.com/Zilon
 
 ** Prunning based on ancestry adjusted LD
 
-Given the LD binary file =.residuals= and its associated variant file
-=.mbim=, we can do pruning based on user-defined thresholds and windows
+Given the PCs, we can do pruning based on user-defined thresholds and windows.
+Of each pair of variants above the R2 cutoff, the one with the lower MAF is
+removed. The kept and removed variants are written to =.ld.prune.in= and
+=.ld.prune.out=.
 
 #+begin_src shell
-./PCAone -B adj.residuals \
-         --match-bim adj.mbim \
+./PCAone -b example/plink \
+         -P adj \
          --ld-r2 0.8 \
          --ld-bp 1000000 \
          -o adj
@@ -580,12 +582,12 @@ Given the LD binary file =.residuals= and its associated variant file
 
 ** Clumping based on ancestry adjusted LD
 
-Likewise, we can do clumping based on the Ancestry-Adjusted LD matrix and
+Likewise, we can do clumping based on the ancestry-adjusted LD and
 user-defined association results
 
 #+begin_src shell
-./PCAone -B adj_ld.residuals \
-         --match-bim adj.mbim \
+./PCAone -b example/plink \
+         -P adj \
          --clump example/plink.pheno0.assoc,example/plink.pheno1.assoc  \
          --clump-p1 0.05 \
          --clump-p2 0.01 \
