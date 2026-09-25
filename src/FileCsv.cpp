@@ -152,7 +152,7 @@ void FileCsv::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
 void parse_csvzstd(ZstdDS& zbuf,
                    uint& nsamples,
                    uint& nsnps,
-                   uint scale,
+                   int scale,
                    std::vector<double>& libsize,
                    std::vector<size_t>& tidx,
                    double& median_libsize) {
@@ -232,7 +232,7 @@ void read_csvzstd_block(ZstdDS& zbuf,
                         std::vector<double>& libsize,
                         std::vector<size_t>& tidx,
                         double median_libsize,
-                        uint scale,
+                        int scale,
                         double scaleFactor) {
   const uint actual_block_size = stop_idx - start_idx + 1;
 
@@ -273,11 +273,14 @@ void read_csvzstd_block(ZstdDS& zbuf,
     }
   }
 
-  if (scale > 0) standardize(G);  // standardization
+  // --scale 1-4 only, as read_all(). scale was unsigned, so the default -9
+  // (no transform for CSV) standardized every block: -m and the streamed
+  // --svd 3 decomposed another matrix than in-core, under the same .sigvals
+  if (scale >= 1) standardize(G);
   if (lastSNP != actual_block_size) cao.error("something wrong when read_block_initial");
 }
 
-PermMat shuffle_csvzstd_to_bin(std::string& fin, std::string fout, uint gb, uint scale, double scaleFactor, int seed) {
+PermMat shuffle_csvzstd_to_bin(std::string& fin, std::string fout, uint gb, int scale, double scaleFactor, int seed) {
   std::vector<size_t> tidx;
   std::vector<double> libsize;
   double median_libsize{0};

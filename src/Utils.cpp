@@ -6,6 +6,7 @@
 
 #include "Utils.hpp"
 
+#include <omp.h>
 #include <sys/utsname.h>
 
 #include <cstddef>
@@ -203,6 +204,55 @@ void mul_Xt_Y(const Eigen::Ref<const Mat2D>& X, const Eigen::Ref<const Mat2D>& Y
     const Eigen::Index c = b * bs, w = std::min(bs, m - c);
     out.middleRows(c, w).noalias() = X.middleCols(c, w).transpose() * Y;
   }
+}
+
+void syrk_lower_add(Eigen::Ref<Mat2D> K, const Eigen::Ref<const Mat2D>& X) {
+  const Eigen::Index n = K.rows(), m = X.cols();
+  if (n == 0 || m == 0) return;
+#ifdef EIGEN_USE_BLAS
+  K.selfadjointView<Eigen::Lower>().rankUpdate(X);  // ?syrk, threaded by the BLAS
+#else
+  // Tiles of the lower triangle, 256 rows each (one tile up to n = 512). When
+  // there are fewer than 2 tiles per thread, the sites are also split into D
+  // chunks, each added into its own copy of K (at most 1 GB of copies) and
+  // summed at the end: a few large products run faster than many small ones.
+  const Eigen::Index T = omp_get_max_threads();
+  const Eigen::Index ts = n <= 512 ? n : 256;
+  const Eigen::Index nt = (n + ts - 1) / ts, ntiles = nt * (nt + 1) / 2;
+  const Eigen::Index D = std::max<Eigen::Index>(
+      1, std::min<Eigen::Index>({T, (2 * T + ntiles - 1) / ntiles, 1 + (Eigen::Index(1) << 27) / (n * n), m / 256}));
+  std::vector<Mat2D> Kd(D - 1, Mat2D::Zero(n, n));  // chunk 0 goes into K itself
+#pragma omp parallel for schedule(dynamic, 1)
+  for (Eigen::Index task = 0; task < ntiles * D; ++task) {
+    const Eigen::Index t = task % ntiles, d = task / ntiles;
+    // t -> tile (i, j), j <= i, row by row of the triangle of tiles
+    Eigen::Index i = (Eigen::Index)((std::sqrt(8.0 * t + 1) - 1) / 2);
+    while (i * (i + 1) / 2 > t) --i;
+    while ((i + 1) * (i + 2) / 2 <= t) ++i;
+    const Eigen::Index j = t - i * (i + 1) / 2;
+    const Eigen::Index r = i * ts, h = std::min(ts, n - r), c = j * ts, w = std::min(ts, n - c);
+    const Eigen::Index c0 = m * d / D, c1 = m * (d + 1) / D;
+    const auto Xd = X.middleCols(c0, c1 - c0);
+    Eigen::Map<Mat2D, 0, Eigen::OuterStride<>> Kt(d == 0 ? K.data() : Kd[d - 1].data(), n, n,
+                                                  Eigen::OuterStride<>(d == 0 ? K.outerStride() : n));
+    if (i == j)
+      Kt.block(r, r, h, h).selfadjointView<Eigen::Lower>().rankUpdate(Xd.middleRows(r, h));
+    else
+      Kt.block(r, c, h, w).noalias() += Xd.middleRows(r, h) * Xd.middleRows(c, w).transpose();
+  }
+  if (D > 1) {
+#pragma omp parallel for schedule(dynamic, 16)
+    for (Eigen::Index j = 0; j < n; ++j)
+      for (const auto& Q : Kd) K.col(j).tail(n - j) += Q.col(j).tail(n - j);
+  }
+#endif
+}
+
+void mirror_lower(Eigen::Ref<Mat2D> K) {
+  const Eigen::Index n = K.rows();
+#pragma omp parallel for schedule(dynamic, 64)
+  for (Eigen::Index j = 1; j < n; ++j)
+    for (Eigen::Index i = 0; i < j; ++i) K(i, j) = K(j, i);
 }
 
 double mev(const Mat2D& X, const Mat2D& Y) {

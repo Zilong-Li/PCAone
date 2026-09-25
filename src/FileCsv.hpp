@@ -11,7 +11,7 @@ inline bool csv_needs_libsize(int scale) { return scale == 2 || scale == 3 || sc
 void parse_csvzstd(ZstdDS& zbuf,
                    uint& nsamples,
                    uint& nsnps,
-                   uint scale,
+                   int scale,
                    std::vector<double>& libsize,
                    std::vector<size_t>& tidx,
                    double& median_libsize);
@@ -26,10 +26,10 @@ void read_csvzstd_block(ZstdDS& zbuf,
                         std::vector<double>& libsize,
                         std::vector<size_t>& tidx,
                         double median_libsize,
-                        uint scale,
+                        int scale,
                         double scaleFactor);
 
-PermMat shuffle_csvzstd_to_bin(std::string& fin, std::string fout, uint gb, uint scale, double scaleFactor, int seed);
+PermMat shuffle_csvzstd_to_bin(std::string& fin, std::string fout, uint gb, int scale, double scaleFactor, int seed);
 
 // for other types, assume data is already noralized only do centering
 class FileCsv : public Data {

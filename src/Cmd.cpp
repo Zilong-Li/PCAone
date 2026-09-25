@@ -66,7 +66,8 @@ Param::Param(int argc, char** argv) {
   OptionParser opts(copyr);
   opts.add<Value<std::string>, Attribute::headline>("","PCAone","General options:");
   auto help_opt = opts.add<Switch>("h", "help", "print all options including hidden advanced options");
-  opts.add<Value<double>>("m", "memory", "RAM usage in GB unit for out-of-core mode. default is in-core mode", memory, &memory);
+  opts.add<Value<double>>("m", "memory", "RAM usage in GB unit for out-of-core mode. default is in-core mode.\n"
+                                        "with --svd 3, it sets the blocks the GRM is streamed in", memory, &memory);
   opts.add<Unsigned>("n", "threads", "the number of threads to be used", threads, &threads);
   opts.add<Unsigned>("v", "verbose", "verbosity level for logs. Options are\n"
                                      "0: silent, no messages on screen;\n"
@@ -79,7 +80,8 @@ Param::Param(int argc, char** argv) {
                                                 "0: the Implicitly Restarted Arnoldi Method (IRAM);\n"
                                                 "1: the Yu's single-pass Randomized SVD with power iterations;\n"
                                                 "2: the accurate window-based Randomized SVD method (PCAone);\n"
-                                                "3: the full Singular Value Decomposition (no EM-PCA support).", 2);
+                                                "3: exact PCA by eigendecomposition of the sample GRM, streamed block by block when N <= M,\n"
+                                                "   in N x N memory (no EM-PCA support).", 2);
   opts.add<Unsigned>("k", "pc", "top k principal components (PCs) to be calculated", k, &k);
   opts.add<Value<int>>("C", "scale", "do normalization or scaling for input file. Options are\n"
                                      "-9: standardize genetic data by sqrt(ploidy*f*(1-f));\n"

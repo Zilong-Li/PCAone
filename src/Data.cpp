@@ -43,7 +43,23 @@ void Data::prepare() {
   // some common settings for out-of-core. LD keeps dopca on to estimate F, but
   // runs no PCA, so its blocks are sized like any other non-PCA run
   const bool pca_blocks = params.dopca && !params.ld;
-  if (pca_blocks) {
+  const bool exact = pca_blocks && params.svd_t == SvdType::FULL;
+  if (exact) {
+    // exact PCA (Exact.cpp): the N x N GRM and F, plus the loadings for -V,
+    // are held besides one block. Without -m, blocks of ~64 MB (and at least
+    // 2048 sites) keep the GRM update a large matrix product.
+    const double n = std::max(1u, nsamples);
+    const double fixed = n * n + 6.0 * nsnps + (params.printv ? (double)nsnps * params.k : 0.0);
+    double b = std::max(2048.0, 8388608.0 / n);
+    if (params.memory > 0) {
+      if (params.memory * 134217728 > 1.1 * fixed + 64 * n)
+        b = (params.memory * 134217728 - fixed) / n;
+      else
+        cao.warn("the exact PCA needs at least", fixed / 134217728, " GB for the", nsamples, " x", nsamples,
+                 " GRM. -m is too small, using blocks of", (uint64)std::ceil(b), " sites");
+    }
+    blocksize = (uint)std::min<double>(std::max(1.0, std::ceil(b)), std::max(1u, nsnps));
+  } else if (pca_blocks) {
     if (params.svd_t == SvdType::IRAM) {
       // ram of arnoldi = n * b * 8 / 1024 kb
       blocksize = (uint)ceil((double)params.memory * 134217728 / nsamples);
@@ -65,9 +81,13 @@ void Data::prepare() {
   }
 
   nblocks = (unsigned int)ceil((double)nsnps / blocksize);
-  cao.print(tick.date(), "initial setting by -m/--memory: blocksize =", blocksize, ", nblocks =", nblocks,
-            ", factor =", bandFactor);
-  if (nblocks == 1) cao.error("only one block exists. please remove -m option");
+  if (exact) {
+    cao.print(tick.date(), "blocks for the exact PCA: blocksize =", blocksize, ", nblocks =", nblocks);
+  } else {
+    cao.print(tick.date(), "initial setting by -m/--memory: blocksize =", blocksize, ", nblocks =", nblocks,
+              ", factor =", bandFactor);
+    if (nblocks == 1) cao.error("only one block exists. please remove -m option");
+  }
   if (pca_blocks && params.svd_t == SvdType::PCAoneAlg2) {
     // decrease blocksize for the winSVD
     if (nblocks < params.bands) {

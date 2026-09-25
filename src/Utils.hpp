@@ -60,6 +60,15 @@ double mev(const Mat2D& X, const Mat2D& Y);
 // result does not depend on the number of threads.
 void mul_Xt_Y(const Eigen::Ref<const Mat2D>& X, const Eigen::Ref<const Mat2D>& Y, Eigen::Ref<Mat2D> out);
 
+// K += X * X' on the lower triangle of the square K (the strict upper triangle
+// is left untouched), for X of K.rows() x b. Eigen's rankUpdate runs on one
+// thread and its GEMM does twice the flops, so the lower triangle is cut into
+// tiles, each its own GEMM on one thread. A BLAS build hands it to ?syrk.
+void syrk_lower_add(Eigen::Ref<Mat2D> K, const Eigen::Ref<const Mat2D>& X);
+
+// copy the strict lower triangle of the square K onto its upper triangle
+void mirror_lower(Eigen::Ref<Mat2D> K);
+
 // Call f(j, x) for j in [0, count), where x is column `first + j` of A * B
 // (A is n x k, B is k x m). The product is formed a panel of ~1 MB at a time in
 // a thread-local buffer: one GEMM per panel in place of the scalar triple loops

@@ -1,4 +1,24 @@
 - v0.8.0
+  - =--svd 3= streams the N x N GRM instead of holding the genotypes, when N <= M, in-core and with
+    =-m=. Each block of sites is read, standardized as before and added to the lower triangle of the
+    GRM by a multithreaded rank update. The top =-k= eigenpairs come from Lanczos (Spectra, tolerance
+    1e-12) for N > 1000, and from the full eigendecomposition below that. The loadings take a second
+    pass over the data, only with =-V=. Memory is the GRM plus one block (about 64 MB, or as much as
+    =-m= allows), not N x M: 2.1 GB before, 0.11 GB now on =example/plink= (400 x 656,281).
+    Times with 2 threads:
+    - =example/plink=, =-k 10=: 4.2 s before, 2.1 s now. PLINK 2 =--pca= takes 2.9 s and the
+      default =--svd 2= 8.5 s.
+    - 2,000 x 100,000 with =-V=: 16.6 s before, 6.5 s now.
+    - 4,000 x 20,000 with =-V=: 89.7 s before, 6.7 s now.
+    The output is unchanged to the printed precision. BGEN with =-V= is slower (11.7 s before,
+    14.0 s now), because its decoding dominates and the loadings read it twice; without =-V= it
+    takes 8.4 s. =--maf=, and N > M, keep the in-core path and ignore =-m= with a warning; with N
+    <= M the in-core path now uses the same rank update and solver. evalAdmix builds its N x N Gram
+    matrix with the same rank update, with half the flops and the same output.
+  - *results change*: CSV with the default =--scale= and =-m=. The out-of-core CSV readers took
+    =--scale= as unsigned, so its default of -9 standardized every block, while in-core it applies
+    no transform. Both wrote =scale=0= to =.sigvals=. Both now apply no transform, which the
+    streamed =--svd 3= needs to match in-core.
   - invalid option values now stop with a message naming the option instead of running on
     silently: e.g. =--maxp 0=, =-k 0=, =-n 0=, =-d 7= (fell back to =-d 2=), =-w 12= (only evenness
     was checked, not a power of 2), negative =--maf=/=--ld-r2=/=--project=, out-of-range

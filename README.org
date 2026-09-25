@@ -28,7 +28,8 @@ large datasets, which are [[https://en.wikipedia.org/wiki/Arnoldi_iteration][Imp
 [[https://www.ijcai.org/proceedings/2017/468][single pass Randomized SVD]] with power iteration scheme (sSVD, --svd 1,
 Algorithm1 in paper) and *our proposed window based RSVD* (winSVD, --svd 2,
 Algorithm2 in paper). All have both in-core and out-of-core implementation.
-Addtionally, Full SVD/Eigendecomposition (--svd 3) is supported via in-core mode only. Also,
+Addtionally, an exact PCA (--svd 3) eigendecomposes the N x N sample GRM, streamed from disk
+block by block when N <= M, so it needs N^2 memory rather than N x M. Also,
 check out the [[https://github.com/Zilong-Li/PCAoneR][R]] package here. PCAone supports multiple different input
 formats, such as [[https://www.cog-genomics.org/plink/1.9/formats#bed][PLINK BED]], [[https://www.cog-genomics.org/plink/2.0/input#pgen][PLINK2 PGEN]], [[https://www.well.ox.ac.uk/~gav/bgen_format][BGEN]], [[http://www.popgen.dk/angsd/index.php/Input#Beagle_format][Beagle]] genetic data formats and a general comma
 separated CSV format for other data, such as scRNAs and bulk RNAs. For
@@ -227,7 +228,8 @@ Run =PCAone --groff > pcaone.1 && man ./pcaone.1= or =PCAone --help= to read the
 #+begin_src example
 General options:
   -h, --help                     print all options including hidden advanced options
-  -m, --memory arg (=0)          RAM usage in GB unit for out-of-core mode. default is in-core mode
+  -m, --memory arg (=0)          RAM usage in GB unit for out-of-core mode. default is in-core mode.
+                                 with --svd 3, it sets the blocks the GRM is streamed in
   -n, --threads arg (=12)        the number of threads to be used
   -v, --verbose arg (=1)         verbosity level for logs. Options are
                                  0: silent, no messages on screen;
@@ -240,7 +242,8 @@ PCA algorithms:
                                  0: the Implicitly Restarted Arnoldi Method (IRAM);
                                  1: the Yu's single-pass Randomized SVD with power iterations;
                                  2: the accurate window-based Randomized SVD method (PCAone);
-                                 3: the full Singular Value Decomposition (no EM-PCA support).
+                                 3: exact PCA by eigendecomposition of the sample GRM, streamed block by block when N <= M,
+                                    in N x N memory (no EM-PCA support).
   -k, --pc arg (=10)             top k principal components (PCs) to be calculated
   -C, --scale arg (=-9)          do normalization or scaling for input file. Options are
                                  -9: standardize genetic data by sqrt(ploidy*f*(1-f));
@@ -309,7 +312,7 @@ of samples (=N=) and the number of variants / features (=M=) and the top PCs
 |-----------------+-------------------------+-----------+--------------------------------|
 | Method          | Scenario                | Accuracy  | Speed                          |
 |-----------------+-------------------------+-----------+--------------------------------|
-| Full SVD (-d 3) | full variance explained | Exact     | slow for big =N= and =M=           |
+| Exact (-d 3)    | small =N=, =N << M=       | Exact     | fastest for =N= below ~2000      |
 | winSVD (-d 2)   | =M or N >> 500000=        | Very high | fast (only 7 iterations used)  |
 | IRAM (-d 0)     | speed insensitive       | Very high | denpends on =N= and # iterations |
 | sSVD (-d 1)     | accuracy insensitive    | High      | depends on # iterations        |
@@ -363,7 +366,9 @@ format as the one [[https://www.cog-genomics.org/plink/1.9/ld#r][plink]] used.
 
 PCAone has both *in-core* and *out-of-core* mode for 3 different partial SVD
 algorithms, which are IRAM (=--svd 0=), sSVD (=--svd 1=) and winSVD (=--svd 2=).
-Also, PCAone supports Full SVD (=--svd 3=) but with only *in-core* mode.
+Also, PCAone supports an exact PCA (=--svd 3=). When =N <= M=, it streams the
+data block by block and holds only the =N x N= GRM (=-m= sets the block size);
+with =--maf=, or when =N > M=, it runs in-core.
 Therefore, there are *7* ways for doing PCA in PCAone. In default PCAone uses
 *in-core* mode, which is the fastest way (*NOTE*: you can gain some speedup for
 in-code computation by limiting the =-n threads= to half of the available
@@ -388,7 +393,7 @@ for large dataset and PCAone will allocate more RAM when needed.
 #+begin_src shell
 ./PCAone --bfile example/plink --svd 0 -m 2
 #+end_src
-*** Run Full SVD method with in-core mode
+*** Run the exact PCA (streams the GRM when N <= M)
 #+begin_src shell
 ./PCAone --bfile example/plink --svd 3
 #+end_src

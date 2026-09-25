@@ -10,6 +10,7 @@
 #include "Common.hpp"
 #include "Data.hpp"
 #include "EvalAdmix.hpp"
+#include "Exact.hpp"
 #include "FileBeagle.hpp"
 #include "FileBgen.hpp"
 #include "FileBinary.hpp"
@@ -176,6 +177,17 @@ static int run(int argc, char* argv[]) {
     }
   }
 
+  // --svd 3 with no more samples than sites needs only the N x N GRM, so it
+  // streams the genotypes block by block instead of holding G (N x M doubles):
+  // 400 x 656,281 took 2.1 GB, now 0.11 GB. -m sets the block size. --maf
+  // filters only in-core, and N > M decomposes the M x M G'G in-core.
+  if (params.svd_t == SvdType::FULL) {
+    if (!params.filterSNP && data->nsamples <= data->nsnps)
+      params.out_of_core = true;
+    else if (params.memory > 0)
+      cao.warn("-m is ignored: --svd 3 runs in-core with --maf, or with more samples than sites");
+  }
+
   // be prepared for run
   data->prepare();
   // every SVD below indexes the first sample and site
@@ -214,45 +226,7 @@ static int run(int argc, char* argv[]) {
   } else if (params.svd_t == SvdType::PCAoneAlg1 || params.svd_t == SvdType::PCAoneAlg2) {
     run_pca_with_halko(data, params);
   } else if (params.svd_t == SvdType::FULL) {
-    const bool standardized =
-        (params.file_t == FileType::PLINK || params.file_t == FileType::BGEN || params.file_t == FileType::PGEN);
-    if (standardized) data->standardize_E();
-    cao.print(tick.date(), "running exact PCA with in-core eigendecomposition (PLINK-like).");
-    const Eigen::Index ncomp = std::min<Eigen::Index>(params.k, std::min<Eigen::Index>(data->G.rows(), data->G.cols()));
-    Mat1D evals(ncomp), svals(ncomp);
-    Mat2D U(data->nsamples, ncomp), V(data->nsnps, ncomp);
-    if (data->nsamples <= data->nsnps) {
-      Mat2D K = (data->G * data->G.transpose()) / data->nsnps;
-      Eigen::SelfAdjointEigenSolver<Mat2D> eig(K);
-      if (eig.info() != Eigen::Success) cao.error("failed eigendecomposition of the sample covariance matrix.");
-      for (Eigen::Index i = 0; i < ncomp; ++i) {
-        Eigen::Index idx = eig.eigenvalues().size() - 1 - i;
-        evals(i) = std::max(0.0, eig.eigenvalues()(idx));
-        U.col(i) = eig.eigenvectors().col(idx);
-      }
-      svals = (evals.array() * data->nsnps).sqrt();
-      mul_Xt_Y(data->G, U, V);
-      for (Eigen::Index i = 0; i < ncomp; ++i) {
-        if (svals(i) > 0) V.col(i) /= svals(i);
-      }
-    } else {
-      Mat2D K = (data->G.transpose() * data->G) / data->nsnps;
-      Eigen::SelfAdjointEigenSolver<Mat2D> eig(K);
-      if (eig.info() != Eigen::Success) cao.error("failed eigendecomposition of the feature covariance matrix.");
-      for (Eigen::Index i = 0; i < ncomp; ++i) {
-        Eigen::Index idx = eig.eigenvalues().size() - 1 - i;
-        evals(i) = std::max(0.0, eig.eigenvalues()(idx));
-        V.col(i) = eig.eigenvectors().col(idx);
-      }
-      svals = (evals.array() * data->nsnps).sqrt();
-      U.noalias() = data->G * V;
-      for (Eigen::Index i = 0; i < ncomp; ++i) {
-        if (svals(i) > 0) U.col(i) /= svals(i);
-      }
-    }
-    flip_UV(U, V);
-    data->set_svd_transform(standardized);
-    data->write_eigs_files(evals, svals, U, V);
+    run_pca_exact(data, params);
   } else {
     cao.error("unsupported PCA method!");
   }

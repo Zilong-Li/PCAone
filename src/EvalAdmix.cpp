@@ -142,7 +142,7 @@ void run_evaladmix(Data* data, const Param& params) {
   if (!params.out_of_core) {
     // G is nsamples x nsnps, centred, not standardized.
     const Mat2D& G = data->G;
-    A.noalias() = G * G.transpose();
+    syrk_lower_add(A, G);  // lower triangle, half the flops of G * G'
     b = G.rowwise().sum();
     for (Eigen::Index i = 0; i < G.cols(); ++i) {
       const double f = data->F(i);
@@ -157,7 +157,7 @@ void run_evaladmix(Data* data, const Param& params) {
     for (uint bi = 0; bi < data->nblocks; ++bi) {
       data->read_block_initial(data->start[bi], data->stop[bi], false);
       const Mat2D& G = data->G;
-      A.noalias() += G * G.transpose();
+      syrk_lower_add(A, G);
       b += G.rowwise().sum();
       for (Eigen::Index i = 0; i < G.cols(); ++i) {
         const double f = data->F(data->start[bi] + i);
@@ -165,6 +165,7 @@ void run_evaladmix(Data* data, const Param& params) {
       }
     }
   }
+  mirror_lower(A);
   b /= (double)M;
   d /= (double)M;
   cao.print(tick.date(), "evalAdmix: accumulated summary statistics over", M, "sites in", tick.reltime(),
