@@ -9,7 +9,10 @@
 #include <omp.h>
 #include <zlib.h>
 
+#include <cerrno>
+#include <climits>
 #include <cstddef>
+#include <cstdlib>
 
 #include "Cmd.hpp"
 #include "Data.hpp"
@@ -89,6 +92,25 @@ void gzip_member(const std::string& in, std::string& out) {
   deflateEnd(&s);
 }
 
+// std::stoi / std::stod semantics (leading number, rest of the field ignored),
+// but a field that is not a number is reported instead of escaping as an
+// uncaught std::invalid_argument ("terminate called ... stoi").
+int parse_position(const std::string& s, const std::string& path, const std::string& line) {
+  char* end = nullptr;
+  errno = 0;
+  const long v = std::strtol(s.c_str(), &end, 10);
+  if (end == s.c_str() || errno == ERANGE || v < INT_MIN || v > INT_MAX)
+    cao.error("invalid position '" + s + "' in " + path + ":\n => " + line);
+  return (int)v;
+}
+
+// false if the field holds no number, e.g. NA
+bool parse_pvalue(const std::string& s, double& p) {
+  char* end = nullptr;
+  p = std::strtod(s.c_str(), &end);  // an underflowing p such as 1e-400 is kept as 0, not an error
+  return end != s.c_str() && !std::isnan(p);
+}
+
 }  // namespace
 
 // shared warning so every LD entry point reports this the same way
@@ -106,10 +128,12 @@ std::string get_snp_pos_bim(SNPld& snp, const std::string& filebim, bool header,
   int i = 0;
   if (header) getline(fin, line);
   ret = line;
+  const size_t ncol = (size_t)std::max(idx[0], idx[1]) + 1;
   while (getline(fin, line)) {
     if (line.empty() || is_pvar_header(line)) continue;
     auto tokens = variant_tokens_for_bimish_line(line, filebim);
-    push_snp_pos(snp, tokens[idx[0]], std::stoi(tokens[idx[1]]), chr_prev, i);
+    if (tokens.size() < ncol) cao.error("too few columns in " + filebim + ":\n => " + line);
+    push_snp_pos(snp, tokens[idx[0]], parse_position(tokens[idx[1]], filebim, line), chr_prev, i);
   }
   snp.end_pos.push_back(i - 1);  // add the last SNP
   return ret;
@@ -120,7 +144,8 @@ void get_snp_pos_variants(SNPld& snp, const String1D& variants) {
   int i = 0;
   for (const auto& line : variants) {
     auto tokens = split_string(line, " \t");
-    push_snp_pos(snp, tokens[0], std::stoi(tokens[3]), chr_prev, i);
+    if (tokens.size() < 4) cao.error("too few columns in the variant file:\n => " + line);
+    push_snp_pos(snp, tokens[0], parse_position(tokens[3], "the variant file", line), chr_prev, i);
   }
   snp.end_pos.push_back(i - 1);  // add the last SNP
 }
@@ -278,11 +303,15 @@ std::tuple<Int2D, Int2D> get_target_snp_idx(const SNPld& snp_t, const SNPld& snp
     for (c = 0; c < (int)snp.chr.size(); c++)
       if (snp.chr[c] == snp_t.chr[tc]) break;
     if (c == (int)snp.chr.size()) continue;  // a chromosome the genotypes do not have
+    // end_pos is the index of a chromosome's last site, so the next one starts
+    // at end_pos + 1. Starting at end_pos put the previous chromosome's last
+    // site into this chromosome's list: one extra column per chromosome, which
+    // out-of-core --clump wrote past the end of its matrix (segfault).
     e = snp.end_pos[c];
-    s = c > 0 ? snp.end_pos[c - 1] : 0;
+    s = c > 0 ? snp.end_pos[c - 1] + 1 : 0;
     for (i = s; i <= e; i++) mpos[snp.pos[i]] = i;
     e = snp_t.end_pos[tc];
-    s = tc > 0 ? snp_t.end_pos[tc - 1] : 0;
+    s = tc > 0 ? snp_t.end_pos[tc - 1] + 1 : 0;
     for (i = s; i <= e; i++) {
       p = snp_t.pos[i];
       if (mpos.count(p)) {
@@ -304,7 +333,11 @@ void divide_pos_by_window(SNPld& snp, const int ld_window_bp) {
   int nsnp = snp.pos.size();
   int j{0}, c{0}, nsites;
   for (int i = 0; i < nsnp; i++) {
-    if (snp.pos[i] == snp.pos[snp.end_pos[c]]) {
+    // the last site of a chromosome starts no window. Compare the index: with
+    // a duplicated position at the end of a chromosome the position test fired
+    // one site early, so the windows ran into the next chromosome, and on the
+    // last chromosome end_pos[c] was read past its end.
+    if (i == snp.end_pos[c]) {
       c++;
       continue;
     }
@@ -452,19 +485,30 @@ std::vector<UMapIntPds> map_index_snps(const std::string& fileassoc, const Int1D
   UMapIntPds m;
   int bp;
   double pval;
+  const size_t ncol = (size_t)*std::max_element(colidx.begin(), colidx.end()) + 1;
+  size_t nskip = 0;
   while (getline(fin, line)) {
+    if (line.empty() || line[0] == '#') continue;  // as get_snp_pos_bim() does, so the chromosomes line up
     auto tokens = split_string(line, sep);
+    if (tokens.size() < ncol) cao.error("too few columns in " + fileassoc + ":\n => " + line);
     chr_cur = tokens[colidx[0]];
-    bp = std::stoi(tokens[colidx[1]]);
-    pval = std::stod(tokens[colidx[2]]);
-    if (pval <= clump_p2) m.insert({bp, {pval, line}});
+    // close the previous chromosome before storing this row. The row used to be
+    // stored first, so the first row of every chromosome after the first went
+    // into the previous chromosome's map and was never clumped.
     if (!chr_prev.empty() && chr_prev != chr_cur) {
       vm.push_back(m);
       m.clear();
     }
     chr_prev = chr_cur;
+    bp = parse_position(tokens[colidx[1]], fileassoc, line);
+    if (!parse_pvalue(tokens[colidx[2]], pval)) {
+      ++nskip;  // NA and other non-numeric p-values, as PLINK --clump skips them
+      continue;
+    }
+    if (pval <= clump_p2) m.insert({bp, {pval, line}});
   }
   vm.push_back(m);  // add the last chr
+  if (nskip > 0) cao.warn(std::to_string(nskip) + " rows of " + fileassoc + " have no numeric p-value and are skipped");
   return vm;
 }
 
@@ -644,16 +688,24 @@ void run_ld_stuff(Data* data, const Param& params) {
       std::tie(idx_per_chr, bp_per_chr) = get_target_snp_idx(snp_t, snp);
       const std::string out = params.fileout + ".p" + std::to_string(i) + ".clump";
       if (params.out_of_core) {
-        // gather the target sites; they are sorted, but may skip whole blocks
+        // gather the matched sites in file order, whatever order the assoc rows
+        // came in, since the blocks are read forwards only. G is sized by the
+        // number of matched sites; it was sized by the assoc rows, and one
+        // extra index per chromosome ran past it.
         if (i > 0) X.rewind();
-        Mat2D G(data->nsamples, snp_t.pos.size());
-        for (int sidx = 0, c = 0; c < (int)idx_per_chr.size(); c++) {
-          for (auto& icol : idx_per_chr[c]) {
-            X.need(icol, icol);
-            G.col(sidx) = X.col(icol);
-            icol = sidx++;
-          }
+        Int1D sites;
+        for (const auto& v : idx_per_chr) sites.insert(sites.end(), v.begin(), v.end());
+        std::sort(sites.begin(), sites.end());
+        sites.erase(std::unique(sites.begin(), sites.end()), sites.end());
+        Mat2D G(data->nsamples, sites.size());
+        UMapIntInt col_of;
+        for (int sidx = 0; sidx < (int)sites.size(); sidx++) {
+          X.need(sites[sidx], sites[sidx]);
+          G.col(sidx) = X.col(sites[sidx]);
+          col_of[sites[sidx]] = sidx;
         }
+        for (auto& v : idx_per_chr)
+          for (auto& icol : v) icol = col_of.at(icol);
         ld_clump_single_pheno(out, head, params.clump_bp, params.clump_r2, params.clump_p1, params.clump_p2, G,
                               idx_per_chr, bp_per_chr, pvals_per_chr);
       } else {

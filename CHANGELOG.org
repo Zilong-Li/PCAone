@@ -10,6 +10,34 @@
     arguments (=-b plink 3=).
   - fix: =--ncv= was always overwritten by max(20, 2k+1); it is now used when given, and must
     exceed =-k=.
+  - fix crashes:
+    - an error anywhere (e.g. a missing input file) aborted with =terminate called ...= and exit code
+      134; it now prints =Error: <message>= and exits with 1.
+    - =--svd 2= in-core with fewer than 64^2 = 4096 sites (or =-w= large for the data), e.g. after
+      =--maf=, died with =std::bad_alloc=: the trailing mini-batches are empty and their size
+      underflowed.
+    - =--clump= with more than one chromosome: out-of-core it segfaulted, and in-core the first row of
+      every chromosome after the first was dropped (*results change*: that row is now clumped, and
+      in-core and =-m= agree). Each chromosome also started one site early. NA p-values aborted with
+      =stod=; those rows are now skipped with a warning.
+    - LD windows: a duplicated position at the end of the last chromosome read out of bounds.
+    - =-p ... -P ... --inbreed 1 -m= segfaulted (an empty permutation), and =--inbreed= on a target
+      with fewer sites than the reference segfaulted; sample and site counts are now checked.
+    - CSV: =--svd 0= in-core segfaulted; =--buffer 4= (or more) died with SIGFPE; a line with more
+      columns than the first (including the second line, never checked), a non-numeric field such as
+      =NA=, =--M=/=--N= smaller than the file, and an empty file all crashed. Each is now an error
+      naming the line. CSV =--svd 0= with =-m= records =scale=0= in =.sigvals=, like the other
+      methods.
+    - in-core EM (=--emu=, =--pcangsd=) with =N x M >= 2^32=: the missingness mask was allocated and
+      indexed with 32-bit products, so it overflowed the heap. The out-of-core memory estimate also
+      wrapped at =M x (k + oversamples) >= 2^31=.
+    - refused up front instead of crashing or silently computing something else: =--pcangsd= with
+      =-p=, =-g= or =-c= (only =-G= and =-b= carry likelihoods or calls); =--emu= with =-c=;
+      =--emu -m= with =-g= (its out-of-core update was a no-op and returned garbage); =--project=
+      with =-g= or =-c= (it ran an EM-PCA instead); =--project 3= without =-G=; =--evaladmix= with
+      input other than =-b=/=-p= (it failed only after the PCA had run); =--inbreed= with =-g=/=-c=.
+    - the per-site "MAF=0" warning was written from inside OpenMP loops, a data race on the log that
+      garbled it; it is now one warning with the count.
   - *breaking*: removed =-D/--ld=, =-B/--binary= and the =.residuals= file. =-R=, =--ld-r2= and
     =--clump= now read the PLINK/PGEN genotypes directly and remove the PCs of a previous run, given
     by =-P/--USV=, as the genotypes are read:

@@ -22,7 +22,7 @@ void FileBeagle::read_all() {
     const bool filter = !keepSNPs.empty();
     if (filter) nsnps = keepSNPs.size();
     G = Mat2D::Zero(nsamples, nsnps);
-    C = ArrBool::Zero(nsnps * nsamples);
+    C = ArrBool::Zero((uint64)nsnps * nsamples);
 
 #pragma omp parallel for
     for (uint j = 0; j < nsnps; j++) {
@@ -35,11 +35,11 @@ void FileBeagle::read_all() {
         const double p2 = (1 - P(2 * i + 0, s) - P(2 * i + 1, s)) * pt * pt;
         const double psum = p0 + p1 + p2;
         if (!std::isfinite(psum) || psum <= 0.0) {
-          C[j * nsamples + i] = 1;
+          C[(uint64)j * nsamples + i] = 1;
           G(i, j) = 0.0;
           continue;
         }
-        C[j * nsamples + i] = 0;
+        C[(uint64)j * nsamples + i] = 0;
         G(i, j) = (p1 + 2.0 * p2) / (2.0 * psum) - F(j);
         // if (params.scale == SCALE_STANDARDIZE_GENETIC && norm > VAR_TOL) G(i, j) /= norm;
       }

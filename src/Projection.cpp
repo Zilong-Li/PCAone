@@ -43,7 +43,7 @@ Mat2D solve_bootstrap_projection_missing(const Mat2D& design,
     int observed = 0;
     for (int j = 0; j < M; ++j) {
       const uint w = counts[j];
-      if (w == 0 || C(j * N + i)) continue;
+      if (w == 0 || C((Eigen::Index)j * N + i)) continue;
       ata.noalias() += (double)w * design.row(j).transpose() * design.row(j);
       atg.noalias() += (double)w * design.row(j).transpose() * G(i, j);
       observed += w;
@@ -308,11 +308,11 @@ void run_projection(Data* data, const Param& params) {
           const double p2 = (1.0 - data->P(2 * i + 0, s) - data->P(2 * i + 1, s)) * pt * pt;
           const double psum = p0 + p1 + p2;
           if (!std::isfinite(psum) || psum <= 0.0) {
-            data->C[j * data->nsamples + i] = 1;
+            data->C[(uint64)j * data->nsamples + i] = 1;
             data->G(i, j) = 0.0;
             continue;
           }
-          data->C[j * data->nsamples + i] = 0;
+          data->C[(uint64)j * data->nsamples + i] = 0;
           data->G(i, j) = a(j) * ((p1 + 2.0 * p2) / (2.0 * psum) - data->F(j));
         }
       }

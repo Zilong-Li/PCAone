@@ -248,7 +248,18 @@ void run_inbred_sites(Data* Pi, const Param& params) {
     cao.error("input file not supported for estmating inbreeding coefficient");
   }
   data->prepare();
-  assert(data->blocksize == Pi->blocksize);
+  // The target genotypes are paired with the reference's U*S*V' site by site
+  // and sample by sample, so both have to match. The only check was an
+  // assert(), compiled out of release builds: a target with fewer sites than
+  // the reference read past the end of G and segfaulted.
+  if (data->nsamples != Pi->nsamples)
+    cao.error("the target has " + std::to_string(data->nsamples) + " samples but the reference PCA (" + params.fileU +
+              ") has " + std::to_string(Pi->nsamples) + ". --inbreed needs the samples of the reference run");
+  if (data->nsnps != Pi->nsnps)
+    cao.error("the target has " + std::to_string(data->nsnps) + " sites but the reference PCA (" + params.filebim +
+              ") has " + std::to_string(Pi->nsnps) + ". --inbreed needs the sites of the reference run");
+  if (data->blocksize != Pi->blocksize || data->nblocks != Pi->nblocks)
+    cao.error("BUG: the target and the reference are read in different blocks");
 
   cao.print(tick.date(), "run inbreeding coefficient estimator per site");
   if (!params.out_of_core) {

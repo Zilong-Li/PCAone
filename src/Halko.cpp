@@ -191,9 +191,14 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
     bandsize = fmin(bandsize * 2, data->params.bands);
     // b: the index of current block
     for (uint b = 0, i = 1; b < data->params.bands; ++b, ++i) {
-      start_idx = b * blocksize;
-      stop_idx = (b + 1) * blocksize >= data->nsnps ? data->nsnps - 1 : (b + 1) * blocksize - 1;
-      actual_block_size = stop_idx - start_idx + 1;
+      // half-open [start_idx, start_idx + actual_block_size). With fewer than
+      // bands^2 sites the trailing blocks are empty: ceil(M / bands) * b can
+      // pass M, and the old inclusive stop_idx then underflowed the unsigned
+      // block size, so the next line asked for ~2^64 rows (std::bad_alloc).
+      // An empty block contributes nothing but keeps the band schedule intact.
+      start_idx = std::min<uint64>((uint64)b * blocksize, data->nsnps);
+      stop_idx = std::min<uint64>((uint64)(b + 1) * blocksize, data->nsnps);
+      actual_block_size = stop_idx - start_idx;
       G.middleRows(start_idx, actual_block_size).noalias() =
           data->G.middleCols(start_idx, actual_block_size).transpose() * Omg;
 

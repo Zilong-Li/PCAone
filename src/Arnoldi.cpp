@@ -57,7 +57,9 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
   if (!params.out_of_core) {
     // SpMatrix sG = data->G.sparseView();
     PartialSVDSolver<Mat2D> svds(data->G, params.k, params.ncv);
-    bool standardized = !params.missme;
+    // only genotypes are standardized, as in run_pca_with_halko(). CSV has no F,
+    // so standardize_E() read past the end of it and segfaulted
+    bool standardized = !params.missme && params.genetic;
     if (standardized) data->standardize_E();
     nconv = svds.compute(params.imaxiter, params.itol);
     if (nconv != params.k) cao.error("the nconv is not equal to k.");
@@ -134,7 +136,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
     // SymEigsSolver< double, LARGEST_ALGE, ArnoldiOpData >(op, params.k,
     // params.ncv);
     SymEigsSolver<ArnoldiOpData>* eigs = new SymEigsSolver<ArnoldiOpData>(*op, params.k, params.ncv);
-    bool standardized = !params.missme;
+    bool standardized = !params.missme && params.genetic;  // as in-core above
     op->setFlags(false, standardized);
     eigs->init();
     nconv = eigs->compute(SortRule::LargestAlge, params.imaxiter, params.itol);

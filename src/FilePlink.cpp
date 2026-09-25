@@ -33,8 +33,9 @@ void FileBed::read_all() {
   // sometimes no need to estimate AF, e.g. projection
   if (params.dopca && !frequency_was_estimated) {
     F = Mat1D::Zero(nsnps);
+    uint64 nmono = 0;
     // estimate allele frequency first
-#pragma omp parallel for private(i, j, b, c, k, buf)
+#pragma omp parallel for private(i, j, b, c, k, buf) reduction(+ : nmono)
     for (i = 0; i < nsnps; ++i) {
       for (b = 0, c = 0, j = 0; b < bed_bytes_per_snp; ++b) {
         buf = inbed[i * bed_bytes_per_snp + b];
@@ -52,9 +53,11 @@ void FileBed::read_all() {
         F(i) = 0;
       else
         F(i) /= c;
-      // should remove sites with F=0 and 1.0
-      if (F(i) == 0.0 || F(i) == 1.0) cao.warn("sites with MAF=0 found! remove them first! SNP index:", i);
+      // should remove sites with F=0 and 1.0. counted, not logged here: the
+      // logger is not thread-safe, and one line per site garbled the log
+      if (F(i) == 0.0 || F(i) == 1.0) ++nmono;
     }
+    warn_monomorphic(nmono);
     filter_snps_resize_F();  // filter and resize nsnps
   }
 
@@ -62,7 +65,7 @@ void FileBed::read_all() {
   if (filter) nsnps = keepSNPs.size();
   G = Mat2D::Zero(nsamples, nsnps);  // fill in G with new size after filtering
 
-  if (params.missme) C = ArrBool::Zero(nsnps * nsamples);
+  if (params.missme) C = ArrBool::Zero((uint64)nsnps * nsamples);
   if (params.pcangsd) P = Mat2D::Zero(nsamples * 2, nsnps);
 
 #pragma omp parallel for private(i, j, b, c, k, buf)
@@ -159,7 +162,9 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
     }
   } else {
     // estimate allele frequencies
-#pragma omp parallel for private(c, i, j, b, k, snp_idx, buf)
+    if (start_idx == 0) nmono_seen = 0;  // a pass over the blocks restarted before F was complete
+    uint64 nmono = 0;
+#pragma omp parallel for private(c, i, j, b, k, snp_idx, buf) reduction(+ : nmono)
     for (i = 0; i < actual_block_size; ++i) {
       snp_idx = start_idx + i;
       c = 0;
@@ -186,7 +191,7 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
         F(snp_idx) /= c;
       }
       // should remove sites with F=0 and 1.0
-      if (F(snp_idx) == 0.0 || F(snp_idx) == 1.0) cao.warn("sites with MAF=0 found! remove them first!");
+      if (F(snp_idx) == 0.0 || F(snp_idx) == 1.0) ++nmono;
       // do centering and initialing
       centered_geno_lookup(1, snp_idx) = 0.0;                       // missing
       centered_geno_lookup(0, snp_idx) = BED2GENO[0] - F(snp_idx);  // minor hom
@@ -209,9 +214,13 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
         }
       }
     }
+    nmono_seen += nmono;
   }
 
-  if (stop_idx + 1 == nsnps) frequency_was_estimated = true;
+  if (stop_idx + 1 == nsnps && !frequency_was_estimated) {
+    frequency_was_estimated = true;
+    warn_monomorphic(nmono_seen);
+  }
 }
 
 void FileBed::read_block_update(

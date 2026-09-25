@@ -292,6 +292,27 @@ Param::Param(int argc, char** argv) {
       memory /= 2.0;  // two blocks of genotypes are held at a time (LDColumns)
     }
 
+    // input types each analysis can read. checked here, before anything is read,
+    // because the readers that lack a mode crash or silently do something else:
+    // a reader without P (genotype likelihoods) segfaults in the PCAngsd update,
+    // one without C (missingness) segfaults in the EMU update, and a reader whose
+    // read_block_update() is empty returns the last block for every block.
+    const bool plink_or_pgen = (file_t == FileType::PLINK || file_t == FileType::PGEN);
+    if (project > 0) {
+      require(plink_or_pgen || file_t == FileType::BEAGLE,
+              "--project supports only --bfile, --pgen and --beagle input");
+      require(project != 3 || file_t == FileType::BEAGLE,
+              "--project 3 requires BEAGLE genotype likelihood input (-G/--beagle)");
+    }
+    require(inbreed == 0 || plink_or_pgen || file_t == FileType::BEAGLE,
+            "--inbreed supports only --bfile, --pgen and --beagle input");
+    require(!evaladmix || plink_or_pgen, "--evaladmix supports only --bfile and --pgen input");
+    require(!pcangsd || file_t == FileType::PLINK || file_t == FileType::BEAGLE,
+            "--pcangsd supports only --beagle (genotype likelihoods) and --bfile input");
+    require(!emu || file_t != FileType::CSV, "--emu supports only --bfile, --pgen and --bgen input");
+    require(!(emu && file_t == FileType::BGEN && memory > 0),
+            "--emu with --bgen is not supported with -m (out-of-core) yet. please run it in-core");
+
     // handle projection
     if (project > 0) {
       if (fileV.empty() || fileS.empty()) throw std::invalid_argument("please use --USV together with --project");
@@ -353,8 +374,14 @@ Param::Param(int argc, char** argv) {
     if (out_of_core && pcangsd && (file_t == FileType::BEAGLE))
       throw std::invalid_argument("not supporting -m option (out-of-core) for PCAngsd and BEAGLE input yet!");
 
-    // LD walks the sites in .bim/.pvar order, so they are never shuffled
-    if (svd_t == SvdType::PCAoneAlg2 && !noshuffle && !ld) perm = true;
+    // Shuffling is for the winSVD of a PCA run only. LD walks the sites in
+    // .bim/.pvar order, and --inbreed, --project and --selection decompose
+    // nothing: they read a reference PCA and pass over the genotypes in file
+    // order. For PGEN the permutation is logical and is only built for a PCA
+    // run (Main.cpp), so leaving the flag on made those reads index an empty
+    // permutation -- out-of-core --inbreed on PGEN segfaulted.
+    if (svd_t == SvdType::PCAoneAlg2 && !noshuffle && !ld && inbreed == 0 && project == 0 && selection == 0)
+      perm = true;
 
   } catch (const popl::invalid_option& e) {
     std::cerr << "Invalid Option Exception: " << e.what() << "\n";

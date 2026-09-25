@@ -50,6 +50,7 @@ class FilePgen : public Data {
   uint reader_threads = 1;
   std::vector<std::vector<double>> thread_bufs;
   bool frequency_was_estimated = false;
+  uint64 nmono_seen = 0;  // sites with MAF=0 met while estimating F block by block
   bool dosage_mode = false;
   // ReadHardcalls returns 0.0/1.0/2.0/-3.0; map to lookup index 0/1/2/3
   static int pgen_code(double v) { return (v == -3.0) ? 3 : static_cast<int>(v); }

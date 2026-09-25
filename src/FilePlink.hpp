@@ -43,6 +43,7 @@ class FileBed : public Data {
   std::ifstream bed_ifstream;
   uint64 bed_bytes_per_snp;
   bool frequency_was_estimated = false;
+  uint64 nmono_seen = 0;  // sites with MAF=0 met while estimating F block by block
   std::vector<uchar> inbed;
 };
 

@@ -47,14 +47,15 @@ void Data::prepare() {
       blocksize = (uint)ceil((double)params.memory * 134217728 / nsamples);
     } else {
       // ram of halko = (3*n*l + 2*m*l + 5*m + n*b)*8/1024 Kb
-      uint l = params.k + params.oversamples;
-      double m = (double)(3 * nsamples * l + 2 * nsnps * l + 5 * nsnps) / 134217728;
+      // in doubles: the unsigned products wrapped once nsnps * l reached 2^31
+      const double l = (double)params.k + params.oversamples;
+      const double fixed = 3.0 * nsamples * l + 2.0 * nsnps * l + 5.0 * nsnps;  // doubles held besides the block
+      double m = fixed / 134217728;
       if (params.memory > 1.1 * m)
         m = 0;
       else
         cao.warn("minimum RAM required is ", m, " GB. trying to allocate more RAM.");
-      blocksize = (unsigned int)ceil(
-          (double)((m + params.memory) * 134217728 - 3 * nsamples * l - 2 * nsnps * l - 5 * nsnps) / nsamples);
+      blocksize = (unsigned int)ceil(((m + params.memory) * 134217728 - fixed) / nsamples);
     }
   } else {
     // ram of non-pca run
@@ -288,7 +289,7 @@ void Data::fit_with_pi(const Mat2D& U, const Mat1D& svals, const Mat2D& VT) {
       const uint original = unpermuted_snp_index(i);
       const double f = F(original);
       for (uint j = 0; j < nsamples; ++j) {
-        if (C[original * nsamples + j]) {  // sites need to be predicted
+        if (C[(uint64)original * nsamples + j]) {  // sites need to be predicted
           G(j, i) = 0.0;
           for (uint k = 0; k < ks; ++k) {
             G(j, i) += U(j, k) * svals(k) * VT(k, i);
@@ -434,7 +435,7 @@ void Data::predict_missing_E(const Mat2D& U, uint64 start_idx, uint64 stop_idx) 
     // find non-missing samples
     Int1D idx, na_idx;
     for (uint i = 0; i < nsamples; i++) {
-      if (!C(j * nsamples + i))
+      if (!C((uint64)j * nsamples + i))
         idx.push_back(i);
       else
         na_idx.push_back(i);

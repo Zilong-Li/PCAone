@@ -73,6 +73,18 @@ bad "--clump-r2" -b x --clump-r2 0
 bad "--clump-bp" -b x --clump-bp 0
 bad "--clump-names" -b x --clump-names CHR,BP
 bad "--clump-names" -b x --clump-names CHR,,P
+# input types a mode cannot read (these crashed or ran something else)
+bad "--pcangsd supports only" -p x --pcangsd
+bad "--pcangsd supports only" -g x --pcangsd
+bad "--pcangsd supports only" -c x --pcangsd
+bad "--emu supports only" -c x --emu
+bad "--emu with --bgen" -g x --emu -m 1
+bad "--project supports only" -g x -P p --project 1
+bad "--project supports only" -c x -P p --project 1
+bad "--project 3 requires" -b x -P p --project 3
+bad "--evaladmix supports only" -g x --evaladmix
+bad "--evaladmix supports only" -c x --evaladmix
+bad "--inbreed supports only" -g x -P p --inbreed 1
 
 if [ "$fail" -eq 0 ]; then
   echo "SUCCESS: invalid options are rejected."

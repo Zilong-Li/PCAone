@@ -40,7 +40,7 @@ class Param {
   uint maxiter = 100;
   double alpha = 0.001;
   // can be tol_emu or tol_pcangsd
-  double tolem = 1e-5;
+  double tolem = 1e-6;
   double tolmaf = 1e-6;
   double maf = 0.0;
   // for arnoldi
@@ -49,7 +49,7 @@ class Param {
   double itol = 1e-6;
   // for halko
   uint oversamples = 10;
-  double tol = 1e-4;
+  double tol = 1e-5;
   uint buffer = 2;
   uint rand = 1;
   // for ld stuff

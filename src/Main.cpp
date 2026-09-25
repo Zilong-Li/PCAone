@@ -51,7 +51,7 @@ static void setEnvironmentVariables(int threadCount) {
   omp_set_num_threads(threadCount > 0 ? threadCount : 1);
 }
 
-int main(int argc, char* argv[]) {
+static int run(int argc, char* argv[]) {
   Param params(argc, argv);
   cao.cao.open(params.fileout + ".log");
   if (params.verbose > 0) cao.is_screen = true;
@@ -178,6 +178,10 @@ int main(int argc, char* argv[]) {
 
   // be prepared for run
   data->prepare();
+  // every SVD below indexes the first sample and site
+  if (data->nsamples == 0 || data->nsnps == 0)
+    cao.error("the input has " + std::to_string(data->nsamples) + " samples and " + std::to_string(data->nsnps) +
+              " sites; nothing to decompose");
   if (ooc_permutation && params.file_t == FileType::PGEN) {
     data->perm = compute_pgen_perm(data->nsnps, params.bands, data->blocksize, max_threads, params.seed);
     cao.print(tick.date(), "initialized logical PGEN permutation. blocksize:", data->blocksize,
@@ -293,4 +297,21 @@ int main(int argc, char* argv[]) {
     }
   }
   return bye();
+}
+
+// cao.error() throws, and so do Eigen (std::bad_alloc) and the standard library.
+// Uncaught, each of them aborted the run with "terminate called after throwing
+// ..." and exit code 134, which looks like a crash to the user and to workflow
+// managers. Report the message and exit with 1 instead.
+int main(int argc, char* argv[]) {
+  try {
+    return run(argc, argv);
+  } catch (const std::bad_alloc&) {
+    std::cerr << "Error: out of memory (std::bad_alloc). consider -m/--memory for the out-of-core mode\n";
+  } catch (const std::exception& e) {
+    std::string msg = e.what();
+    if (msg.empty() || msg.back() != '\n') msg += '\n';
+    std::cerr << "Error: " << msg;
+  }
+  return EXIT_FAILURE;
 }

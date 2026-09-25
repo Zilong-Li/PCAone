@@ -156,7 +156,7 @@ SLIBS += ./external/bgen/bgenlib.a ./external/zstd/lib/libzstd.a  ./external/pge
 
 LIBS += $(SLIBS) $(DLIBS) -lpthread -ldl -lm
 
-.PHONY: all clean projection hwe ld_matrix ld_r2 ld_prune ld_clump ld_tests test_full test_aarch64 test_pgen_plink_equivalence test_em_snp_order test_projection_bootstrap test_cmd_guards
+.PHONY: all clean projection hwe ld_matrix ld_r2 ld_prune ld_clump ld_tests test_full test_aarch64 test_pgen_plink_equivalence test_em_snp_order test_projection_bootstrap test_cmd_guards test_crash_regressions
 
 all: ${program}
 
@@ -188,6 +188,9 @@ test_pgen_plink_equivalence: ${program}
 
 test_cmd_guards: ${program}
 	sh tests/test_cmd_guards.sh
+
+test_crash_regressions: ${program}
+	python3 tests/test_crash_regressions.py
 
 test_em_snp_order: ${program}
 	python3 tests/test_em_snp_order.py

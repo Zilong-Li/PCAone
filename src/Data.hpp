@@ -22,6 +22,11 @@ class Data {
       uint64 start_idx, uint64 stop_idx, const Mat2D& U, const Mat1D& svals, const Mat2D& VT, bool standardize) = 0;
 
   void prepare();
+  // one warning for all sites with MAF=0. The readers count them inside their
+  // OpenMP loops and call this afterwards, because cao is not thread-safe.
+  void warn_monomorphic(uint64 n) const {
+    if (n > 0) cao.warn(std::to_string(n) + " sites with MAF=0 found! remove them first!");
+  }
   void standardize_E();
   void filter_snps_resize_F();  // filter first, then update nsnps
   void save_snps_in_mbim();

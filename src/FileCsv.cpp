@@ -24,12 +24,81 @@ static inline double normalize_count(double x,
   return x / total * scaleFactor;  // scale == 4
 }
 
+// Offsets of the fields of one CSV line: field c is line[tidx[c], tidx[c+1]-1).
+// Returns how many fields the line has. tidx holds ncol + 1 entries and nothing
+// is written past them, so a line with too many fields is counted instead of
+// overflowing tidx, as it did before the column count was checked.
+static size_t csv_fields(const std::string& line, std::vector<size_t>& tidx, size_t ncol) {
+  size_t nf = 1;
+  tidx[0] = 0;
+  for (size_t i = 0; i < line.size(); i++) {
+    if (line[i] == ',') {
+      if (nf < ncol) tidx[nf] = i + 1;
+      nf++;
+    }
+  }
+  tidx[ncol] = line.size() + 1;
+  return nf;
+}
+
+// std::stof / std::stod on the field starting at line[b], without the throw: an
+// exception inside an OpenMP loop cannot be caught and terminated the run
+// ("what(): stof"). False if the field holds no finite number (NA, text, empty).
+static inline bool csv_float(const std::string& line, size_t b, double& x) {
+  const char* s = line.c_str() + b;
+  char* end = nullptr;
+  x = std::strtof(s, &end);
+  return end != s && std::isfinite(x);
+}
+static inline bool csv_double(const std::string& line, size_t b, double& x) {
+  const char* s = line.c_str() + b;
+  char* end = nullptr;
+  x = std::strtod(s, &end);
+  return end != s && std::isfinite(x);
+}
+
+static void csv_check_ncol(size_t nf, size_t ncol, uint64 lineno) {
+  if (nf != ncol)
+    cao.error("line " + std::to_string(lineno) + " of the csv file has " + std::to_string(nf) + " columns, but " +
+              std::to_string(ncol) + " were expected (from the first line, or --N)");
+}
+
+static void csv_bad_field(const std::string& line, const std::vector<size_t>& tidx, size_t col, uint64 lineno) {
+  cao.error("line " + std::to_string(lineno) + ", column " + std::to_string(col + 1) +
+            " of the csv file is not a number: '" + line.substr(tidx[col], tidx[col + 1] - tidx[col] - 1) + "'");
+}
+
+// parse one line of counts into column `col` of G
+static void csv_parse_row(const std::string& line,
+                          uint64 lineno,
+                          std::vector<size_t>& tidx,
+                          uint nsamples,
+                          Mat2D& G,
+                          Eigen::Index col,
+                          int scale,
+                          const std::vector<double>& libsize,
+                          double median_libsize,
+                          double scaleFactor) {
+  csv_check_ncol(csv_fields(line, tidx, nsamples), nsamples, lineno);
+  size_t bad = nsamples;
+#pragma omp parallel for reduction(min : bad)
+  for (size_t i = 0; i < nsamples; i++) {
+    double entry;
+    if (!csv_float(line, tidx[i], entry)) {
+      if (i < bad) bad = i;
+      continue;
+    }
+    G(i, col) = normalize_count(entry, scale, libsize, i, median_libsize, scaleFactor);
+  }
+  if (bad < nsamples) csv_bad_field(line, tidx, bad, lineno);
+}
+
 void FileCsv::read_all() {
   check_file_offset_first_var();
 
   auto buffIn = const_cast<void*>(static_cast<const void*>(zbuf.buffInTmp.c_str()));
   auto buffOut = const_cast<void*>(static_cast<const void*>(zbuf.buffOutTmp.c_str()));
-  size_t read, i, j, e, lastSNP = 0;
+  size_t read, e, lastSNP = 0;
   zbuf.fin = fopenOrDie(params.filein.c_str(), "rb");
   std::string buffLine;
   G = Mat2D::Zero(nsamples, nsnps);
@@ -43,20 +112,10 @@ void FileCsv::read_all() {
       while ((e = buffCur.find("\n")) != std::string::npos) {
         buffLine = buffCur.substr(0, e);
         buffCur.erase(0, e + 1);
-        for (i = 0, j = 1; i < buffLine.size(); i++) {
-          if (buffLine[i] == ',') {
-            tidx[j] = i + 1;
-            j++;
-          }
-        }
-        tidx[nsamples] = buffLine.size() + 1;
-
-#pragma omp parallel for
-        for (size_t i = 0; i < nsamples; i++) {
-          auto entry = std::stof(buffLine.substr(tidx[i], tidx[i + 1] - tidx[i] - 1));
-          G(i, lastSNP) = normalize_count(entry, params.scale, libsize, i, median_libsize, params.scaleFactor);
-        }
-
+        // G has nsnps columns, and --M can say fewer than the file has
+        if (lastSNP >= nsnps) cao.error("the csv file has more than " + std::to_string(nsnps) + " lines (--M)");
+        csv_parse_row(buffLine, lastSNP + 1, tidx, nsamples, G, lastSNP, params.scale, libsize, median_libsize,
+                      params.scaleFactor);
         lastSNP++;
       }
     }
@@ -67,7 +126,9 @@ void FileCsv::read_all() {
   if (zbuf.lastRet != 0) cao.error("EOF before end of ZSTD_decompressStream.\n");
 
   // deal with the case there is no "\n" for the last line of file
-  if (lastSNP != nsnps) cao.error("error when parsing csv file\n");
+  if (lastSNP != nsnps)
+    cao.error("the csv file has " + std::to_string(lastSNP) + " lines, but " + std::to_string(nsnps) +
+              " were expected (--M)");
 }
 
 void FileCsv::check_file_offset_first_var() {
@@ -97,7 +158,7 @@ void parse_csvzstd(ZstdDS& zbuf,
                    double& median_libsize) {
   auto buffIn = const_cast<void*>(static_cast<const void*>(zbuf.buffInTmp.c_str()));
   auto buffOut = const_cast<void*>(static_cast<const void*>(zbuf.buffOutTmp.c_str()));
-  size_t read, i, j, p, ncol = 0, lastCol = 0;
+  size_t read, p, ncol = 0;
   int isEmpty = 1;
   const bool need_libsize = csv_needs_libsize(scale);
   nsnps = 0;
@@ -114,41 +175,33 @@ void parse_csvzstd(ZstdDS& zbuf,
         nsnps++;
         buffLine = buffCur.substr(0, p);
         buffCur.erase(0, p + 1);
-        lastCol = ncol;
-        ncol = 1;
-        for (i = 0, j = 1; i < buffLine.size(); i++) {
-          if (buffLine[i] == ',') {
-            ncol++;
-            if (nsnps > 1) {
-              tidx[j++] = i + 1;
-            }
-          }
-        }
-        // get ncol from the first line or header
+        // the first line sets the number of columns, and every line must match
+        // it, including the second (the check used to start at the third line)
         if (nsnps == 1) {
+          ncol = std::count(buffLine.begin(), buffLine.end(), ',') + 1;
           libsize.assign(ncol, 0.0);
           tidx.resize(ncol + 1);
-          for (i = 0, j = 1; i < buffLine.size(); i++) {
-            if (buffLine[i] == ',') {
-              tidx[j++] = i + 1;
-            }
-          }
         }
-
-        tidx[ncol] = buffLine.size() + 1;
+        csv_check_ncol(csv_fields(buffLine, tidx, ncol), ncol, nsnps);
         if (need_libsize)  // total counts per sample for --scale 2/3/4
         {
-#pragma omp parallel for
+          size_t bad = ncol;
+#pragma omp parallel for reduction(min : bad)
           for (size_t i = 0; i < ncol; i++) {
-            libsize[i] += std::stod(buffLine.substr(tidx[i], tidx[i + 1] - tidx[i] - 1));
+            double x;
+            if (!csv_double(buffLine, tidx[i], x)) {
+              if (i < bad) bad = i;
+              continue;
+            }
+            libsize[i] += x;
           }
+          if (bad < ncol) csv_bad_field(buffLine, tidx, bad, nsnps);
         }
-        if (nsnps > 2 && (lastCol != ncol)) cao.error("the csv file has unaligned columns");
       }
     }
   }
 
-  if (isEmpty) cao.error("input file is empty.");
+  if (isEmpty || nsnps == 0) cao.error("input file is empty.");
   if (zbuf.lastRet != 0) cao.error("EOF before end of ZSTD_decompressStream.");
 
   nsamples = ncol;
@@ -188,25 +241,14 @@ void read_csvzstd_block(ZstdDS& zbuf,
   }
   auto buffIn = const_cast<void*>(static_cast<const void*>(zbuf.buffInTmp.c_str()));
   auto buffOut = const_cast<void*>(static_cast<const void*>(zbuf.buffOutTmp.c_str()));
-  size_t read, i, j, e, lastSNP = 0;
+  size_t read, e, lastSNP = 0;
   std::string buffLine;
   if (buffCur != "") {
     while (lastSNP < actual_block_size && ((e = buffCur.find("\n")) != std::string::npos)) {
       buffLine = buffCur.substr(0, e);
       buffCur.erase(0, e + 1);
-      for (i = 0, j = 1; i < buffLine.size(); i++) {
-        if (buffLine[i] == ',') {
-          tidx[j++] = i + 1;
-        }
-      }
-      tidx[nsamples] = buffLine.size() + 1;
-
-#pragma omp parallel for
-      for (size_t i = 0; i < nsamples; i++) {
-        auto entry = std::stof(buffLine.substr(tidx[i], tidx[i + 1] - tidx[i] - 1));
-        G(i, lastSNP) = normalize_count(entry, scale, libsize, i, median_libsize, scaleFactor);
-      }
-
+      csv_parse_row(buffLine, start_idx + lastSNP + 1, tidx, nsamples, G, lastSNP, scale, libsize, median_libsize,
+                    scaleFactor);
       lastSNP++;
     }
   }
@@ -222,20 +264,8 @@ void read_csvzstd_block(ZstdDS& zbuf,
         while (lastSNP < actual_block_size && ((e = buffCur.find("\n")) != std::string::npos)) {
           buffLine = buffCur.substr(0, e);
           buffCur.erase(0, e + 1);
-          for (i = 0, j = 1; i < buffLine.size(); i++) {
-            if (buffLine[i] == ',') {
-              tidx[j] = i + 1;
-              j++;
-            }
-          }
-          tidx[nsamples] = buffLine.size() + 1;
-
-#pragma omp parallel for
-          for (size_t i = 0; i < nsamples; i++) {
-            auto entry = std::stof(buffLine.substr(tidx[i], tidx[i + 1] - tidx[i] - 1));
-            G(i, lastSNP) = normalize_count(entry, scale, libsize, i, median_libsize, scaleFactor);
-          }
-
+          csv_parse_row(buffLine, start_idx + lastSNP + 1, tidx, nsamples, G, lastSNP, scale, libsize, median_libsize,
+                        scaleFactor);
           lastSNP++;
         }
       }
@@ -260,7 +290,9 @@ PermMat shuffle_csvzstd_to_bin(std::string& fin, std::string fout, uint gb, uint
     fcloseOrDie(zbuf.fin);
   }
   uint64 bytes_per_snp = nsamples * ibyte;
-  uint blocksize = 1073741824 * gb / bytes_per_snp;
+  // in 64 bits: 1073741824 * gb wrapped to 0 at --buffer 4, then divided by it (SIGFPE)
+  const uint64 bufsnps = (uint64)1073741824 * gb / bytes_per_snp;
+  const uint blocksize = (uint)std::max<uint64>(1, std::min<uint64>(bufsnps, std::max<uint>(1, nsnps)));
   uint nblocks = (nsnps + blocksize - 1) / blocksize;
   std::ofstream ofs(fout + ".perm.bin", std::ios::binary);
   std::ofstream ofs2(fout + ".perm.txt");
