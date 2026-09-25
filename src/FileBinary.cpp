@@ -25,7 +25,11 @@ void FileBin::read_all() {
   for (Eigen::Index i = 0; i < G.cols(); i++) {
     ifs_bin.read((char*)fg.data(), bytes_per_snp);
     G.col(i) = fg.cast<double>();
-    G.col(i).array() -= G.col(i).mean();
+    // --scale 1-4 standardized the columns before they were written, so this
+    // only removes the float rounding of the mean. --scale 0 (and the default,
+    // which is no transform for CSV) must stay as it is: centring here made the
+    // -m run a different, centred PCA from the in-core one.
+    if (params.scale >= 1) G.col(i).array() -= G.col(i).mean();
   }
 }
 
@@ -41,6 +45,10 @@ void FileBin::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
   for (Eigen::Index i = 0; i < G.cols(); i++) {
     ifs_bin.read((char*)fg.data(), bytes_per_snp);
     G.col(i) = fg.cast<double>();
-    G.col(i).array() -= G.col(i).mean();
+    // --scale 1-4 standardized the columns before they were written, so this
+    // only removes the float rounding of the mean. --scale 0 (and the default,
+    // which is no transform for CSV) must stay as it is: centring here made the
+    // -m run a different, centred PCA from the in-core one.
+    if (params.scale >= 1) G.col(i).array() -= G.col(i).mean();
   }
 }

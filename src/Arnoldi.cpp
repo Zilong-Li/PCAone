@@ -96,6 +96,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
           cao.print(tick.date(), "come to convergence!");
           break;
         }
+        if (i == params.maxiter) warn_em_not_converged(params, diff);
       }
 
       if (params.pcangsd) {
@@ -103,20 +104,16 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
         data->pcangsd_standardize_E(U, svals, V.transpose());
         evals.noalias() = svals.array().square().matrix() / data->nsnps;
         if (params.file_t == FileType::BEAGLE) {
-          Mat2D C = data->G * data->G.transpose();
-          C.array() /= (double)data->nsnps;
-          C.diagonal() = data->Dc.array() / (double)data->nsnps;
-          std::ofstream fcov(params.fileout + ".cov");
-          if (fcov.is_open()) fcov << C << "\n";
-          Eigen::JacobiSVD<Mat2D> svd(C, Eigen::ComputeThinU | Eigen::ComputeThinV);
-          // output real eigenvectors of covariance in eigvecs2
-          write_eigvecs2_beagle(svd.matrixU(), params.filein, params.fileout + ".eigvecs2");
+          write_pcangsd_cov(data->G, data->Dc, data->nsnps, params);
         }
       }
 
       if (params.emu) {
         cao.print(tick.date(), "standardize the final matrix");
         standardized = true;
+        // the missing entries still held the imputation from the previous
+        // iteration; run_pca_with_halko() refits them from the final U, S, V
+        data->fit_with_pi(U, svals, V.transpose());
         data->standardize_E();
         svds.compute(params.imaxiter, params.itol);
         svals = svds.singular_values();
@@ -160,7 +157,8 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
     if (params.missme) {
       if (data->p_miss == 0.0) cao.warn("there is no missing values");
       cao.print(tick.date(), "starts EM iteration. maxiter =", params.maxiter);
-      data->calcu_vt_initial(U, op->VT, false);
+      // op->VT was computed just above with standardized = false, which is what
+      // this pass recomputed: a whole pass over the data for nothing
       flip_UV(op->U, op->VT);
       op->setFlags(true, false);
       for (uint i = 1; i <= params.maxiter; ++i) {  // in-core runs maxiter, not maxiter - 1
@@ -192,6 +190,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
           cao.print(tick.date(), "come to convergence!");
           break;
         }
+        if (i == params.maxiter) warn_em_not_converged(params, diff);
       }
 
       standardized = true;

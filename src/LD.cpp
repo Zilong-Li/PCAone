@@ -319,8 +319,16 @@ std::tuple<Int2D, Int2D> get_target_snp_idx(const SNPld& snp_t, const SNPld& snp
         idx.push_back(mpos[p]);
       }
     }
-    idx_per_chr[tc] = idx;
-    bp_per_chr[tc] = bp;
+    // the clumping window walks bp in order, so sort each chromosome by position:
+    // an assoc file sorted any other way used to give different clumps, with a
+    // site both an index SNP and a member of another clump
+    std::vector<size_t> ord_bp(bp.size());
+    std::iota(ord_bp.begin(), ord_bp.end(), 0);
+    std::stable_sort(ord_bp.begin(), ord_bp.end(), [&bp](size_t a, size_t b) { return bp[a] < bp[b]; });
+    for (size_t t = 0; t < ord_bp.size(); ++t) {
+      idx_per_chr[tc].push_back(idx[ord_bp[t]]);
+      bp_per_chr[tc].push_back(bp[ord_bp[t]]);
+    }
     bp.clear();
     idx.clear();
     mpos.clear();
@@ -437,7 +445,12 @@ void ld_prune(LDColumns& X, const Mat1D& F, const String1D& variants, const SNPl
         const uint k = i + j;
         if (!keep(k)) continue;
         const double r = C(t, k - lo);
-        if (r * r > r2_tol) keep(MAF(F(k)) > MAF(F(i)) ? i : k) = false;
+        if (r * r > r2_tol) {
+          keep(MAF(F(k)) > MAF(F(i)) ? i : k) = false;
+          // as PLINK --indep-pairwise: once the lead itself is removed it
+          // prunes nothing more. It used to go on removing its partners.
+          if (!keep(i)) break;
+        }
       }
     }
     if (used == wins.size())
@@ -540,7 +553,14 @@ void ld_clump_single_pheno(const std::string& fileout,
       }
     }
     int p, p2, j, k;
-    for (auto i : sortidx(pp)) {  // snps sorted by p value
+    // by p value, ties by position: mpp is an unordered_map and std::sort is not
+    // stable, so tied index SNPs were taken in an arbitrary order, which moved
+    // with the order of the rows in the assoc file
+    std::vector<size_t> by_p(pp.size());
+    std::iota(by_p.begin(), by_p.end(), 0);
+    std::sort(by_p.begin(), by_p.end(),
+              [&](size_t a, size_t b) { return pp[a] != pp[b] ? pp[a] < pp[b] : ps[a] < ps[b]; });
+    for (auto i : by_p) {  // snps sorted by p value
       p = ps[i];
       if (mpp.count(p) == 0) continue;  // if snps with pval < clump_p1 are already clumped
       Int1D clumped;
@@ -575,8 +595,12 @@ void ld_clump_single_pheno(const std::string& fileout,
       } else {
         Double1D opp;
         for (auto op : clumped) opp.push_back(pvals_per_chr[c].at(op).first);
+        std::vector<size_t> by_op(opp.size());  // by p value, ties by position
+        std::iota(by_op.begin(), by_op.end(), 0);
+        std::sort(by_op.begin(), by_op.end(),
+                  [&](size_t a, size_t b) { return opp[a] != opp[b] ? opp[a] < opp[b] : clumped[a] < clumped[b]; });
         k = 0;
-        for (auto oi : sortidx(opp)) {
+        for (auto oi : by_op) {
           if (k == (int)opp.size() - 1)
             ofs << clumped[oi];
           else

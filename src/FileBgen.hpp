@@ -45,6 +45,6 @@ class FileBgen : public Data {
 
 void permute_bgen_thread(std::vector<int> idx, std::string fin, std::string fout, int ithread);
 
-PermMat permute_bgen(std::string& fin, std::string fout, int nthreads);
+PermMat permute_bgen(std::string& fin, std::string fout, int nthreads, int seed);
 
 #endif  // PCAONE_FILEBGEN_

@@ -55,7 +55,9 @@ void FileUSV::check_transform() {
 }
 
 void FileUSV::read_all() {
-  G = U * S.asDiagonal() * V.transpose();
+  // S holds every singular value of the reference, U and V only the first K
+  // columns: with -k below the reference's k the product did not conform
+  G = U * S.head(K).asDiagonal() * V.transpose();
   if (params.inbreed) {
     // get \PI and store it in G. the factor depends only on the site, so it is
     // hoisted out of the sample loop: gcc will not do it itself, because F and
@@ -76,19 +78,22 @@ void FileUSV::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
   if (G.cols() < blocksize || (actual_block_size < blocksize)) {
     G = Mat2D::Zero(nsamples, actual_block_size);
   }
-#pragma omp parallel for
-  for (uint i = 0; i < actual_block_size; ++i) {
-    uint64 snp_idx = start_idx + i;
-    // hoisted out of the sample loop, same reasoning as read_all()
-    const double f = F(snp_idx);
-    const double s = params.inbreed ? inv_scale(f) : 0.0;
-    for (uint j = 0; j < nsamples; j++) {
-      G(j, i) = 0.0;
-      for (int k = 0; k < K; ++k) {
-        G(j, i) += U(j, k) * S(k) * V(snp_idx, k);
-      }
-      //  map to domain -- same rescaling as read_all()
-      if (params.inbreed) G(j, i) = usv_to_pi(G(j, i), f, s);
+  // U*S*V' of the block, a panel of sites per thread, each mapped to pi while it
+  // is still in cache; it was a scalar triple loop, O(N K) per site on every
+  // pass of every SQUAREM iteration
+  const Mat2D US = U * S.head(K).asDiagonal();
+  const Eigen::Index bs = std::max<Eigen::Index>(1, (Eigen::Index(1) << 15) / std::max<Eigen::Index>(1, nsamples));
+  const Eigen::Index nb = ((Eigen::Index)actual_block_size + bs - 1) / bs;
+#pragma omp parallel for schedule(static)
+  for (Eigen::Index b = 0; b < nb; ++b) {
+    const Eigen::Index c = b * bs, w = std::min<Eigen::Index>(bs, actual_block_size - c);
+    G.middleCols(c, w).noalias() = US * V.middleRows(start_idx + c, w).transpose();
+    if (!params.inbreed) continue;
+    for (Eigen::Index i = c; i < c + w; ++i) {
+      // hoisted out of the sample loop, same reasoning as read_all()
+      const double f = F(start_idx + i);
+      const double s = inv_scale(f);
+      for (uint j = 0; j < nsamples; j++) G(j, i) = usv_to_pi(G(j, i), f, s);  // map to domain, as read_all()
     }
   }
 }

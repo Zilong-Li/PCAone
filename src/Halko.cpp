@@ -13,58 +13,46 @@
 using namespace std;
 
 void RsvdOpData::initOmg() {
-  auto rng = std::default_random_engine{};
-  rng.seed(data->params.seed);
-  if (data->params.rand)
-    Omg = PCAone::StandardNormalRandom<Mat2D, std::default_random_engine>(cols(), size(), rng);
-  else
-    Omg = PCAone::UniformRandom<Mat2D, std::default_random_engine>(cols(), size(), rng);
+  PortableRng rng(data->params.seed);  // same test matrix on every platform
+  Omg.resize(cols(), size());
+  for (Index j = 0; j < Omg.cols(); ++j)
+    for (Index i = 0; i < Omg.rows(); ++i) Omg(i, j) = data->params.rand ? rng.normal() : rng.uniform(-1.0, 1.0);
   Omg2 = Omg;
 }
 
-Mat2D RsvdOpData::computeU(const Mat2D& G, const Mat2D& H) {
-  const Index nrow{G.rows()};
-  const Index nk{ranks()};
-  Mat2D R(size(), size()), Rt(size(), size()), Gt(nrow, G.cols());
-  Eigen::HouseholderQR<Mat2D> qr(G);
-  R.noalias() = Mat2D::Identity(size(), nrow) * qr.matrixQR().triangularView<Eigen::Upper>();  // get R1
-  Gt.noalias() = qr.householderQ() * Mat2D::Identity(nrow, size());
-  {
-    Eigen::HouseholderQR<Eigen::Ref<Mat2D>> qr(Gt);
-    Rt.noalias() = Mat2D::Identity(size(), nrow) * qr.matrixQR().triangularView<Eigen::Upper>();  // get R2
-    Gt.noalias() = qr.householderQ() * Mat2D::Identity(nrow, size());                             // hold Q2 in Gt
-  }
-  R = Rt * R;  // get R = Rt * R
-  // B is size x ncol
-  // R.T * B = H.T
-  Mat2D B = R.transpose().fullPivHouseholderQr().solve(H.transpose());
-  Eigen::JacobiSVD<Mat2D> svd(B, Eigen::ComputeThinU | Eigen::ComputeThinV);
-  // B is K x nsamples, thus we use matrixV() for PCs
-  return svd.matrixV().leftCols(nk);
+// Start an EM update from the previous PCs instead of a random matrix: they
+// are the dominant subspace of the matrix that the update only nudged, so the
+// power iteration starts almost converged. The remaining columns stay random,
+// to pick up what the update added.
+void RsvdOpData::warmOmg() {
+  if (!update || U.rows() != Omg.rows() || U.cols() == 0 || U.cols() > Omg.cols()) return;
+  Omg.leftCols(U.cols()) = U;
+  Eigen::HouseholderQR<Mat2D> qr(Omg);
+  Omg = qr.householderQ() * Mat2D::Identity(Omg.rows(), Omg.cols());
+  Omg2 = Omg;
 }
 
 void RsvdOpData::computeUSV(int p, double tol) {
   const Index nk{ranks()};
   const Index nrow{rows()};  // nsnps
   const Index ncol{cols()};  // nsamples
-  Mat2D Upre, Ucur, H(ncol, size()), G(nrow, size()), B(size(), ncol), R(size(), size()), Rt(size(), size());
-  double diff;
+  const int bands = data->params.bands;
+  const bool winsvd = data->params.svd_t == SvdType::PCAoneAlg2;
+  // a warm-started winSVD runs every epoch with the full band from the start:
+  // each epoch then ends with an exact Rayleigh-Ritz step, so it can stop after
+  // two, where the doubling schedule needs log2(bands) + 1 epochs to get there
+  pi_offset = (winsvd && update && U.rows() == ncol) ? (int)std::ceil(std::log2((double)bands)) : 0;
+  Mat2D Upre, Ucur, H(ncol, size()), G(nrow, size()), B(size(), ncol), R(size(), size());
+  double diff = 1.0;
   for (int pi = 0; pi <= p; ++pi) {
     computeGandH(G, H, pi);
-    // check if converged
-    {
-      Eigen::HouseholderQR<Eigen::Ref<Mat2D>> qr(G);
-      R.noalias() = Mat2D::Identity(size(), nrow) * qr.matrixQR().triangularView<Eigen::Upper>();  // get R1
-      G.noalias() = qr.householderQ() * Mat2D::Identity(nrow, size());                             // hold Q1 in G
-    }
-    {
-      Eigen::HouseholderQR<Eigen::Ref<Mat2D>> qr(G);
-      Rt.noalias() = Mat2D::Identity(size(), nrow) * qr.matrixQR().triangularView<Eigen::Upper>();  // get R2
-      G.noalias() = qr.householderQ() * Mat2D::Identity(nrow, size());                              // hold Q2 in G
-    }
-    R = Rt * R;  // get R = R1R2;
-    // B is size x ncol
-    // R.T * B = H.T
+    // G = QR. B = Q'X' follows from H = XG = XQR as B = R^-T H', so only R is
+    // needed here, and Q only when V is formed at the end. G is overwritten by
+    // the Householder reflectors, and rewritten by the next computeGandH().
+    // (A second QR of Q used to follow; Q is orthonormal to machine precision
+    // already, so it cost as much as the first and changed nothing but signs.)
+    Eigen::HouseholderQR<Eigen::Ref<Mat2D>> qr(G);
+    R = qr.matrixQR().topRows(size()).triangularView<Eigen::Upper>();
     B.noalias() = R.transpose().fullPivHouseholderQr().solve(H.transpose());
     Eigen::JacobiSVD<Mat2D> svd(B, Eigen::ComputeThinU | Eigen::ComputeThinV);
     Ucur = svd.matrixV().leftCols(nk);
@@ -76,14 +64,20 @@ void RsvdOpData::computeUSV(int p, double tol) {
       if (data->params.verbose && !data->params.missme)
         cao.print(tick.date(), "running of epoch =", pi, ", diff =", diff);
       if (diff < tol || pi == p) {
-        if (data->params.svd_t == SvdType::PCAoneAlg2 && std::pow(2, pi) < data->params.bands) {
+        if (winsvd && std::pow(2, pi + pi_offset) < bands) {
           cao.print("PCAone winSVD converged but continues running to get S and V.");
-          p = std::log2(data->params.bands);
+          p = std::log2(bands);
         } else {
           U = Ucur;
-          V.noalias() = G * svd.matrixU().leftCols(nk);
+          Mat2D W = Mat2D::Zero(nrow, nk);
+          W.topRows(size()) = svd.matrixU().leftCols(nk);
+          V.noalias() = qr.householderQ() * W;  // Q * W
           S = svd.singularValues().head(nk);
           if (data->params.verbose && !data->params.missme) cao.print(tick.date(), "stops at epoch =", pi + 1);
+          if (!(diff < tol) && !data->params.missme)
+            cao.warn("the RSVD reached --maxp " + std::to_string(p) + " epochs before converging (diff = " +
+                     std::to_string(diff) + ", --tol-rsvd = " + std::to_string(tol) +
+                     "). the trailing PCs may be inaccurate; consider a larger --maxp, or --svd 0");
           break;
         }
       } else {
@@ -101,8 +95,11 @@ void NormalRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
     cao.error("only work with snp major input data now.");
   }
 
-  // reset omg to random
-  if (pi == 0) initOmg();
+  // reset omg to random, or to the previous PCs for an EM update
+  if (pi == 0) {
+    initOmg();
+    warmOmg();
+  }
 
   if (!data->params.out_of_core) {
     if (pi == 0) {
@@ -122,7 +119,7 @@ void NormalRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
       Omg.noalias() = qr.householderQ() * Mat2D::Identity(cols(), size);  // hold H in Omega
       PCAone::flipOmg(Omg2, Omg);
     }
-    G.noalias() = data->G.transpose() * Omg;
+    mul_Xt_Y(data->G, Omg, G);
     H.noalias() = data->G * G;
     return;
   }
@@ -147,7 +144,7 @@ void NormalRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
       data->read_block_update(start_idx, stop_idx, U, S, V.transpose(), standardize);
     }
     data->readtime += tick.reltime();
-    G.middleRows(start_idx, actual_block_size).noalias() = data->G.transpose() * Omg;
+    mul_Xt_Y(data->G, Omg, G.middleRows(start_idx, actual_block_size));
     H.noalias() += data->G * G.middleRows(start_idx, actual_block_size);
   }
 }
@@ -157,8 +154,12 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
   if (H.cols() != size || H.rows() != cols() || G.cols() != size || G.rows() != rows()) {
     cao.error("the size of G or H doesn't match with each other.");
   }
-  if (pi == 0) initOmg();
-  if (std::pow(2, pi) >= data->params.bands) {
+  if (pi == 0) {
+    initOmg();
+    warmOmg();
+  }
+  const int pe = pi + pi_offset;  // position in the band schedule
+  if (std::pow(2, pe) >= data->params.bands) {
     // init H1, H2 to zero
     H1.setZero();
     H2.setZero();
@@ -175,7 +176,7 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
           data->standardize_E();
         }
       }
-      bandsize = 1;
+      bandsize = pi_offset > 0 ? data->params.bands : 1;
       // blocksize: how many snps in each block
       blocksize = (unsigned int)ceil((double)data->nsnps / data->params.bands);
       if (blocksize < data->params.bands)
@@ -183,7 +184,7 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
       // Keep the same column order across EM iterations and final scaling.
       if (data->params.perm && !data->in_core_permuted) {
         cao.print(tick.date(), "permuting data matrix by columns in place");
-        PCAone::permute_matrix(data->G, data->perm);
+        PCAone::permute_matrix(data->G, data->perm, data->params.seed);
         data->in_core_permuted = true;
       }
     }
@@ -199,8 +200,7 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
       start_idx = std::min<uint64>((uint64)b * blocksize, data->nsnps);
       stop_idx = std::min<uint64>((uint64)(b + 1) * blocksize, data->nsnps);
       actual_block_size = stop_idx - start_idx;
-      G.middleRows(start_idx, actual_block_size).noalias() =
-          data->G.middleCols(start_idx, actual_block_size).transpose() * Omg;
+      mul_Xt_Y(data->G.middleCols(start_idx, actual_block_size), Omg, G.middleRows(start_idx, actual_block_size));
 
       if (i <= bandsize / 2) {
         // continues to add in data based on current band
@@ -211,7 +211,7 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
 
       // use the first quarter band of succesive iteration (H1)
       // for extra power iteration updates with the last used band (H2)
-      const bool adjacent = (pi > 0 && (b + 1) == std::pow(2, pi - 1) && std::pow(2, pi) < data->params.bands);
+      const bool adjacent = (pe > 0 && (b + 1) == std::pow(2, pe - 1) && std::pow(2, pe) < data->params.bands);
       if ((b + 1) < bandsize && !adjacent) continue;
 
       // add up H and update Omg
@@ -232,7 +232,7 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
   }
 
   // out-of-core implementation
-  if (pi == 0) bandsize = data->bandFactor;
+  if (pi == 0) bandsize = pi_offset > 0 ? data->nblocks : data->bandFactor;
   data->check_file_offset_first_var();
   // band : 2, 4, 8, 16, 32, 64
   bandsize = fmin(bandsize * 2, data->nblocks);
@@ -247,7 +247,7 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
       data->read_block_update(start_idx, stop_idx, U, S, V.transpose(), standardize);
     }
     data->readtime += tick.reltime();
-    G.middleRows(start_idx, actual_block_size).noalias() = data->G.transpose() * Omg;
+    mul_Xt_Y(data->G, Omg, G.middleRows(start_idx, actual_block_size));
 
     if (i <= bandsize / 2) {
       H1.noalias() += data->G * G.middleRows(start_idx, actual_block_size);
@@ -256,7 +256,7 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
     }
 
     const bool adjacent =
-        (pi > 0 && (b + 1) == std::pow(2, pi - 1) * data->bandFactor && std::pow(2, pi) < data->params.bands);
+        (pe > 0 && (b + 1) == std::pow(2, pe - 1) * data->bandFactor && std::pow(2, pe) < data->params.bands);
     if ((b + 1) < bandsize && !adjacent) continue;
 
     // cao.print("i:", i, ",j:", j, ",bandsize:", bandsize, ",pi:", pi);
@@ -293,13 +293,16 @@ void run_pca_with_halko(Data* data, const Param& params) {
       rsvd->setFlags(false, false);
     }
     rsvd->computeUSV(params.maxp, params.tol);
+    // the sign of each PC is arbitrary; fix it as --svd 0 and 3 do, so that it
+    // no longer depends on the internals of the QR and the SVD of B
+    flip_UV(rsvd->U, rsvd->V);
   } else {
     if (data->p_miss == 0.0 && !params.out_of_core) cao.warn("there is no missing values");
     // for EM iteration
     rsvd->setFlags(false, false);
     rsvd->computeUSV(params.maxp, params.tol);
     flip_UV(rsvd->U, rsvd->V, false);
-    double diff;
+    double diff = 1.0;
     cao.print(tick.date(), "run EM-PCA. maxiter =", params.maxiter);
     for (uint i = 0; i < params.maxiter; ++i) {
       rsvd->setFlags(true, false);
@@ -316,6 +319,7 @@ void run_pca_with_halko(Data* data, const Param& params) {
         break;
       }
     }
+    if (params.maxiter > 0 && !(diff < params.tolem)) warn_em_not_converged(params, diff);
 
     if (params.emu) {
       cao.print(tick.date(), "standardize the final matrix for EMU");
@@ -328,16 +332,7 @@ void run_pca_with_halko(Data* data, const Param& params) {
       cao.print(tick.date(), "estimate GRM for pcangsd");
       data->pcangsd_standardize_E(rsvd->U, rsvd->S, rsvd->V.transpose());
       // TODO: use matrix-free method e.g Arnoldi to decompose the cov
-      Mat2D C = data->G * data->G.transpose();
-      C.array() /= (double)data->nsnps;
-      C.diagonal() = data->Dc.array() / (double)data->nsnps;
-      std::ofstream fcov(params.fileout + ".cov");
-      fcov << C << "\n";
-      // Eigen::SelfAdjointEigenSolver<MyMatrix> eig(C);
-      // use Eigen::JacobiSVD to get eigenvecs
-      Eigen::JacobiSVD<Mat2D> svd(C, Eigen::ComputeThinU | Eigen::ComputeThinV);
-      // output real eigenvectors of covariance in eigvecs2
-      write_eigvecs2_beagle(svd.matrixU(), params.filein, params.fileout + ".eigvecs2");
+      write_pcangsd_cov(data->G, data->Dc, data->nsnps, params);
     }
   }
   // output PI

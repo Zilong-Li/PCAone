@@ -277,7 +277,7 @@ void read_csvzstd_block(ZstdDS& zbuf,
   if (lastSNP != actual_block_size) cao.error("something wrong when read_block_initial");
 }
 
-PermMat shuffle_csvzstd_to_bin(std::string& fin, std::string fout, uint gb, uint scale, double scaleFactor) {
+PermMat shuffle_csvzstd_to_bin(std::string& fin, std::string fout, uint gb, uint scale, double scaleFactor, int seed) {
   std::vector<size_t> tidx;
   std::vector<double> libsize;
   double median_libsize{0};
@@ -304,8 +304,8 @@ PermMat shuffle_csvzstd_to_bin(std::string& fin, std::string fout, uint gb, uint
   Mat2D G;
   std::vector<int> perm(nsnps);
   std::iota(perm.begin(), perm.end(), 0);
-  auto rng = std::default_random_engine{};
-  std::shuffle(perm.begin(), perm.end(), rng);
+  PortableRng rng(seed);  // --seed; it was default-seeded
+  portable_shuffle(perm.begin(), perm.end(), rng);
   Eigen::VectorXf fg;
   uint64 start_idx, stop_idx, idx;
   int ia{0}, ib{0};

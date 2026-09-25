@@ -58,21 +58,24 @@ inline MatrixType StandardNormalRandom(const Eigen::Index numRows,
       numRows, numCols, engine);
 }
 
+// seed: --seed. The shuffle used a default-seeded engine, so --seed never
+// changed it and two seeds gave the same permutation.
 template <typename MatrixType>
 inline void permute_matrix(MatrixType& G,
                            Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic>& P,
+                           unsigned int seed,
                            bool bycol = true) {
   if (bycol) {
     P = Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic>(G.cols());
     P.setIdentity();
-    auto rng = std::default_random_engine{};
-    std::shuffle(P.indices().data(), P.indices().data() + P.indices().size(), rng);
+    PortableRng rng(seed);
+    portable_shuffle(P.indices().data(), P.indices().data() + P.indices().size(), rng);
     G = G * P;  // permute columns in-place
   } else {
     P = Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic>(G.rows());
     P.setIdentity();
-    auto rng = std::default_random_engine{};
-    std::shuffle(P.indices().data(), P.indices().data() + P.indices().size(), rng);
+    PortableRng rng(seed);
+    portable_shuffle(P.indices().data(), P.indices().data() + P.indices().size(), rng);
     G = P * G;  // permute rows in-place
   }
 }
@@ -166,7 +169,8 @@ class RsvdOpOnePass {
   }
 
   void computeGandH(MatrixType& G, MatrixType& H, uint32_t p, uint32_t windows) {
-    if (windows % 2 != 0) throw std::runtime_error("windows must be a power of 2, ie. windows=2^x.\n");
+    if (windows == 0 || (windows & (windows - 1)) != 0)  // was windows % 2, which let 6, 12, ... through
+      throw std::runtime_error("windows must be a power of 2, ie. windows=2^x.\n");
     if (std::pow(2, p) < windows) throw std::runtime_error("pow(2, p) >= windows has to be met\n");
     uint32_t blocksize = (unsigned int)std::ceil((double)nrow / windows);
     if (blocksize < windows)

@@ -179,7 +179,7 @@ void permute_bgen_thread(std::vector<int> idx, std::string fin, std::string fout
   }
 }
 
-PermMat permute_bgen(std::string& fin, std::string fout, int nthreads) {
+PermMat permute_bgen(std::string& fin, std::string fout, int nthreads, int seed) {
   cao.print(tick.date(), "begin to permute BGEN file");
   bgen::CppBgenReader br(fin, "", true);
   uint nsnps = br.header.nvariants;
@@ -188,8 +188,8 @@ PermMat permute_bgen(std::string& fin, std::string fout, int nthreads) {
                          br.samples.samples);
   vector<int> perm(nsnps);
   std::iota(perm.begin(), perm.end(), 0);
-  auto rng = std::default_random_engine{};
-  std::shuffle(perm.begin(), perm.end(), rng);
+  PortableRng rng(seed);  // --seed; it was default-seeded
+  portable_shuffle(perm.begin(), perm.end(), rng);
   vector<std::thread> threads;
   uint tn = (nsnps + nthreads - 1) / nthreads;  // evenly spread index
   for (int i = 0; i < nthreads; i++) {

@@ -12,7 +12,9 @@
 #include <cstdlib>  // strtod
 #include <cstring>  // strtok_r
 #include <fstream>
+#include <memory>
 
+#include "Cmd.hpp"
 #include "Common.hpp"
 #include "kfunc.h"
 
@@ -189,6 +191,18 @@ Mat1D minSSE(const Mat2D& X, const Mat2D& Y) {
       res[i] = val1;
   }
   return res;
+}
+
+void mul_Xt_Y(const Eigen::Ref<const Mat2D>& X, const Eigen::Ref<const Mat2D>& Y, Eigen::Ref<Mat2D> out) {
+  const Eigen::Index m = X.cols();
+  // ~2 MB of X per panel, and at least 64 columns
+  const Eigen::Index bs = std::max<Eigen::Index>(64, (Eigen::Index(1) << 18) / std::max<Eigen::Index>(1, X.rows()));
+  const Eigen::Index nb = (m + bs - 1) / bs;
+#pragma omp parallel for schedule(static)
+  for (Eigen::Index b = 0; b < nb; ++b) {
+    const Eigen::Index c = b * bs, w = std::min(bs, m - c);
+    out.middleRows(c, w).noalias() = X.middleCols(c, w).transpose() * Y;
+  }
 }
 
 double mev(const Mat2D& X, const Mat2D& Y) {
@@ -699,9 +713,12 @@ String1D parse_beagle_samples(const std::string& fin) {
   const char* delims = "\t \n";
   char *buffer, *tok;
   uint64 bufsize = (uint64)128 * 1024 * 1024;
-  buffer = (char*)calloc(bufsize, sizeof(char));
   gzFile fp = gzopen(fin.c_str(), "r");
+  if (!fp) cao.error("can not open " + fin);
+  buffer = (char*)calloc(bufsize, sizeof(char));
   tgets(fp, &buffer, &bufsize);
+  // strtok_r advances `buffer`, so keep the block to free it (it leaked 128 MB)
+  std::unique_ptr<char, decltype(&free)> owner(buffer, &free);
   strtok_r(buffer, delims, &buffer);
   int nCol = 1;
   String1D res;
@@ -717,15 +734,42 @@ String1D parse_beagle_samples(const std::string& fin) {
 void write_eigvecs2_beagle(const Mat2D& U, const std::string& fin, const std::string& fout) {
   std::ofstream feig2(fout);
   if (!feig2.is_open()) cao.error("can not open " + fout);
+  const String1D ids = parse_beagle_samples(fin);
+  if ((Eigen::Index)ids.size() != U.rows())
+    cao.error("BUG: " + fin + " has " + std::to_string(ids.size()) + " samples but U has " + std::to_string(U.rows()));
+  // one column per PC, tab-separated like the other .eigvecs2 files. The header
+  // used to list a PC per sample, and the values were space-padded.
   feig2 << "#FID\tIID";
-  int i = 0;
-  for (i = 0; i < U.rows(); i++) feig2 << "\tPC" << i + 1;
+  for (Eigen::Index k = 0; k < U.cols(); k++) feig2 << "\tPC" << k + 1;
   feig2 << "\n";
-  i = 0;
-  for (const auto& s : parse_beagle_samples(fin)) {
-    feig2 << s << "\t" << s << "\t" << U.row(i) << "\n";
-    i++;
+  const std::streamsize old = feig2.precision(6);
+  for (Eigen::Index i = 0; i < U.rows(); i++) {
+    feig2 << ids[i] << "\t" << ids[i];
+    for (Eigen::Index k = 0; k < U.cols(); k++) feig2 << "\t" << U(i, k);
+    feig2 << "\n";
   }
+  feig2.precision(old);
+}
+
+void write_pcangsd_cov(const Mat2D& E, const Mat1D& Dc, uint nsnps, const Param& params) {
+  Mat2D C = E * E.transpose();
+  C.array() /= (double)nsnps;
+  C.diagonal() = Dc.array() / (double)nsnps;
+  std::ofstream fcov(params.fileout + ".cov");
+  if (!fcov.is_open()) cao.error("can not open " + params.fileout + ".cov");
+  fcov << C << "\n";
+  // C is symmetric: its eigenvectors are its singular vectors. JacobiSVD took
+  // 21 s at N = 1000 and 215 s at N = 1500; this takes 0.7 s and 2.5 s.
+  Eigen::SelfAdjointEigenSolver<Mat2D> es(C);
+  if (es.info() != Eigen::Success) cao.error("failed eigendecomposition of the PCAngsd covariance matrix");
+  const Eigen::Index k = std::min<Eigen::Index>(params.k, C.rows());
+  Mat2D U = es.eigenvectors().rightCols(k).rowwise().reverse();  // largest first
+  for (Eigen::Index j = 0; j < k; ++j) {                         // same sign rule as flip_UV
+    Eigen::Index x;
+    U.col(j).cwiseAbs().maxCoeff(&x);
+    if (U(x, j) < 0) U.col(j) *= -1;
+  }
+  write_eigvecs2_beagle(U, params.filein, params.fileout + ".eigvecs2");
 }
 
 double chisq1d(const double x) {

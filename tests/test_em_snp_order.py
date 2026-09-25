@@ -94,7 +94,7 @@ def run(tmp, name, input_args, extra, solver):
         "--tol-rsvd",
         "1e-12",
         "--tol-em",
-        "0",
+        "1e-300",  # never met, so every run does --maxiter iterations (0 is refused)
         "--maxiter",
         "4",
         "-V",

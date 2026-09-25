@@ -17,6 +17,36 @@
 // docs/hwe-lrt-fix.md for why a one-sided floor was a bug.
 static constexpr double PROB_EPS = 1e-12;
 
+// The target is paired with the reference site by site, so its variants must be
+// the .mbim's, in the same order and with the same counted allele. Only the
+// counts were compared, so a target with the same number of sites but different
+// ones (another array, a shifted subset, swapped alleles) ran without a word.
+static void check_same_sites(const Param& params) {
+  if (params.file_t != FileType::PLINK && params.file_t != FileType::PGEN) return;
+  const bool pvar = params.file_t == FileType::PGEN;
+  const std::string path = params.filein + (pvar ? ".pvar" : ".bim");
+  std::ifstream ft(path), fm(params.filebim);
+  if (!ft.is_open()) cao.error("can not open " + path);
+  if (!fm.is_open()) cao.error("can not open " + params.filebim);
+  const std::string sep{" \t"};
+  auto key = [&sep](const std::string& line) {
+    const auto t = split_string(line, sep);
+    return t.size() < 6 ? line : t[0] + ":" + t[3] + ":" + t[4] + ":" + t[5];
+  };
+  std::string lt, lm;
+  uint64 n = 0;
+  while (getline(ft, lt)) {
+    if (lt.empty() || (pvar && lt[0] == '#')) continue;
+    if (pvar) lt = pvar_line_to_bim_line(lt, path);
+    if (!getline(fm, lm)) break;  // the counts are compared by the caller
+    ++n;
+    if (key(lt) != key(lm))
+      cao.error("site " + std::to_string(n) + " of " + path + " is not site " + std::to_string(n) + " of " +
+                params.filebim + " (" + key(lt) + " vs " + key(lm) +
+                "). --inbreed needs the sites of the reference run, in its order");
+  }
+}
+
 // type 1: Genotype input, {1, -9, 0.5, 0}, GL is N x M
 // type 2: Genotype likelihood input, GL is (N x 2) x M
 void inbreed_coef_site(
@@ -260,6 +290,7 @@ void run_inbred_sites(Data* Pi, const Param& params) {
               ") has " + std::to_string(Pi->nsnps) + ". --inbreed needs the sites of the reference run");
   if (data->blocksize != Pi->blocksize || data->nblocks != Pi->nblocks)
     cao.error("BUG: the target and the reference are read in different blocks");
+  check_same_sites(params);
 
   cao.print(tick.date(), "run inbreeding coefficient estimator per site");
   if (!params.out_of_core) {

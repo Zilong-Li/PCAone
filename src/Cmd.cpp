@@ -131,7 +131,8 @@ Param::Param(int argc, char** argv) {
   opts.add<Switch>("R", "print-r2", "print LD R2 to *.ld.gz file for pairwise SNPs within a window controlled by --ld-bp.", &print_r2);
   
   opts.add<Value<std::string>, Attribute::headline>("","MISC","Misc options:");
-  opts.add<Value<double>>("", "maf", "exclude variants with MAF lower than this value", maf, &maf);
+  auto maf_opt = opts.add<Value<double>>("", "maf", "exclude variants with MAF lower than this value. default is 0.05 for\n"
+                                         "BEAGLE input, as in PCAngsd, and 0 (no filter) otherwise", maf, &maf);
   opts.add<Value<int>>("", "project", "project the new samples onto the existing PCs. Options are\n"
                                       "0: disabled;\n"
                                       "1: by multiplying the loadings with mean imputation for missing genotypes;\n"
@@ -349,6 +350,10 @@ Param::Param(int argc, char** argv) {
     if (haploid && genetic) ploidy = 1;
     if (memory > 0 && svd_t != SvdType::FULL) out_of_core = true;
 
+    // PCAngsd filters MAF < 0.05 by default. Its covariance divides by 2f(1-f)
+    // per site, so rare sites from genotype likelihoods dominate it, and a site
+    // whose EM frequency is 0 made the whole .cov diagonal inf.
+    if (file_t == FileType::BEAGLE && dopca && !out_of_core && !maf_opt->is_set()) maf = 0.05;  // -m is refused below
     filterSNP = maf > 0 ? true : false;  // filter SNP if MAf applied
     if (filterSNP) {
       if (out_of_core) throw std::invalid_argument("does not support --maf filters for out-of-core mode yet! ");

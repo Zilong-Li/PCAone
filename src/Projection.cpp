@@ -67,8 +67,7 @@ void write_projection_bootstrap_stats(
 
   cao.print(tick.date(), "run projection SNP bootstrap with", nreps, "replicates");
   const bool has_missing = C.size() && C.count() > 0;
-  std::mt19937_64 rng(params.seed);
-  std::uniform_int_distribution<int> snp_dist(0, M - 1);
+  PortableRng rng(params.seed);  // uniform_int_distribution differs between standard libraries
 
   Mat2D sum = Mat2D::Zero(N, K);
   Mat2D sumsq = Mat2D::Zero(N, K);
@@ -95,7 +94,7 @@ void write_projection_bootstrap_stats(
   std::vector<uint> counts(M);
   for (uint r = 0; r < nreps; ++r) {
     std::fill(counts.begin(), counts.end(), 0);
-    for (int draw = 0; draw < M; ++draw) counts[snp_dist(rng)]++;
+    for (int draw = 0; draw < M; ++draw) counts[rng.below(M)]++;
 
     Mat2D Ub = has_missing ? solve_bootstrap_projection_missing(design, C, G, counts)
                            : solve_bootstrap_projection_no_missing(design, G, counts);
@@ -167,14 +166,25 @@ void solve_projection_scores(const Mat2D& V, const ArrBool& C, const Mat2D& G, M
       U.row(i) = qr.solve(G.row(i).transpose());
     }
   } else {
-#pragma omp parallel for
+    // with fewer called sites than PCs the least-squares system has no unique
+    // solution; the pivoted QR returned 0 for every PC (a sample with no calls
+    // at all was projected to the origin), indistinguishable from a real score
+    uint64 nunder = 0;
+#pragma omp parallel for reduction(+ : nunder)
     for (uint i = 0; i < (uint)U.rows(); i++) {
       Int1D idx;
       for (int j = 0; j < V.rows(); j++) {
-        if (!C(j * U.rows() + i)) idx.push_back(j);
+        if (!C((Eigen::Index)j * U.rows() + i)) idx.push_back(j);
+      }
+      if ((Eigen::Index)idx.size() < V.cols()) {
+        U.row(i).setConstant(std::numeric_limits<double>::quiet_NaN());
+        ++nunder;
+        continue;
       }
       U.row(i) = V(idx, Eigen::all).colPivHouseholderQr().solve(G(i, idx).transpose());
     }
+    if (nunder > 0)
+      cao.warn(std::to_string(nunder) + " sample(s) have fewer called sites than PCs and are written as NA");
   }
 }
 
@@ -292,15 +302,13 @@ void run_projection(Data* data, const Param& params) {
     for (uint iter = 0; iter < params.maxiter; ++iter) {
       Mat2D Uprev = U;
 
-      // E-step: update G using individual allele frequencies
-#pragma omp parallel for
-      for (uint j = 0; j < data->nsnps; ++j) {
+      // E-step: update G using individual allele frequencies, from U * V' formed
+      // a panel of sites at a time instead of a scalar loop per genotype
+      for_each_product_column(U, V.transpose(), 0, data->nsnps, [&](Eigen::Index jj, const auto& recon) {
+        const uint j = (uint)jj;
         uint s = filter ? data->keepSNPs[j] : (uint)j;
         for (uint i = 0; i < data->nsamples; ++i) {
-          double pt = 0.0;
-          for (int k = 0; k < K; ++k) {
-            pt += U(i, k) * V(j, k);
-          }
+          double pt = recon(i);
           // pt is on the reference's scale, the same as G; undo a_j to get pi
           pt = fmin(fmax(pt / a(j) + data->F(j), 1e-4), 1.0 - 1e-4);
           const double p0 = data->P(2 * i + 0, s) * (1.0 - pt) * (1.0 - pt);
@@ -315,7 +323,7 @@ void run_projection(Data* data, const Param& params) {
           data->C[(uint64)j * data->nsamples + i] = 0;
           data->G(i, j) = a(j) * ((p1 + 2.0 * p2) / (2.0 * psum) - data->F(j));
         }
-      }
+      });
 
       // M-step: solve for U using expected G
       solve_projection_scores(V, data->C, data->G, U);
@@ -333,7 +341,6 @@ void run_projection(Data* data, const Param& params) {
     cao.error("unsupported --project mode: " + std::to_string(params.project));
   }
 
-  Eigen::IOFormat fmt(6, Eigen::DontAlignCols, "\t", "\n");
   std::ofstream outu(params.fileout + ".eigvecs");
-  if (outu.is_open()) outu << U.format(fmt) << '\n';
+  if (outu.is_open()) write_rows(outu, U);  // NA for a sample without a score
 }

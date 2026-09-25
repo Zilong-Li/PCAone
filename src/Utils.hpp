@@ -52,9 +52,45 @@ Mat1D minSSE(const Mat2D& X, const Mat2D& Y);
 
 double mev(const Mat2D& X, const Mat2D& Y);
 
+// out = X' * Y for a wide X (samples x sites) and a thin Y, so out is tall.
+// Eigen's multithreaded GEMM packs a kc x X.cols() panel of X' for a tall
+// result, up to min(n, 256) * m doubles: nearly a second copy of X when n is
+// small. Column panels of X, one thread each, need a few MB and run 2-4x
+// faster. Every row of out comes from one panel, over the whole of n, so the
+// result does not depend on the number of threads.
+void mul_Xt_Y(const Eigen::Ref<const Mat2D>& X, const Eigen::Ref<const Mat2D>& Y, Eigen::Ref<Mat2D> out);
+
+// Call f(j, x) for j in [0, count), where x is column `first + j` of A * B
+// (A is n x k, B is k x m). The product is formed a panel of ~1 MB at a time in
+// a thread-local buffer: one GEMM per panel in place of the scalar triple loops
+// the reconstructions U * S * V' were written as. Runs in parallel over panels.
+template <typename DerivedB, typename Func>
+void for_each_product_column(
+    const Mat2D& A, const Eigen::MatrixBase<DerivedB>& B, Eigen::Index first, Eigen::Index count, Func f) {
+  const Eigen::Index bs = std::max<Eigen::Index>(1, (Eigen::Index(1) << 17) / std::max<Eigen::Index>(1, A.rows()));
+  const Eigen::Index nb = (count + bs - 1) / bs;
+#pragma omp parallel
+  {
+    Mat2D panel;
+#pragma omp for schedule(static)
+    for (Eigen::Index b = 0; b < nb; ++b) {
+      const Eigen::Index c = b * bs, w = std::min<Eigen::Index>(bs, count - c);
+      panel.noalias() = A * B.middleCols(first + c, w);
+      for (Eigen::Index t = 0; t < w; ++t) f(c + t, panel.col(t));
+    }
+  }
+}
+
 void mev_rmse_byk(const Mat2D& X, const Mat2D& Y, Mat1D& Vm, Mat1D& Vr);
 
 String1D split_string(const std::string& s, const std::string& separators);
+
+// the EM-PCA loops ran out of --maxiter without a word
+template <typename P>
+void warn_em_not_converged(const P& params, double diff) {
+  cao.warn("EM-PCA did not converge in --maxiter " + std::to_string(params.maxiter) +
+           " iterations (diff = " + std::to_string(diff) + ", --tol-em = " + std::to_string(params.tolem) + ")");
+}
 
 // Median of a buffer the caller is done with: reorders it in place.
 //
@@ -81,6 +117,26 @@ auto median_inplace(std::vector<T>& v) {
 template <typename T>
 auto get_median(std::vector<T> v) {
   return median_inplace(v);
+}
+
+// Write a matrix as tab-separated rows, NA for a non-finite value. Finite
+// values come out byte for byte as Eigen::IOFormat(6, DontAlignCols, "\t", "\n")
+// prints them; that prints a NaN as "nan", which R does not read as missing.
+template <typename Derived>
+void write_rows(std::ostream& os, const Eigen::DenseBase<Derived>& M) {
+  const std::streamsize old = os.precision(6);
+  for (Eigen::Index i = 0; i < M.rows(); ++i) {
+    for (Eigen::Index j = 0; j < M.cols(); ++j) {
+      if (j) os << '\t';
+      const double v = M(i, j);
+      if (std::isfinite(v))
+        os << v;
+      else
+        os << "NA";
+    }
+    os << '\n';
+  }
+  os.precision(old);
 }
 
 void make_plink2_eigenvec_file(int K, std::string fout, const std::string& fin, const std::string& fam);
@@ -134,6 +190,11 @@ void parse_beagle_file(Mat2D& P, gzFile fp, const int nsamples, const int nsnps)
 String1D parse_beagle_samples(const std::string& fin);
 
 void write_eigvecs2_beagle(const Mat2D& U, const std::string& fin, const std::string& fout);
+
+// .cov and .eigvecs2 of the PCAngsd path: the covariance of the standardized
+// expected genotypes E with its corrected diagonal Dc, and its top -k eigenvectors
+class Param;
+void write_pcangsd_cov(const Mat2D& E, const Mat1D& Dc, uint nsnps, const Param& params);
 
 /// return the p-value of 1-degreed chi-squared
 double chisq1d(const double x);

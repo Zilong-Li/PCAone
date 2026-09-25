@@ -146,12 +146,12 @@ static int run(int argc, char* argv[]) {
       // Logical permutation is initialized after prepare(), when blocksize is known.
       data = new FilePgen(params);
     } else if (params.file_t == FileType::BGEN) {
-      auto perm = permute_bgen(params.filein, params.fileout, params.threads);
+      auto perm = permute_bgen(params.filein, params.fileout, params.threads, params.seed);
       data = new FileBgen(params);
       data->perm = perm;
     } else if (params.file_t == FileType::CSV) {
-      auto perm =
-          shuffle_csvzstd_to_bin(params.filein, params.fileout, params.buffer, params.scale, params.scaleFactor);
+      auto perm = shuffle_csvzstd_to_bin(params.filein, params.fileout, params.buffer, params.scale, params.scaleFactor,
+                                         params.seed);
       params.file_t = FileType::BINARY;
       data = new FileBin(params);
       data->perm = perm;
@@ -182,10 +182,30 @@ static int run(int argc, char* argv[]) {
   if (data->nsamples == 0 || data->nsnps == 0)
     cao.error("the input has " + std::to_string(data->nsamples) + " samples and " + std::to_string(data->nsnps) +
               " sites; nothing to decompose");
+  // At most min(N, M) - 1 PCs of centred data carry anything: more came back as
+  // arbitrary vectors from the null space, and different on every run.
+  const uint rank_max = std::min(data->nsamples, data->nsnps);
+  if (params.k >= rank_max)
+    cao.error("-k/--pc " + std::to_string(params.k) + " must be smaller than the number of samples and of sites (" +
+              std::to_string(data->nsamples) + " and " + std::to_string(data->nsnps) + ")");
+  // the RSVD cannot use more test vectors, nor the IRAM more Lanczos vectors, than that
+  if (params.k + params.oversamples > rank_max) {
+    params.oversamples = rank_max - params.k;
+    cao.warn("--oversamples reduced to " + std::to_string(params.oversamples) +
+             " so that k + oversamples <= " + std::to_string(rank_max));
+  }
+  if (params.ncv > rank_max) {
+    params.ncv = rank_max;
+    cao.warn("--ncv reduced to " + std::to_string(params.ncv) + ", the size of the problem");
+  }
   if (ooc_permutation && params.file_t == FileType::PGEN) {
-    data->perm = compute_pgen_perm(data->nsnps, params.bands, data->blocksize, max_threads, params.seed);
+    // The permutation draws each block from a fixed number of shuffled source
+    // regions, one per reading thread at that many threads. It used the thread
+    // count, so the same --seed gave different PCs with a different -n.
+    const uint regions = 16;
+    data->perm = compute_pgen_perm(data->nsnps, params.bands, data->blocksize, regions, params.seed);
     cao.print(tick.date(), "initialized logical PGEN permutation. blocksize:", data->blocksize,
-              ", batches:", params.bands, ", threads:", max_threads);
+              ", batches:", params.bands, ", source regions:", regions);
   }
 
   // begin to run PCA
@@ -211,7 +231,7 @@ static int run(int argc, char* argv[]) {
         U.col(i) = eig.eigenvectors().col(idx);
       }
       svals = (evals.array() * data->nsnps).sqrt();
-      V.noalias() = data->G.transpose() * U;
+      mul_Xt_Y(data->G, U, V);
       for (Eigen::Index i = 0; i < ncomp; ++i) {
         if (svals(i) > 0) V.col(i) /= svals(i);
       }

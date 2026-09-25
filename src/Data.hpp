@@ -67,6 +67,7 @@ class Data {
   bool snpmajor = true;
   bool nsamples_ge_nsnps = false;  // if nsamples greater than or equal to nsnps
   uint blocksize = 0, nsamples = 0, nsnps = 0;
+  uint nsnps_all = 0;  // sites in the input before --maf; keepSNPs indexes them
   uint nblocks = 1;
   uint bandFactor = 1;
   uint nops = 0;

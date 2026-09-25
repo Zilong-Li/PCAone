@@ -26,6 +26,46 @@ static inline double centered_pgen_value(double v, double af) {
 
 void FilePgen::read_all() {
   uint i, j;
+  if (params.dopca && !frequency_was_estimated && !params.filterSNP) {
+    // One pass: decode each variant into G, take F from that column, centre it.
+    // The two-pass path below decodes every variant twice (once for F, once for
+    // G), which a --maf filter needs; without one it is ~1.4x the read time.
+    F = Mat1D::Zero(nsnps);
+    G = Mat2D::Zero(nsamples, nsnps);
+    if (params.missme) C = ArrBool::Zero((uint64)nsnps * nsamples);
+    uint64 nmono = 0;
+#pragma omp parallel for private(i, j) schedule(static) reduction(+ : nmono)
+    for (i = 0; i < nsnps; ++i) {
+      int thr = omp_get_thread_num();
+      double* buf = thread_bufs[thr].data();
+      if (dosage_mode) {
+        reader.Read(buf, nsamples, thr, i, 1);
+      } else {
+        reader.ReadHardcalls(buf, nsamples, thr, i, 1);
+      }
+      uint64 c = 0;
+      double sum = 0.0;
+      for (j = 0; j < nsamples; ++j) {
+        if (buf[j] != PGEN_MISSING) {
+          sum += buf[j] / 2.0;
+          ++c;
+        }
+      }
+      F(i) = (c > 0) ? sum / c : 0.0;
+      if (F(i) == 0.0 || F(i) == 1.0) ++nmono;
+      for (j = 0; j < nsamples; ++j) {
+        G(j, i) = pgen2dosage(buf[j]);
+        if (params.missme && G(j, i) == BED_MISSING_VALUE) C[(uint64)i * nsamples + j] = 1;
+        if (params.center) G(j, i) = (G(j, i) == BED_MISSING_VALUE) ? 0.0 : G(j, i) - F(i);
+      }
+    }
+    warn_monomorphic(nmono);
+    if (params.missme) {
+      p_miss = (double)C.count() / (double)C.size();
+      cao.print(tick.date(), "the proportion of missingness  is", p_miss);
+    }
+    return;
+  }
   if (params.dopca && !frequency_was_estimated) {
     F = Mat1D::Zero(nsnps);
     uint64 nmono = 0;
@@ -121,9 +161,8 @@ PermMat compute_pgen_perm(uint nsnps, uint nbatches, uint blocksize, uint nthrea
     source_start = source_stop;
   }
 
-  auto rng = std::default_random_engine{};
-  rng.seed(seed);
-  for (auto& source : source_by_thread) std::shuffle(source.begin(), source.end(), rng);
+  PortableRng rng(seed);
+  for (auto& source : source_by_thread) portable_shuffle(source.begin(), source.end(), rng);
 
   std::vector<uint64> next_by_thread(nthreads, 0);
   Eigen::VectorXi indices(nsnps);

@@ -38,6 +38,71 @@
       input other than =-b=/=-p= (it failed only after the PCA had run); =--inbreed= with =-g=/=-c=.
     - the per-site "MAF=0" warning was written from inside OpenMP loops, a data race on the log that
       garbled it; it is now one warning with the count.
+  - *results change*: the sign of each PC from =--svd 1= and =--svd 2= (the default). It came from
+    the internals of the QR and of the small SVD; it now follows the rule of =--svd 0= and =--svd 3=,
+    where the entry of largest magnitude in each column of U is positive. The values are otherwise
+    unchanged.
+  - *results change*: =--seed=. The in-core winSVD shuffle used a default-seeded engine, so =--seed=
+    never changed it, and the BGEN and CSV =-m= shuffles ignored it too. The PGEN =-m= permutation
+    depended on =-n=, so the same seed gave different PCs with another thread count. And the test
+    matrix and the projection bootstrap drew from =std::normal_distribution= and
+    =std::uniform_int_distribution=, whose output differs between standard libraries (Linux and
+    macOS). A seed now fixes every draw, on every platform and thread count, but gives different
+    draws from before.
+  - *results change*: BEAGLE input filters =--maf 0.05= by default, as PCAngsd does; =--maf 0= turns
+    it off. The PCAngsd covariance divides each site by 2f(1-f), so rare sites dominated it, and a
+    site with EM frequency 0 made the whole =.cov= diagonal =inf=. Such a site is now also left out
+    of the diagonal when =--maf 0= is given.
+  - fix: the BEAGLE =.eigvecs2= header listed one PC per sample and the values were space-padded. It
+    now has one column per PC, tab-separated like the other =.eigvecs2= files. Its eigenvectors come
+    from a symmetric eigensolver instead of =JacobiSVD= (2.5 s instead of 215 s at N = 1500), with
+    the same sign rule, and the =.cov= diagonal is summed in a fixed order, so repeated runs match.
+  - *results change*: =--ld-r2= pruning follows PLINK =--indep-pairwise=: once the lead variant of a
+    pair is removed, it removes no more partners. It used to go on removing them, so it pruned more
+    than PLINK.
+  - *results change*: =--clump= no longer depends on the row order of the association file. Each
+    chromosome is walked by position, and tied p-values are taken by position; they were taken in an
+    arbitrary order, and an unsorted file could make a variant both an index SNP and a member of
+    another clump.
+  - *results change*: =--selection= with =--maf= writes one row per input site, NA for the removed
+    ones. The outputs have no IDs and are read by position against the =.bim=/=.pvar=, so every row
+    after the first removed site belonged to a later site.
+  - *results change*: CSV =--scale 0= with =-m= (and the default shuffling) centred every column,
+    which made it a different PCA from the in-core one. Both are now uncentred.
+  - *results change*: =--project 2= writes NA for a sample with fewer called sites than PCs, with a
+    warning. Such a sample was projected to 0 on every PC, which looks like a real score.
+  - *results change*: =--inbreed 1= on a PGEN with dosages. The test compares each genotype with the
+    three genotype codes, so a fractional dosage counted as missing, and F came out close to 1 at
+    every site. It now uses the hard calls, and warns that the reference PCA should use =--hardcall=
+    too. =--inbreed= also checks that the target's variants are the reference =.mbim='s, in order and
+    with the same alleles; only their number was compared.
+  - *results change*: in-core =--svd 0 --emu=. The last decomposition used a matrix whose missing
+    entries still held the imputation of the previous iteration. They are now refitted from the
+    final U, S and V first, as =--svd 1= and =--svd 2= do.
+  - =-k= must be smaller than both the number of samples and of sites. Beyond that, PCs were
+    arbitrary vectors from the null space, different on every run. =--oversamples= and =--ncv= are
+    reduced to the size of the problem, with a warning.
+  - EM-PCA (=--emu=, =--pcangsd=) warns when it reaches =--maxiter= without converging, and the
+    RSVD warns when it reaches =--maxp=. Both used to stop without a word.
+  - faster. One Householder QR per power iteration instead of two (the second, of an already
+    orthonormal Q, changed only signs). Q is formed once, at the end. The products X'Y are formed in
+    column panels: Eigen's multithreaded GEMM packed close to a second copy of X for them. EM
+    updates start the RSVD from the previous PCs, and a warm-started winSVD uses the full band from
+    its first epoch. The reconstructions U S V' in the EM, PCAngsd and =--project 3= steps are panel
+    matrix products instead of scalar loops. PGEN in-core decodes each variant once instead of
+    twice when no =--maf= is given. The out-of-core =--svd 0 --emu= no longer makes a redundant pass
+    over the data. With 2 threads, on =example/plink= (400 x 656,281, =-k 10=), the times are:
+    - =--svd 2= (the default): 22.4 s before, 11.3 s now.
+    - =--svd 1=: 84.5 s before, 21.5 s now. Peak memory fell from 3.74 GB to 2.29 GB.
+    - =--svd 0=: 37.7 s before, 30.2 s now.
+    - =--svd 3=: 6.6 s before, 4.6 s now.
+    Other cases:
+    - =-m= on 2,000 x 100,000: 11.1 s before, 5.0 s now.
+    - =--emu= on 1,000 x 50,000 with 21% missing: 3.1-3.7x faster.
+    - =--pcangsd= on =example/plink.chr1=: 4.8 s before, 1.5 s now.
+    - BEAGLE =-G=, 1,500 x 4,000: 211 s before, 7.0 s now.
+  - fix: reading the BEAGLE sample names leaked 128 MB, and a file that failed to open was not
+    reported.
   - *breaking*: removed =-D/--ld=, =-B/--binary= and the =.residuals= file. =-R=, =--ld-r2= and
     =--clump= now read the PLINK/PGEN genotypes directly and remove the PCs of a previous run, given
     by =-P/--USV=, as the genotypes are read:

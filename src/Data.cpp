@@ -6,6 +6,8 @@
 
 #include "Data.hpp"
 
+#include <omp.h>
+
 #include "Cmd.hpp"
 #include "Utils.hpp"
 
@@ -92,6 +94,7 @@ void Data::filter_snps_resize_F() {
   if (!params.filterSNP) return;
   if (!(params.maf > 0 && params.maf <= 0.5)) cao.error("--maf has to be between (0, 0.5)");
 
+  nsnps_all = F.size();
   Mat1D Fnew(F.size());  // make a temp F
   int i, j;
   for (i = 0, j = 0; j < (int)F.size(); j++) {
@@ -260,18 +263,16 @@ void Data::fit_with_pi(const Mat2D& U, const Mat1D& svals, const Mat2D& VT) {
   if (params.verbose >= 3) cao.print(tick.date(), "call fit_with_pi");
   uint ks = svals.size();
   if (params.pcangsd) {  // for pcangsd with beagle input
-#pragma omp parallel for
-    for (uint j = 0; j < nsnps; ++j) {
+    const Mat2D US = U * svals.asDiagonal();
+    for_each_product_column(US, VT, 0, nsnps, [&](Eigen::Index jj, const auto& recon) {
+      const uint j = (uint)jj;
       double p0, p1, p2;
       const uint original = unpermuted_snp_index(j);
       const double f = F(original);
       uint s = params.filterSNP ? keepSNPs[original] : original;
       for (uint i = 0; i < nsamples; ++i) {
         // Rescale individual allele frequencies
-        double pt = 0.0;
-        for (uint k = 0; k < ks; ++k) {
-          pt += U(i, k) * svals(k) * VT(k, j);
-        }
+        double pt = recon(i);
         pt = (pt + 2.0 * f) / 2.0;
         pt = fmin(fmax(pt, 1e-4), 1.0 - 1e-4);
         // update E, which is G here
@@ -280,7 +281,7 @@ void Data::fit_with_pi(const Mat2D& U, const Mat1D& svals, const Mat2D& VT) {
         p2 = (1 - P(2 * i + 0, s) - P(2 * i + 1, s)) * pt * pt;
         G(i, j) = (p1 + 2.0 * p2) / (p0 + p1 + p2) - 2.0 * f;
       }
-    }
+    });
   }
 
   if (params.emu) {
@@ -380,13 +381,12 @@ void Data::standardize_block_ref(const UsvTransform& t, uint64 start_idx, uint b
 void Data::pcangsd_standardize_E(const Mat2D& U, const Mat1D& svals, const Mat2D& VT) {
   if (params.scale != -9) return;
   cao.print(tick.date(), "begin to standardize the matrix for pcangsd procedure");
-  uint nk = svals.size();
-  Dc = Mat1D::Zero(nsamples);
-#pragma omp parallel
-  {
-    Mat1D diag_private = Mat1D::Zero(nsamples);  // Thread private vector;
-#pragma omp for
-    for (uint j = 0; j < nsnps; j++) {
+  const Mat2D US = U * svals.asDiagonal();
+  Mat2D diag_threads = Mat2D::Zero(nsamples, omp_get_max_threads());  // a column per thread
+  for_each_product_column(US, VT, 0, nsnps, [&](Eigen::Index jj, const auto& recon) {
+    auto diag_private = diag_threads.col(omp_get_thread_num());
+    {
+      const uint j = (uint)jj;
       double p0, p1, p2, pt, pSum, tmp;
       const uint original = unpermuted_snp_index(j);
       const double f = F(original);
@@ -394,10 +394,7 @@ void Data::pcangsd_standardize_E(const Mat2D& U, const Mat1D& svals, const Mat2D
       uint s = params.filterSNP ? keepSNPs[original] : original;
       for (uint i = 0; i < nsamples; i++) {
         // Rescale individual allele frequencies
-        pt = 0.0;
-        for (uint k = 0; k < nk; ++k) {
-          pt += U(i, k) * svals(k) * VT(k, j);
-        }
+        pt = recon(i);
         pt = (pt + 2.0 * f) / 2.0;
         pt = fmin(fmax(pt, 1e-4), 1.0 - 1e-4);
         // Update e
@@ -412,16 +409,11 @@ void Data::pcangsd_standardize_E(const Mat2D& U, const Mat1D& svals, const Mat2D
         tmp = (0.0 - 2.0 * f) * (0.0 - 2.0 * f) * (p0 / pSum);
         tmp += (1.0 - 2.0 * f) * (1.0 - 2.0 * f) * (p1 / pSum);
         tmp += (2.0 - 2.0 * f) * (2.0 - 2.0 * f) * (p2 / pSum);
-        diag_private[i] += tmp / (2.0 * f * (1.0 - f));
+        if (norm > VAR_TOL) diag_private(i) += tmp / (2.0 * f * (1.0 - f));  // f = 0 gave inf
       }
     }
-#pragma omp critical
-    {
-      for (uint i = 0; i < nsamples; i++) {
-        Dc[i] += diag_private[i];  // Sum arrays for threads
-      }
-    }
-  }
+  });
+  Dc = diag_threads.rowwise().sum();  // in thread order, not in the order a critical section was entered
 }
 
 void Data::predict_missing_E(const Mat2D& U, uint64 start_idx, uint64 stop_idx) {

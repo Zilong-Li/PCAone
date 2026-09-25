@@ -58,6 +58,53 @@ using UMapIntPds = std::unordered_map<int, Pds>;
 const double BED_MISSING_VALUE = -9;
 const double BED2GENO[4] = {1, BED_MISSING_VALUE, 0.5, 0};
 
+// Random numbers that are the same on every platform. std::default_random_engine
+// is minstd_rand0 in libstdc++ but minstd_rand in libc++, and the algorithms of
+// std::normal_distribution, std::uniform_*_distribution and std::shuffle are
+// implementation-defined, so the same --seed gave different PCs on Linux and
+// macOS. mt19937_64 is fully specified and the transforms here are our own.
+// (normal() goes through log/cos/sin, which may differ by an ulp between libms.)
+class PortableRng {
+ public:
+  explicit PortableRng(uint64_t seed)
+      : g(seed) {}
+  double uniform01() { return (double)(g() >> 11) * 0x1.0p-53; }  // [0, 1), exact
+  double uniform(double a, double b) { return a + (b - a) * uniform01(); }
+  // uniform integer in [0, n), without modulo bias
+  uint64_t below(uint64_t n) {
+    const uint64_t lim = UINT64_MAX - UINT64_MAX % n;
+    uint64_t x;
+    do x = g();
+    while (x >= lim);
+    return x % n;
+  }
+  // standard normal, Box-Muller, both values of a pair used
+  double normal() {
+    if (has_spare) {
+      has_spare = false;
+      return spare;
+    }
+    const double u1 = 1.0 - uniform01();  // (0, 1]
+    const double u2 = uniform01();
+    const double r = std::sqrt(-2.0 * std::log(u1)), a = 6.283185307179586 * u2;
+    spare = r * std::sin(a);
+    has_spare = true;
+    return r * std::cos(a);
+  }
+
+ private:
+  std::mt19937_64 g;
+  double spare = 0.0;
+  bool has_spare = false;
+};
+
+// Fisher-Yates with PortableRng, in place of std::shuffle
+template <typename It>
+void portable_shuffle(It first, It last, PortableRng& rng) {
+  const uint64_t n = (uint64_t)std::distance(first, last);
+  for (uint64_t i = n; i > 1; --i) std::iter_swap(first + (i - 1), first + rng.below(i));
+}
+
 inline UMapIntInt vector2map(const Int1D& v) {
   UMapIntInt m;
   int i = 0;

@@ -37,8 +37,10 @@ class RsvdOpData {
   void computeUSV(int p, double tol);
 
   void initOmg();
+  void warmOmg();  // EM updates: start from the previous U instead of at random
 
-  Mat2D computeU(const Mat2D& G, const Mat2D& H);
+ protected:
+  int pi_offset = 0;  // > 0: a warm-started winSVD runs full bands from the first epoch
 };
 
 class NormalRsvdOpData : public RsvdOpData {

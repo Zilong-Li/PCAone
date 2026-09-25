@@ -270,7 +270,8 @@ Output options:
   -R, --print-r2                 print LD R2 to *.ld.gz file for pairwise SNPs within a window controlled by --ld-bp.
 
 Misc options:
-  --maf arg (=0)                 exclude variants with MAF lower than this value
+  --maf arg (=0)                 exclude variants with MAF lower than this value. default is 0.05 for
+                                 BEAGLE input, as in PCAngsd, and 0 (no filter) otherwise
   --project arg (=0)             project the new samples onto the existing PCs. Options are
                                  0: disabled;
                                  1: by multiplying the loadings with mean imputation for missing genotypes;

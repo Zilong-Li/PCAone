@@ -29,7 +29,7 @@ void read_csvzstd_block(ZstdDS& zbuf,
                         uint scale,
                         double scaleFactor);
 
-PermMat shuffle_csvzstd_to_bin(std::string& fin, std::string fout, uint gb, uint scale, double scaleFactor);
+PermMat shuffle_csvzstd_to_bin(std::string& fin, std::string fout, uint gb, uint scale, double scaleFactor, int seed);
 
 // for other types, assume data is already noralized only do centering
 class FileCsv : public Data {
