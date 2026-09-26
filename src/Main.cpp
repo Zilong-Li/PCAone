@@ -262,6 +262,12 @@ static int run(int argc, char* argv[]) {
     // file in stored order. Either way the site order does not matter here: A,
     // b and d are all sums over sites.
     params.perm = false;
+    // and the EM-PCA inputs are not needed: read_all() would otherwise hold a
+    // missingness mask (--emu, N x M bytes) or genotype probabilities
+    // (--pcangsd, 2N x M doubles, twice G) that the statistic never reads
+    params.emu = false;
+    params.pcangsd = false;
+    params.missme = false;
     Data* d2 = (params.file_t == FileType::PLINK) ? (Data*)new FileBed(params) : (Data*)new FilePgen(params);
     d2->prepare();
     run_evaladmix(d2, params);

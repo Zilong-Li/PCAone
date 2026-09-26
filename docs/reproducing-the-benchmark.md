@@ -11,11 +11,15 @@ Rscript scripts/benchmark/benchmark.R ~/evaladmix-benchmark
 
 The first script fetches the data, builds the other methods and runs everything;
 the second reads the outputs and prints every table. Both are idempotent — rerun
-either without redoing the first.
+either without redoing the first. Both paths may be relative. `THREADS` (default
+8) sets the threads for every tool; keep the default to match the numbers below
+exactly, because RelateAdmix's estimates for unrelated pairs depend on it (RMSE
+0.00054 with 8 threads, 0.00046 with 2; related pairs are unaffected).
 
 ## Nothing is simulated
 
-The dataset is **not** generated here. It ships with
+The dataset is **not** generated here — the missing-data runs below only mask
+some of its calls. It ships with
 [relateAdmix](https://github.com/aalbrechtsen/relateAdmix) in its `data/`
 directory and is used as-is:
 
@@ -87,6 +91,18 @@ PCAone -b smallPlink -k 1 -d 0 --evaladmix          -o pcaone_ic    # in-core
 `-d 0` selects IRAM for a deterministic run. `--maf` is omitted from the
 out-of-core run because PCAone rejects that combination.
 
+**Missing genotypes** — `make_missing.R` writes five copies of the data with calls
+set to missing, and PCAone (`-k 1 -d 0 --evaladmix --maf 0.05`) and evalAdmix EM
+(same `.P`/`.Q`) run on each:
+
+| design | what is missing |
+|---|---|
+| `mcar0.05`, `mcar0.1`, `mcar0.2` | each call with probability 5, 10, 20% |
+| `varying` | each call with a per-sample probability drawn from U(0, 0.4) |
+| `batch` | the samples split at random into two batches, each missing its own random 25% of the sites (`batch.batch` records the split) |
+
+The seeds are fixed, so the masks are the same on every run.
+
 **PCA + projection, R reference** — `evalPCA()` from
 [popgenDK/evalPopStructure](https://github.com/popgenDK/evalPopStructure), called
 by `benchmark.R`:
@@ -122,7 +138,8 @@ Two conversions matter, and getting either wrong changes the conclusions:
 
 ## Checks built into the run
 
-`benchmark.R` ends with three cross-checks that should all pass:
+After the accuracy tables, `benchmark.R` prints three cross-checks that should
+all pass:
 
 | check | expected |
 |---|---|
@@ -152,15 +169,40 @@ PC-Relate (corr off)  0.00824        0.00822      0.00962     -0.00789
 
 Numbers should match to the digits shown. The PCAone rows are deterministic;
 GENESIS depends on `snpgdsPCA`, so PC-Relate may move in the last digit across
-versions.
+versions. (Rerun 2026-09-26 with GENESIS 2.32.0 and SNPRelate 1.36.1: every row
+matched.)
+
+Then the detection tables — KING degree bins, false positives among the unrelated
+pairs, and AUC against them — and the missing-data table, which should read
+
+```
+                                     RMSE related est/truth degree right
+5% at random | PCAone --evaladmix         0.00263   0.99148      1.00000
+5% at random | evalAdmix (EM)             0.00301   0.98785      1.00000
+10% at random | PCAone --evaladmix        0.00261   0.99328      1.00000
+10% at random | evalAdmix (EM)            0.00302   0.98964      1.00000
+20% at random | PCAone --evaladmix        0.00303   0.99213      0.96667
+20% at random | evalAdmix (EM)            0.00337   0.98948      0.96667
+0-40% by sample | PCAone --evaladmix      0.00325   0.99093      1.00000
+0-40% by sample | evalAdmix (EM)          0.00340   0.98521      1.00000
+25% by batch | PCAone --evaladmix         0.00328   0.99133      0.96667
+25% by batch | evalAdmix (EM)             0.00331   0.98668      1.00000
+```
+
+`est/truth` is the mean ratio over the related pairs other than second cousins;
+`degree right` counts all 60. See
+[evaladmix.md](evaladmix.md#missing-genotypes) for what PCAone gave before it
+imputed from the PCs and rescaled by sites in common.
 
 ## Caveats on scope
 
-One dataset: 126 samples, complete genotypes, K=2, discrete and well-separated
-source populations, PLINK input. That is the best case for the admixture-model
-methods and says nothing about continuous ancestry, misspecified `K`,
-missingness, or the regime where `O(N²)` memory matters. The differences between
-methods here are in the third or fourth decimal — see
+One dataset: 126 samples, K=2, discrete and well-separated source populations,
+PLINK input, complete or with calls masked at random or by batch. That is the
+best case for the admixture-model methods and says nothing about continuous
+ancestry, misspecified `K`, or the regime where `O(N²)` memory matters. With ten
+pairs per class, detection is saturated on complete data: every method calls
+every degree right down to first cousins. The differences between methods here
+are in the third or fourth decimal — see
 [evaladmix.md](evaladmix.md#getting-the-number-of-pcs-wrong-is-the-dominant-risk)
 for the one choice that is worth two orders of magnitude more than the choice of
 method.

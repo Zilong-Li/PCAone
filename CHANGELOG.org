@@ -182,10 +182,17 @@
     new =.sigvals= correctly and ignores the fields; this version warns and assumes the old behaviour
     when they are absent, and refuses the combinations it cannot invert.
   - new: =--evaladmix= computes the correlation of residuals (evalAdmix) from the top PCs, writing
-    =.corres= and =.kinship=. =--evaladmix-k= selects how many PCs enter the projection; use =K-1= for a
-    =K=-population admixture model. PLINK and PGEN input, in-core and out-of-core. Missing genotypes
-    are imputed to the site mean. It holds four dense N x N matrices and writes two N x N files, so
-    it prints the RAM and output size it will need before reading the genotypes.
+    =.corres= and =.kinship=, with sample IDs on the header line (from the =.fam= or =.psam=).
+    =--evaladmix-k= selects how many PCs enter the projection; use =K-1= for a =K=-population
+    admixture model. PLINK and PGEN input, in-core and out-of-core. It makes one pass over the
+    genotypes, holds one dense N x N matrix and writes two N x N files, so it prints the RAM and
+    output size it will need before reading them. Missing genotypes are imputed to the site mean, and
+    each pair is rescaled by the sites both samples are genotyped at, since imputed calls carry no
+    relatedness; without it the kinship of every pair shrank by the fraction missing (by 20% at 20%
+    missing calls, the RMSE on related pairs 21 times that on complete data). The counts are a second
+    N x N matrix and double the cost of the pass, only when genotypes are missing. Refused with
+    =--haploid=, whose genotypes carry no heterozygosity for its null model, and with
+    =--project=/=--selection=/=--inbreed=/=--ld-r2=/=--print-r2=/=--clump=, which run no PCA.
   - fix: LD =R2= came out =-nan= for monomorphic variants, and for variants with no variance left after
     the ancestry adjustment, spreading to every pair involving them. Reported as 0 now, with a
     warning naming the count.

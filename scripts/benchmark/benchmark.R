@@ -148,3 +148,74 @@ cat(sprintf("  in-core vs out-of-core                  : %.2e\n",
 if ("PCA + projection (R)" %in% names(est))
   cat(sprintf("  PCAone vs evalPCA() reference (r)       : %.6f\n",
       cor(est[["PCAone --evaladmix"]], est[["PCA + projection (R)"]])))
+
+## ------------------------------------------------ detecting related pairs ---
+# The tables above measure how close the estimates are. These ask the question
+# a relatedness screen asks: is the pair related, and to what degree?
+saveRDS(list(est = est, cls = cls, truth = truth), file.path(OUT, "estimates.rds"))
+
+# KING degree bins (Manichaikul et al. 2010): degree d spans
+# (2^-(d+1.5), 2^-(d+0.5)], extended here to 5th degree for second cousins
+cut_deg <- 2^-(seq(0, 5) + 1.5)                      # 0.354 0.177 0.0884 0.0442 0.0221 0.0110
+degree  <- function(v) findInterval(-v, -cut_deg)    # 0 = dup/MZ ... 5 = 5th, 6 = unrelated
+true_deg <- c(unrelated = 6, duplicate = 0, "parent-offspring" = 1, "full sib" = 1,
+              "half sib" = 2, "first cousin" = 3, "second cousin" = 5)[cls]
+
+cat("\n=== degree called correctly (KING bins, 5th degree = second cousins) ===\n")
+acc <- t(sapply(est, function(v) {
+  dg <- degree(v); tapply(dg == true_deg, factor(cls, levels = c(CLS, "unrelated")), mean)
+}))
+print(round(acc, 2))
+
+cat("\n=== unrelated pairs called related (false-positive rate) ===\n")
+fp <- t(sapply(est, function(v) c(`>= 3rd degree` = mean(v[u] > cut_deg[4]),
+                                  `>= 4th degree` = mean(v[u] > cut_deg[5]),
+                                  `>= 5th degree` = mean(v[u] > cut_deg[6]),
+                                  `max unrelated` = max(v[u]))))
+print(signif(fp, 3))
+
+cat("\n=== separation from the unrelated pairs ===\n")
+# AUC: P(estimate of a related pair > estimate of an unrelated pair), per class.
+# power: fraction of the class above the 99.9th percentile of the unrelated.
+auc <- function(x, y) { r <- rank(c(x, y)); (sum(r[seq_along(x)]) - length(x) * (length(x) + 1) / 2) / (length(x) * length(y)) }
+sep <- t(sapply(est, function(v) {
+  t999 <- quantile(v[u], 0.999, names = FALSE)
+  c(sapply(c("first cousin", "second cousin"), function(c) auc(v[cls == c], v[u])),
+    sapply(c("first cousin", "second cousin"), function(c) mean(v[cls == c] > t999)))
+}))
+colnames(sep) <- c("AUC 1C", "AUC 2C", "power 1C @0.1%", "power 2C @0.1%")
+print(round(sep, 3))
+close <- sapply(est, function(v) min(sapply(CLS[1:5], function(c) auc(v[cls == c], v[u]))))
+cat(sprintf("duplicates to half sibs: min AUC over the methods %.3f\n", min(close)))
+
+## ------------------------------------------------------ missing genotypes ---
+MISS <- file.path(OUT, "missing")
+designs <- c(mcar0.05 = "5% at random", mcar0.1 = "10% at random", mcar0.2 = "20% at random",
+             varying = "0-40% by sample", batch = "25% by batch")
+designs <- designs[file.exists(file.path(MISS, paste0("pcaone_", names(designs), ".kinship")))]
+if (length(designs)) {
+  rd <- function(f, header) { M <- as.matrix(read.table(f, header = header, check.names = FALSE)); diag(M) <- 0; M }
+  miss_est <- lapply(names(designs), function(d) list(
+    `PCAone --evaladmix` = gp(rd(file.path(MISS, paste0("pcaone_", d, ".kinship")), TRUE)),
+    `evalAdmix (EM)`     = gp(rd(file.path(MISS, paste0("evaladmix_em_", d, ".corres")), FALSE)) / 2))
+  names(miss_est) <- names(designs)
+  row <- function(v, keep = TRUE) c(`RMSE related` = rmse(v[!u & keep], truth[!u & keep]),
+    `est/truth` = mean(v[!u & keep & cls != "second cousin"] / truth[!u & keep & cls != "second cousin"]),
+    `degree right` = mean(degree(v[!u & keep]) == true_deg[!u & keep]),
+    `RMSE unrelated` = rmse(v[u & keep], 0))
+  cat("\n=== missing genotypes (complete data: see above) ===\n")
+  tab <- do.call(rbind, lapply(names(designs), function(d) {
+    t(sapply(miss_est[[d]], row))
+  }))
+  rownames(tab) <- paste(rep(designs, each = 2), rownames(tab), sep = " | ")
+  print(round(tab, 5))
+  if ("batch" %in% names(designs)) {
+    b <- scan(file.path(MISS, "batch.batch"), quiet = TRUE)
+    same <- b[pairs[, 1]] == b[pairs[, 2]]
+    cat("\nbatch design, pairs in the same batch vs in different batches:\n")
+    bt <- do.call(rbind, lapply(names(miss_est$batch), function(m) rbind(
+      row(miss_est$batch[[m]], same), row(miss_est$batch[[m]], !same))))
+    rownames(bt) <- paste(rep(names(miss_est$batch), each = 2), c("same batch", "different batches"), sep = " | ")
+    print(round(bt, 5))
+  }
+}

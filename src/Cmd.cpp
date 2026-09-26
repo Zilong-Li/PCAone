@@ -310,6 +310,12 @@ Param::Param(int argc, char** argv) {
     require(inbreed == 0 || plink_or_pgen || file_t == FileType::BEAGLE,
             "--inbreed supports only --bfile, --pgen and --beagle input");
     require(!evaladmix || plink_or_pgen, "--evaladmix supports only --bfile and --pgen input");
+    // these return before any PCA, and --evaladmix runs after one: it was ignored
+    require(!evaladmix || (project == 0 && selection == 0 && inbreed == 0 && !ld),
+            "--evaladmix runs after a PCA of the same input; it cannot be combined with --project, --selection, "
+            "--inbreed, --print-r2, --ld-r2 or --clump");
+    require(!(evaladmix && haploid),
+            "--evaladmix takes each sample's variance from its heterozygosity, so it needs diploid genotypes");
     require(!pcangsd || file_t == FileType::PLINK || file_t == FileType::BEAGLE,
             "--pcangsd supports only --beagle (genotype likelihoods) and --bfile input");
     require(!emu || file_t != FileType::CSV, "--emu supports only --bfile, --pgen and --bgen input");
