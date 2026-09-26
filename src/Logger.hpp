@@ -44,12 +44,7 @@ class Logger {
 
   template <class S>
   void printSpace(std::ostream& os, const S& val) {
-    if (std::is_integral_v<std::decay_t<decltype(val)>>)
-      os << std::setw(2) << val;
-    else if (std::is_floating_point_v<std::decay_t<decltype(val)>>)
-      os << val;
-    else
-      os << val << " ";
+    os << val << " ";
   }
 
   template <typename... Args>

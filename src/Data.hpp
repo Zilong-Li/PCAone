@@ -18,14 +18,13 @@ class Data {
   // for blockwise
   virtual void check_file_offset_first_var() = 0;
   virtual void read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize) = 0;
-  virtual void read_block_update(
-      uint64 start_idx, uint64 stop_idx, const Mat2D& U, const Mat1D& svals, const Mat2D& VT, bool standardize) = 0;
+  virtual void read_block_update(uint64 start, uint64 stop, const Mat2D& U, const Mat1D& svals, const Mat2D& VT, bool standardize) = 0;
 
   void prepare();
   // one warning for all sites with MAF=0. The readers count them inside their
   // OpenMP loops and call this afterwards, because cao is not thread-safe.
   void warn_monomorphic(uint64 n) const {
-    if (n > 0) cao.warn(std::to_string(n) + " sites with MAF=0 found! remove them first!");
+    if (params.maf == 0 && n > 0) cao.warn(std::to_string(n) + " sites with MAF=0 found! remove them first!");
   }
   void standardize_E();
   void filter_snps_resize_F();  // filter first, then update nsnps
