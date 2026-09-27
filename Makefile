@@ -329,9 +329,15 @@ example_tests_fast:
 	diff m0.eigvals m1.eigvals
 
 # The fast test suite for aarch64
-test_aarch64: test_cmd_guards data example_tests_fast hwe ld_matrix ld_r2 ld_prune ld_clump
+test_aarch64: test_cmd_guards test_bed_permutation data example_tests_fast hwe ld_matrix ld_r2 ld_prune ld_clump
 	@echo "SUCCESS: aarch64 fast test suite completed."
 
 # The complete test suite for other architectures like x86_64
-test_full: test_cmd_guards data example_tests projection hwe ld_matrix ld_r2 ld_prune ld_clump ld_tests
+test_full: test_cmd_guards test_bed_permutation data example_tests projection hwe ld_matrix ld_r2 ld_prune ld_clump ld_tests
 	@echo "SUCCESS: Full test suite completed."
+
+.PHONY: test_bed_permutation
+test_bed_permutation: ${program}
+	$(CXX) -std=c++17 -Wall -Wextra tests/test_bed_shuffle.cpp -o tests/test_bed_shuffle
+	./tests/test_bed_shuffle
+	python3 tests/test_bed_permutation.py

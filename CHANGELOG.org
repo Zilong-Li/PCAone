@@ -1,4 +1,10 @@
 - v0.8.0
+  - *results change*: out-of-core BED winSVD shuffles the SNPs at random with =--seed=, in place
+    of a fixed interleave. SNPs go to random =-w= bands and keep source order within a band; as
+    winSVD updates only between bands, the PCs equal those of a full shuffle. One read and one
+    write of the BED, in large writes, within =--buffer=. The same =--seed= gives the same order
+    on every platform. =-o= can no longer make the permuted files overwrite the input, and a failed
+    permutation removes what it wrote.
   - =--svd 3= streams the N x N GRM instead of holding the genotypes, when N <= M, in-core and with
     =-m=. Each block of sites is read, standardized as before and added to the lower triangle of the
     GRM by a multithreaded rank update. The top =-k= eigenpairs come from Lanczos (Spectra, tolerance

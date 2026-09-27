@@ -385,6 +385,20 @@ for large dataset and PCAone will allocate more RAM when needed.
 #+begin_src shell
 ./PCAone --bfile example/plink -m 2
 #+end_src
+Out-of-core BED winSVD writes a shuffled copy of the BED before the PCA. It
+assigns the SNPs at random (=--seed=) to the =-w= bands of read blocks and
+keeps their source order within each band. winSVD only updates its test
+matrix between bands, so the PCs equal those of a full random permutation in
+exact arithmetic. Floating-point rounding can differ slightly. The rewrite
+reads the BED once and writes it once, in large writes whatever its size.
+It needs disk space for one more BED. Samples keep their order; =-S= turns
+the shuffle off.
+
+=--buffer= (default 2 GiB) bounds the two genotype buffers of the rewrite;
+it does not change the order. SNP indices and the BIM lines take additional
+memory. The permuted BED/BIM/FAM (=<out>.perm.*=) are removed after the PCA
+unless =-v 3= is used, and =-o= may not point them at the input.
+
 *** Run sSVD method with out-of-core mode
 #+begin_src shell
 ./PCAone --bfile example/plink --svd 1 -m 2

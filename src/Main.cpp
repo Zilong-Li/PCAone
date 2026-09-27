@@ -140,9 +140,8 @@ static int run(int argc, char* argv[]) {
   if (ooc_permutation) {
     tick.clock();
     if (params.file_t == FileType::PLINK) {
-      auto perm = permute_plink(params.filein, params.fileout, params.buffer, params.bands);
+      // The BED is permuted after prepare(), which sets the -w bands it shuffles into.
       data = new FileBed(params);
-      data->perm = perm;
     } else if (params.file_t == FileType::PGEN) {
       // Logical permutation is initialized after prepare(), when blocksize is known.
       data = new FilePgen(params);
@@ -159,7 +158,7 @@ static int run(int argc, char* argv[]) {
     } else {
       cao.error("wrong file type used!");
     }
-    if (params.file_t != FileType::PGEN)
+    if (params.file_t != FileType::PGEN && params.file_t != FileType::PLINK)
       cao.print(tick.date(), "elapsed time of permuting data:", tick.reltime(), " seconds");
   } else {
     if (params.file_t == FileType::PLINK) {
@@ -209,6 +208,11 @@ static int run(int argc, char* argv[]) {
   if (params.ncv > rank_max) {
     params.ncv = rank_max;
     cao.warn("--ncv reduced to " + std::to_string(params.ncv) + ", the size of the problem");
+  }
+  if (ooc_permutation && params.file_t == FileType::PLINK) {
+    tick.clock();
+    static_cast<FileBed*>(data)->apply_permutation(params);
+    cao.print(tick.date(), "elapsed time of permuting data:", tick.reltime(), " seconds");
   }
   if (ooc_permutation && params.file_t == FileType::PGEN) {
     // The permutation draws each block from a fixed number of shuffled source

@@ -99,7 +99,7 @@ Param::Param(int argc, char** argv) {
   opts.add<Unsigned, Attribute::advanced>("", "M", "the number of features (eg. SNPs) if already known.", 0, &nsnps);
   opts.add<Unsigned, Attribute::advanced>("", "N", "the number of samples if already known.", 0, &nsamples);
   opts.add<Value<double>, Attribute::advanced>("", "scale-factor", "feature counts for each sample are normalized and multiplied by this value", 1.0, &scaleFactor);
-  opts.add<Unsigned, Attribute::advanced>("", "buffer", "memory buffer in GB unit for permuting the data.", buffer, &buffer);
+  opts.add<Unsigned, Attribute::advanced>("", "buffer", "genotype buffer in GiB for permuting data (indices/metadata extra).", buffer, &buffer);
   opts.add<Unsigned, Attribute::advanced>("", "imaxiter", "maximum number of IRAM iterations.", imaxiter, &imaxiter);
   opts.add<Value<double>, Attribute::advanced>("", "itol", "stopping tolerance for IRAM algorithm.", itol, &itol);
   auto ncv_opt = opts.add<Unsigned, Attribute::advanced>("", "ncv", "the number of Lanzcos basis vectors for IRAM.", ncv, &ncv);
@@ -242,7 +242,7 @@ Param::Param(int argc, char** argv) {
     // the window-based RSVD doubles the band size every epoch up to -w (Halko.cpp)
     require(bands >= 4 && (bands & (bands - 1)) == 0, "-w/--batches must be a power of 2 and at least 4");
     require(scaleFactor > 0, "--scale-factor must be > 0");
-    require(buffer >= 1, "--buffer must be at least 1 (GB)");
+    require(buffer >= 1, "--buffer must be at least 1 (GiB)");
     require(imaxiter >= 1, "--imaxiter must be at least 1");
     require(itol > 0, "--itol must be > 0");
     require(rand <= 1, "--rand supports only 0 (uniform) or 1 (gaussian)");
