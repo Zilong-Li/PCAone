@@ -61,7 +61,9 @@ bad "--inbreed" -b x --inbreed 2
 bad "--selection" -b x --selection 3
 bad "--evaladmix-k must be" -b x --evaladmix --evaladmix-k -1
 bad "--evaladmix-k requires" -b x --evaladmix-k 2
-bad "--evaladmix-k cannot" -b x -k 3 --evaladmix --evaladmix-k 4
+bad "please use -P/--USV" -b x --evaladmix
+bad "--evaladmix cannot be combined" -b x -P ref --evaladmix --selection 1
+bad "--evaladmix cannot be combined" -b x -P ref --evaladmix --print-r2
 bad "--ld-r2" -b x --ld-r2 1.5
 bad "--ld-r2" -b x --ld-r2 -0.2
 bad "--ld-bp" -b x --ld-bp 0

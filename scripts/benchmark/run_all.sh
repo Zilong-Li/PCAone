@@ -58,15 +58,23 @@ echo "==> evalPopStructure R reference fetched"
 
 # ------------------------------------------------- 5. PCAone --evaladmix -----
 # K=2 -> K-1 = 1 PC. -d 0 (IRAM) for a deterministic run.
-"$PCAONE" -b "$DATA/smallPlink" -k 1 -d 0 --evaladmix --maf 0.05 \
+"$PCAONE" -b "$DATA/smallPlink" -k 1 -d 0 --maf 0.05 \
+      -n "$THREADS" -o "$WORK/out/pcaone" >/dev/null 2>&1
+"$PCAONE" -b "$DATA/smallPlink" -P "$WORK/out/pcaone" --evaladmix --maf 0.05 \
       -n "$THREADS" -o "$WORK/out/pcaone" >/dev/null 2>&1
 # multi-column .eigvecs projected on its first column: must equal the run above
-"$PCAONE" -b "$DATA/smallPlink" -k 4 -d 0 --evaladmix --evaladmix-k 1 --maf 0.05 \
+"$PCAONE" -b "$DATA/smallPlink" -k 4 -d 0 --maf 0.05 \
+      -n "$THREADS" -o "$WORK/out/pcaone_k4" >/dev/null 2>&1
+"$PCAONE" -b "$DATA/smallPlink" -P "$WORK/out/pcaone_k4" --evaladmix --evaladmix-k 1 --maf 0.05 \
       -n "$THREADS" -o "$WORK/out/pcaone_k4" >/dev/null 2>&1
 # out-of-core (PCAone rejects --maf out-of-core, so this one runs on all sites)
-"$PCAONE" -b "$DATA/smallPlink" -k 1 -d 0 --evaladmix -m 0.002 \
+"$PCAONE" -b "$DATA/smallPlink" -k 1 -d 0 -m 0.002 \
       -n "$THREADS" -o "$WORK/out/pcaone_ooc" >/dev/null 2>&1
-"$PCAONE" -b "$DATA/smallPlink" -k 1 -d 0 --evaladmix \
+"$PCAONE" -b "$DATA/smallPlink" -P "$WORK/out/pcaone_ooc" --evaladmix -m 0.002 \
+      -n "$THREADS" -o "$WORK/out/pcaone_ooc" >/dev/null 2>&1
+"$PCAONE" -b "$DATA/smallPlink" -k 1 -d 0 \
+      -n "$THREADS" -o "$WORK/out/pcaone_ic"  >/dev/null 2>&1
+"$PCAONE" -b "$DATA/smallPlink" -P "$WORK/out/pcaone_ic" --evaladmix \
       -n "$THREADS" -o "$WORK/out/pcaone_ic"  >/dev/null 2>&1
 echo "==> PCAone --evaladmix done"
 
@@ -81,7 +89,8 @@ seed=1
 for design in mcar0.05 mcar0.1 mcar0.2 varying batch; do
   seed=$((seed + 1))
   [ -f "$MISS/$design.bed" ] || Rscript "$HERE/make_missing.R" "$DATA/smallPlink" "$MISS/$design" "$design" "$seed"
-  "$PCAONE" -b "$MISS/$design" -k 1 -d 0 --evaladmix --maf 0.05 -n "$THREADS" -o "$MISS/pcaone_$design" >/dev/null 2>&1
+  "$PCAONE" -b "$MISS/$design" -k 1 -d 0 --maf 0.05 -n "$THREADS" -o "$MISS/pcaone_$design" >/dev/null 2>&1
+  "$PCAONE" -b "$MISS/$design" -P "$MISS/pcaone_$design" --evaladmix --maf 0.05 -n "$THREADS" -o "$MISS/pcaone_$design" >/dev/null 2>&1
   [ -f "$MISS/evaladmix_em_$design.corres" ] ||
     "$EA" -plink "$MISS/$design" -fname "$DATA/smallPlink.2.P" -qname "$DATA/smallPlink.2.Q" \
           -P "$THREADS" -o "$MISS/evaladmix_em_$design.corres" >/dev/null 2>&1

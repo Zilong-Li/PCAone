@@ -1,4 +1,7 @@
 - v0.8.0
+  - =--evaladmix= now follows the two-stage analysis workflow: compute PCA first, then pass
+    =-P/--USV= (or =--read-U=) with scores for the same samples in the same order. It no longer
+    runs PCA. =--evaladmix-k= selects reference columns independently of =-k/--pc=.
   - *results change*: out-of-core BED winSVD shuffles the SNPs at random with =--seed=, in place
     of a fixed interleave. SNPs go to random =-w= bands and keep source order within a band; as
     winSVD updates only between bands, the PCs equal those of a full shuffle. One read and one
@@ -30,7 +33,7 @@
     was checked, not a power of 2), negative =--maf=/=--ld-r2=/=--project=, out-of-range
     =--inbreed=/=--selection=/=--ld-stats=/=--rand=/=-C=, non-positive tolerances and window sizes,
     =--clump-p1= above =--clump-p2= (it silently acted as =--clump-p2=), =--clump-names= without
-    three columns, =--evaladmix-k= above =-k=, =--emu= with =--pcangsd= or BEAGLE input. A negative
+    three columns, =--evaladmix-k= above the reference PC count, =--emu= with =--pcangsd= or BEAGLE input. A negative
     value for an unsigned option (=--maxp -1=) was read as 4294967295 and is now refused. Also
     refused: no input file, more than one input file (the last one silently won), and stray
     arguments (=-b plink 3=).

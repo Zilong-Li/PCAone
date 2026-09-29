@@ -6,7 +6,8 @@ et al. (2023, *Genetics* 225:iyad157), with **PCA rather than an admixture model
 as the front-end.
 
 ```bash
-PCAone -b plink -k <K-1> --evaladmix --maf 0.05 -o out
+PCAone -b plink -k <K-1> --maf 0.05 -o pcs
+PCAone -b plink -P pcs --evaladmix --maf 0.05 -o out
 ```
 
 writes
@@ -16,7 +17,13 @@ writes
 
 both with sample IDs from the `.fam` or `.psam` on the header line.
 `--evaladmix-k` selects how many of the computed PCs enter the projection, so one
-run can produce many PCs for other purposes while the statistic uses `K-1`.
+PCA run can produce many PCs for other purposes while the statistic uses `K-1`.
+The analysis reads `pcs.eigvecs` without rerunning PCA; `--read-U path` can
+supply that file directly. By default it uses all reference columns;
+`--evaladmix-k` selects a leading subset independently of `-k/--pc`.
+The reference must contain the same samples in the same order as the genotype
+input (only the row count can be checked). Apply the desired `--maf` filter
+again in the analysis stage.
 
 ## What it estimates
 

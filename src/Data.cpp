@@ -40,9 +40,9 @@ void Data::prepare() {
     return;
   }
 
-  // some common settings for out-of-core. LD keeps dopca on to estimate F, but
-  // runs no PCA, so its blocks are sized like any other non-PCA run
-  const bool pca_blocks = params.dopca && !params.ld;
+  // LD and evalAdmix keep dopca on to estimate F, but run no PCA.
+  // Size their blocks like any other non-PCA run.
+  const bool pca_blocks = params.dopca && !params.ld && !params.evaladmix;
   const bool exact = pca_blocks && params.svd_t == SvdType::FULL;
   if (exact) {
     // exact PCA (Exact.cpp): the N x N GRM and F, plus the loadings for -V,

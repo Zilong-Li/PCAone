@@ -93,6 +93,18 @@ static int run(int argc, char* argv[]) {
     return bye();
   }
 
+  // evalAdmix is a second-stage analysis of existing PCs from -P/--USV.
+  if (params.evaladmix) {
+    if (params.file_t == FileType::PLINK)
+      data = new FileBed(params);
+    else
+      data = new FilePgen(params);
+    data->prepare();
+    run_evaladmix(data, params);
+    delete data;
+    return bye();
+  }
+
   // particular case for projection
   if (params.project > 0 &&
       (params.file_t == FileType::PLINK || params.file_t == FileType::BEAGLE || params.file_t == FileType::PGEN)) {
@@ -238,45 +250,6 @@ static int run(int argc, char* argv[]) {
   cao.print(tick.date(), "total elapsed reading time: ", data->readtime, " seconds");
 
   delete data;
-
-  // evalAdmix: correlation of residuals given the PCs just computed.
-  // needs a second pass over the raw (uncentered, unstandardized) genotypes.
-  if (params.evaladmix) {
-    if (params.file_t != FileType::PLINK && params.file_t != FileType::PGEN)
-      cao.error("--evaladmix currently supports PLINK bed/pgen input only");
-    // Second pass over the genotypes: centred, never standardized. Param is
-    // not copyable, so mutate in place -- the PCA is finished by now.
-    //
-    // center must stay TRUE. With center=false, read_all() leaves missing
-    // calls as BED_MISSING_VALUE (-9), because the imputation in FileBed /
-    // FilePgen sits inside `if (params.center)`. Those -9s poison G*G' and
-    // drive the heterozygosity accumulator negative, so the statistic comes
-    // out saturated at the +-1 clamp. Centring costs nothing: the statistic is
-    // invariant to it (see run_evaladmix), and missing calls are then imputed
-    // to the site mean, the convention used everywhere else in PCAone.
-    //
-    // dopca stays on so the same --maf filter selects the sites the PCA used,
-    // and read_all() / read_block_initial(.., false) never standardize.
-    params.center = true;
-    // perm must be off. For PGEN the permutation is *logical*: FilePgen maps
-    // every read through perm.indices(), and Main only initializes that on the
-    // first Data object (above, once its blocksize is known). d2 would index an
-    // empty permutation and segfault. For PLINK the permutation is already
-    // baked into the temp .bed on disk, so clearing the flag simply reads that
-    // file in stored order. Either way the site order does not matter here: A,
-    // b and d are all sums over sites.
-    params.perm = false;
-    // and the EM-PCA inputs are not needed: read_all() would otherwise hold a
-    // missingness mask (--emu, N x M bytes) or genotype probabilities
-    // (--pcangsd, 2N x M doubles, twice G) that the statistic never reads
-    params.emu = false;
-    params.pcangsd = false;
-    params.missme = false;
-    Data* d2 = (params.file_t == FileType::PLINK) ? (Data*)new FileBed(params) : (Data*)new FilePgen(params);
-    d2->prepare();
-    run_evaladmix(d2, params);
-    delete d2;
-  }
 
   if (params.file_t == FileType::PLINK)
     make_plink2_eigenvec_file(params.k, params.fileout + ".eigvecs2", params.fileout + ".eigvecs",

@@ -146,8 +146,8 @@ Param::Param(int argc, char** argv) {
   opts.add<Value<int>>("", "inbreed", "compute the inbreeding coefficient accounting for population structure. Options are\n"
                                       "0: disabled;\n"
                                       "1: compute per-site inbreeding coefficient and HWE test.\n", inbreed, &inbreed);
-  opts.add<Switch>("", "evaladmix", "compute the correlation of residuals (evalAdmix) given the top PCs.", &evaladmix);
-  opts.add<Value<int>>("", "evaladmix-k", "number of PCs used by --evaladmix. default is all computed PCs (use K-1 for an admixture model with K populations).", evaladmix_k, &evaladmix_k);
+  opts.add<Switch>("", "evaladmix", "compute the correlation of residuals (evalAdmix) given existing PCs from -P/--USV (same samples in the same order).", &evaladmix);
+  opts.add<Value<int>>("", "evaladmix-k", "number of PCs used by --evaladmix. default is all PCs in the reference (use K-1 for an admixture model with K populations).", evaladmix_k, &evaladmix_k);
   opts.add<Value<int>>("", "selection", "compute selection statistics. Options are\n"
                                       "0: disabled;\n"
                                       "1: perform selection scan using Galinsky et al method;\n"
@@ -255,9 +255,8 @@ Param::Param(int argc, char** argv) {
     require(!project_bootstrap_save || project_bootstrap > 0, "--project-bootstrap-save requires --project-bootstrap");
     require(inbreed == 0 || inbreed == 1, "--inbreed supports only 0 or 1");
     require(selection >= 0 && selection <= 2, "--selection supports only 0, 1 or 2");
-    require(evaladmix_k >= 0, "--evaladmix-k must be >= 0 (0 uses all computed PCs)");
+    require(evaladmix_k >= 0, "--evaladmix-k must be >= 0 (0 uses all reference PCs)");
     require(evaladmix_k == 0 || evaladmix, "--evaladmix-k requires --evaladmix");
-    require(evaladmix_k <= (int)k, "--evaladmix-k cannot be larger than -k/--pc");
     require(ld_r2 >= 0 && ld_r2 <= 1, "--ld-r2 has to be in [0, 1]; 0 disables the pruning");
     require(ld_bp >= 1, "--ld-bp must be at least 1");
     require(ld_stats == 0 || ld_stats == 1, "--ld-stats supports only 0 or 1");
@@ -310,9 +309,9 @@ Param::Param(int argc, char** argv) {
     require(inbreed == 0 || plink_or_pgen || file_t == FileType::BEAGLE,
             "--inbreed supports only --bfile, --pgen and --beagle input");
     require(!evaladmix || plink_or_pgen, "--evaladmix supports only --bfile and --pgen input");
-    // these return before any PCA, and --evaladmix runs after one: it was ignored
+    // Each analysis has its own early-return path in Main.cpp.
     require(!evaladmix || (project == 0 && selection == 0 && inbreed == 0 && !ld),
-            "--evaladmix runs after a PCA of the same input; it cannot be combined with --project, --selection, "
+            "--evaladmix cannot be combined with --project, --selection, "
             "--inbreed, --print-r2, --ld-r2 or --clump");
     require(!(evaladmix && haploid),
             "--evaladmix takes each sample's variance from its heterozygosity, so it needs diploid genotypes");
@@ -321,6 +320,16 @@ Param::Param(int argc, char** argv) {
     require(!emu || file_t != FileType::CSV, "--emu supports only --bfile, --pgen and --bgen input");
     require(!(emu && file_t == FileType::BGEN && memory > 0),
             "--emu with --bgen is not supported with -m (out-of-core) yet. please run it in-core");
+
+    // evalAdmix uses existing scores, and estimates frequencies from this input.
+    // Keep centring on for mean imputation of missing calls; neither reader
+    // standardizes here. No EM masks/probabilities or PCA permutation are needed.
+    if (evaladmix) {
+      require(!fileU.empty(), "please use -P/--USV or --read-U together with --evaladmix");
+      dopca = true;
+      center = true;
+      emu = pcangsd = missme = false;
+    }
 
     // handle projection
     if (project > 0) {
@@ -356,7 +365,7 @@ Param::Param(int argc, char** argv) {
       require(ncv > k, "--ncv must be greater than -k/--pc");
     oversamples = oversamples > k ? oversamples : k;
     if (haploid && genetic) ploidy = 1;
-    if (memory > 0 && svd_t != SvdType::FULL) out_of_core = true;
+    if (memory > 0 && (svd_t != SvdType::FULL || evaladmix)) out_of_core = true;
 
     // PCAngsd filters MAF < 0.05 by default. Its covariance divides by 2f(1-f)
     // per site, so rare sites from genotype likelihoods dominate it, and a site
@@ -388,12 +397,12 @@ Param::Param(int argc, char** argv) {
       throw std::invalid_argument("not supporting -m option (out-of-core) for PCAngsd and BEAGLE input yet!");
 
     // Shuffling is for the winSVD of a PCA run only. LD walks the sites in
-    // .bim/.pvar order, and --inbreed, --project and --selection decompose
+    // .bim/.pvar order; evalAdmix, inbreeding, projection and selection decompose
     // nothing: they read a reference PCA and pass over the genotypes in file
     // order. For PGEN the permutation is logical and is only built for a PCA
     // run (Main.cpp), so leaving the flag on made those reads index an empty
     // permutation -- out-of-core --inbreed on PGEN segfaulted.
-    if (svd_t == SvdType::PCAoneAlg2 && !noshuffle && !ld && inbreed == 0 && project == 0 && selection == 0)
+    if (svd_t == SvdType::PCAoneAlg2 && !noshuffle && !ld && !evaladmix && inbreed == 0 && project == 0 && selection == 0)
       perm = true;
 
   } catch (const popl::invalid_option& e) {

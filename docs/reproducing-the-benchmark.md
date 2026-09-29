@@ -82,17 +82,21 @@ at half sibs and cousins.
 **PCAone** — the implementation under test, plus three consistency runs:
 
 ```bash
-PCAone -b smallPlink -k 1 -d 0 --evaladmix --maf 0.05 -o pcaone
-PCAone -b smallPlink -k 4 -d 0 --evaladmix --evaladmix-k 1 --maf 0.05 -o pcaone_k4
-PCAone -b smallPlink -k 1 -d 0 --evaladmix -m 0.002 -o pcaone_ooc   # out-of-core
-PCAone -b smallPlink -k 1 -d 0 --evaladmix          -o pcaone_ic    # in-core
+PCAone -b smallPlink -k 1 -d 0 --maf 0.05 -o pcaone
+PCAone -b smallPlink -P pcaone --evaladmix --maf 0.05 -o pcaone
+PCAone -b smallPlink -k 4 -d 0 --maf 0.05 -o pcaone_k4
+PCAone -b smallPlink -P pcaone_k4 --evaladmix --evaladmix-k 1 --maf 0.05 -o pcaone_k4
+PCAone -b smallPlink -k 1 -d 0 -m 0.002 -o pcaone_ooc   # out-of-core
+PCAone -b smallPlink -P pcaone_ooc --evaladmix -m 0.002 -o pcaone_ooc   # out-of-core
+PCAone -b smallPlink -k 1 -d 0          -o pcaone_ic    # in-core
+PCAone -b smallPlink -P pcaone_ic --evaladmix          -o pcaone_ic    # in-core
 ```
 
 `-d 0` selects IRAM for a deterministic run. `--maf` is omitted from the
 out-of-core run because PCAone rejects that combination.
 
 **Missing genotypes** — `make_missing.R` writes five copies of the data with calls
-set to missing, and PCAone (`-k 1 -d 0 --evaladmix --maf 0.05`) and evalAdmix EM
+set to missing, and PCAone (PCA followed by `-P pcs --evaladmix --maf 0.05`) and evalAdmix EM
 (same `.P`/`.Q`) run on each:
 
 | design | what is missing |

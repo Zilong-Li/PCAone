@@ -48,3 +48,4 @@ Rplots.pdf
 
 !tests/test_bed_shuffle.cpp
 !tests/test_bed_permutation.py
+!tests/test_evaladmix.py

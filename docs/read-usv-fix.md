@@ -125,8 +125,10 @@ regenerate those results.
 so it exercises the reader directly:
 
 ```bash
-PCAone -b plink -k 1 -d 0 --evaladmix --maf 0.05 -o one
-PCAone -b plink -k 4 -d 0 --evaladmix --evaladmix-k 1 --maf 0.05 -o four
+PCAone -b plink -k 1 -d 0 --maf 0.05 -o one
+PCAone -b plink -P one --evaladmix --maf 0.05 -o one
+PCAone -b plink -k 4 -d 0 --maf 0.05 -o four
+PCAone -b plink -P four --evaladmix --evaladmix-k 1 --maf 0.05 -o four
 # one.kinship and four.kinship must be identical
 ```
 
