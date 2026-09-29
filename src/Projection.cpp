@@ -258,7 +258,11 @@ void run_projection(Data* data, const Param& params) {
   const bool standardize = data->resolve_ref_scaling(usv, params.fileS, params.project == 3);
   if (params.project != 3 && standardize) data->standardize_E_ref(usv);
   // target number of PCs for getting individual allele frequency
-  const int K = fmin(S.size(), params.k);
+  const int K = ref_pcs(params, S.size(), params.fileS);  // -k: the leading PCs, else all
+  cao.print(tick.date(), "projection: using", K, "of the", S.size(), "PCs in the reference");
+  // V has K columns: with -k below the reference's PC count, V * S.asDiagonal()
+  // did not conform and corrupted the heap
+  S = S.head(K).eval();
   Mat2D V = read_eigvecs(params.fileV, nsnps, K);
   if (!match.identical) {
     Mat2D V_overlap(match.mbim_indices.size(), K);

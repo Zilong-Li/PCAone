@@ -32,7 +32,8 @@ void run_selection(Data* data, const Param& params) {
   data->prepare();
   cao.print(tick.date(), "parsing U:", params.fileU, ", E:", params.fileE);
   Mat1D E = read_eigvals(params.fileE);
-  int K = fmin(E.size(), params.k);
+  const int K = ref_pcs(params, E.size(), params.fileE);  // -k: the leading PCs, else all
+  cao.print(tick.date(), "selection: using", K, "of the", E.size(), "PCs in the reference");
   Mat2D U = read_eigvecs(params.fileU, data->nsamples, K);
   Mat2D V(data->nsnps, K);
   Mat1D y_norm2(data->nsnps);
@@ -84,8 +85,10 @@ void run_selection(Data* data, const Param& params) {
     cao.warn(std::to_string(data->nsnps_all - data->nsnps) +
              " sites removed by --maf are written as NA rows, so every output keeps one row per site of the input");
   if (params.selection == 1) {
-    E = E.head(K) * V.rows();                             // downscale
-    V.array().rowwise() /= E.transpose().array().sqrt();  // divide by singular values
+    // a new vector: E = E.head(K) * m resized E before reading it, so with -k
+    // below the reference's PC count every statistic came from freed memory
+    const Mat1D s2 = E.head(K) * (double)V.rows();         // squared singular values
+    V.array().rowwise() /= s2.transpose().array().sqrt();  // divide by singular values
     cao.print(tick.date(), "calculate galinksky statistics");
     std::ofstream out(params.fileout + ".galinsky");
     galinsky_selection_stat(V);

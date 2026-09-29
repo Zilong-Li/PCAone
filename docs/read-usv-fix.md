@@ -23,7 +23,7 @@ reading the transpose of a `k x j` matrix.
 It is correct only when `k == 1`, where the two layouts coincide. That is why
 the bug has gone unnoticed: the common case is a single-column file.
 
-A concrete consequence in this branch: `--evaladmix-k 1` reads a 4-column
+A concrete consequence in this branch: `--evaladmix -k 1` reads a 4-column
 `.eigvecs` and takes its first column as PC1. Before the fix, the resulting
 kinship matrix correlated with the correct answer at only **r = 0.64**, instead
 of agreeing exactly. PC1 itself was identical between the two runs
@@ -62,7 +62,7 @@ the row length in that case. And the total element count is checked against
   the practically important case, since ancestry-adjusted LD with a single PC is
   unusual.
 
-- `src/EvalAdmix.cpp` (this branch), via `--evaladmix-k`.
+- `src/EvalAdmix.cpp` (this branch), via `-k`.
 
 ## Measured effect on ancestry-adjusted LD
 
@@ -121,14 +121,14 @@ regenerate those results.
 
 ## Regression test
 
-`--evaladmix-k` reads a multi-column `.eigvecs` and projects on a subset of it,
+`--evaladmix -k` reads a multi-column `.eigvecs` and projects on a subset of it,
 so it exercises the reader directly:
 
 ```bash
 PCAone -b plink -k 1 -d 0 --maf 0.05 -o one
 PCAone -b plink -P one --evaladmix --maf 0.05 -o one
 PCAone -b plink -k 4 -d 0 --maf 0.05 -o four
-PCAone -b plink -P four --evaladmix --evaladmix-k 1 --maf 0.05 -o four
+PCAone -b plink -P four --evaladmix -k 1 --maf 0.05 -o four
 # one.kinship and four.kinship must be identical
 ```
 

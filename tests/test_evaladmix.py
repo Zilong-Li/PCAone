@@ -55,7 +55,7 @@ with tempfile.TemporaryDirectory(prefix='pcaone-evaladmix-') as tmp:
     reference = ref.with_suffix('.eigvecs').read_bytes()
     common = ['-b', source, '--evaladmix', '-n', 1]
     out = t / 'analysis'
-    run(*common, '-P', ref, '-k', 1, '--evaladmix-k', 3, '-o', out)
+    run(*common, '-P', ref, '-o', out)  # all 3 PCs without -k
     assert sorted(p.suffix for p in t.glob('analysis.*')) == ['.corres', '.kinship', '.log']
     assert reference == ref.with_suffix('.eigvecs').read_bytes()
     scores_only = t / 'scores_only'
@@ -71,11 +71,11 @@ with tempfile.TemporaryDirectory(prefix='pcaone-evaladmix-') as tmp:
     # A leading subset must equal a reference containing only those columns.
     subset = t / 'subset.eigvecs'
     subset.write_text('\n'.join(line.split()[0] for line in reference.decode().splitlines()) + '\n')
-    run(*common, '-P', ref, '--evaladmix-k', 1, '-o', t / 'subset_a')
+    run(*common, '-P', ref, '-k', 1, '-o', t / 'subset_a')
     run(*common, '--read-U', subset, '-o', t / 'subset_b')
     agree(t / 'subset_a', t / 'subset_b')
     run(*common, '-o', out, error='please use -P/--USV')
-    run(*common, '-P', ref, '--evaladmix-k', 4, '-o', out, error='only 3 PCs')
+    run(*common, '-P', ref, '-k', 4, '-o', out, error='larger than the 3 PCs')
     subset.write_text('\n'.join(subset.read_text().splitlines()[:-1]) + '\n')
     run(*common, '--read-U', subset, '-o', out, error='31 rows')
     run(*common, '-P', t / 'absent', '-o', out, error='cannot read PC scores')

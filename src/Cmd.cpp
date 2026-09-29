@@ -82,8 +82,8 @@ Param::Param(int argc, char** argv) {
                                                 "2: the accurate window-based Randomized SVD method (PCAone);\n"
                                                 "3: exact PCA by eigendecomposition of the sample GRM, streamed block by block when N <= M,\n"
                                                 "   in N x N memory (no EM-PCA support).", 2);
-  auto k_opt = opts.add<Unsigned>("k", "pc", "top k principal components (PCs) to be calculated. for the ancestry adjusted\n"
-                                             "LD, the number of leading PCs in -P/--USV to remove (default all)", k, &k);
+  auto k_opt = opts.add<Unsigned>("k", "pc", "top k principal components (PCs) to be calculated. with -P/--USV, the number\n"
+                                             "of leading PCs of the reference to use (default all)", k, &k);
   opts.add<Value<int>>("C", "scale", "do normalization or scaling for input file. Options are\n"
                                      "-9: standardize genetic data by sqrt(ploidy*f*(1-f));\n"
                                      " 0: do nothing and proceed to SVD;\n"
@@ -148,7 +148,6 @@ Param::Param(int argc, char** argv) {
                                       "0: disabled;\n"
                                       "1: compute per-site inbreeding coefficient and HWE test.\n", inbreed, &inbreed);
   opts.add<Switch>("", "evaladmix", "compute the correlation of residuals (evalAdmix) given existing PCs from -P/--USV (same samples in the same order).", &evaladmix);
-  opts.add<Value<int>>("", "evaladmix-k", "number of PCs used by --evaladmix. default is all PCs in the reference (use K-1 for an admixture model with K populations).", evaladmix_k, &evaladmix_k);
   opts.add<Value<int>>("", "selection", "compute selection statistics. Options are\n"
                                       "0: disabled;\n"
                                       "1: perform selection scan using Galinsky et al method;\n"
@@ -237,6 +236,10 @@ Param::Param(int argc, char** argv) {
     require(verbose <= 3, "-v/--verbose supports only 0, 1, 2 or 3");
     require(memory >= 0, "-m/--memory must be >= 0 (0 for in-core mode)");
     require(k >= 1, "-k/--pc must be at least 1");
+    // the two-stage analyses (-P/--USV: LD, --evaladmix, --project, --selection,
+    // --inbreed) use the leading -k PCs of the reference, or all of them without
+    // -k: its default of 10 is not a choice made for that reference (ref_pcs())
+    if (k_opt->is_set()) ref_k = k;
     require(scale == SCALE_STANDARDIZE_GENETIC || (scale >= 0 && scale <= 4),
             "-C/--scale supports only -9, 0, 1, 2, 3 or 4");
     require(maxp >= 1, "--maxp must be at least 1");
@@ -256,8 +259,6 @@ Param::Param(int argc, char** argv) {
     require(!project_bootstrap_save || project_bootstrap > 0, "--project-bootstrap-save requires --project-bootstrap");
     require(inbreed == 0 || inbreed == 1, "--inbreed supports only 0 or 1");
     require(selection >= 0 && selection <= 2, "--selection supports only 0, 1 or 2");
-    require(evaladmix_k >= 0, "--evaladmix-k must be >= 0 (0 uses all reference PCs)");
-    require(evaladmix_k == 0 || evaladmix, "--evaladmix-k requires --evaladmix");
     require(ld_r2 >= 0 && ld_r2 <= 1, "--ld-r2 has to be in [0, 1]; 0 disables the pruning");
     require(ld_bp >= 1, "--ld-bp must be at least 1");
     require(ld_stats == 0 || ld_stats == 1, "--ld-stats supports only 0 or 1");
@@ -292,9 +293,6 @@ Param::Param(int argc, char** argv) {
         throw std::invalid_argument(
             "the ancestry adjusted LD (--ld-stats 0, the default) removes the PCs of a previous run of the same "
             "samples. please give its prefix with -P/--USV, or use --ld-stats 1 for the standard LD");
-      // -k picks the leading PCs of -P to remove; without it every PC in the file
-      // is removed, as its default of 10 is not a choice made for this reference
-      if (k_opt->is_set()) ld_k = k;
       memory /= 2.0;  // two blocks of genotypes are held at a time (LDColumns)
     }
 

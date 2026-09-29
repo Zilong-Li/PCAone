@@ -85,7 +85,7 @@ at half sibs and cousins.
 PCAone -b smallPlink -k 1 -d 0 --maf 0.05 -o pcaone
 PCAone -b smallPlink -P pcaone --evaladmix --maf 0.05 -o pcaone
 PCAone -b smallPlink -k 4 -d 0 --maf 0.05 -o pcaone_k4
-PCAone -b smallPlink -P pcaone_k4 --evaladmix --evaladmix-k 1 --maf 0.05 -o pcaone_k4
+PCAone -b smallPlink -P pcaone_k4 --evaladmix -k 1 --maf 0.05 -o pcaone_k4
 PCAone -b smallPlink -k 1 -d 0 -m 0.002 -o pcaone_ooc   # out-of-core
 PCAone -b smallPlink -P pcaone_ooc --evaladmix -m 0.002 -o pcaone_ooc   # out-of-core
 PCAone -b smallPlink -k 1 -d 0          -o pcaone_ic    # in-core
@@ -147,7 +147,7 @@ all pass:
 
 | check | expected |
 |---|---|
-| `--evaladmix-k 1` (4-column eigvecs) vs a `-k 1` run | max diff 0 |
+| `-k 1` on a 4-column eigvecs vs a `-k 1` PCA | max diff 0 |
 | in-core vs out-of-core | max diff 0 |
 | PCAone vs the `evalPCA()` R reference | r = 0.999955 |
 

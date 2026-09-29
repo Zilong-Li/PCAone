@@ -1,7 +1,7 @@
 - v0.8.0
   - =--evaladmix= now follows the two-stage analysis workflow: compute PCA first, then pass
     =-P/--USV= (or =--read-U=) with scores for the same samples in the same order. It no longer
-    runs PCA. =--evaladmix-k= selects reference columns independently of =-k/--pc=.
+    runs PCA. =-k/--pc= selects the leading reference columns, as in the other two-stage analyses.
   - *results change*: out-of-core BED winSVD shuffles the SNPs at random with =--seed=, in place
     of a fixed interleave. SNPs go to random =-w= bands and keep source order within a band; as
     winSVD updates only between bands, the PCs equal those of a full shuffle. One read and one
@@ -33,7 +33,7 @@
     was checked, not a power of 2), negative =--maf=/=--ld-r2=/=--project=, out-of-range
     =--inbreed=/=--selection=/=--ld-stats=/=--rand=/=-C=, non-positive tolerances and window sizes,
     =--clump-p1= above =--clump-p2= (it silently acted as =--clump-p2=), =--clump-names= without
-    three columns, =--evaladmix-k= above the reference PC count, =--emu= with =--pcangsd= or BEAGLE input. A negative
+    three columns, =-k= above the reference PC count in a two-stage analysis, =--emu= with =--pcangsd= or BEAGLE input. A negative
     value for an unsigned option (=--maxp -1=) was read as 4294967295 and is now refused. Also
     refused: no input file, more than one input file (the last one silently won), and stray
     arguments (=-b plink 3=).
@@ -141,9 +141,17 @@
     no =.mbim= is needed. =--ld-stats 0= (default) requires =-P=; =--ld-stats 1= is the standard LD
     and takes no PCs. BGEN, BEAGLE and CSV input no longer support LD. Old command lines stop with a
     message showing the new ones.
-  - =-k/--pc= with =-P= and =-R=, =--ld-r2= or =--clump= removes only the leading =-k= PCs of the
-    reference, so a PCA run with =-k 10= can be pruned on 3 PCs (=-P ref -k 3=). Without =-k=, every PC
-    in =.eigvecs= is removed, as before; a =-k= above the number of PCs in the file is refused.
+  - *results change*: =-k/--pc= in the two-stage analyses, which read a reference PCA with
+    =-P/--USV=: LD (=-R=, =--ld-r2=, =--clump=), =--evaladmix=, =--project=, =--selection= and
+    =--inbreed=. Each uses the leading =-k= PCs of the reference, so one PCA run with =-k 10= serves
+    any smaller number (=-P ref -k 3=), and every PC in the reference without =-k=. A =-k= above the
+    number of PCs in the reference is refused. Before, LD and =--evaladmix= ignored =-k=, while
+    =--project=, =--selection= and =--inbreed= used min(=-k=, reference PCs), so without =-k= they
+    used at most 10 PCs of a larger reference and silently clamped a =-k= above its count.
+  - fix: =--selection 1= with =-k= below the reference's PC count read its singular values from
+    freed memory, so every Galinsky statistic was garbage (NA or 1e307), and =--project= with such a
+    =-k= multiplied the loadings by all singular values instead of the first =-k=, which corrupted
+    the heap (=double free or corruption=).
   - *results change*: the ancestry adjusted LD, when the PCs come from a default PCA. =-D/--ld= ran
     its PCA without standardizing the sites; a default PCA standardizes them, which gives different
     PCs. =--scale 0= in the PCA reproduces the old PCs exactly, and then R2 agrees with the old
@@ -195,7 +203,7 @@
     when they are absent, and refuses the combinations it cannot invert.
   - new: =--evaladmix= computes the correlation of residuals (evalAdmix) from the top PCs, writing
     =.corres= and =.kinship=, with sample IDs on the header line (from the =.fam= or =.psam=).
-    =--evaladmix-k= selects how many PCs enter the projection; use =K-1= for a =K=-population
+    =-k/--pc= selects how many PCs enter the projection; use =K-1= for a =K=-population
     admixture model. PLINK and PGEN input, in-core and out-of-core. It makes one pass over the
     genotypes, holds one dense N x N matrix and writes two N x N files, so it prints the RAM and
     output size it will need before reading them. Missing genotypes are imputed to the site mean, and

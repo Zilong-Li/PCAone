@@ -65,7 +65,7 @@ echo "==> evalPopStructure R reference fetched"
 # multi-column .eigvecs projected on its first column: must equal the run above
 "$PCAONE" -b "$DATA/smallPlink" -k 4 -d 0 --maf 0.05 \
       -n "$THREADS" -o "$WORK/out/pcaone_k4" >/dev/null 2>&1
-"$PCAONE" -b "$DATA/smallPlink" -P "$WORK/out/pcaone_k4" --evaladmix --evaladmix-k 1 --maf 0.05 \
+"$PCAONE" -b "$DATA/smallPlink" -P "$WORK/out/pcaone_k4" --evaladmix -k 1 --maf 0.05 \
       -n "$THREADS" -o "$WORK/out/pcaone_k4" >/dev/null 2>&1
 # out-of-core (PCAone rejects --maf out-of-core, so this one runs on all sites)
 "$PCAONE" -b "$DATA/smallPlink" -k 1 -d 0 -m 0.002 \

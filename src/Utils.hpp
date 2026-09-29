@@ -203,6 +203,9 @@ void write_eigvecs2_beagle(const Mat2D& U, const std::string& fin, const std::st
 // .cov and .eigvecs2 of the PCAngsd path: the covariance of the standardized
 // expected genotypes E with its corrected diagonal Dc, and its top -k eigenvectors
 class Param;
+// the number of leading reference PCs a two-stage analysis (-P/--USV) uses: -k
+// when it was given, else all `navail` PCs in `path`. refuses a -k above navail.
+int ref_pcs(const Param& params, int navail, const std::string& path);
 void write_pcangsd_cov(const Mat2D& E, const Mat1D& Dc, uint nsnps, const Param& params);
 
 /// return the p-value of 1-degreed chi-squared

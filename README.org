@@ -244,8 +244,8 @@ PCA algorithms:
                                  2: the accurate window-based Randomized SVD method (PCAone);
                                  3: exact PCA by eigendecomposition of the sample GRM, streamed block by block when N <= M,
                                     in N x N memory (no EM-PCA support).
-  -k, --pc arg (=10)             top k principal components (PCs) to be calculated. for the ancestry adjusted
-                                 LD, the number of leading PCs in -P/--USV to remove (default all)
+  -k, --pc arg (=10)             top k principal components (PCs) to be calculated. with -P/--USV, the number
+                                 of leading PCs of the reference to use (default all)
   -C, --scale arg (=-9)          do normalization or scaling for input file. Options are
                                  -9: standardize genetic data by sqrt(ploidy*f*(1-f));
                                   0: do nothing and proceed to SVD;
@@ -449,6 +449,11 @@ PCAone -b example/new \
        --project 2 \
        -o new
 #+end_src
+
+The projection uses every PC in the reference; add =-k= to use only the leading
+ones (e.g. =-k 3=). This holds for every analysis that reads a reference with
+=-P/--USV=: =--project=, =--selection=, =--inbreed=, =--evaladmix= and the LD
+analyses below, so one reference run with a generous =-k= serves them all.
 
 To visualize uncertainty in projected coordinates, use =--project-bootstrap= to
 resample matched SNPs with replacement after the baseline =--project 2=

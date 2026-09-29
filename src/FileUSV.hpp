@@ -13,8 +13,8 @@ class FileUSV : public Data {
       : Data(params_) {
     cao.print(tick.date(), "start parsing U:", params.fileU, ", S:", params.fileS, ", V:", params.fileV);
     read_sigvals(params.fileS, nsamples, nsnps, S, &usv);  // could not structual bindings
-    if (S.size() != params.k) cao.warn("the value of -k not equal the number of rows in " + params.fileS);
-    K = fmin(S.size(), params.k);
+    K = ref_pcs(params, S.size(), params.fileS);  // -k: the leading PCs, else all
+    cao.print(tick.date(), "using", K, "of the", S.size(), "PCs in the reference");
     cao.print(tick.date(), "start parsing mbim and read allele frequency of SNPs from", params.filebim);
     F = read_frq(params.filebim);
     if (F.size() != nsnps) cao.error("the number of sites in mbim not matching the header line of .sigvals");

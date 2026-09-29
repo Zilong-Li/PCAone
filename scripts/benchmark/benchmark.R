@@ -140,7 +140,7 @@ if (!is.null(pcrelate_npc)) {
 
 cat("\n=== implementation cross-checks (all should be 0) ===\n")
 chk <- function(a, b) max(abs(a - b))
-cat(sprintf("  --evaladmix-k 1 (4-col eigvecs) vs -k 1 : %.2e\n",
+cat(sprintf("  -k 1 on 4-col eigvecs vs a -k 1 PCA    : %.2e\n",
     chk(pc1, as.matrix(read.table(file.path(OUT, "pcaone_k4.kinship"), header = TRUE, check.names = FALSE)))))
 cat(sprintf("  in-core vs out-of-core                  : %.2e\n",
     chk(as.matrix(read.table(file.path(OUT, "pcaone_ic.kinship"),  header = TRUE, check.names = FALSE)),

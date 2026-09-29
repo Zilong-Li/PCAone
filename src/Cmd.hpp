@@ -28,6 +28,7 @@ class Param {
   uint nsamples = 0;
   uint nsnps = 0;
   uint k = 10;
+  uint ref_k = 0;  // leading PCs of the -P/--USV reference used by a two-stage analysis (-k); 0: all
   uint maxp = 20;  // maximum number of power iterations
   uint threads = 12;
   uint bands = 64;
@@ -60,7 +61,6 @@ class Param {
   double ld_r2 = 0;
   bool ld = false;       // true for the LD analyses: -R, --ld-r2 and --clump
   uint ld_bp = 1000000;  // base pairs not number of snps
-  uint ld_k = 0;         // leading PCs of -P removed by the adjusted LD (-k); 0: all
   // for clumping
   std::string clump;
   std::string assoc_colnames;
@@ -95,7 +95,6 @@ class Param {
   bool filterSNP = false;  // filter snps
   bool center = true;      // false if G is raw data likelihood or inbred mode
   bool evaladmix = false;  // compute correlation of residuals (evalAdmix)
-  int evaladmix_k = 0;     // PCs used by --evaladmix; 0 means all available
   // bool estpi = false; // true if output pi is needed
 
   std::ostringstream ss;

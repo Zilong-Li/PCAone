@@ -185,11 +185,8 @@ Mat2D read_ld_pcs(const Param& params, uint nsamples) {
     cao.error(params.fileU, "has", U.rows(), "rows but the genotypes have", nsamples,
               "samples. the PCs must come from the same samples, in the same order");
   const Eigen::Index ntotal = U.cols();
-  if (params.ld_k > 0) {  // -k: only the leading PCs
-    if ((Eigen::Index)params.ld_k > ntotal)
-      cao.error("-k/--pc", params.ld_k, "is larger than the", ntotal, "PCs in", params.fileU);
-    if ((Eigen::Index)params.ld_k < ntotal) U = U.leftCols(params.ld_k).eval();
-  }
+  const Eigen::Index K = ref_pcs(params, ntotal, params.fileU);  // -k: only the leading PCs
+  if (K < ntotal) U = U.leftCols(K).eval();
   // .eigvecs is text with 6 significant digits, so its columns are orthonormal
   // only to ~1e-6. Q spans the same PCs and is orthonormal to machine
   // precision, which makes I - QQ' an exact projector.

@@ -59,8 +59,6 @@ bad "--project-bootstrap needs" -b x -P p --project 2 --project-bootstrap 1
 bad "--project-bootstrap-save requires" -b x -P p --project 2 --project-bootstrap-save
 bad "--inbreed" -b x --inbreed 2
 bad "--selection" -b x --selection 3
-bad "--evaladmix-k must be" -b x --evaladmix --evaladmix-k -1
-bad "--evaladmix-k requires" -b x --evaladmix-k 2
 bad "please use -P/--USV" -b x --evaladmix
 bad "--evaladmix cannot be combined" -b x -P ref --evaladmix --selection 1
 bad "--evaladmix cannot be combined" -b x -P ref --evaladmix --print-r2

@@ -34,9 +34,9 @@
  * i.e. x = g/2. Both bhat and chat are correlation matrices, so the constant
  * factor between the x and g scales cancels and no rescaling is needed.
  *
- * The PC scores are read with Utils::read_usv(). --evaladmix-k is a regression
- * test for its old row-major/column-major bug, which transposed any file with
- * more than one column.
+ * The PC scores are read with Utils::read_usv(). -k below the reference's PC
+ * count is a regression test for its old row-major/column-major bug, which
+ * transposed any file with more than one column.
  ******************************************************************************/
 #include "EvalAdmix.hpp"
 
@@ -224,9 +224,7 @@ void run_evaladmix(Data* data, const Param& params) {
   cao.print(tick.date(), "evalAdmix: read", U.rows(), "x", U.cols(), "PC scores from", fpcs);
   if (U.rows() != N)
     cao.error("evalAdmix:", fpcs, "has", U.rows(), "rows but the genotype file has", N, "samples");
-  Eigen::Index k = params.evaladmix_k > 0 ? params.evaladmix_k : U.cols();
-  if (k > U.cols())
-    cao.error("--evaladmix-k is", k, "but only", U.cols(), "PCs are available in the reference; lower --evaladmix-k");
+  const Eigen::Index k = ref_pcs(params, U.cols(), fpcs);  // -k: the leading PCs, else all
   cao.print(tick.date(), "evalAdmix: using", k, "PC(s) + intercept =", k + 1, "dimensions");
 
   // ---- 2. projection onto [PCs, intercept] -------------------------------

@@ -801,6 +801,14 @@ void write_eigvecs2_beagle(const Mat2D& U, const std::string& fin, const std::st
   feig2.precision(old);
 }
 
+int ref_pcs(const Param& params, int navail, const std::string& path) {
+  if (navail <= 0) cao.error(path, "has no PCs");
+  if (params.ref_k == 0) return navail;
+  if ((int)params.ref_k > navail)
+    cao.error("-k/--pc", params.ref_k, "is larger than the", navail, "PCs in", path);
+  return params.ref_k;
+}
+
 void write_pcangsd_cov(const Mat2D& E, const Mat1D& Dc, uint nsnps, const Param& params) {
   Mat2D C = E * E.transpose();
   C.array() /= (double)nsnps;

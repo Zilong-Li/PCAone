@@ -16,11 +16,11 @@ writes
 - `out.kinship` — the same divided by 2, which is the kinship scale,
 
 both with sample IDs from the `.fam` or `.psam` on the header line.
-`--evaladmix-k` selects how many of the computed PCs enter the projection, so one
+`-k/--pc` selects how many of the computed PCs enter the projection, so one
 PCA run can produce many PCs for other purposes while the statistic uses `K-1`.
 The analysis reads `pcs.eigvecs` without rerunning PCA; `--read-U path` can
-supply that file directly. By default it uses all reference columns;
-`--evaladmix-k` selects a leading subset independently of `-k/--pc`.
+supply that file directly. By default it uses all reference columns; `-k`
+selects a leading subset, as in the other two-stage analyses (`-P/--USV`).
 The reference must contain the same samples in the same order as the genotype
 input (only the row count can be checked). Apply the desired `--maf` filter
 again in the analysis stage.
@@ -281,7 +281,7 @@ inflate to 0.66 while parent–offspring stays at 0.251 and first cousins at 0.0
 r = 0.999955 over all 7875 pairs, identical RMSE on related non-duplicate pairs.
 The only entries differing by more than 1.6e-04 are the ten duplicate pairs,
 where this implementation applies the `[-1,1]` clip and the R reference does not.
-In-core and out-of-core runs, and `--evaladmix-k 1` against a `-k 1` run, agree
+In-core and out-of-core runs, and `-k 1` on a 4-PC reference against a 1-PC run, agree
 exactly.
 
 ## Implementation notes
@@ -305,8 +305,8 @@ exactly.
   change to the readers.
 
 - **`read_usv()`.** The PC scores are read with `Utils::read_usv()`, which this
-  branch also fixes — see [read-usv-fix.md](read-usv-fix.md). `--evaladmix-k` is
-  a direct regression test for that bug.
+  branch also fixes — see [read-usv-fix.md](read-usv-fix.md). `-k` below the
+  reference's PC count is a direct regression test for that bug.
 
 ## Limitations
 
