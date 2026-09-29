@@ -1,3 +1,40 @@
+#+TITLE: PCAone changelog
+#+OPTIONS: toc:2 num:nil ^:nil
+
+[[file:README.org][README]] · [[file:docs/usage.org][Current usage guide]]
+
+* Legacy command migration
+
+** LD workflows before v0.8.0
+
+The =-D/--ld= and =-B/--binary= options and the intermediate =.residuals=
+file have been removed. Compute a reference PCA, then pass its prefix with
+=-P/--USV= while reading the original PLINK or PGEN genotypes:
+
+#+begin_src shell
+PCAone -b data -k 3 -o ref
+PCAone -b data -P ref --ld-r2 0.2 -o adj
+#+end_src
+
+The old =-D/--ld= workflow did not standardize sites. Add =--scale 0= to the
+reference PCA command to reproduce that scaling. See v0.8.0 below for
+result changes and compatibility details.
+
+** Projection syntax before v0.4.8
+
+Older examples supplied =--read-V=, =--read-S=, and =--match-bim= separately.
+Since v0.4.8, =-P/--USV= accepts the reference prefix for =.eigvecs=,
+=.sigvals=, =.loadings=, and =.mbim=.
+
+** Variance explained with =--svd 3= before v0.7.0
+
+Older examples ran =--svd 3= to get the proportion of variance explained,
+dividing each eigenvalue by the sum of =.eigvals=. Up to v0.6.0 =--svd 3= ran a
+full SVD and wrote every eigenvalue. Since v0.7.0 it writes only the top =-k=,
+so that sum no longer covers all the variance.
+
+* Release history
+
 - v0.8.0
   - =--evaladmix= now follows the two-stage analysis workflow: compute PCA first, then pass
     =-P/--USV= (or =--read-U=) with scores for the same samples in the same order. It no longer
@@ -238,6 +275,7 @@
   - add genotype-likelihood aware projection for [[http://www.popgen.dk/angsd/index.php/Input#Beagle_format][BEAGLE]] input via =--project 3=
   - projection now matches overlapping markers against the reference =.mbim= file and corrects flipped alleles when needed
   - add genome-wide selection scans via =--selection 1= (Galinsky/FastPCA) and =--selection 2= (pcadapt)
+  - =--svd 3= eigendecomposes the N x N sample GRM when N <= M instead of running a full SVD, which is much faster when N << M. =.eigvals= now holds only the top =-k= values
   - always write =.mbim= together with =.loadings= to support downstream projection, HWE, and selection workflows
 
 - v0.6.0
