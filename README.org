@@ -1,4 +1,4 @@
-#+TITLE:  Principal Component Analysis All in One
+#+TITLE:  Principal Component Analysis All in One (v0.8.0-pre)
 #+subtitle: Version 0.8.0
 #+author: Zilong Li
 #+email: zilong.dk@gmail.com
@@ -31,6 +31,10 @@ of large datasets, with in-core and out-of-core algorithms.
 - *Genetics:* EMU/PCAngsd, projection, selection scans, HWE tests, ancestry-adjusted LD pruning and clumping, and evalAdmix residual correlations.
 
 [[https://github.com/Zilong-Li/PCAone/blob/main/docs/usage.org][Usage guide]] · [[https://github.com/Zilong-Li/PCAone/blob/main/CHANGELOG.org][Changelog and migration notes]] · [[https://github.com/Zilong-Li/PCAoneR][R package]]
+
+#+caption: One PCA, reused by structure-aware analyses. (a) PCAone saves U, S, V and the allele frequencies f; every downstream analysis reads them back with =-P/--USV=. (b--h) Examples on 1000 Genomes samples and on admixed samples with known relatedness.
+#+attr_latex: :width \linewidth :placement [p]
+[[file:docs/fig1.png]]
 
 #+INCLUDE: "docs/usage.org::*Installation" :minlevel 1
 
