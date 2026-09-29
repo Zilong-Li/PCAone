@@ -60,6 +60,7 @@ class Param {
   double ld_r2 = 0;
   bool ld = false;       // true for the LD analyses: -R, --ld-r2 and --clump
   uint ld_bp = 1000000;  // base pairs not number of snps
+  uint ld_k = 0;         // leading PCs of -P removed by the adjusted LD (-k); 0: all
   // for clumping
   std::string clump;
   std::string assoc_colnames;

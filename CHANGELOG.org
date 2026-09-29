@@ -141,6 +141,9 @@
     no =.mbim= is needed. =--ld-stats 0= (default) requires =-P=; =--ld-stats 1= is the standard LD
     and takes no PCs. BGEN, BEAGLE and CSV input no longer support LD. Old command lines stop with a
     message showing the new ones.
+  - =-k/--pc= with =-P= and =-R=, =--ld-r2= or =--clump= removes only the leading =-k= PCs of the
+    reference, so a PCA run with =-k 10= can be pruned on 3 PCs (=-P ref -k 3=). Without =-k=, every PC
+    in =.eigvecs= is removed, as before; a =-k= above the number of PCs in the file is refused.
   - *results change*: the ancestry adjusted LD, when the PCs come from a default PCA. =-D/--ld= ran
     its PCA without standardizing the sites; a default PCA standardizes them, which gives different
     PCs. =--scale 0= in the PCA reproduces the old PCs exactly, and then R2 agrees with the old

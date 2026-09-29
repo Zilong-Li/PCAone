@@ -180,16 +180,26 @@ Mat2D read_ld_pcs(const Param& params, uint nsamples) {
     cao.print(tick.date(), "compute the standard LD, without ancestry adjustment");
     return Mat2D();
   }
-  const Mat2D U = read_usv(params.fileU);
+  Mat2D U = read_usv(params.fileU);
   if (U.rows() != nsamples)
     cao.error(params.fileU, "has", U.rows(), "rows but the genotypes have", nsamples,
               "samples. the PCs must come from the same samples, in the same order");
+  const Eigen::Index ntotal = U.cols();
+  if (params.ld_k > 0) {  // -k: only the leading PCs
+    if ((Eigen::Index)params.ld_k > ntotal)
+      cao.error("-k/--pc", params.ld_k, "is larger than the", ntotal, "PCs in", params.fileU);
+    if ((Eigen::Index)params.ld_k < ntotal) U = U.leftCols(params.ld_k).eval();
+  }
   // .eigvecs is text with 6 significant digits, so its columns are orthonormal
   // only to ~1e-6. Q spans the same PCs and is orthonormal to machine
   // precision, which makes I - QQ' an exact projector.
   Eigen::HouseholderQR<Mat2D> qr(U);
   Mat2D Q = qr.householderQ() * Mat2D::Identity(U.rows(), U.cols());
-  cao.print(tick.date(), "compute the ancestry adjusted LD, removing", U.cols(), "PCs in", params.fileU);
+  if (U.cols() < ntotal)
+    cao.print(tick.date(), "compute the ancestry adjusted LD, removing the top", U.cols(), "of the", ntotal,
+              "PCs in", params.fileU);
+  else
+    cao.print(tick.date(), "compute the ancestry adjusted LD, removing", U.cols(), "PCs in", params.fileU);
   return Q;
 }
 

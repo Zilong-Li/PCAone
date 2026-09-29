@@ -244,7 +244,8 @@ PCA algorithms:
                                  2: the accurate window-based Randomized SVD method (PCAone);
                                  3: exact PCA by eigendecomposition of the sample GRM, streamed block by block when N <= M,
                                     in N x N memory (no EM-PCA support).
-  -k, --pc arg (=10)             top k principal components (PCs) to be calculated
+  -k, --pc arg (=10)             top k principal components (PCs) to be calculated. for the ancestry adjusted
+                                 LD, the number of leading PCs in -P/--USV to remove (default all)
   -C, --scale arg (=-9)          do normalization or scaling for input file. Options are
                                  -9: standardize genetic data by sqrt(ploidy*f*(1-f));
                                   0: do nothing and proceed to SVD;
@@ -565,7 +566,10 @@ are read, and computes the LD from the residuals, so no residual matrix is
 written to disk. The PCs must come from the same samples in the same order, but
 the variants need not be the ones the PCA used (e.g. a different =--maf=). This
 works in-core and out-of-core (=-m=), for PLINK (=-b=) and PGEN (=-p=) input.
-Use =--ld-stats 1= without =-P= for the standard LD instead. See
+By default every PC in =.eigvecs= is removed; =-k/--pc= removes only the
+leading ones, so one reference PCA run with e.g. =-k 10= serves any smaller
+number of PCs (=-P adj -k 3=). Use =--ld-stats 1= without =-P= for the standard
+LD instead. See
 [[./docs/ld-ancestry-adjusted.md][docs/ld-ancestry-adjusted.md]] for why these residuals equal the old
 =G - USV'= and how they are computed.
 

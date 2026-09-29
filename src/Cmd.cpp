@@ -82,7 +82,8 @@ Param::Param(int argc, char** argv) {
                                                 "2: the accurate window-based Randomized SVD method (PCAone);\n"
                                                 "3: exact PCA by eigendecomposition of the sample GRM, streamed block by block when N <= M,\n"
                                                 "   in N x N memory (no EM-PCA support).", 2);
-  opts.add<Unsigned>("k", "pc", "top k principal components (PCs) to be calculated", k, &k);
+  auto k_opt = opts.add<Unsigned>("k", "pc", "top k principal components (PCs) to be calculated. for the ancestry adjusted\n"
+                                             "LD, the number of leading PCs in -P/--USV to remove (default all)", k, &k);
   opts.add<Value<int>>("C", "scale", "do normalization or scaling for input file. Options are\n"
                                      "-9: standardize genetic data by sqrt(ploidy*f*(1-f));\n"
                                      " 0: do nothing and proceed to SVD;\n"
@@ -291,6 +292,9 @@ Param::Param(int argc, char** argv) {
         throw std::invalid_argument(
             "the ancestry adjusted LD (--ld-stats 0, the default) removes the PCs of a previous run of the same "
             "samples. please give its prefix with -P/--USV, or use --ld-stats 1 for the standard LD");
+      // -k picks the leading PCs of -P to remove; without it every PC in the file
+      // is removed, as its default of 10 is not a choice made for this reference
+      if (k_opt->is_set()) ld_k = k;
       memory /= 2.0;  // two blocks of genotypes are held at a time (LDColumns)
     }
 

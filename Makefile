@@ -156,7 +156,7 @@ SLIBS += ./external/bgen/bgenlib.a ./external/zstd/lib/libzstd.a  ./external/pge
 
 LIBS += $(SLIBS) $(DLIBS) -lpthread -ldl -lm
 
-.PHONY: all clean projection hwe ld_matrix ld_r2 ld_prune ld_clump ld_tests test_full test_aarch64 test_pgen_plink_equivalence test_em_snp_order test_projection_bootstrap test_cmd_guards test_crash_regressions test_review_fixes test_exact_streaming
+.PHONY: all clean projection hwe ld_matrix ld_r2 ld_prune ld_clump ld_tests test_full test_aarch64 test_pgen_plink_equivalence test_em_snp_order test_projection_bootstrap test_cmd_guards test_crash_regressions test_review_fixes test_ld_k test_exact_streaming
 
 all: ${program}
 
@@ -194,6 +194,9 @@ test_crash_regressions: ${program}
 
 test_review_fixes: ${program}
 	python3 tests/test_review_fixes.py
+
+test_ld_k: ${program}
+	python3 tests/test_ld_k.py
 
 test_exact_streaming: ${program}
 	python3 tests/test_exact_streaming.py
