@@ -224,6 +224,8 @@ corresponding PC.
 Features Loadings are saved in file with suffix =.loadings=. Each row
 represents a feature and each column represents a corresponding PC. Use
 =--printv= option to output it.
+To plot them along the genome, see
+[[https://github.com/Zilong-Li/PCAone/blob/main/docs/plotting.md#snp-loadings][the plotting guide]].
 
 *** Variant information
 
@@ -478,8 +480,15 @@ Currently, the LD R2 for pairwise SNPs within a window can be outputted via =--p
          -o adj
 #+end_src
 
-We provide the [[https://github.com/Zilong-Li/PCAone/blob/main/scripts/calc_decay_bin.R][calc_decay_bin.R]] script to parse the output file =.ld.gz= and calculate the average R2 for each
-bin as well as plotting. We also provide the nextflow [[https://github.com/Zilong-Li/PCAone/blob/main/workflows/ld.nf][ld.nf]] for benchmarking the LD statistics.
+To plot LD decay curves from the =.ld.gz= files, e.g. standard (=--ld-stats 1=)
+against ancestry-adjusted LD, use [[https://github.com/Zilong-Li/PCAone/blob/main/scripts/plot-ld-decay.R][plot-ld-decay.R]]:
+
+#+begin_src shell
+Rscript scripts/plot-ld-decay.R adj.ld.gz std.ld.gz --labels Adjusted,Standard -n example/plink.fam
+#+end_src
+
+The nextflow workflow [[https://github.com/Zilong-Li/PCAone/blob/main/workflows/ld.nf][ld.nf]] runs the whole comparison. See
+[[https://github.com/Zilong-Li/PCAone/blob/main/docs/plotting.md#ld-decay][the plotting guide]] for both.
 
 ** Pruning based on ancestry adjusted LD
 

@@ -118,6 +118,7 @@ use every reference PC unless =-k= selects the leading PCs.
 - [[file:docs/usage.org][Usage guide]]: options, formats, normalization, memory, projection, selection, HWE, evalAdmix, LD, and example datasets.
 - [[file:docs/ld-ancestry-adjusted.md][Ancestry-adjusted LD]] and [[file:docs/evaladmix.md][evalAdmix]].
 - [[file:docs/reproducing-the-benchmark.md][Reproducing the benchmark]].
+- [[file:docs/plotting.md][Plotting]]: SNP loadings along the genome and LD decay curves.
 - [[file:CHANGELOG.org][Changelog]]: release history, result changes, and legacy command migration.
 
 Run =PCAone --help= for all options, or generate a man page:

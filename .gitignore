@@ -39,6 +39,9 @@ Rplots.pdf
 !/scripts/Makefile
 !/scripts/MergePlink.cpp
 !/scripts/MergePgen.cpp
+!/scripts/plot-loadings.R
+!/scripts/plot-ld-decay.R
+!/scripts/summarise_ld_r2bin.cpp
 !/scripts/benchmark/
 !/scripts/benchmark/*
 /dataset
