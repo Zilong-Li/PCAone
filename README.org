@@ -28,7 +28,7 @@ of large datasets, with in-core and out-of-core algorithms.
 
 - *Inputs:* PLINK BED, PLINK2 PGEN, BEAGLE genotype likelihoods, zstd-compressed CSV, and limited BGEN support.
 - *PCA:* window-based randomized SVD (default), single-pass randomized SVD, IRAM, and exact sample-GRM eigendecomposition.
-- *Genetics:* EMU/PCAngsd, projection, selection scans, HWE tests, ancestry-adjusted LD pruning and clumping, and evalAdmix residual correlations.
+- *Genetics:* EMU/PCAngsd, projection, selection scans, HWE tests, per-sample inbreeding coefficients, ancestry-adjusted LD pruning and clumping, and evalAdmix residual correlations.
 
 [[https://github.com/Zilong-Li/PCAone/blob/main/docs/usage.org][Usage guide]] · [[https://github.com/Zilong-Li/PCAone/blob/main/CHANGELOG.org][Changelog and migration notes]] · [[https://github.com/Zilong-Li/PCAoneR][R package]]
 

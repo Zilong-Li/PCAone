@@ -36,6 +36,19 @@ so that sum no longer covers all the variance.
 * Release history
 
 - v0.8.0
+  - =--inbreed 2= estimates the inbreeding coefficient of each sample, accounting for population
+    structure with the individual allele frequencies of =-P/--USV=, and writes =.inbred= (FID, IID,
+    sites used, observed and expected heterozygotes, F). The estimator is PCAngsd's
+    =--inbreed-samples=: closed form, in one pass, for =--bfile=/=--pgen= calls, and EM with SQUAREM
+    for =--beagle= likelihoods. Missing calls and flat likelihoods are skipped rather than
+    imputed with their prior, which leaves the fixed point unchanged but removes the iterations.
+    On =example/plink.chr1= the output agrees with PCAngsd's code, given the same allele
+    frequencies, to 4e-9. For likelihoods the 1e-4 prior floor is replaced by 1e-12, as for
+    =--inbreed 1=; that moves F by up to 0.017 on =example/beagle.gz=. The result is identical
+    in-core, with =-m= and for any =-n=, and a PGEN of the same genotypes gives the BED's bytes.
+  - =--inbreed= refuses =--maf= (the sites are the reference's, and no reader filtered them, so it
+    was ignored) and =--haploid=.
+  - out-of-core =--inbreed= with =--beagle= leaked a file handle per pass over the data.
   - =--evaladmix= now follows the two-stage analysis workflow: compute PCA first, then pass
     =-P/--USV= (or =--read-U=) with scores for the same samples in the same order. It no longer
     runs PCA. =-k/--pc= selects the leading reference columns, as in the other two-stage analyses.

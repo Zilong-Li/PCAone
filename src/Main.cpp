@@ -73,12 +73,12 @@ static int run(int argc, char* argv[]) {
   }
 
   // particular case for inbreeding samples
-  // if (params.inbreed == 2) {
-  //   data = new FileUSV(params);
-  //   run_inbreed_coef_sample(data, params);
-  //   delete data;
-  //   return bye();
-  // }
+  if (params.inbreed == 2) {
+    data = new FileUSV(params);
+    run_inbred_samples(data, params);
+    delete data;
+    return bye();
+  }
 
   // particular case for LD: R2, pruning and clumping on the genotypes, with the
   // PCs of -P/--USV removed as they are read. Cmd.cpp allows only PLINK/PGEN

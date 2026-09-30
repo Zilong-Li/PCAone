@@ -146,7 +146,8 @@ Param::Param(int argc, char** argv) {
   opts.add<Switch>("", "project-bootstrap-save", "save raw bootstrap projection coordinates to *.proj.bootstrap.eigvecs.", &project_bootstrap_save);
   opts.add<Value<int>>("", "inbreed", "compute the inbreeding coefficient accounting for population structure. Options are\n"
                                       "0: disabled;\n"
-                                      "1: compute per-site inbreeding coefficient and HWE test.\n", inbreed, &inbreed);
+                                      "1: compute per-site inbreeding coefficient and HWE test;\n"
+                                      "2: compute per-sample inbreeding coefficient.\n", inbreed, &inbreed);
   opts.add<Switch>("", "evaladmix", "compute the correlation of residuals (evalAdmix) given existing PCs from -P/--USV (same samples in the same order).", &evaladmix);
   opts.add<Value<int>>("", "selection", "compute selection statistics. Options are\n"
                                       "0: disabled;\n"
@@ -257,7 +258,7 @@ Param::Param(int argc, char** argv) {
     require(project >= 0 && project <= 3, "--project supports only 0, 1, 2 or 3 in this release");
     require(project_bootstrap != 1, "--project-bootstrap needs at least 2 replicates");
     require(!project_bootstrap_save || project_bootstrap > 0, "--project-bootstrap-save requires --project-bootstrap");
-    require(inbreed == 0 || inbreed == 1, "--inbreed supports only 0 or 1");
+    require(inbreed >= 0 && inbreed <= 2, "--inbreed supports only 0, 1 or 2");
     require(selection >= 0 && selection <= 2, "--selection supports only 0, 1 or 2");
     require(ld_r2 >= 0 && ld_r2 <= 1, "--ld-r2 has to be in [0, 1]; 0 disables the pruning");
     require(ld_bp >= 1, "--ld-bp must be at least 1");
@@ -310,6 +311,12 @@ Param::Param(int argc, char** argv) {
     }
     require(inbreed == 0 || plink_or_pgen || file_t == FileType::BEAGLE,
             "--inbreed supports only --bfile, --pgen and --beagle input");
+    // --inbreed pairs the target with the sites of the reference run, and no
+    // reader filters them here, so --maf was silently ignored
+    require(inbreed == 0 || !maf_opt->is_set(),
+            "--inbreed uses the sites of the reference run. apply --maf in that run instead");
+    require(inbreed == 0 || !haploid,
+            "--inbreed models the heterozygosity of diploid genotypes, so it cannot be used with --haploid");
     require(!evaladmix || plink_or_pgen, "--evaladmix supports only --bfile and --pgen input");
     // Each analysis has its own early-return path in Main.cpp.
     require(!evaladmix || (project == 0 && selection == 0 && inbreed == 0 && !ld),

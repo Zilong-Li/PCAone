@@ -156,7 +156,7 @@ SLIBS += ./external/bgen/bgenlib.a ./external/zstd/lib/libzstd.a  ./external/pge
 
 LIBS += $(SLIBS) $(DLIBS) -lpthread -ldl -lm
 
-.PHONY: all clean projection hwe ld_matrix ld_r2 ld_prune ld_clump ld_tests test_full test_aarch64 test_pgen_plink_equivalence test_em_snp_order test_projection_bootstrap test_cmd_guards test_crash_regressions test_review_fixes test_ref_k test_exact_streaming
+.PHONY: all clean projection hwe ld_matrix ld_r2 ld_prune ld_clump ld_tests test_full test_aarch64 test_pgen_plink_equivalence test_em_snp_order test_projection_bootstrap test_cmd_guards test_crash_regressions test_review_fixes test_ref_k test_exact_streaming test_inbreed_samples
 
 all: ${program}
 
@@ -204,6 +204,9 @@ test_exact_streaming: ${program}
 test_em_snp_order: ${program}
 	python3 tests/test_em_snp_order.py
 
+test_inbreed_samples: ${program}
+	python3 tests/test_inbreed_samples.py
+
 test_emu_simulated: ${program}
 	python3 tests/test_emu_simulated.py
 
@@ -250,6 +253,9 @@ hwe:
 	./PCAone -b example/plink -k 3 -V -m 1
 	./PCAone -b example/plink --USV pcaone -k 3 --inbreed 1 -o m0
 	./PCAone -b example/plink --USV pcaone -k 3 --inbreed 1 -o m1 -m 1
+	./PCAone -b example/plink --USV pcaone -k 3 --inbreed 2 -o m0
+	./PCAone -b example/plink --USV pcaone -k 3 --inbreed 2 -o m1 -m 1
+	diff m0.inbred m1.inbred
 	rm -f m0.* m1.*
 
 # The LD analyses read the genotypes and remove the PCs of -P/--USV as they go.

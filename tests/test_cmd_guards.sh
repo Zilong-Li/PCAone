@@ -57,7 +57,9 @@ bad "--project" -b x --project -1
 bad "--project" -b x --project 4
 bad "--project-bootstrap needs" -b x -P p --project 2 --project-bootstrap 1
 bad "--project-bootstrap-save requires" -b x -P p --project 2 --project-bootstrap-save
-bad "--inbreed" -b x --inbreed 2
+bad "--inbreed supports only 0, 1 or 2" -b x --inbreed 3
+bad "apply --maf in that run" -b x -P p --inbreed 2 --maf 0.05
+bad "cannot be used with --haploid" -b x -P p --inbreed 2 --haploid
 bad "--selection" -b x --selection 3
 bad "please use -P/--USV" -b x --evaladmix
 bad "--evaladmix cannot be combined" -b x -P ref --evaladmix --selection 1

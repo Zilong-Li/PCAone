@@ -25,6 +25,13 @@ void write_hwe_per_site(
 
 void inbreed_coef_site_em(int type, const Mat2D& GL, const Mat2D& PI, const Param& params);
 
+// Prepare the reference PCA Pi (U*S*V' mapped to individual allele
+// frequencies) and open the target genotypes of -b/-p/-G paired with it,
+// refusing a target whose samples or sites are not the reference's. Shared by
+// --inbreed 1 (per site) and --inbreed 2 (per sample). The caller owns the
+// returned object.
+Data* open_inbreed_target(Data* Pi, const Param& params);
+
 void run_inbred_sites(Data* Pi, const Param& params);
 
 #endif  // PCAONE_INBREDSITES_

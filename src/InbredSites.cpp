@@ -265,7 +265,7 @@ void inbreed_coef_site_ooc(Mat1D& D1, Mat1D& F, Data* data, Data* Pi, const Para
   }
 }
 
-void run_inbred_sites(Data* Pi, const Param& params) {
+Data* open_inbreed_target(Data* Pi, const Param& params) {
   Pi->prepare();
   Data* data = nullptr;
   if (params.file_t == FileType::PLINK) {
@@ -291,6 +291,11 @@ void run_inbred_sites(Data* Pi, const Param& params) {
   if (data->blocksize != Pi->blocksize || data->nblocks != Pi->nblocks)
     cao.error("BUG: the target and the reference are read in different blocks");
   check_same_sites(params);
+  return data;
+}
+
+void run_inbred_sites(Data* Pi, const Param& params) {
+  Data* data = open_inbreed_target(Pi, params);
 
   cao.print(tick.date(), "run inbreeding coefficient estimator per site");
   if (!params.out_of_core) {

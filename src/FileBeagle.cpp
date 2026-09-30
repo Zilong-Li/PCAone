@@ -14,8 +14,14 @@ using namespace std;
 void FileBeagle::read_all() {
   uint total_nsnps = nsnps;
   P = Mat2D::Zero(nsamples * 2, total_nsnps);
+  if (fp) gzclose(fp);  // the constructor's, left at the end of the file
   fp = gzopen(params.filein.c_str(), "r");
+  if (!fp) cao.error("can not open " + params.filein);
   parse_beagle_file(P, fp, nsamples, total_nsnps);
+  // --inbreed pairs the GLs with the reference's individual allele frequencies
+  // and needs nothing else: not the frequencies of this input, which the EM
+  // below spent -maxiter passes on, nor the N x M expected genotypes
+  if (params.inbreed != 0) return;
   if (!params.dopca && params.project > 0) {
     // projection mode: compute expected genotypes from GLs using reference F
     // F is read in Data::prepare() to include only overlapped sites
@@ -68,8 +74,12 @@ void FileBeagle::read_all() {
 }
 
 void FileBeagle::check_file_offset_first_var() {
-  if (params.verbose) cao.print("reopen beagle file and read head line");
+  if (params.verbose > 1) cao.print("reopen beagle file and read head line");
+  // close the previous pass's handle: one leaked per pass, and the EM of
+  // --inbreed makes three passes per iteration, past a 256 file limit
+  if (fp) gzclose(fp);
   fp = gzopen(params.filein.c_str(), "r");
+  if (!fp) cao.error("can not open " + params.filein);
   tgets(fp, &buffer, &bufsize);  // parse header line
   if (buffer != original) original = buffer;
 }
@@ -77,9 +87,8 @@ void FileBeagle::check_file_offset_first_var() {
 void FileBeagle::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize = false) {
   if (params.dopca) cao.error("doesn't support out-of-core PCAngsd algorithm");
   uint actual_block_size = stop_idx - start_idx + 1;
-  if (G.cols() < blocksize || (actual_block_size < blocksize)) {
-    P = Mat2D::Zero(nsamples * 2, actual_block_size);
-  }
+  // P, not G: G is never allocated here, so P was reallocated for every block
+  if (P.cols() != (Eigen::Index)actual_block_size) P = Mat2D::Zero(nsamples * 2, actual_block_size);
   const char* delims = "\t \n";
   char* tok;
   // read all GL data into P
