@@ -67,7 +67,8 @@ Param::Param(int argc, char** argv) {
   opts.add<Value<std::string>, Attribute::headline>("","PCAone","General options:");
   auto help_opt = opts.add<Switch>("h", "help", "print all options including hidden advanced options");
   opts.add<Value<double>>("m", "memory", "RAM usage in GB unit for out-of-core mode. default is in-core mode.\n"
-                                        "with --svd 3, it sets the blocks the GRM is streamed in", memory, &memory);
+                                        "with --svd 3, it sets the blocks the GRM is streamed in;\n"
+                                        "with --evaladmix-kin, the stripes of the N x N matrix", memory, &memory);
   opts.add<Unsigned>("n", "threads", "the number of threads to be used", threads, &threads);
   opts.add<Unsigned>("v", "verbose", "verbosity level for logs. Options are\n"
                                      "0: silent, no messages on screen;\n"
@@ -149,6 +150,11 @@ Param::Param(int argc, char** argv) {
                                       "1: compute per-site inbreeding coefficient and HWE test;\n"
                                       "2: compute per-sample inbreeding coefficient.\n", inbreed, &inbreed);
   opts.add<Switch>("", "evaladmix", "compute the correlation of residuals (evalAdmix) given existing PCs from -P/--USV (same samples in the same order).", &evaladmix);
+  auto kin_opt = opts.add<Value<double>>("", "evaladmix-kin", "with --evaladmix, write only the pairs with kinship >= this cutoff to .kin0, and a\n"
+                                         "maximal unrelated set to .unrelated, instead of the two N x N matrices. computes the\n"
+                                         "matrix in stripes that fit in -m, for biobank-scale samples (e.g. 0.0442, 3rd degree)");
+  auto unrel_opt = opts.add<Value<double>>("", "evaladmix-unrelated", "kinship cutoff for the .unrelated set of --evaladmix-kin, at least that cutoff.\n"
+                                           "default is the --evaladmix-kin cutoff");
   opts.add<Value<int>>("", "selection", "compute selection statistics. Options are\n"
                                       "0: disabled;\n"
                                       "1: perform selection scan using Galinsky et al method;\n"
@@ -324,6 +330,20 @@ Param::Param(int argc, char** argv) {
             "--inbreed, --print-r2, --ld-r2 or --clump");
     require(!(evaladmix && haploid),
             "--evaladmix takes each sample's variance from its heterozygosity, so it needs diploid genotypes");
+    if (kin_opt->is_set()) {
+      require(evaladmix, "--evaladmix-kin requires --evaladmix");
+      evaladmix_pairs = true;
+      evaladmix_kin = kin_opt->value();
+      require(evaladmix_kin >= -0.5 && evaladmix_kin <= 0.5, "--evaladmix-kin is a kinship cutoff, in [-0.5, 0.5]");
+      evaladmix_unrel = evaladmix_kin;
+    }
+    if (unrel_opt->is_set()) {
+      require(evaladmix_pairs, "--evaladmix-unrelated requires --evaladmix-kin");
+      evaladmix_unrel = unrel_opt->value();
+      // the .unrelated set is found among the pairs that are written
+      require(evaladmix_unrel >= evaladmix_kin && evaladmix_unrel <= 0.5,
+              "--evaladmix-unrelated has to be in [--evaladmix-kin, 0.5]");
+    }
     require(!pcangsd || file_t == FileType::PLINK || file_t == FileType::BEAGLE,
             "--pcangsd supports only --beagle (genotype likelihoods) and --bfile input");
     require(!emu || file_t != FileType::CSV, "--emu supports only --bfile, --pgen and --bgen input");

@@ -101,7 +101,8 @@ advanced ones, or =PCAone --groff > pcaone.1 && man ./pcaone.1= for a man page.
 General options:
   -h, --help                     print all options including hidden advanced options
   -m, --memory arg (=0)          RAM usage in GB unit for out-of-core mode. default is in-core mode.
-                                 with --svd 3, it sets the blocks the GRM is streamed in
+                                 with --svd 3, it sets the blocks the GRM is streamed in;
+                                 with --evaladmix-kin, the stripes of the N x N matrix
   -n, --threads arg (=12)        the number of threads to be used
   -v, --verbose arg (=1)         verbosity level for logs. Options are
                                  0: silent, no messages on screen;
@@ -161,6 +162,11 @@ Misc options:
                                  2: compute per-sample inbreeding coefficient.
   --evaladmix                    compute the correlation of residuals (evalAdmix) given existing PCs from -P/--USV
                                  (same samples in the same order).
+  --evaladmix-kin arg            with --evaladmix, write only the pairs with kinship >= this cutoff to .kin0, and a
+                                 maximal unrelated set to .unrelated, instead of the two N x N matrices. computes the
+                                 matrix in stripes that fit in -m, for biobank-scale samples (e.g. 0.0442, 3rd degree)
+  --evaladmix-unrelated arg      kinship cutoff for the .unrelated set of --evaladmix-kin, at least that cutoff.
+                                 default is the --evaladmix-kin cutoff
   --selection arg (=0)           compute selection statistics. Options are
                                  0: disabled;
                                  1: perform selection scan using Galinsky et al method;
@@ -469,6 +475,15 @@ the same =--maf= in both runs.
 #+begin_src shell
 PCAone -b example/plink -k 3 --maf 0.05 -o pcs
 PCAone -b example/plink -P pcs --evaladmix --maf 0.05 -o eval
+#+end_src
+
+For biobank-scale cohorts, =--evaladmix-kin <cutoff>= computes the same
+statistic in stripes that fit in =-m= and writes only the pairs with kinship at
+or above the cutoff (=.kin0=), plus a maximal unrelated set (=.unrelated=, for
+=--keep=), instead of the two N x N files:
+
+#+begin_src shell
+PCAone -b cohort -P pcs --evaladmix --evaladmix-kin 0.0442 -m 32 -o rel
 #+end_src
 
 See [[https://github.com/Zilong-Li/PCAone/blob/main/docs/evaladmix.md][the evalAdmix guide]] for the method and benchmarks.

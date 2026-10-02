@@ -75,6 +75,13 @@ void Data::prepare() {
         cao.warn("minimum RAM required is ", m, " GB. trying to allocate more RAM.");
       blocksize = (unsigned int)ceil(((m + params.memory) * 134217728 - fixed) / nsamples);
     }
+  } else if (params.evaladmix_pairs) {
+    // --evaladmix-kin (EvalAdmix.cpp): the stripes of the N x N matrix take
+    // most of -m. A block only has to be wide enough for an efficient product
+    // with them: a fifth of -m, between 256 and 2048 sites. More would only take
+    // room from the stripes, i.e. add passes over the genotypes.
+    const double b = 0.2 * params.memory * 134217728 / std::max(1u, nsamples);
+    blocksize = (uint)std::min<double>(std::max(1u, nsnps), std::max(256.0, std::min(2048.0, std::floor(b))));
   } else {
     // ram of non-pca run
     blocksize = (uint)ceil((double)params.memory * 134217728 / nsamples);
@@ -86,7 +93,8 @@ void Data::prepare() {
   } else {
     cao.print(tick.date(), "initial setting by -m/--memory: blocksize =", blocksize, ", nblocks =", nblocks,
               ", factor =", bandFactor);
-    if (nblocks == 1) cao.error("only one block exists. please remove -m option");
+    // the passes of --evaladmix-kin read the blocks again, however many there are
+    if (nblocks == 1 && !params.evaladmix_pairs) cao.error("only one block exists. please remove -m option");
   }
   if (pca_blocks && params.svd_t == SvdType::PCAoneAlg2) {
     // decrease blocksize for the winSVD

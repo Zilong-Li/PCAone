@@ -52,6 +52,23 @@ so that sum no longer covers all the variance.
   - =--evaladmix= now follows the two-stage analysis workflow: compute PCA first, then pass
     =-P/--USV= (or =--read-U=) with scores for the same samples in the same order. It no longer
     runs PCA. =-k/--pc= selects the leading reference columns, as in the other two-stage analyses.
+  - =--evaladmix-kin <cutoff>= runs =--evaladmix= at biobank scale. It computes the statistic in
+    stripes of samples that fit in =-m=, each one more pass over the genotypes. It writes only
+    the pairs with kinship >= the cutoff, to =.kin0= (=FID1 IID1 FID2 IID2 NSNP KINSHIP=), and a
+    maximal unrelated set to =.unrelated=, built with the greedy rule of Hail's
+    =maximal_independent_set=. =--evaladmix-unrelated= gives the set its own cutoff. With missing
+    genotypes, the sites a pair misses together are counted from the lists of missing calls, not
+    from a second N x N product. The kinship equals the dense =.kinship= to the printed digit. At
+    N = 20,000 it runs in 1 GB, where the dense output needs 6 GB of RAM and two 3.6 GB files.
+    The log estimates the time left after each stripe and warns when unrelated pairs scatter
+    more than chance (PCs that leave structure) or when the cutoff is within the noise.
+  - =--evaladmix= compares the sample IDs of =<prefix>.eigvecs2= with the =.fam=/=.psam= and stops
+    on a mismatch: the reference had to be of the same samples in the same order, but only the
+    number of rows was checked. Without =.eigvecs2= it warns.
+  - the dense =--evaladmix= and the exact PCA (=--svd 3=) no longer build a second N x N matrix
+    each time a block is added to the Gram matrix. =syrk_lower_add()= built the fill value of an
+    empty vector of copies. For =--evaladmix= at N = 8,000, peak memory drops from 1.86 to 1.45 GB
+    and run time from 15.3 to 12.4 s. The output is byte-identical.
   - *results change*: out-of-core BED winSVD shuffles the SNPs at random with =--seed=, in place
     of a fixed interleave. SNPs go to random =-w= bands and keep source order within a band; as
     winSVD updates only between bands, the PCs equal those of a full shuffle. One read and one

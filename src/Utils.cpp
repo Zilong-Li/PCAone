@@ -221,7 +221,11 @@ void syrk_lower_add(Eigen::Ref<Mat2D> K, const Eigen::Ref<const Mat2D>& X) {
   const Eigen::Index nt = (n + ts - 1) / ts, ntiles = nt * (nt + 1) / 2;
   const Eigen::Index D = std::max<Eigen::Index>(
       1, std::min<Eigen::Index>({T, (2 * T + ntiles - 1) / ntiles, 1 + (Eigen::Index(1) << 27) / (n * n), m / 256}));
-  std::vector<Mat2D> Kd(D - 1, Mat2D::Zero(n, n));  // chunk 0 goes into K itself
+  // chunk 0 goes into K itself. not Kd(D - 1, Mat2D::Zero(n, n)): its fill
+  // value is an n x n temporary even when D = 1, a second N x N matrix at the
+  // peak of the dense --evaladmix and of the exact PCA
+  std::vector<Mat2D> Kd(D - 1);
+  for (auto& Kc : Kd) Kc.setZero(n, n);
 #pragma omp parallel for schedule(dynamic, 1)
   for (Eigen::Index task = 0; task < ntiles * D; ++task) {
     const Eigen::Index t = task % ntiles, d = task / ntiles;

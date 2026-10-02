@@ -95,6 +95,11 @@ class Param {
   bool filterSNP = false;  // filter snps
   bool center = true;      // false if G is raw data likelihood or inbred mode
   bool evaladmix = false;  // compute correlation of residuals (evalAdmix)
+  // --evaladmix-kin: the pairs with kinship >= evaladmix_kin, in stripes within
+  // -m, and an unrelated set at evaladmix_unrel (default evaladmix_kin)
+  bool evaladmix_pairs = false;
+  double evaladmix_kin = 0;
+  double evaladmix_unrel = 0;
   // bool estpi = false; // true if output pi is needed
 
   std::ostringstream ss;
