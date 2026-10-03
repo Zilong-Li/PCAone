@@ -167,6 +167,9 @@ Misc options:
                                  matrix in stripes that fit in -m, for biobank-scale samples (e.g. 0.0442, 3rd degree)
   --evaladmix-unrelated arg      kinship cutoff for the .unrelated set of --evaladmix-kin, at least that cutoff.
                                  default is the --evaladmix-kin cutoff
+  --evaladmix-ibd                with --evaladmix, also estimate the probabilities of sharing 0, 1 and 2 alleles IBD
+                                 (k0, k1, k2): .k0 and .k2 matrices, or K0 K1 K2 columns in the .kin0 of --evaladmix-kin.
+                                 one more Gram product of the size of the kinship one
   --selection arg (=0)           compute selection statistics. Options are
                                  0: disabled;
                                  1: perform selection scan using Galinsky et al method;
@@ -484,6 +487,15 @@ or above the cutoff (=.kin0=), plus a maximal unrelated set (=.unrelated=, for
 
 #+begin_src shell
 PCAone -b cohort -P pcs --evaladmix --evaladmix-kin 0.0442 -m 32 -o rel
+#+end_src
+
+Kinship alone cannot tell parent–offspring from full sibs (both 1/4).
+=--evaladmix-ibd= adds the probabilities of sharing 0, 1 and 2 alleles IBD:
+=.k0= and =.k2= beside =.kinship=, or =K0 K1 K2= columns in =.kin0= with
+=--evaladmix-kin=. Parent–offspring have =k0= near 0, full sibs near 1/4.
+
+#+begin_src shell
+PCAone -b example/plink -P pcs --evaladmix --evaladmix-ibd --maf 0.05 -o eval
 #+end_src
 
 See [[https://github.com/Zilong-Li/PCAone/blob/main/docs/evaladmix.md][the evalAdmix guide]] for the method and benchmarks.

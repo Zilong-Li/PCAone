@@ -155,6 +155,9 @@ Param::Param(int argc, char** argv) {
                                          "matrix in stripes that fit in -m, for biobank-scale samples (e.g. 0.0442, 3rd degree)");
   auto unrel_opt = opts.add<Value<double>>("", "evaladmix-unrelated", "kinship cutoff for the .unrelated set of --evaladmix-kin, at least that cutoff.\n"
                                            "default is the --evaladmix-kin cutoff");
+  opts.add<Switch>("", "evaladmix-ibd", "with --evaladmix, also estimate the probabilities of sharing 0, 1 and 2 alleles IBD\n"
+                                        "(k0, k1, k2): .k0 and .k2 matrices, or K0 K1 K2 columns in the .kin0 of --evaladmix-kin.\n"
+                                        "one more Gram product of the size of the kinship one", &evaladmix_ibd);
   opts.add<Value<int>>("", "selection", "compute selection statistics. Options are\n"
                                       "0: disabled;\n"
                                       "1: perform selection scan using Galinsky et al method;\n"
@@ -337,6 +340,7 @@ Param::Param(int argc, char** argv) {
       require(evaladmix_kin >= -0.5 && evaladmix_kin <= 0.5, "--evaladmix-kin is a kinship cutoff, in [-0.5, 0.5]");
       evaladmix_unrel = evaladmix_kin;
     }
+    require(!evaladmix_ibd || evaladmix, "--evaladmix-ibd requires --evaladmix");
     if (unrel_opt->is_set()) {
       require(evaladmix_pairs, "--evaladmix-unrelated requires --evaladmix-kin");
       evaladmix_unrel = unrel_opt->value();

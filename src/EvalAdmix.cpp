@@ -42,6 +42,11 @@
  * the N x N matrix does not fit in memory, and writes only the pairs whose
  * kinship reaches a cutoff, plus a maximal unrelated set; see
  * run_evaladmix_pairs() below.
+ *
+ * --evaladmix-ibd adds k2, the probability that a pair shares both alleles
+ * IBD, as the same statistic computed from dominance residuals (PC-Relate,
+ * Conomos et al. 2016, AJHG 98:127) instead of genotypes, and from it
+ * k0 = 1 - 4 phi + k2 and k1 = 4 phi - 2 k2; see dominance() below.
  ******************************************************************************/
 #include "EvalAdmix.hpp"
 
@@ -148,6 +153,38 @@ static std::vector<std::string> read_sample_ids(const Param& params, Eigen::Inde
   return ids;
 }
 
+// The missing calls of a block of sites, one ascending list of samples per site
+// that has any, in ascending order of the sites. Only the sites where
+// missingness is visible; see impute_missing().
+struct MissingCalls {
+  std::vector<uint64> ptr{0};      // the n-th site with a list has idx[ptr[n] .. ptr[n+1])
+  std::vector<uint32_t> idx;
+  std::vector<Eigen::Index> site;  // its column in the genotypes impute_missing() was given
+  size_t nsites() const { return ptr.size() - 1; }
+  void clear() {
+    ptr.assign(1, 0);
+    idx.clear();
+    site.clear();
+  }
+  // the samples missing in each of the first w columns of O, observed-call
+  // indicators of the sites cols[0 .. w)
+  void add(const Mat2D& O, Eigen::Index w, const Eigen::Index* cols) {
+    const size_t s0 = nsites();
+    ptr.resize(s0 + w + 1);
+    site.insert(site.end(), cols, cols + w);
+#pragma omp parallel for schedule(static)
+    for (Eigen::Index c = 0; c < w; ++c) ptr[s0 + c + 1] = (O.col(c).array() == 0.0).count();
+    for (Eigen::Index c = 0; c < w; ++c) ptr[s0 + c + 1] += ptr[s0 + c];
+    idx.resize(ptr.back());
+#pragma omp parallel for schedule(static)
+    for (Eigen::Index c = 0; c < w; ++c) {
+      uint64 p = ptr[s0 + c];
+      for (Eigen::Index i = 0; i < O.rows(); ++i)
+        if (O(i, c) == 0.0) idx[p++] = (uint32_t)i;
+    }
+  }
+};
+
 // Missing calls reach run_evaladmix() imputed to the site mean, i.e. as an
 // exact 0.0 in the centred genotypes G. An observed call is exactly 0.0 only
 // when it equals the site frequency f, which needs f in {0, 0.5, 1}; at every
@@ -165,9 +202,10 @@ static std::vector<std::string> read_sample_ids(const Param& params, Eigen::Inde
 // Complete data never allocates Nobs, changes nothing and costs one scan of G.
 //
 // impute_missing() does the counting and the imputation. Each chunk of sites
-// with a missing call is shown to on_chunk(O, w) first, O holding the
-// observed-call indicators of those sites in its first w columns: handle_missing()
-// adds O O' to Nobs there, and --evaladmix-kin lists the missing calls instead.
+// with a missing call is shown to on_chunk(O, w, cols) first, O holding the
+// observed-call indicators of those sites, the columns cols[0 .. w) of G, in its
+// first w columns: handle_missing() adds O O' to Nobs there, and --evaladmix-kin
+// lists the missing calls instead (so does --evaladmix-ibd, for dominance()).
 template <class OnChunk>
 static void impute_missing(Mat2D& G, const double* f, const Mat2D& Q, double& nfull, uint64& ninf,
                            OnChunk&& on_chunk) {
@@ -201,7 +239,7 @@ static void impute_missing(Mat2D& G, const double* f, const Mat2D& Q, double& nf
       X.col(c) = G.col(cols[c0 + c]);
       O.col(c) = (X.col(c).array() != 0.0).cast<double>();
     }
-    on_chunk(O, w);
+    on_chunk(O, w, cols.data() + c0);
     const Mat2D fit = Q * (Q.transpose() * X.leftCols(w));  // centred, since P1 = 1
 #pragma omp parallel for schedule(static)
     for (Eigen::Index c = 0; c < w; ++c) {
@@ -212,12 +250,82 @@ static void impute_missing(Mat2D& G, const double* f, const Mat2D& Q, double& nf
   }
 }
 
-static void handle_missing(Mat2D& G, const double* f, const Mat2D& Q, Mat2D& Nobs, double& nfull, uint64& ninf) {
+// ms, if given, also lists the missing calls
+static void handle_missing(Mat2D& G, const double* f, const Mat2D& Q, Mat2D& Nobs, double& nfull, uint64& ninf,
+                           MissingCalls* ms = nullptr) {
   const Eigen::Index N = G.rows();
-  impute_missing(G, f, Q, nfull, ninf, [&](const Mat2D& O, Eigen::Index w) {
+  impute_missing(G, f, Q, nfull, ninf, [&](const Mat2D& O, Eigen::Index w, const Eigen::Index* cols) {
     if (Nobs.size() == 0) Nobs = Mat2D::Zero(N, N);
     syrk_lower_add(Nobs, O.leftCols(w));
+    if (ms) ms->add(O, w, cols);
   });
+}
+
+// ---- --evaladmix-ibd: dominance residuals -----------------------------------
+//
+// phi weighs the pairs' shared alleles, so parent-offspring and full sibs,
+// both at phi = 1/4, look the same. What tells them apart is k2, the chance of
+// sharing both alleles IBD (0 and 1/4). It shows in the homozygotes: with pi the
+// fitted allele frequency of a sample at a site, PC-Relate (Conomos et al. 2016)
+// codes the genotype as
+//
+//   h = pi if x = 0,   0 if x = 1/2,   1 - pi if x = 1,
+//
+// whose mean is pi(1-pi) for any outbred sample, whose covariance with the
+// genotype is zero, and whose covariance between two samples is k2 times its
+// variance: pairs sharing one allele IBD agree in it no more than by chance. So
+// the dominance residual h - pi(1-pi) is to k2 what the genotype residual is to
+// 2 phi, and k2 is the evalAdmix statistic of the dominance residuals: the same
+// projection, column-centring, cov2cor and chat, and the same rescaling for
+// missing calls, run on a second Gram matrix. Where PC-Relate divides by the
+// variance its model predicts and corrects for inbreeding by f_i f_j, this
+// divides by the variance observed and centres each sample, as evalAdmix does,
+// so a duplicate pair has k2 = 1; and the projection takes out any dominance
+// deviation shared along the PCs, such as a site's departure from Hardy-Weinberg
+// in the whole sample, which would otherwise read as k2 > 0 for every pair.
+//
+// pi is the fit of the centred, imputed genotypes, f + Q Q' g, bounded to
+// [0.01, 0.99] as PC-Relate bounds it. A missing call has residual 0.
+static constexpr double IBD_MU_BOUND = 0.01;
+
+// Rows r0.. of the dominance residuals of columns c0 .. c0 + w of G, centred,
+// imputed genotypes (N x m) whose site frequencies are f[0 .. m), into H
+// ((N - r0) x w). ms lists the missing calls of G by column. H may be G itself
+// when r0 = c0 = 0 and w = m: each entry is a function of its own genotype, its
+// PC scores and Q' G, which is formed first.
+static void dominance(const Mat2D& G, Eigen::Index c0, Eigen::Index w, Eigen::Index r0, const double* f,
+                      const Mat2D& Q, const MissingCalls& ms, Mat2D& H) {
+  const Eigen::Index N = G.rows(), Np = N - r0;
+  const Mat2D Z = Q.transpose() * G.middleCols(c0, w);  // r x w
+  if (&H != &G) H.resize(Np, w);
+  const Mat2D Qr = Q.middleRows(r0, Np);
+#pragma omp parallel
+  {
+    Mat1D fit(Np);
+#pragma omp for schedule(static)
+    for (Eigen::Index c = 0; c < w; ++c) {
+      const double fs = f[c0 + c];
+      fit.noalias() = Qr * Z.col(c);
+      const double* g = G.col(c0 + c).data() + r0;
+      double* h = H.col(c).data();
+      for (Eigen::Index i = 0; i < Np; ++i) {
+        const double x = g[i] + fs, p = std::min(1.0 - IBD_MU_BOUND, std::max(IBD_MU_BOUND, fs + fit(i)));
+        const double d = x < 0.25 ? p : (x > 0.75 ? 1.0 - p : 0.0);  // h; x is 0, 1/2 or 1 up to rounding
+        h[i] = d - p * (1.0 - p);
+      }
+    }
+  }
+  // the missing calls, which hold their fit
+  const auto first = std::lower_bound(ms.site.begin(), ms.site.end(), c0);
+  const size_t n0 = first - ms.site.begin();
+  size_t n1 = n0;
+  while (n1 < ms.site.size() && ms.site[n1] < c0 + w) ++n1;
+#pragma omp parallel for schedule(static)
+  for (size_t n = n0; n < n1; ++n) {
+    double* h = H.col(ms.site[n] - c0).data();
+    for (uint64 p = ms.ptr[n]; p < ms.ptr[n + 1]; ++p)
+      if (ms.idx[p] >= (uint64)r0) h[ms.idx[p] - r0] = 0.0;
+  }
 }
 
 // ---- shared by the dense and the pairwise output ------------------------
@@ -374,26 +482,68 @@ static Factors make_factors(const Mat2D& Q, const Mat2D& T, const Mat1D& Sdiag, 
 
 static void run_evaladmix_pairs(Data* data, const Param& params);
 
+// Step 4 of run_evaladmix(), in place: the lower triangle of a Gram matrix A
+// to corres = bhat - chat off the diagonal, given the per-sample means b and
+// null variances d of what A is the Gram matrix of.
+//
+//   S    = A - M gbar gbar'                   (Rtilde'Rtilde before (I-P))
+//   Bcov = (I-P) S (I-P)    = S - L R'        L = [Q, W], R = [W, Q]
+//   Ccov = (I-P) Dhat (I-P) = Dhat + Lc Rc'   Lc = [Q, dQ], Rc = [QH - dQ, -Q]
+//
+// with T = S Q, W = T - Q (Q'T)/2, dQ = Dhat Q and H = Q' Dhat Q, all N x r.
+// bhat and chat are Bcov and Ccov scaled to unit diagonal, whose diagonals
+// follow from the same factors in O(N r). So, off the diagonal,
+//
+//   corres = diag(sb) S diag(sb) - [sb.L, sc.Lc] [sb.R, sc.Rc]'
+//
+// with sb, sc the inverse square roots of the two diagonals: one scaling of A
+// and one N x N x 4r product, done in place. Only A is ever N x N.
+static void gram_to_corres(Mat2D& A, const Mat1D& b, const Mat1D& d, const Mat2D& Q, uint M) {
+  const Eigen::Index N = A.rows();
+  A.selfadjointView<Eigen::Lower>().rankUpdate(b, -(double)M);  // S, lower triangle
+  mirror_lower(A);
+  Factors F;
+  {
+    Mat2D T;
+    T.noalias() = A * Q;
+    F = make_factors(Q, T, A.diagonal(), d);
+  }
+#pragma omp parallel for schedule(static)
+  for (Eigen::Index j = 0; j < N; ++j) A.col(j).array() *= F.sb.array() * F.sb(j);
+  A.noalias() -= F.L * F.R.transpose();
+}
+
 void run_evaladmix(Data* data, const Param& params) {
+  // not to be mistaken for this run's, as .unrelated in run_evaladmix_pairs()
+  if (!params.evaladmix_ibd || params.evaladmix_pairs)
+    for (const char* ext : {".k0", ".k2"}) std::remove((params.fileout + ext).c_str());
   if (params.evaladmix_pairs) return run_evaladmix_pairs(data, params);
   const Eigen::Index N = data->nsamples;
   const uint M = data->nsnps;
+  const bool ibd = params.evaladmix_ibd;
 
   // ---- 0. size -----------------------------------------------------------
   // One dense N x N matrix at peak, and two dense N x N text files on the way
-  // out. Both grow with the square of the sample count and neither depends on
-  // the number of sites, so a cohort whose PCA runs comfortably out-of-core can
-  // still be far out of reach here. Say so before spending a pass over the
-  // genotypes rather than dying in the allocator afterwards.
-  const double ram = nn_gib(N);  // twice that if genotypes are missing, see handle_missing()
+  // out (twice both with --evaladmix-ibd). Both grow with the square of the
+  // sample count and neither depends on the number of sites, so a cohort whose
+  // PCA runs comfortably out-of-core can still be far out of reach here. Say so
+  // before spending a pass over the genotypes rather than dying in the allocator
+  // afterwards.
+  const double ram = nn_gib(N) * (ibd ? 2 : 1);  // one more N x N if genotypes are missing, see handle_missing()
   const double perfile = (double)N * (double)N * 9.0 / 1073741824.0;  // ~9 bytes per printed value
   cao.print(tick.date(), "evalAdmix:", N, "samples needs about", ram,
-            "GB of RAM (twice that with missing genotypes), and writes two files of about", perfile, "GB each");
+            ibd ? "GB of RAM (half as much again with missing genotypes), and writes four files of about"
+                : "GB of RAM (twice that with missing genotypes), and writes two files of about",
+            perfile, "GB each");
   if (ram > 8.0)
     cao.warn("evalAdmix needs about", ram, "GB of RAM for the", N, "x", N,
-             "matrix. this does not go down with --memory, which only bounds the genotype blocks. if that is more "
+             ibd ? "matrices." : "matrix.",
+             "this does not go down with --memory, which only bounds the genotype blocks. if that is more "
              "than this machine has, use --evaladmix-kin <cutoff>, which computes the matrix in stripes within -m "
              "and writes only the pairs whose kinship reaches the cutoff.");
+  if (ibd)
+    cao.print(tick.date(), "evalAdmix: also estimating k2 from the dominance residuals, and k0 and k1 "
+              "(--evaladmix-ibd)");
 
   // ---- 1. principal component scores, 2. projection onto [PCs, intercept] --
   // see projection_basis()
@@ -426,27 +576,46 @@ void run_evaladmix(Data* data, const Param& params) {
   // divides it out, which is what pairwise-complete sites, as evalAdmix uses,
   // would give. It is pairwise, not per sample, so that it also holds when
   // missingness is shared, e.g. by genotyping batch.
-  Mat2D A;
+  //
+  // With --evaladmix-ibd the same pass accumulates K, the Gram matrix of the
+  // dominance residuals (see dominance()), and their per-sample sums. A missing
+  // call has dominance residual 0, so K is rescaled by the same n_ij.
+  Mat2D A, K;
   try {
     A = Mat2D::Zero(N, N);  // G'G, lower triangle
+    if (ibd) K = Mat2D::Zero(N, N);  // H'H, lower triangle
   } catch (const std::bad_alloc&) {
-    cao.error("evalAdmix: out of memory allocating the", N, "x", N, "Gram matrix of", nn_gib(N), "GB");
+    cao.error("evalAdmix: out of memory allocating", ibd ? "the two" : "the", N, "x", N,
+              ibd ? "Gram matrices of" : "Gram matrix of", nn_gib(N), ibd ? "GB each" : "GB");
   }
   Mat2D Nobs;          // pairs genotyped at the same sites; see handle_missing()
   double nfull = 0.0;   // sites where every sample is genotyped
   uint64 ninf = 0;      // sites where missingness is visible
   Mat1D b = Mat1D::Zero(N);  // sum_s g_s
   Mat1D d = Mat1D::Zero(N);  // sum_s g_s .* (1 - g_s)   (0..1 scale)
+  Mat1D bh;                  // sum_s h_s, the dominance residuals
+  if (ibd) bh = Mat1D::Zero(N);
+  MissingCalls ms;           // for dominance(), with --evaladmix-ibd
+  MissingCalls* pms = ibd ? &ms : nullptr;
   tick.clock();
   if (!params.out_of_core) {
     // G is nsamples x nsnps, centred, not standardized.
-    handle_missing(data->G, data->F.data(), Q, Nobs, nfull, ninf);
+    handle_missing(data->G, data->F.data(), Q, Nobs, nfull, ninf, pms);
     const Mat2D& G = data->G;
     syrk_lower_add(A, G);  // lower triangle, half the flops of G * G'
     b = G.rowwise().sum();
     for (Eigen::Index i = 0; i < G.cols(); ++i) {
       const double f = data->F(i);
       d.array() += (G.col(i).array() + f) * (1.0 - (G.col(i).array() + f));
+    }
+    if (ibd) {  // chunks of sites, as G is kept
+      Mat2D H;
+      for (Eigen::Index c0 = 0; c0 < G.cols(); c0 += 1024) {
+        const Eigen::Index w = std::min<Eigen::Index>(1024, G.cols() - c0);
+        dominance(G, c0, w, 0, data->F.data(), Q, ms, H);
+        syrk_lower_add(K, H);
+        bh += H.rowwise().sum();
+      }
     }
     data->G.resize(0, 0);  // N x M doubles, not needed past this point
   } else {
@@ -457,13 +626,19 @@ void run_evaladmix(Data* data, const Param& params) {
     data->check_file_offset_first_var();
     for (uint bi = 0; bi < data->nblocks; ++bi) {
       data->read_block_initial(data->start[bi], data->stop[bi], false);
-      handle_missing(data->G, data->F.data() + data->start[bi], Q, Nobs, nfull, ninf);
+      ms.clear();
+      handle_missing(data->G, data->F.data() + data->start[bi], Q, Nobs, nfull, ninf, pms);
       const Mat2D& G = data->G;
       syrk_lower_add(A, G);
       b += G.rowwise().sum();
       for (Eigen::Index i = 0; i < G.cols(); ++i) {
         const double f = data->F(data->start[bi] + i);
         d.array() += (G.col(i).array() + f) * (1.0 - (G.col(i).array() + f));
+      }
+      if (ibd) {  // in place: the block is read again for the next one
+        dominance(data->G, 0, data->G.cols(), 0, data->F.data() + data->start[bi], Q, ms, data->G);
+        syrk_lower_add(K, data->G);
+        bh += data->G.rowwise().sum();
       }
     }
     data->G.resize(0, 0);
@@ -475,31 +650,15 @@ void run_evaladmix(Data* data, const Param& params) {
   warn_nohet(d);
 
   // ---- 4. corres = bhat - chat -------------------------------------------
-  //
-  //   S    = A - M gbar gbar'                   (Rtilde'Rtilde before (I-P))
-  //   Bcov = (I-P) S (I-P)    = S - L R'        L = [Q, W], R = [W, Q]
-  //   Ccov = (I-P) Dhat (I-P) = Dhat + Lc Rc'   Lc = [Q, dQ], Rc = [QH - dQ, -Q]
-  //
-  // with T = S Q, W = T - Q (Q'T)/2, dQ = Dhat Q and H = Q' Dhat Q, all N x r.
-  // bhat and chat are Bcov and Ccov scaled to unit diagonal, whose diagonals
-  // follow from the same factors in O(N r). So, off the diagonal,
-  //
-  //   corres = diag(sb) S diag(sb) - [sb.L, sc.Lc] [sb.R, sc.Rc]'
-  //
-  // with sb, sc the inverse square roots of the two diagonals: one scaling of A
-  // and one N x N x 4r product, done in place. Only A is ever N x N.
+  // see gram_to_corres(). For k2 the null variance of each sample's dominance
+  // residuals is their observed mean square, the diagonal of K.
   tick.clock();
-  A.selfadjointView<Eigen::Lower>().rankUpdate(b, -(double)M);  // S, lower triangle
-  mirror_lower(A);
-  Factors F;
-  {
-    Mat2D T;
-    T.noalias() = A * Q;
-    F = make_factors(Q, T, A.diagonal(), d);
+  gram_to_corres(A, b, d, Q, M);
+  if (ibd) {
+    bh /= (double)M;
+    const Mat1D dh = K.diagonal() / (double)M;
+    gram_to_corres(K, bh, dh, Q, M);
   }
-#pragma omp parallel for schedule(static)
-  for (Eigen::Index j = 0; j < N; ++j) A.col(j).array() *= F.sb.array() * F.sb(j);
-  A.noalias() -= F.L * F.R.transpose();
   // undo the attenuation by missing calls (see step 3): multiply by
   // sqrt(n_i n_j) / n_ij. a pair never genotyped at the same site has no
   // estimate and is written as nan
@@ -515,9 +674,12 @@ void run_evaladmix(Data* data, const Param& params) {
       for (Eigen::Index i = 0; i < N; ++i) {
         const double nij = Nobs(i, j) + nfull;
         if (nij > 0) {
-          A(i, j) *= std::sqrt(ni(i) * ni(j)) / nij;
+          const double s = std::sqrt(ni(i) * ni(j)) / nij;
+          A(i, j) *= s;
+          if (ibd) K(i, j) *= s;
         } else {
           A(i, j) = std::numeric_limits<double>::quiet_NaN();
+          if (ibd) K(i, j) = A(i, j);
           nopair += i != j;
         }
       }
@@ -526,12 +688,15 @@ void run_evaladmix(Data* data, const Param& params) {
   }
   // a correlation cannot leave [-1, 1]; neither may the difference of two.
   // scalar, so that nan passes through as nan
+  for (Mat2D* X : {&A, &K}) {
+    if (X->size() == 0) continue;
 #pragma omp parallel for schedule(static)
-  for (Eigen::Index j = 0; j < N; ++j)
-    for (Eigen::Index i = 0; i < N; ++i)
-      if (!std::isnan(A(i, j))) A(i, j) = std::min(1.0, std::max(-1.0, A(i, j)));
-  A.diagonal().setZero();
-  mirror_lower(A);  // exactly symmetric, as write_matrix() relies on
+    for (Eigen::Index j = 0; j < N; ++j)
+      for (Eigen::Index i = 0; i < N; ++i)
+        if (!std::isnan((*X)(i, j))) (*X)(i, j) = std::min(1.0, std::max(-1.0, (*X)(i, j)));
+    X->diagonal().setZero();
+    mirror_lower(*X);  // exactly symmetric, as write_matrix() relies on
+  }
   if (nopair > 0)
     cao.warn(nopair / 2, "pair(s) of samples are never genotyped at the same site; their entries are nan");
   cao.print(tick.date(), "evalAdmix: correlation of residuals computed in", tick.reltime(), "seconds");
@@ -547,6 +712,18 @@ void run_evaladmix(Data* data, const Param& params) {
   write_matrix(params.fileout + ".kinship", A, ids, 0.5);
   cao.print(tick.date(), "evalAdmix: correlation of residuals saved to", params.fileout + ".corres");
   cao.print(tick.date(), "evalAdmix: kinship (corres/2) saved to", params.fileout + ".kinship");
+  if (ibd) {
+    // k2, then k0 = 1 - 4 phi + k2 = 1 - 2 corres + k2 in its place. k1 = 4 phi - 2 k2
+    // follows from the two. Like the kinship, the diagonal is no estimate
+    write_matrix(params.fileout + ".k2", K, ids);
+#pragma omp parallel for schedule(static)
+    for (Eigen::Index j = 0; j < N; ++j) K.col(j).array() += 1.0 - 2.0 * A.col(j).array();
+    write_matrix(params.fileout + ".k0", K, ids);
+    cao.print(tick.date(), "evalAdmix: k2, the probability of sharing two alleles IBD, saved to",
+              params.fileout + ".k2");
+    cao.print(tick.date(), "evalAdmix: k0 = 1 - 4 kinship + k2 saved to", params.fileout + ".k0",
+              "; k1 = 4 kinship - 2 k2");
+  }
 }
 
 // ===========================================================================
@@ -582,33 +759,6 @@ void run_evaladmix(Data* data, const Param& params) {
 // product of handle_missing(), which would double the cost of the Gram product.
 
 using MatF = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>;
-
-// The missing calls of a block of sites, one ascending list of samples per site
-// that has any. Only the sites where missingness is visible; see handle_missing().
-struct MissingCalls {
-  std::vector<uint64> ptr{0};  // site s lists idx[ptr[s] .. ptr[s+1])
-  std::vector<uint32_t> idx;
-  size_t nsites() const { return ptr.size() - 1; }
-  void clear() {
-    ptr.assign(1, 0);
-    idx.clear();
-  }
-  // the samples missing in each of the first w columns of O, observed-call indicators
-  void add(const Mat2D& O, Eigen::Index w) {
-    const size_t s0 = nsites();
-    ptr.resize(s0 + w + 1);
-#pragma omp parallel for schedule(static)
-    for (Eigen::Index c = 0; c < w; ++c) ptr[s0 + c + 1] = (O.col(c).array() == 0.0).count();
-    for (Eigen::Index c = 0; c < w; ++c) ptr[s0 + c + 1] += ptr[s0 + c];
-    idx.resize(ptr.back());
-#pragma omp parallel for schedule(static)
-    for (Eigen::Index c = 0; c < w; ++c) {
-      uint64 p = ptr[s0 + c];
-      for (Eigen::Index i = 0; i < O.rows(); ++i)
-        if (O(i, c) == 0.0) idx[p++] = (uint32_t)i;
-    }
-  }
-};
 
 // MM(j - i0, i - i0) += the number of sites of ms where sample i of the stripe
 // [i0, i0 + nb) and sample j > i are both missing. Entries with j <= i are left
@@ -734,9 +884,17 @@ static void run_evaladmix_pairs(Data* data, const Param& params) {
   std::remove((params.fileout + ".unrelated").c_str());  // not to be mistaken for this run's
   const Mat2D Q = projection_basis(params, N);
   const Eigen::Index r = Q.cols();
+  const bool ibd = params.evaladmix_ibd;
+  if (ibd)
+    cao.print(tick.date(), "evalAdmix: also estimating k2 from the dominance residuals, and k0 and k1 "
+              "(--evaladmix-ibd)");
+  // in-core the genotypes are kept for the stripes, so their dominance
+  // residuals are formed a chunk of sites at a time; with -m, in place in the block
+  const Eigen::Index hchunk = std::min<Eigen::Index>(1024, std::max<Eigen::Index>(256, (Eigen::Index(1) << 26) / N));
 
   // ---- pass 1: the per-sample sums ----------------------------------------
-  // the same centred, imputed genotypes as run_evaladmix() step 3
+  // the same centred, imputed genotypes as run_evaladmix() step 3, and with
+  // --evaladmix-ibd the same sums of their dominance residuals
   Mat1D a = Mat1D::Zero(N);     // sum_s g_s^2, the diagonal of A = G'G
   Mat1D b = Mat1D::Zero(N);     // sum_s g_s
   Mat1D d = Mat1D::Zero(N);     // sum_s g_s .* (1 - g_s)   (0..1 scale)
@@ -745,7 +903,20 @@ static void run_evaladmix_pairs(Data* data, const Param& params) {
   double nfull = 0.0;  // sites where every sample is genotyped
   uint64 ninf = 0;     // sites where missingness is visible
   MissingCalls ms;     // in-core, of all the sites and kept for the stripes; else of one block
-  auto record = [&ms](const Mat2D& O, Eigen::Index w) { ms.add(O, w); };
+  auto record = [&ms](const Mat2D& O, Eigen::Index w, const Eigen::Index* cols) { ms.add(O, w, cols); };
+  Mat1D ah, bh;  // as a and b, of the dominance residuals
+  Mat2D Th;      // as T
+  if (ibd) {
+    ah = Mat1D::Zero(N);
+    bh = Mat1D::Zero(N);
+    Th = Mat2D::Zero(N, r);
+  }
+  auto add_dominance = [&](const Mat2D& H) {
+    ah += H.rowwise().squaredNorm();
+    bh += H.rowwise().sum();
+    const Mat2D Z = H.transpose() * Q;
+    Th.noalias() += H * Z;
+  };
   auto accumulate = [&](Mat2D& G, const double* f) {
     const size_t first = ms.idx.size();
     impute_missing(G, f, Q, nfull, ninf, record);
@@ -763,6 +934,17 @@ static void run_evaladmix_pairs(Data* data, const Param& params) {
     }
     const Mat2D Z = G.transpose() * Q;  // w x r
     T.noalias() += G * Z;
+    if (!ibd) return;
+    if (params.out_of_core) {
+      dominance(G, 0, w, 0, f, Q, ms, G);
+      add_dominance(G);
+    } else {
+      Mat2D H;
+      for (Eigen::Index c0 = 0; c0 < w; c0 += hchunk) {
+        dominance(G, c0, std::min(hchunk, w - c0), 0, f, Q, ms, H);
+        add_dominance(H);
+      }
+    }
   };
   tick.clock();
   if (!params.out_of_core) {
@@ -789,6 +971,15 @@ static void run_evaladmix_pairs(Data* data, const Param& params) {
   const Factors F = make_factors(Q, T, Sd, d);
   T.resize(0, 0);
   a.resize(0);
+  Factors Fh;  // of the dominance residuals; their null variances are their mean squares
+  if (ibd) {
+    bh /= (double)M;
+    Th.noalias() -= ((double)M * bh) * (bh.transpose() * Q);
+    const Mat1D Sdh = ah.array() - (double)M * bh.array().square();
+    Fh = make_factors(Q, Th, Sdh, ah / (double)M);
+    Th.resize(0, 0);
+    ah.resize(0);
+  }
 
   const uint64 nmsites = ninf - (uint64)nfull;  // sites with a missing call
   const bool missing = nmsites > 0;
@@ -812,7 +1003,10 @@ static void run_evaladmix_pairs(Data* data, const Param& params) {
   // is left of it by the genotype block, the per-sample factors and, with
   // missing genotypes, the three chunks impute_missing() works in, a block's
   // lists of missing calls and the indicator panels of add_both_missing().
-  const double gib = 1073741824.0, elem = missing ? 12.0 : 8.0;
+  // --evaladmix-ibd adds the stripe of the dominance Gram matrix, in double,
+  // its per-sample factors and the fitted frequencies dominance() works with
+  // (in-core, the chunk of dominance residuals of the stripe too).
+  const double gib = 1073741824.0, elem = (missing ? 12.0 : 8.0) + (ibd ? 8.0 : 0.0);
   double budget = 2.0 * gib, fixed = 0.0;
   if (params.out_of_core) {
     const double bs = data->blocksize, chunk = std::min(bs, std::max(64.0, std::floor(8388608.0 / N)));
@@ -820,8 +1014,11 @@ static void run_evaladmix_pairs(Data* data, const Param& params) {
     for (Eigen::Index i = 0; i < N; ++i) pmiss += miss[i];
     pmiss /= std::max(1.0, (double)N * ninf);
     fixed = 8.0 * N * bs + 8.0 * N * (12.0 * r + 8.0) +
-            (missing ? 24.0 * N * chunk + 20.0 * N * bs * pmiss + 4.0 * 256 * N : 0.0);
+            (missing ? 24.0 * N * chunk + 20.0 * N * bs * pmiss + 4.0 * 256 * N : 0.0) +
+            (ibd ? 8.0 * N * (9.0 * r + 2.0 + omp_get_max_threads()) : 0.0);
     budget = params.memory * gib - fixed;
+  } else if (ibd) {
+    budget -= 8.0 * N * hchunk;
   }
   std::vector<Eigen::Index> s0{0};
   bool floor64 = false;
@@ -854,7 +1051,8 @@ static void run_evaladmix_pairs(Data* data, const Param& params) {
   const std::string fkin = params.fileout + ".kin0";
   std::ofstream out(fkin, std::ios::binary);
   if (!out.is_open()) cao.error("can not open file for writing: " + fkin);
-  out << (ids.has_fid ? "#FID1\tIID1\tFID2\tIID2" : "#IID1\tIID2") << "\tNSNP\tKINSHIP\n";
+  out << (ids.has_fid ? "#FID1\tIID1\tFID2\tIID2" : "#IID1\tIID2") << "\tNSNP\tKINSHIP"
+      << (ibd ? "\tK0\tK1\tK2\n" : "\n");
 
   // pairs by KING degree bin (Manichaikul et al. 2010), and a 4th degree
   const double edges[5] = {0.354, 0.177, 0.0884, 0.0442, 0.0221};
@@ -863,13 +1061,16 @@ static void run_evaladmix_pairs(Data* data, const Param& params) {
   // many there are, how far they spread, and how many reach -cutoff
   uint64 nmirror = 0, nneg = 0;
   double kneg2 = 0.0;
+  // the first-degree pairs by k0: parent and offspring share an allele IBD at
+  // every site (k0 = 0), full sibs none at a quarter of the sites (k0 = 1/4)
+  uint64 npo = 0, nfs = 0;
   std::vector<std::pair<uint32_t, uint32_t>> rel;  // the pairs >= kunrel
   const size_t relmax = size_t(1) << 25;          // 256 MB of them
   bool rel_overflow = false;
   const Eigen::Index CH = std::max<Eigen::Index>(8, 2 * omp_get_max_threads());
   std::vector<std::string> buf(CH);
   std::vector<std::vector<std::pair<uint32_t, uint32_t>>> relc(CH);
-  Mat2D As;
+  Mat2D As, Ks;  // Ks: as As, of the dominance residuals
   MatF MM;
   const double npairs_all = 0.5 * (double)N * (double)(N - 1);
   double pairs_done = 0.0, secs = 0.0;
@@ -879,23 +1080,41 @@ static void run_evaladmix_pairs(Data* data, const Param& params) {
     try {
       As.setZero(Np, nb);  // As(j - i0, i - i0) = S(j, i), j >= i0
       if (missing) MM.setZero(Np, nb);
+      if (ibd) Ks.setZero(Np, nb);
     } catch (const std::bad_alloc&) {
       cao.error("evalAdmix: out of memory allocating a stripe of", elem * Np * nb / gib, "GB. lower -m");
     }
     // the stripe's own nb x nb block needs only its lower triangle: row panels
     // of 512 samples, each up to its diagonal, waste 256 / nb of it and, unlike
     // syrk_lower_add(), allocate nothing. Below it, one product.
-    auto add_block = [&](const Mat2D& G, const MissingCalls& m) {
+    // X holds sample i0 in row x0
+    auto add_gram = [&](Mat2D& S, const Mat2D& X, Eigen::Index x0) {
       for (Eigen::Index r0 = 0; r0 < nb; r0 += 512) {
         const Eigen::Index q = std::min<Eigen::Index>(512, nb - r0);
-        As.block(r0, 0, q, r0 + q).noalias() += G.middleRows(i0 + r0, q) * G.middleRows(i0, r0 + q).transpose();
+        S.block(r0, 0, q, r0 + q).noalias() += X.middleRows(x0 + r0, q) * X.middleRows(x0, r0 + q).transpose();
       }
       if (Np > nb)
-        As.bottomRows(Np - nb).noalias() += G.middleRows(i0 + nb, Np - nb) * G.middleRows(i0, nb).transpose();
+        S.bottomRows(Np - nb).noalias() += X.middleRows(x0 + nb, Np - nb) * X.middleRows(x0, nb).transpose();
+    };
+    // G: the block of genotypes, whose site frequencies start at f. With -m
+    // the block is then overwritten by its dominance residuals
+    auto add_block = [&](Mat2D& G, const MissingCalls& m, const double* f) {
+      add_gram(As, G, i0);
       if (missing) add_both_missing(MM, m, i0, nb);
+      if (!ibd) return;
+      if (params.out_of_core) {
+        dominance(G, 0, G.cols(), 0, f, Q, m, G);
+        add_gram(Ks, G, i0);
+      } else {
+        Mat2D H;  // the rows from i0 down
+        for (Eigen::Index c0 = 0; c0 < G.cols(); c0 += hchunk) {
+          dominance(G, c0, std::min(hchunk, G.cols() - c0), i0, f, Q, m, H);
+          add_gram(Ks, H, 0);
+        }
+      }
     };
     if (!params.out_of_core) {
-      add_block(data->G, ms);
+      add_block(data->G, ms, data->F.data());
     } else {
       double nf = 0.0;  // counted in pass 1 already
       uint64 nn = 0;
@@ -904,7 +1123,7 @@ static void run_evaladmix_pairs(Data* data, const Param& params) {
         data->read_block_initial(data->start[bi], data->stop[bi], false);
         ms.clear();
         impute_missing(data->G, data->F.data() + data->start[bi], Q, nf, nn, record);
-        add_block(data->G, ms);
+        add_block(data->G, ms, data->F.data() + data->start[bi]);
       }
     }
     // A -> S -> diag(sb) S diag(sb) -> corres before the rescaling, as in
@@ -917,20 +1136,30 @@ static void run_evaladmix_pairs(Data* data, const Param& params) {
         As(rr, c) = (As(rr, c) - mbi * b(i0 + rr)) * (F.sb(i0 + rr) * sbi);
     }
     As.noalias() -= F.L.middleRows(i0, Np) * F.R.middleRows(i0, nb).transpose();
+    if (ibd) {  // the same for the dominance residuals: k2 before the rescaling
+#pragma omp parallel for schedule(dynamic, 16)
+      for (Eigen::Index c = 0; c < nb; ++c) {
+        const Eigen::Index i = i0 + c;
+        const double mbi = (double)M * bh(i), sbi = Fh.sb(i);
+        for (Eigen::Index rr = c + 1; rr < Np; ++rr)
+          Ks(rr, c) = (Ks(rr, c) - mbi * bh(i0 + rr)) * (Fh.sb(i0 + rr) * sbi);
+      }
+      Ks.noalias() -= Fh.L.middleRows(i0, Np) * Fh.R.middleRows(i0, nb).transpose();
+    }
     // rescale, clip and write, a chunk of the stripe's samples at a time
     for (Eigen::Index c0 = 0; c0 < nb; c0 += CH) {
       const Eigen::Index h = std::min(CH, nb - c0);
 #pragma omp parallel for schedule(dynamic, 1) \
-    reduction(+ : npairs, nopair, nbin0, nbin1, nbin2, nbin3, nbin4, nbin5, nmirror, nneg, kneg2)
+    reduction(+ : npairs, nopair, nbin0, nbin1, nbin2, nbin3, nbin4, nbin5, nmirror, nneg, kneg2, npo, nfs)
       for (Eigen::Index t = 0; t < h; ++t) {
         const Eigen::Index c = c0 + t, i = i0 + c;
         std::string& o = buf[t];
         o.clear();
         relc[t].clear();
-        char num[48];
+        char num[96];
         for (Eigen::Index rr = c + 1; rr < Np; ++rr) {
           const Eigen::Index j = i0 + rr;
-          double v = As(rr, c), nsnp = (double)M - miss[i] - miss[j];
+          double v = As(rr, c), nsnp = (double)M - miss[i] - miss[j], resc = 1.0;
           if (missing) {
             const double mm = MM(rr, c), nij = (double)ninf - miss[i] - miss[j] + mm;
             nsnp += mm;
@@ -938,7 +1167,8 @@ static void run_evaladmix_pairs(Data* data, const Param& params) {
               ++nopair;
               continue;
             }
-            v *= std::sqrt(ni(j) * ni(i)) / nij;
+            resc = std::sqrt(ni(j) * ni(i)) / nij;
+            v *= resc;
           }
           v = std::min(1.0, std::max(-1.0, v));
           const double kin = v * 0.5;
@@ -966,6 +1196,21 @@ static void run_evaladmix_pairs(Data* data, const Param& params) {
           char* p = put_uint((uint64)(nsnp + 0.5), num);
           *p++ = '\t';
           p = put_fixed6(kin, p);
+          if (ibd) {  // k0 = 1 - 4 phi + k2, k1 = 4 phi - 2 k2
+            const double k2 = std::min(1.0, std::max(-1.0, Ks(rr, c) * resc)), k0 = 1.0 - 4.0 * kin + k2;
+            if (kin >= edges[1] && kin < edges[0]) {
+              if (k0 < 0.125)
+                ++npo;
+              else
+                ++nfs;
+            }
+            *p++ = '\t';
+            p = put_fixed6(k0, p);
+            *p++ = '\t';
+            p = put_fixed6(4.0 * kin - 2.0 * k2, p);
+            *p++ = '\t';
+            p = put_fixed6(k2, p);
+          }
           *p++ = '\n';
           o.append(num, p - num);
           if (want_unrel && kin >= kunrel) relc[t].emplace_back((uint32_t)i, (uint32_t)j);
@@ -990,6 +1235,7 @@ static void run_evaladmix_pairs(Data* data, const Param& params) {
               (uint64)std::ceil(secs * (npairs_all - pairs_done) / std::max(1.0, pairs_done)), "seconds left");
   }
   As.resize(0, 0);
+  Ks.resize(0, 0);
   MM.resize(0, 0);
   data->G.resize(0, 0);
   out.close();
@@ -1030,6 +1276,9 @@ static void run_evaladmix_pairs(Data* data, const Param& params) {
   cao.print(tick.date(), "evalAdmix: of those, by KING degree: duplicate/MZ (>= 0.354):", nbin0,
             ", 1st (>= 0.177):", nbin1, ", 2nd (>= 0.0884):", nbin2, ", 3rd (>= 0.0442):", nbin3,
             ", 4th (>= 0.0221):", nbin4, ", lower:", nbin5);
+  if (ibd)
+    cao.print(tick.date(), "evalAdmix: of the first-degree pairs,", npo, "have k0 < 0.125 (parent-offspring) and",
+              nfs, "have k0 >= 0.125 (full sibs)");
 
   // ---- the unrelated set ----------------------------------------------------
   if (!want_unrel) {

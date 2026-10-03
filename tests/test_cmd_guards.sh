@@ -68,6 +68,7 @@ bad "--evaladmix-kin requires --evaladmix" -b x -P ref --evaladmix-kin 0.1
 bad "--evaladmix-unrelated requires --evaladmix-kin" -b x -P ref --evaladmix --evaladmix-unrelated 0.1
 bad "kinship cutoff, in [-0.5, 0.5]" -b x -P ref --evaladmix --evaladmix-kin 0.6
 bad "has to be in [--evaladmix-kin, 0.5]" -b x -P ref --evaladmix --evaladmix-kin 0.1 --evaladmix-unrelated 0.05
+bad "--evaladmix-ibd requires --evaladmix" -b x -P ref --evaladmix-ibd
 bad "--ld-r2" -b x --ld-r2 1.5
 bad "--ld-r2" -b x --ld-r2 -0.2
 bad "--ld-bp" -b x --ld-bp 0

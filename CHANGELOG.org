@@ -62,6 +62,14 @@ so that sum no longer covers all the variance.
     N = 20,000 it runs in 1 GB, where the dense output needs 6 GB of RAM and two 3.6 GB files.
     The log estimates the time left after each stripe and warns when unrelated pairs scatter
     more than chance (PCs that leave structure) or when the cutoff is within the noise.
+  - =--evaladmix-ibd= adds the probabilities of sharing 0, 1 and 2 alleles IBD, which tell
+    parent–offspring (=k0= = 0) from full sibs (=k0= = 1/4). =k2= is the evalAdmix statistic of
+    PC-Relate's dominance residuals, computed with the same projection, =cov2cor=, =chat= and
+    missing-call rescaling as the kinship; =k0 = 1 - 4 phi + k2= and =k1 = 4 phi - 2 k2=. The dense
+    run writes =.k0= and =.k2=; with =--evaladmix-kin=, =.kin0= gains =K0 K1 K2= columns and the log
+    splits the first-degree pairs by =k0=. On the relateAdmix pedigree, parent–offspring have
+    =k0= <= 0.009 and full sibs >= 0.240. It costs one more Gram product; without the option the
+    output is byte-identical.
   - =--evaladmix= compares the sample IDs of =<prefix>.eigvecs2= with the =.fam=/=.psam= and stops
     on a mismatch: the reference had to be of the same samples in the same order, but only the
     number of rows was checked. Without =.eigvecs2= it warns.

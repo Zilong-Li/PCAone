@@ -100,6 +100,8 @@ class Param {
   bool evaladmix_pairs = false;
   double evaladmix_kin = 0;
   double evaladmix_unrel = 0;
+  // --evaladmix-ibd: also the IBD sharing probabilities k0, k1, k2
+  bool evaladmix_ibd = false;
   // bool estpi = false; // true if output pi is needed
 
   std::ostringstream ss;

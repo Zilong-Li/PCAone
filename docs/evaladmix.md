@@ -33,6 +33,10 @@ For biobank-scale cohorts, where an `N x N` matrix does not fit,
 unrelated set, in memory bounded by `-m`. See
 [Biobank scale](#biobank-scale---evaladmix-kin).
 
+`--evaladmix-ibd` adds the probabilities of sharing 0, 1 and 2 alleles IBD
+(`k0`, `k1`, `k2`), which tell parent–offspring from full sibs. See
+[IBD sharing probabilities](#ibd-sharing-probabilities---evaladmix-ibd).
+
 ## What it estimates
 
 Predict each genotype from ancestry alone; whatever is left over is the
@@ -398,6 +402,167 @@ cores would take about 1.4 hours, and `-m 64` makes 5 to 10 passes over the
 9 GB `.bed`. Linking MKL or OpenBLAS
 (`Makefile`) usually speeds up the products further.
 
+## IBD sharing probabilities: `--evaladmix-ibd`
+
+Kinship cannot tell parent–offspring from full sibs: both have `phi = 1/4`.
+What differs is how the sharing is distributed. A parent and child share exactly
+one allele IBD at every site (`k0, k1, k2 = 0, 1, 0`). Full sibs share none at a
+quarter of the sites, one at half and both at a quarter (`1/4, 1/2, 1/4`).
+`--evaladmix-ibd` estimates all three:
+
+```bash
+PCAone -b plink -k <K-1> --maf 0.05 -o pcs
+PCAone -b plink -P pcs --evaladmix --evaladmix-ibd --maf 0.05 -o out
+PCAone -b cohort -P pcs --evaladmix --evaladmix-ibd --evaladmix-kin 0.0442 -m 64 -o rel
+```
+
+The dense run also writes `out.k2` and `out.k0`, N x N with the same header as
+`out.kinship`. `k1 = 4 phi - 2 k2` follows from `out.kinship` and `out.k2`.
+As in `.kinship`, the diagonal is not an estimate (0 in `.k2`, 1 in `.k0`).
+With `--evaladmix-kin`, `rel.kin0` gains three columns,
+`... NSNP KINSHIP K0 K1 K2`. The log also counts how many first-degree pairs have
+`k0 < 0.125` (parent–offspring) and how many have more (full sibs).
+`.corres`, `.kinship`, `KINSHIP` and `.unrelated` are byte-identical with and
+without the option.
+
+**What it estimates.** `k2` comes from the homozygotes. PC-Relate (Conomos et
+al. 2016, *AJHG* 98:127) codes each genotype by its dominance deviation. With
+`pi` the fitted allele frequency of the sample at the site:
+
+```
+h = pi        if x = 0
+    0         if x = 1/2
+    1 - pi    if x = 1
+```
+
+For an outbred sample, `h` has mean `pi(1-pi)` and zero covariance with the
+genotype. Between two samples, its covariance is `k2` times its variance. A pair
+that shares one allele IBD agrees in `h` no more than by chance. So the
+dominance residual `h - pi(1-pi)` is to `k2` what the genotype residual is to
+`2 phi`. PCAone therefore computes `k2` as the evalAdmix statistic of the
+dominance residuals, with the same steps as for the genotypes:
+
+- the projection onto `[PC_1..PC_k, 1]`;
+- per-sample centring;
+- `cov2cor`;
+- subtracting `chat`;
+- rescaling for missing calls.
+
+`pi` is the fit of the imputed genotypes, `f + Q Q' g`, bounded to
+`[0.01, 0.99]`, as PC-Relate bounds it. A missing call has dominance residual 0.
+Then
+
+```
+k0 = 1 - 4 phi + k2,    k1 = 4 phi - 2 k2
+```
+
+(`4 phi = k1 + 2 k2` and `k0 + k1 + k2 = 1`), using the clipped kinship of
+`.kinship`. The estimates are not forced onto the simplex. They scatter around
+the truth and can fall a little below 0 or above 1.
+
+This differs from PC-Relate's `k2` in two ways:
+
+- **Normalization.** PC-Relate divides by the variance its model predicts and
+  then subtracts `f_i f_j` for inbreeding. PCAone divides by the observed
+  variance, as evalAdmix does, and centres each sample. So a duplicate pair has
+  `k2 = 1`. PC-Relate's formula, recomputed here without its
+  small-sample correction, gave 0.91–0.99 on the simulations below.
+- **Projection.** The projection takes out any dominance deviation shared along
+  the PCs. On the 1000 Genomes panel (6 populations, `-k 5`), skipping the
+  projection gives every pair `k2 ≈ +0.004`. Some sites depart from
+  Hardy–Weinberg across the whole sample, and every pair reads that as shared
+  homozygosity. With the projection, the unrelated pairs centre on 0
+  (sd 0.004).
+
+**Accuracy.** On the relateAdmix pedigree from [Accuracy](#accuracy) (K = 2,
+`-k 1`, 102,185 sites after `--maf 0.05`), the mean per class against
+RelateAdmix's constrained ML. RelateAdmix uses the ADMIXTURE `Q` and `P` shipped
+with the data.
+
+| relationship | truth k0 / k1 / k2 | PCAone k0 | k1 | k2 | RelateAdmix k0 | k1 | k2 |
+|---|---|---|---|---|---|---|---|
+| duplicate | 0 / 0 / 1 | 0.000 | 0.000 | 1.000 | 0.000 | 0.000 | 1.000 |
+| parent–offspring | 0 / 1 / 0 | −0.002 | 1.006 | −0.003 | 0.000 | 1.000 | 0.000 |
+| full sib | 0.25 / 0.5 / 0.25 | 0.249 | 0.511 | 0.239 | 0.264 | 0.496 | 0.240 |
+| half sib | 0.5 / 0.5 / 0 | 0.510 | 0.488 | 0.001 | 0.557 | 0.442 | 0.000 |
+| first cousin | 0.75 / 0.25 / 0 | 0.752 | 0.248 | 0.000 | 0.790 | 0.210 | 0.000 |
+| second cousin | 0.9375 / 0.0625 / 0 | 0.931 | 0.066 | 0.002 | 0.954 | 0.045 | 0.001 |
+| unrelated (7,815 pairs) | 1 / 0 / 0 | 1.005 | −0.003 | −0.002 | 0.999 | 0.001 | 0.000 |
+
+On the 60 related pairs, the RMSE of `(k0, k1, k2)` is `(0.009, 0.012, 0.006)`
+for PCAone and `(0.032, 0.031, 0.005)` for RelateAdmix. RelateAdmix's ML
+attenuates `k1` for the distant classes, as it attenuates kinship in
+[the comparison above](#how-it-compares-with-pc-relate-and-relateadmix). On the
+unrelated pairs it is again near-exact, because it is pinned at the boundary of
+the simplex: an RMSE of `(0.002, 0.002, 0.0003)` against PCAone's
+`(0.012, 0.012, 0.007)`.
+
+The classes that matter separate cleanly:
+
+- parent–offspring `k0 <= 0.009` and `k2 <= 0.004`;
+- full sibs `k0 >= 0.240` and `k2 >= 0.234`.
+
+**Simulations.** These used the relateAdmix allele frequencies, 40,000 unlinked
+sites, `-k 1` and 320 samples:
+
+- **Admixed families.** In families of admixed and unadmixed parents, the class
+  means of `k0` and `k2` are within 0.008 of the truth. That holds for
+  duplicates, parent–offspring, full and half sibs, and first cousins.
+- **Inbred samples.** Unrelated inbred samples (F of 1/16, 1/8 and 1/4) have
+  `k2 = 0.002`.
+- **Missing genotypes.** With 10% of calls missing at random, or 0–40% per
+  sample, every class mean moves by at most 0.004.
+
+**Cost.** One more Gram product, of the dominance residuals, of the same size
+as the kinship one. The dense path holds a second `N x N` matrix and writes two
+more files. In `--evaladmix-kin`, each stripe holds a second matrix of pairs,
+so the same `-m` makes more stripes. The table shows N = 3,000 samples and
+20,000 sites, 1% missing, with 2 threads:
+
+| | without | with `--evaladmix-ibd` |
+|---|---|---|
+| dense | 11.3 s, 0.80 GB | 15.7 s, 0.87 GB |
+| `--evaladmix-kin 0.05 -m 0.2` | 11.4 s, 0.22 GB, 3 stripes | 17.8 s, 0.22 GB, 4 stripes |
+
+**Checks.** `tests/test_evaladmix_ibd.py` covers:
+
+- **numpy reference.** The dense `.k2` matches a numpy reference to the printed
+  digit.
+- **Pair columns.** The `K0 K1 K2` columns of `--evaladmix-kin -0.5` match the
+  dense matrices in-core and in stripes.
+- **Run modes.** `-m`, PGEN and in-core give the same output.
+- **Planted relatives.** Duplicates, parent–offspring and full sibs are told
+  apart.
+
+On the data above, `.corres`, `.kinship`, `.kin0` and `.unrelated` without the
+option are byte-identical to the previous version, in-core and with `-m`.
+
+**Limitations.** `k2` is a smaller signal than kinship, carried by the
+homozygotes only. In order of how much they matter:
+
+- **Noise.** `k2` scatters about as much as `corres`, twice as much as the
+  kinship: sd 0.007 for the unrelated pairs of the pedigree. `k0` and `k1` add
+  it to `4 phi`, so there they scatter by about 0.01.
+- **Children of parents of different ancestry.** These depart from
+  Hardy–Weinberg at their own fitted `pi`. A single `pi` per sample misses that
+  their two alleles come from different populations. In the extreme case,
+  children of parents from two different unadmixed populations:
+  - half sibs read `k2 ≈ +0.03`;
+  - full sibs read 0.27–0.28;
+  - unrelated children of such couples read up to `+0.004`.
+
+  PC-Relate's formula gives the same half-sib bias.
+- **Small samples.** As with kinship, the fit uses the pair's own genotypes.
+  With 285 samples, full sibs of an unadmixed population read `k2 = 0.232`.
+  With 825, they read 0.246. `k0` is less affected (0.247 and 0.250), because
+  the kinship is attenuated too.
+- **Many close relatives.** In a small sample dense with close relatives, the
+  projection spreads their signal. Unrelated pairs between members of different
+  duplicate pairs read `k2 ≈ −0.05` (kinship −0.02) on the pedigree above.
+- **Hidden missing calls.** A missing call at a site whose frequency is exactly
+  0.5 cannot be detected (see [Missing genotypes](#missing-genotypes)). It
+  counts as a heterozygote.
+
 ## Implementation notes
 
 - **Genotype scale.** PCAone codes genotypes as `{0, 0.5, 1}` (`BED2GENO`), i.e.
@@ -425,6 +590,10 @@ cores would take about 1.4 hours, and `-m 64` makes 5 to 10 passes over the
 ## Limitations
 
 - PLINK bed / PLINK2 pgen input only, diploid (`--haploid` is refused).
+- `--evaladmix-ibd` doubles the `N x N` memory of the dense output and adds a
+  second matrix of pairs to each stripe of `--evaladmix-kin`. See
+  [its limitations](#ibd-sharing-probabilities---evaladmix-ibd) for the
+  estimator's.
 - **The dense output needs `N x N` memory and two `N x N` text files**; use
   `--evaladmix-kin` beyond a few tens of thousands of samples.
 - **Missing genotypes cost the dense output a second `N x N` matrix and double
