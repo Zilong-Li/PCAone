@@ -87,8 +87,8 @@ exclude_docs: |
   requirements.txt
 
 # docs/ layout, one folder per section below:
-#   index.md, installation.md, tutorials.md, changelog.md   top-level pages
-#   guide/     how to run each analysis
+#   index.md, installation.md, changelog.md   top-level pages
+#   guide/     how to run each analysis, with examples on the example data
 #   methods/   derivations, benchmarks and how to reproduce them
 #   dev/       architecture and bug-fix write-ups
 #   assets/    images, stylesheets and javascripts
@@ -105,7 +105,6 @@ nav:
       - evalAdmix: guide/evaladmix.md
       - Ancestry-adjusted LD: guide/ld.md
       - Plotting: guide/plotting.md
-  - Tutorials: tutorials.md
   - Methods:
       - Ancestry-adjusted LD: methods/ld-ancestry-adjusted.md
       - evalAdmix: methods/evaladmix.md

@@ -101,7 +101,6 @@ Markdown sources are in [`docs/`](https://github.com/Zilong-Li/PCAone/tree/main/
   [selection scans](docs/guide/selection.md), [HWE and inbreeding](docs/guide/hwe.md),
   [evalAdmix](docs/guide/evaladmix.md), [ancestry-adjusted LD](docs/guide/ld.md), and
   [plotting](docs/guide/plotting.md) SNP loadings and LD decay.
-- [Tutorials](docs/tutorials.md) on the example datasets.
 - Methods: [ancestry-adjusted LD](docs/methods/ld-ancestry-adjusted.md), [evalAdmix](docs/methods/evaladmix.md),
   and [reproducing the benchmark](docs/methods/reproducing-the-benchmark.md).
 - [Changelog](docs/changelog.md): release history, result changes, and legacy command migration.
