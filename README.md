@@ -3,7 +3,7 @@
 <a href="https://github.com/Zilong-Li/PCAone/actions/workflows/linux.yml"><img src="https://github.com/Zilong-Li/PCAone/actions/workflows/linux.yml/badge.svg" alt="Linux build"></a>
 <a href="https://github.com/Zilong-Li/PCAone/actions/workflows/mac.yml"><img src="https://github.com/Zilong-Li/PCAone/actions/workflows/mac.yml/badge.svg" alt="macOS build"></a>
 <a href="https://github.com/Zilong-Li/PCAone/releases/latest"><img src="https://img.shields.io/github/v/release/Zilong-Li/PCAone.svg" alt="Latest release"></a>
-<a href="https://zilong-li.github.io/PCAone/"><img src="https://github.com/Zilong-Li/PCAone/actions/workflows/docs.yml/badge.svg" alt="Documentation"></a>
+<a href="https://zilongli.org/PCAone/"><img src="https://github.com/Zilong-Li/PCAone/actions/workflows/docs.yml/badge.svg" alt="Documentation"></a>
 
 PCAone is a fast, memory-efficient C++ tool for principal component analysis
 of large datasets, with in-core and out-of-core algorithms.
@@ -12,7 +12,7 @@ of large datasets, with in-core and out-of-core algorithms.
 - **PCA:** window-based randomized SVD (default), single-pass randomized SVD, IRAM, and exact sample-GRM eigendecomposition.
 - **Genetics:** EMU/PCAngsd, projection, selection scans, HWE tests, per-sample inbreeding coefficients, ancestry-adjusted LD pruning and clumping, and evalAdmix residual correlations.
 
-[Documentation](https://zilong-li.github.io/PCAone/) · [Changelog and migration notes](docs/changelog.md) · [R package](https://github.com/Zilong-Li/PCAoneR)
+[Documentation](https://zilongli.org/PCAone/) · [Changelog and migration notes](docs/changelog.md) · [R package](https://github.com/Zilong-Li/PCAoneR)
 
 ![Figure 1](docs/fig1.png)
 
@@ -92,7 +92,7 @@ use every reference PC unless `-k` selects the leading PCs.
 
 ## Documentation
 
-The full documentation is at **[zilong-li.github.io/PCAone](https://zilong-li.github.io/PCAone/)**; its
+The full documentation is at **[zilongli.org/PCAone](https://zilongli.org/PCAone/)**; its
 Markdown sources are in [`docs/`](https://github.com/Zilong-Li/PCAone/tree/main/docs).
 
 - [Installation](docs/installation.md): binaries, Bioconda, and builds with MKL or OpenBLAS.

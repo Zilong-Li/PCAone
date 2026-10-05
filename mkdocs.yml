@@ -3,7 +3,10 @@ site_description: >-
   Fast, memory-efficient principal component analysis of large datasets,
   with in-core and out-of-core algorithms.
 site_author: Zilong Li
-site_url: https://zilong-li.github.io/PCAone/
+site_url: https://zilongli.org/PCAone/
+# page.html URLs (not page/): zilongli.org proxies /PCAone/* to GitHub Pages, and
+# Netlify's trailing-slash normalization would turn page/ into GitHub redirects
+use_directory_urls: false
 repo_url: https://github.com/Zilong-Li/PCAone
 repo_name: Zilong-Li/PCAone
 edit_uri: edit/main/docs/
