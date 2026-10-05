@@ -152,7 +152,7 @@ all pass:
 | PCAone vs the `evalPCA()` R reference | r = 0.999955 |
 
 The first is a regression test for the
-[`read_usv` bug](read-usv-fix.md): it reads a multi-column `.eigvecs` and
+[`read_usv` bug](../dev/read-usv-fix.md): it reads a multi-column `.eigvecs` and
 projects on its first column, which must equal using one PC directly. Before that
 fix it differed by 8.8e-02.
 

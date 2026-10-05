@@ -584,7 +584,7 @@ homozygotes only. In order of how much they matter:
   change to the readers.
 
 - **`read_usv()`.** The PC scores are read with `Utils::read_usv()`, which this
-  branch also fixes — see [read-usv-fix.md](read-usv-fix.md). `-k` below the
+  branch also fixes — see [read-usv-fix.md](../dev/read-usv-fix.md). `-k` below the
   reference's PC count is a direct regression test for that bug.
 
 ## Limitations

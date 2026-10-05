@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Reproduce the --evaladmix benchmark in docs/evaladmix.md.
+# Reproduce the --evaladmix benchmark in docs/methods/evaladmix.md.
 #
 #   bash run_all.sh [workdir] [path/to/PCAone]
 #

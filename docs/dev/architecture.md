@@ -1,10 +1,11 @@
 # Architecture
 
-![PCAone class diagram](architecture.png)
+![PCAone class diagram](../assets/images/architecture.png)
 
 The class diagram above is drawn with [PlantUML](https://plantuml.com) (1.2024.4)
-from the source below. To redraw `architecture.png` after editing it, run
-`plantuml docs/architecture.md`: PlantUML picks up the `@startuml` block in this file.
+from the source below. To redraw it after editing, run
+`plantuml -o ../assets/images docs/dev/architecture.md`: PlantUML picks up the
+`@startuml` block in this file and writes `architecture.png` next to the other images.
 
 ```plantuml
 @startuml architecture

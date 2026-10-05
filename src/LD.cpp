@@ -205,7 +205,7 @@ Mat2D read_ld_pcs(const Param& params, uint nsamples) {
 // centred data and are orthogonal to the intercept, so the residuals stay
 // centred; re-centring only removes rounding. Per-site scaling commutes with
 // the projection, so whether the PCA standardised the sites does not matter.
-// Why this equals the old G - USV': docs/ld-ancestry-adjusted.md
+// Why this equals the old G - USV': docs/methods/ld-ancestry-adjusted.md
 void adjust_for_pcs(Mat2D& G, const Mat2D& Q) {
   if (Q.size() == 0) return;
   G.noalias() -= Q * (Q.transpose() * G);

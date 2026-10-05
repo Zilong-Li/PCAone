@@ -30,4 +30,4 @@ Kinship alone cannot tell parent–offspring from full sibs (both 1/4).
 PCAone -b example/plink -P pcs --evaladmix --evaladmix-ibd --maf 0.05 -o eval
 ```
 
-See [the evalAdmix guide](../evaladmix.md) for the method and benchmarks.
+See [the evalAdmix guide](../methods/evaladmix.md) for the method and benchmarks.

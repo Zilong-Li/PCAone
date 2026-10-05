@@ -1268,7 +1268,7 @@ static void run_evaladmix_pairs(Data* data, const Param& params) {
     if (sdchance > 0 && ksd > 1.3 * sdchance)
       cao.warn("evalAdmix: unrelated pairs scatter", ksd / sdchance, "times as much as chance alone: the PCs leave "
                "population structure (too few PCs, or fine-scale or founder groups), whose residual correlation "
-               "reads as relatedness. see 'Getting the number of PCs wrong' in docs/evaladmix.md");
+               "reads as relatedness. see 'Getting the number of PCs wrong' in docs/methods/evaladmix.md");
     else if (nchance > 0.1 * std::max(1.0, (double)npairs))
       cao.warn("evalAdmix: about", nchance, "unrelated pairs reach kinship", kmin, "by chance alone, against the",
                npairs, "written: the cutoff is within the noise of", M, "sites. raise it, or use more sites");

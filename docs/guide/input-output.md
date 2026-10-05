@@ -31,7 +31,7 @@ Features Loadings are saved in file with suffix `.loadings`. Each row
 represents a feature and each column represents a corresponding PC. Use
 `--printv` option to output it.
 To plot them along the genome, see
-[the plotting guide](../plotting.md#snp-loadings).
+[the plotting guide](plotting.md#snp-loadings).
 
 ### Variant information
 

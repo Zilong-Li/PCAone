@@ -71,10 +71,10 @@ markdown_extensions:
   - pymdownx.superfences
 
 extra_css:
-  - stylesheets/extra.css
+  - assets/stylesheets/extra.css
 
 extra_javascript:
-  - javascripts/mathjax.js
+  - assets/javascripts/mathjax.js
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
 
 validation:
@@ -86,6 +86,12 @@ validation:
 exclude_docs: |
   requirements.txt
 
+# docs/ layout, one folder per section below:
+#   index.md, installation.md, tutorials.md, changelog.md   top-level pages
+#   guide/     how to run each analysis
+#   methods/   derivations, benchmarks and how to reproduce them
+#   dev/       architecture and bug-fix write-ups
+#   assets/    images, stylesheets and javascripts
 nav:
   - Home: index.md
   - Install: installation.md
@@ -98,15 +104,15 @@ nav:
       - HWE and inbreeding: guide/hwe.md
       - evalAdmix: guide/evaladmix.md
       - Ancestry-adjusted LD: guide/ld.md
+      - Plotting: guide/plotting.md
   - Tutorials: tutorials.md
-  - Plotting: plotting.md
   - Methods:
-      - Ancestry-adjusted LD: ld-ancestry-adjusted.md
-      - evalAdmix: evaladmix.md
-      - Reproducing the benchmark: reproducing-the-benchmark.md
+      - Ancestry-adjusted LD: methods/ld-ancestry-adjusted.md
+      - evalAdmix: methods/evaladmix.md
+      - Reproducing the benchmark: methods/reproducing-the-benchmark.md
   - Developer notes:
-      - Architecture: architecture.md
-      - HWE test fixes: hwe-lrt-fix.md
-      - LD robustness fixes: ld-robustness-fixes.md
-      - read_usv() fix: read-usv-fix.md
+      - Architecture: dev/architecture.md
+      - HWE test fixes: dev/hwe-lrt-fix.md
+      - LD robustness fixes: dev/ld-robustness-fixes.md
+      - read_usv() fix: dev/read-usv-fix.md
   - Changelog: changelog.md

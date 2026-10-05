@@ -2,7 +2,7 @@
 
 /*
  * LD decay curves, standard vs ancestry-adjusted, for every population in
- * params.data. See docs/plotting.md ("LD decay").
+ * params.data. See docs/guide/plotting.md ("LD decay").
  *
  *   make -C scripts summarise_ld_r2bin      # once, builds the binning tool
  *   nextflow run workflows/ld.nf --data data --pops giraffe --K 5,10 --run_step plot

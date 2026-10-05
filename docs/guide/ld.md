@@ -26,7 +26,7 @@ By default every PC in `.eigvecs` is removed; `-k/--pc` removes only the
 leading ones, so one reference PCA run with e.g. `-k 10` serves any smaller
 number of PCs (`-P adj -k 3`). Use `--ld-stats 1` without `-P` for the standard
 LD instead. See
-[the LD methods guide](../ld-ancestry-adjusted.md) for the derivation and implementation.
+[the LD methods guide](../methods/ld-ancestry-adjusted.md) for the derivation and implementation.
 
 ## Report LD statistics
 
@@ -48,7 +48,7 @@ Rscript scripts/plot-ld-decay.R adj.ld.gz std.ld.gz --labels Adjusted,Standard -
 ```
 
 The nextflow workflow [ld.nf](https://github.com/Zilong-Li/PCAone/blob/main/workflows/ld.nf) runs the whole comparison. See
-[the plotting guide](../plotting.md#ld-decay) for both.
+[the plotting guide](plotting.md#ld-decay) for both.
 
 ## Pruning
 

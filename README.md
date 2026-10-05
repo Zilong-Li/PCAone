@@ -14,7 +14,7 @@ of large datasets, with in-core and out-of-core algorithms.
 
 [Documentation](https://zilongli.org/PCAone/) · [Changelog and migration notes](docs/changelog.md) · [R package](https://github.com/Zilong-Li/PCAoneR)
 
-![Figure 1](docs/fig1.png)
+![Figure 1](docs/assets/images/fig1.png)
 
 *One PCA, reused by structure-aware analyses. (a) PCAone saves U, S, V and the allele frequencies f; every downstream analysis reads them back with `-P/--USV`. (b–h) Examples on 1000 Genomes samples and on admixed samples with known relatedness.*
 
@@ -99,11 +99,11 @@ Markdown sources are in [`docs/`](https://github.com/Zilong-Li/PCAone/tree/main/
 - User guide: [options](docs/guide/options.md), [PCA methods and memory](docs/guide/pca.md),
   [input and output](docs/guide/input-output.md), [projection](docs/guide/projection.md),
   [selection scans](docs/guide/selection.md), [HWE and inbreeding](docs/guide/hwe.md),
-  [evalAdmix](docs/guide/evaladmix.md), and [ancestry-adjusted LD](docs/guide/ld.md).
+  [evalAdmix](docs/guide/evaladmix.md), [ancestry-adjusted LD](docs/guide/ld.md), and
+  [plotting](docs/guide/plotting.md) SNP loadings and LD decay.
 - [Tutorials](docs/tutorials.md) on the example datasets.
-- Methods: [ancestry-adjusted LD](docs/ld-ancestry-adjusted.md) and [evalAdmix](docs/evaladmix.md).
-- [Reproducing the benchmark](docs/reproducing-the-benchmark.md).
-- [Plotting](docs/plotting.md): SNP loadings along the genome and LD decay curves.
+- Methods: [ancestry-adjusted LD](docs/methods/ld-ancestry-adjusted.md), [evalAdmix](docs/methods/evaladmix.md),
+  and [reproducing the benchmark](docs/methods/reproducing-the-benchmark.md).
 - [Changelog](docs/changelog.md): release history, result changes, and legacy command migration.
 
 Run `PCAone --help` for all options, or generate a man page:
