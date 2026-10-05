@@ -1,7 +1,7 @@
 # Reproducing the `--evaladmix` benchmark
 
 Everything in [evaladmix.md](evaladmix.md) is reproducible from two scripts in
-[`scripts/benchmark/`](../scripts/benchmark/). Expect about ten minutes, most of
+[`scripts/benchmark/`](https://github.com/Zilong-Li/PCAone/tree/main/scripts/benchmark). Expect about ten minutes, most of
 it compiling the comparison tools.
 
 ```bash

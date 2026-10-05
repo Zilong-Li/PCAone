@@ -1,0 +1,109 @@
+site_name: PCAone
+site_description: >-
+  Fast, memory-efficient principal component analysis of large datasets,
+  with in-core and out-of-core algorithms.
+site_author: Zilong Li
+site_url: https://zilong-li.github.io/PCAone/
+repo_url: https://github.com/Zilong-Li/PCAone
+repo_name: Zilong-Li/PCAone
+edit_uri: edit/main/docs/
+copyright: Copyright &copy; Zilong Li. PCAone is released under GPL-3.0.
+
+theme:
+  name: material
+  font:
+    text: Open Sans
+    code: Roboto Mono
+  icon:
+    repo: fontawesome/brands/github
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - toc.integrate
+    - content.action.edit
+    - content.code.copy
+    - navigation.footer
+    - navigation.sections
+    - navigation.top
+    - search.highlight
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+plugins:
+  - search
+  # docs/index.md pulls in README.md and rewrites its relative links
+  - include-markdown
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      # GitHub-style heading anchors, so #links work on GitHub and on the site
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+
+extra_css:
+  - stylesheets/extra.css
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn
+
+exclude_docs: |
+  requirements.txt
+
+nav:
+  - Home: index.md
+  - Install: installation.md
+  - User guide:
+      - Options: guide/options.md
+      - PCA methods and memory: guide/pca.md
+      - Input and output: guide/input-output.md
+      - Projection: guide/projection.md
+      - Selection scan: guide/selection.md
+      - HWE and inbreeding: guide/hwe.md
+      - evalAdmix: guide/evaladmix.md
+      - Ancestry-adjusted LD: guide/ld.md
+  - Tutorials: tutorials.md
+  - Plotting: plotting.md
+  - Methods:
+      - Ancestry-adjusted LD: ld-ancestry-adjusted.md
+      - evalAdmix: evaladmix.md
+      - Reproducing the benchmark: reproducing-the-benchmark.md
+  - Developer notes:
+      - Architecture: architecture.md
+      - HWE test fixes: hwe-lrt-fix.md
+      - LD robustness fixes: ld-robustness-fixes.md
+      - read_usv() fix: read-usv-fix.md
+  - Changelog: changelog.md

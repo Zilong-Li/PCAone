@@ -156,7 +156,7 @@ SLIBS += ./external/bgen/bgenlib.a ./external/zstd/lib/libzstd.a  ./external/pge
 
 LIBS += $(SLIBS) $(DLIBS) -lpthread -ldl -lm
 
-.PHONY: all clean projection hwe ld_matrix ld_r2 ld_prune ld_clump ld_tests test_full test_aarch64 test_pgen_plink_equivalence test_em_snp_order test_projection_bootstrap test_cmd_guards test_crash_regressions test_review_fixes test_ref_k test_exact_streaming test_inbreed_samples test_evaladmix test_evaladmix_pairs test_evaladmix_ibd
+.PHONY: all clean docs serve-docs projection hwe ld_matrix ld_r2 ld_prune ld_clump ld_tests test_full test_aarch64 test_pgen_plink_equivalence test_em_snp_order test_projection_bootstrap test_cmd_guards test_crash_regressions test_review_fixes test_ref_k test_exact_streaming test_inbreed_samples test_evaladmix test_evaladmix_pairs test_evaladmix_ibd
 
 all: ${program}
 
@@ -236,6 +236,14 @@ clean:
 data:
 	wget http://popgen.dk/zilong/datahub/pca/example.tar.gz
 	tar -xzf example.tar.gz && rm -f example.tar.gz
+
+# documentation website in site/ (pip install -r docs/requirements.txt)
+docs:
+	mkdocs build --strict
+
+# live preview of the website at http://127.0.0.1:8000
+serve-docs:
+	mkdocs serve
 
 ###################################################################
 #####                   EXAMPLE TESTS

@@ -1,10 +1,9 @@
-<!-- Generated from README.org; edit README.org and re-export. -->
-
 # Principal Component Analysis All in One (v0.8.0-pre)
 
 <a href="https://github.com/Zilong-Li/PCAone/actions/workflows/linux.yml"><img src="https://github.com/Zilong-Li/PCAone/actions/workflows/linux.yml/badge.svg" alt="Linux build"></a>
 <a href="https://github.com/Zilong-Li/PCAone/actions/workflows/mac.yml"><img src="https://github.com/Zilong-Li/PCAone/actions/workflows/mac.yml/badge.svg" alt="macOS build"></a>
 <a href="https://github.com/Zilong-Li/PCAone/releases/latest"><img src="https://img.shields.io/github/v/release/Zilong-Li/PCAone.svg" alt="Latest release"></a>
+<a href="https://zilong-li.github.io/PCAone/"><img src="https://github.com/Zilong-Li/PCAone/actions/workflows/docs.yml/badge.svg" alt="Documentation"></a>
 
 PCAone is a fast, memory-efficient C++ tool for principal component analysis
 of large datasets, with in-core and out-of-core algorithms.
@@ -13,7 +12,7 @@ of large datasets, with in-core and out-of-core algorithms.
 - **PCA:** window-based randomized SVD (default), single-pass randomized SVD, IRAM, and exact sample-GRM eigendecomposition.
 - **Genetics:** EMU/PCAngsd, projection, selection scans, HWE tests, per-sample inbreeding coefficients, ancestry-adjusted LD pruning and clumping, and evalAdmix residual correlations.
 
-[Usage guide](https://github.com/Zilong-Li/PCAone/blob/main/docs/usage.org) · [Changelog and migration notes](https://github.com/Zilong-Li/PCAone/blob/main/CHANGELOG.org) · [R package](https://github.com/Zilong-Li/PCAoneR)
+[Documentation](https://zilong-li.github.io/PCAone/) · [Changelog and migration notes](docs/changelog.md) · [R package](https://github.com/Zilong-Li/PCAoneR)
 
 ![Figure 1](docs/fig1.png)
 
@@ -40,7 +39,7 @@ make -j4
 ./PCAone --help
 ```
 
-See the [usage guide](docs/usage.org) for MKL and OpenBLAS builds.
+See [Installation](docs/installation.md) for MKL and OpenBLAS builds.
 
 ## Quick start
 
@@ -93,11 +92,19 @@ use every reference PC unless `-k` selects the leading PCs.
 
 ## Documentation
 
-- [Usage guide](docs/usage.org): options, formats, normalization, memory, projection, selection, HWE, evalAdmix, LD, and example datasets.
-- [Ancestry-adjusted LD](docs/ld-ancestry-adjusted.md) and [evalAdmix](docs/evaladmix.md).
+The full documentation is at **[zilong-li.github.io/PCAone](https://zilong-li.github.io/PCAone/)**; its
+Markdown sources are in [`docs/`](https://github.com/Zilong-Li/PCAone/tree/main/docs).
+
+- [Installation](docs/installation.md): binaries, Bioconda, and builds with MKL or OpenBLAS.
+- User guide: [options](docs/guide/options.md), [PCA methods and memory](docs/guide/pca.md),
+  [input and output](docs/guide/input-output.md), [projection](docs/guide/projection.md),
+  [selection scans](docs/guide/selection.md), [HWE and inbreeding](docs/guide/hwe.md),
+  [evalAdmix](docs/guide/evaladmix.md), and [ancestry-adjusted LD](docs/guide/ld.md).
+- [Tutorials](docs/tutorials.md) on the example datasets.
+- Methods: [ancestry-adjusted LD](docs/ld-ancestry-adjusted.md) and [evalAdmix](docs/evaladmix.md).
 - [Reproducing the benchmark](docs/reproducing-the-benchmark.md).
 - [Plotting](docs/plotting.md): SNP loadings along the genome and LD decay curves.
-- [Changelog](CHANGELOG.org): release history, result changes, and legacy command migration.
+- [Changelog](docs/changelog.md): release history, result changes, and legacy command migration.
 
 Run `PCAone --help` for all options, or generate a man page:
 

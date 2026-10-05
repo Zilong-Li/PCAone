@@ -1,0 +1,181 @@
+/* PCAone docs theme: regenie-like layout on Material for MkDocs,
+   on the paper background of zilongli.org. */
+
+/* ---------- colours ---------- */
+
+:root {
+  --pcaone-bar: #343838;          /* navbar, as regenie */
+  --pcaone-bar-active: #272727;   /* active tab */
+  --pcaone-link: #008cba;
+}
+
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: var(--pcaone-bar);
+  --md-primary-fg-color--light: #4a4f4f;
+  --md-primary-fg-color--dark: var(--pcaone-bar-active);
+  --md-primary-bg-color: #ffffff;
+  --md-accent-fg-color: var(--pcaone-link);
+  --md-typeset-a-color: var(--pcaone-link);
+
+  --md-default-bg-color: #fffff8;         /* zilongli.org background */
+  --md-default-fg-color: rgba(17, 17, 17, 0.87);
+  --md-typeset-color: #111111;
+  --md-code-bg-color: #f4f3e9;            /* warm grey on the cream page */
+  --md-footer-bg-color: var(--pcaone-bar);
+  --md-footer-bg-color--dark: var(--pcaone-bar-active);
+
+  --pcaone-box-bg: #fbfbf2;
+  --pcaone-box-border: #e6e4d6;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #1d1f1f;
+  --md-primary-fg-color--dark: #0d0d0d;
+  --md-primary-bg-color: #ffffff;
+  --md-accent-fg-color: #3fb6de;
+  --md-typeset-a-color: #3fb6de;
+
+  --md-default-bg-color: #151515;         /* zilongli.org dark background */
+  --md-default-fg-color: rgba(221, 221, 221, 0.87);
+  --md-typeset-color: #dddddd;
+  --md-code-bg-color: #1f2020;
+  --md-footer-bg-color: #1d1f1f;
+  --md-footer-bg-color--dark: #0d0d0d;
+
+  --pcaone-bar-active: #0d0d0d;
+  --pcaone-box-bg: #1a1b1b;
+  --pcaone-box-border: #2c2e2e;
+}
+
+/* ---------- one navbar: the tabs sit in the header row (wide screens) ---------- */
+
+@media screen and (min-width: 76.25em) {
+  .md-header {
+    display: grid;
+  }
+  .md-header__inner,
+  .md-header .md-tabs {
+    grid-area: 1 / 1;
+    width: 100%;
+  }
+  /* a text brand, as regenie: no logo icon */
+  .md-header__button.md-logo {
+    display: none;
+  }
+  /* the title keeps its width and does not swap to the page title on scroll */
+  .md-header__title {
+    flex-grow: 1;
+  }
+  .md-header__title .md-header__topic:first-child {
+    opacity: 1;
+    transform: none;
+    z-index: 0;
+    pointer-events: auto;
+  }
+  .md-header__title .md-header__topic + .md-header__topic {
+    display: none;
+  }
+  /* the tab strip spans the header but only its links take clicks */
+  .md-header .md-tabs {
+    background: transparent;
+    pointer-events: none;
+    overflow: visible;
+  }
+  /* room left of the tabs for the logo and title, right of them for the
+     palette toggle, search and GitHub icon */
+  .md-header .md-tabs .md-grid {
+    padding-left: 5.2rem;
+    padding-right: 15.4rem;
+  }
+  .md-search__inner {
+    width: 9rem;
+  }
+  .md-header__source {
+    width: auto;
+    max-width: none;
+    margin-left: 0.6rem;
+  }
+  .md-header__source .md-source__repository {
+    display: none;
+  }
+  .md-tabs__list {
+    pointer-events: auto;
+    height: 2.4rem;
+    margin-left: 0;
+  }
+  .md-tabs__item {
+    height: 2.4rem;
+    padding: 0;
+  }
+  .md-tabs__link {
+    margin-top: 0;
+    height: 2.4rem;
+    align-items: center;
+    padding: 0 0.6rem;
+    font-size: 0.68rem;
+    opacity: 1;
+  }
+  .md-tabs__link:hover,
+  .md-tabs__item--active .md-tabs__link {
+    background-color: var(--pcaone-bar-active);
+    color: #ffffff;
+  }
+  /* the open search box covers the tabs */
+  [data-md-toggle="search"]:checked ~ .md-header .md-tabs {
+    visibility: hidden;
+  }
+}
+
+/* ---------- left sidebar: a boxed table of contents, as regenie ---------- */
+
+@media screen and (min-width: 76.25em) {
+  .md-sidebar--primary .md-sidebar__inner > .md-nav--primary {
+    background-color: var(--pcaone-box-bg);
+    border: 1px solid var(--pcaone-box-border);
+    box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.05);
+    padding: 0.4rem 0;
+  }
+  .md-sidebar--primary .md-nav__link {
+    font-size: 0.65rem;
+  }
+  /* page titles and their top-level sections in bold, as regenie */
+  .md-sidebar--primary .md-nav--primary > .md-nav__list > .md-nav__item > .md-nav__link,
+  .md-sidebar--primary .md-nav--integrated .md-nav__item--active > .md-nav__link,
+  .md-sidebar--primary .md-nav--secondary > .md-nav__list > .md-nav__item > .md-nav__link {
+    font-weight: 700;
+  }
+  /* the page's own table of contents in link colour, as regenie */
+  .md-sidebar--primary .md-nav__link--active,
+  .md-sidebar--primary .md-nav--secondary .md-nav__link {
+    color: var(--md-typeset-a-color);
+  }
+  .md-sidebar--primary .md-nav--secondary .md-nav__link--active {
+    box-shadow: inset -2px 0 0 var(--md-typeset-a-color);
+  }
+}
+
+/* ---------- content ---------- */
+
+.md-typeset h1,
+.md-typeset h2,
+.md-typeset h3 {
+  color: var(--md-typeset-color);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.md-typeset h1 {
+  font-size: 1.9em;
+}
+
+.md-typeset a:hover {
+  text-decoration: underline;
+}
+
+.md-typeset pre > code {
+  border: 1px solid var(--pcaone-box-border);
+}
+
+.md-typeset table:not([class]) {
+  background-color: transparent;
+}

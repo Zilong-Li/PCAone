@@ -216,7 +216,7 @@ fitted allele frequencies; PC-Relate does not avoid that, it measures and
 subtracts it afterwards.
 
 Every number in these tables is produced by
-[`scripts/benchmark/`](../scripts/benchmark/) — see
+[`scripts/benchmark/`](https://github.com/Zilong-Li/PCAone/tree/main/scripts/benchmark) — see
 [reproducing-the-benchmark.md](reproducing-the-benchmark.md).
 
 ## Missing genotypes
