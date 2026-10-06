@@ -23,6 +23,7 @@
 ## From R:
 ##   source("plot-loadings.R")
 ##   d <- read_loadings("pcaone.loadings", "pcaone.mbim", pcs = 1:10)
+##   d <- subset_variants(d, d$snp %in% c("rs123", "rs456"))
 ##   plot_loadings(d, highlight = 1:2, groups = list(HLA = c(6, 12)))
 ##   loading_peaks(d)
 ##
@@ -166,6 +167,30 @@ read_loadings <- function(loadings, bim = NULL, pcs = NULL, chr = NULL, region =
   }
   structure(list(V = V, chr = chrv, snp = snp, bp = bp, row = row, pcs = pcs, file = loadings),
             class = "pcaone_loadings")
+}
+
+#' Subset variants while keeping loadings and variant metadata aligned.
+#'
+#' @param d        A pcaone_loadings object returned by read_loadings().
+#' @param keep     A logical mask of length nrow(d$V), or integer row indices.
+#' @return A pcaone_loadings object retaining the original file row numbers.
+#' @export
+subset_variants <- function(d, keep) {
+  if (is.logical(keep)) {
+    stopifnot(length(keep) == nrow(d$V), !anyNA(keep))
+    keep <- which(keep)
+  }
+  stopifnot(
+    is.numeric(keep), length(keep) > 0L, !anyNA(keep),
+    all(keep == floor(keep)),
+    all(keep >= 1L & keep <= nrow(d$V))
+  )
+
+  d$V <- d$V[keep, ]
+  for (field in c("chr", "snp", "bp", "row")) {
+    if (!is.null(d[[field]])) d[[field]] <- d[[field]][keep]
+  }
+  d
 }
 
 #' Max |loading| per bin of `window` consecutive variants (per chromosome).
