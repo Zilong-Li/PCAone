@@ -56,7 +56,10 @@ class Data {
   // for blockwise
   // void fit_with_pi_block(const Mat2D& U, const Mat1D& svals, const Mat2D& VT);
   void calcu_vt_initial(const Mat2D& T, Mat2D& VT, bool standardize);
-  void calcu_vt_update(const Mat2D& T, const Mat2D& U, const Mat1D& svals, Mat2D& VT, bool standardize);
+  // VTout = T * G, where G is imputed from U, svals and VT as it is read. VTout
+  // may be VT itself: each block of VT is read before it is overwritten.
+  void calcu_vt_update(
+      const Mat2D& T, const Mat2D& U, const Mat1D& svals, const Mat2D& VT, Mat2D& VTout, bool standardize);
   // given PCs, predict the missing values, then update in place by block
   void predict_missing_E(const Mat2D& U, uint64 start_idx, uint64 stop_idx);
 

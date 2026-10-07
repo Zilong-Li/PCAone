@@ -79,3 +79,34 @@ standardized by allele frequency by default. CSV input is left as it is
 (neither centred nor scaled) with the default and `--scale 0`; modes 1–4
 standardize, after the optional count or log transformation described under
 [`--scale`](options.md).
+
+## EM-PCA: EMU and PCAngsd
+
+`--emu` runs the EM-PCA of [EMU](https://github.com/Rosemeis/emu) for
+genotypes with many missing calls, and `--pcangsd` (implied by `--beagle`)
+that of [PCAngsd](https://github.com/Rosemeis/pcangsd) for genotype
+likelihoods. Each iteration estimates the individual allele frequencies from
+the top PCs, rebuilds the matrix from them (imputing the missing calls, or
+taking the expected genotypes), then recomputes the PCs, until they converge
+(`--tol-em`, `--maxiter`).
+
+By default the same `-k` PCs model the allele frequencies and are written.
+`--em-k` sets the number of PCs that model them, and `-k` the number written
+from the final matrix, as EMU's `--eig` and `--eig-out` do. This lets a few PCs
+that capture the population structure fit the model, while more PCs are
+reported:
+
+```shell
+# model the allele frequencies with 2 PCs, write 10 PCs
+./PCAone --bfile example/plink --emu --em-k 2 -k 10
+./PCAone --beagle example/beagle.gz --em-k 2 -k 10
+```
+
+The EM iterations cost what a run with `-k` equal to `--em-k` costs; only one
+final decomposition computes `-k` PCs, of the matrix rebuilt from the
+`--em-k` PCs: standardized for EMU, the expected genotypes for PCAngsd.
+`.eigvecs`, `.eigvals`, `.sigvals` and the `-V` `.loadings` hold the `-k` PCs.
+For BEAGLE input, the `.cov` is PCAngsd's covariance under the `--em-k` model,
+the matrix PCAngsd writes with `--eig` set to it, and `.eigvecs2` holds its top
+`-k` eigenvectors. `--em-k` works with `--svd 0`, `1` and `2`, in-core and
+out-of-core (`-m`) where the input allows it.

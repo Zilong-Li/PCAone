@@ -98,6 +98,8 @@ Param::Param(int argc, char** argv) {
   opts.add<Value<int>>("", "seed", "seeds for reproducing results.\n", seed, &seed);
   opts.add<Switch>("", "emu", "use EMU algorithm for genotype input with missingness. not with --svd 3.", &emu);
   opts.add<Switch>("", "pcangsd", "use PCAngsd algorithm for genotype likelihood input. not with --svd 3.", &pcangsd);
+  auto em_k_opt = opts.add<Unsigned>("", "em-k", "the number of PCs that model the individual allele frequencies in the EM iterations\n"
+                                                 "of --emu and --pcangsd. -k PCs of the final matrix are written. default is -k");
   opts.add<Unsigned, Attribute::advanced>("", "M", "the number of features (eg. SNPs) if already known.", 0, &nsnps);
   opts.add<Unsigned, Attribute::advanced>("", "N", "the number of samples if already known.", 0, &nsamples);
   opts.add<Value<double>, Attribute::advanced>("", "scale-factor", "feature counts for each sample are normalized and multiplied by this value", 1.0, &scaleFactor);
@@ -250,6 +252,16 @@ Param::Param(int argc, char** argv) {
     // --inbreed) use the leading -k PCs of the reference, or all of them without
     // -k: its default of 10 is not a choice made for that reference (ref_pcs())
     if (k_opt->is_set()) ref_k = k;
+    // EM-PCA (--emu, --pcangsd) models the individual allele frequencies with
+    // --em-k PCs, and writes the leading -k PCs of the final matrix, as EMU's
+    // --eig and --eig-out. Every other path fits and writes -k PCs: em_k = k.
+    // BEAGLE input implies --pcangsd (see "handle EM-PCA" below).
+    em_k = k;
+    if (em_k_opt->is_set()) {
+      require(emu || pcangsd || file_t == FileType::BEAGLE, "--em-k requires EM-PCA: --emu, --pcangsd or BEAGLE input");
+      require(em_k_opt->value() >= 1, "--em-k must be at least 1");
+      em_k = em_k_opt->value();
+    }
     require(scale == SCALE_STANDARDIZE_GENETIC || (scale >= 0 && scale <= 4),
             "-C/--scale supports only -9, 0, 1, 2, 3 or 4");
     require(maxp >= 1, "--maxp must be at least 1");
@@ -362,6 +374,7 @@ Param::Param(int argc, char** argv) {
       dopca = true;
       center = true;
       emu = pcangsd = missme = false;
+      em_k = k;
     }
 
     // handle projection
@@ -391,11 +404,14 @@ Param::Param(int argc, char** argv) {
     }
 
     // handle memory and misc options
-    // --ncv was always overwritten before. Spectra needs k < ncv
+    // --ncv was always overwritten before. Spectra needs k < ncv, for the EM
+    // decomposition (--em-k PCs) and the final one (-k PCs) alike
     if (!ncv_opt->is_set())
-      ncv = 20 > (2 * k + 1) ? 20 : (2 * k + 1);
+      ncv = 20 > (2 * max_k() + 1) ? 20 : (2 * max_k() + 1);
     else
-      require(ncv > k, "--ncv must be greater than -k/--pc");
+      require(ncv > max_k(), em_k > k ? "--ncv must be greater than --em-k" : "--ncv must be greater than -k/--pc");
+    // each RSVD oversamples by at least its own rank: the EM one by --em-k
+    em_oversamples = oversamples > em_k ? oversamples : em_k;
     oversamples = oversamples > k ? oversamples : k;
     if (haploid && genetic) ploidy = 1;
     if (memory > 0 && (svd_t != SvdType::FULL || evaladmix)) out_of_core = true;

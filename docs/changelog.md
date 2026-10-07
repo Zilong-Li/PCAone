@@ -34,6 +34,18 @@ so that sum no longer covers all the variance.
 
 ### v0.8.0
 
+- `--em-k <n>` sets the number of PCs that model the individual allele frequencies in the EM-PCA
+  of `--emu` and `--pcangsd` (and BEAGLE input), separately from the `-k` PCs written, as EMU's
+  `--eig` and `--eig-out` do: e.g. `--emu --em-k 2 -k 10` fits the model with 2 PCs and writes
+  10. The EM runs with `--em-k` PCs (and oversamples by at least that many). One final
+  decomposition computes the `-k` PCs of the matrix rebuilt from the `--em-k` fit: standardized
+  for EMU, the expected genotypes for PCAngsd. For BEAGLE input the `.cov` is that of the
+  `--em-k` model, so it does not depend on `-k`, and `.eigvecs2` holds its top `-k`
+  eigenvectors. It works with every solver (`--svd 0`, `1`, `2`), in-core and with `-m`. Without
+  `--em-k`, or with it equal to `-k`, every output is byte-identical to before. Checked against
+  an exact EMU and PCAngsd in numpy (a full SVD in each iteration) at a matched `--tol-em`, for
+  `--em-k` below and above `-k`: IRAM agrees to 0.05 degrees, the RSVDs to 0.45 degrees, and
+  the `.cov` to 1e-5.
 - `--inbreed 2` estimates the inbreeding coefficient of each sample, accounting for population
   structure with the individual allele frequencies of `-P/--USV`, and writes `.inbred` (FID, IID,
   sites used, observed and expected heterozygotes, F). The estimator is PCAngsd's

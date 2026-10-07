@@ -211,11 +211,20 @@ static int run(int argc, char* argv[]) {
   if (params.k >= rank_max)
     cao.error("-k/--pc " + std::to_string(params.k) + " must be smaller than the number of samples and of sites (" +
               std::to_string(data->nsamples) + " and " + std::to_string(data->nsnps) + ")");
+  if (params.em_k >= rank_max)
+    cao.error("--em-k " + std::to_string(params.em_k) + " must be smaller than the number of samples and of sites (" +
+              std::to_string(data->nsamples) + " and " + std::to_string(data->nsnps) + ")");
   // the RSVD cannot use more test vectors, nor the IRAM more Lanczos vectors, than that
   if (params.k + params.oversamples > rank_max) {
     params.oversamples = rank_max - params.k;
     cao.warn("--oversamples reduced to " + std::to_string(params.oversamples) +
              " so that k + oversamples <= " + std::to_string(rank_max));
+  }
+  if (params.em_k + params.em_oversamples > rank_max) {
+    params.em_oversamples = rank_max - params.em_k;
+    if (params.em_k != params.k)  // otherwise the warning above said it
+      cao.warn("--oversamples of the EM iterations reduced to " + std::to_string(params.em_oversamples) +
+               " so that --em-k + oversamples <= " + std::to_string(rank_max));
   }
   if (params.ncv > rank_max) {
     params.ncv = rank_max;

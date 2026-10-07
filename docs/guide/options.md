@@ -37,6 +37,8 @@ PCA algorithms:
   --seed arg (=112)              seeds for reproducing results.
   --emu                          use EMU algorithm for genotype input with missingness. not with --svd 3.
   --pcangsd                      use PCAngsd algorithm for genotype likelihood input. not with --svd 3.
+  --em-k arg                     the number of PCs that model the individual allele frequencies in the EM iterations
+                                 of --emu and --pcangsd. -k PCs of the final matrix are written. default is -k
 
 Input options:
   -b, --bfile arg                prefix of PLINK .bed/.bim/.fam files.

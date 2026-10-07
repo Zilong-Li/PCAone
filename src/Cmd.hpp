@@ -29,6 +29,11 @@ class Param {
   uint nsnps = 0;
   uint k = 10;
   uint ref_k = 0;  // leading PCs of the -P/--USV reference used by a two-stage analysis (-k); 0: all
+  // PCs that model the individual allele frequencies in the EM-PCA iterations
+  // (--emu, --pcangsd). --em-k sets it, and the final matrix is then decomposed
+  // for -k PCs; otherwise it equals -k. max_k() sizes what holds either.
+  uint em_k = 0;
+  uint max_k() const { return k > em_k ? k : em_k; }
   uint maxp = 20;  // maximum number of power iterations
   uint threads = 12;
   uint bands = 64;
@@ -49,7 +54,8 @@ class Param {
   uint imaxiter = 1000;
   double itol = 1e-6;
   // for halko
-  uint oversamples = 10;
+  uint oversamples = 10;     // of the RSVD for -k PCs; at least -k
+  uint em_oversamples = 10;  // of the RSVD in the EM iterations, for --em-k PCs; at least --em-k
   double tol = 1e-5;
   uint buffer = 2;
   uint rand = 1;

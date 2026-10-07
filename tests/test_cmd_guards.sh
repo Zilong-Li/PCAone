@@ -51,6 +51,14 @@ bad "--tol-em" -b x --tol-em -1
 bad "--tol-maf" -b x --tol-maf 0
 bad "--emu cannot be used" -b x --emu --pcangsd
 bad "--emu cannot be used" -G x --emu
+bad "--em-k requires EM-PCA" -b x --em-k 2
+bad "--em-k requires EM-PCA" -p x -k 3 --em-k 2
+bad "--em-k must be at least 1" -G x --em-k 0
+bad "--em-k must be at least 1" -b x --pcangsd --em-k 0
+bad "--em-k: '-1'" -b x --emu --em-k -1
+bad "--em-k must be at least 1" -b x --emu --em-k 0
+bad "--ncv must be greater than --em-k" -b x --emu -k 2 --em-k 10 --ncv 8
+bad "--ncv must be greater than -k/--pc" -b x --emu -k 10 --em-k 2 --ncv 8
 bad "--maf" -b x --maf -0.1
 bad "--maf" -b x --maf 0.5
 bad "--project" -b x --project -1

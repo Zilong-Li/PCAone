@@ -66,7 +66,8 @@ void Data::prepare() {
     } else {
       // ram of halko = (3*n*l + 2*m*l + 5*m + n*b)*8/1024 Kb
       // in doubles: the unsigned products wrapped once nsnps * l reached 2^31
-      const double l = (double)params.k + params.oversamples;
+      // the RSVD of the EM iterations (--em-k) and of the final matrix (-k) run one at a time
+      const double l = std::max((double)params.k + params.oversamples, (double)params.em_k + params.em_oversamples);
       const double fixed = 3.0 * nsamples * l + 2.0 * nsnps * l + 5.0 * nsnps;  // doubles held besides the block
       double m = fixed / 134217728;
       if (params.memory > 1.1 * m)
@@ -224,7 +225,8 @@ void Data::calcu_vt_initial(const Mat2D& T, Mat2D& VT, bool standardize) {
   return;
 }
 
-void Data::calcu_vt_update(const Mat2D& T, const Mat2D& U, const Mat1D& svals, Mat2D& VT, bool standardize) {
+void Data::calcu_vt_update(
+    const Mat2D& T, const Mat2D& U, const Mat1D& svals, const Mat2D& VT, Mat2D& VTout, bool standardize) {
   if (nblocks == 1) {
     cao.error("only one block exists. please use in-memory mode instead");
   }
@@ -234,7 +236,7 @@ void Data::calcu_vt_update(const Mat2D& T, const Mat2D& U, const Mat1D& svals, M
     actual_block_size = stop[i] - start[i] + 1;
     // G (nsamples, actual_block_size)
     read_block_update(start[i], stop[i], U, svals, VT, standardize);
-    VT.block(0, start[i], T.rows(), actual_block_size) = T * G.leftCols(actual_block_size);
+    VTout.block(0, start[i], T.rows(), actual_block_size) = T * G.leftCols(actual_block_size);
   }
 
   return;

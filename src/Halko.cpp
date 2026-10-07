@@ -275,17 +275,20 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
   }
 }
 
+static RsvdOpData* new_rsvd(Data* data, const Param& params, uint k, uint os) {
+  if (params.svd_t == SvdType::PCAoneAlg2) return new FancyRsvdOpData(data, k, os);
+  return new NormalRsvdOpData(data, k, os);
+}
+
 void run_pca_with_halko(Data* data, const Param& params) {
   Mat2D Vpre;
-  RsvdOpData* rsvd;
-  if (params.svd_t == SvdType::PCAoneAlg2) {
-    cao.print(tick.date(), "initialize window-based RSVD (winSVD) with",
-              params.out_of_core ? "out-of-core" : "in-core");
-    rsvd = new FancyRsvdOpData(data, params.k, params.oversamples);
-  } else {
-    cao.print(tick.date(), "initialize single-pass RSVD (sSVD) with", params.out_of_core ? "out-of-core" : "in-core");
-    rsvd = new NormalRsvdOpData(data, params.k, params.oversamples);
-  }
+  cao.print(tick.date(), "initialize",
+            params.svd_t == SvdType::PCAoneAlg2 ? "window-based RSVD (winSVD) with" : "single-pass RSVD (sSVD) with",
+            params.out_of_core ? "out-of-core" : "in-core");
+  // EM-PCA fits the individual allele frequencies with em_k PCs, which is -k
+  // unless --em-k says otherwise; the final matrix is decomposed for -k
+  RsvdOpData* rsvd = params.missme ? new_rsvd(data, params, params.em_k, params.em_oversamples)
+                                   : new_rsvd(data, params, params.k, params.oversamples);
   if (!params.missme) {
     if (params.genetic) {
       rsvd->setFlags(false, true);
@@ -321,18 +324,36 @@ void run_pca_with_halko(Data* data, const Param& params) {
     }
     if (params.maxiter > 0 && !(diff < params.tolem)) warn_em_not_converged(params, diff);
 
-    if (params.emu) {
-      cao.print(tick.date(), "standardize the final matrix for EMU");
-      rsvd->setFlags(true, true);
-      rsvd->computeUSV(params.maxp, params.tol);
-      flip_UV(rsvd->U, rsvd->V, false);
-    }
-
+    // PCAngsd's covariance, and the -k eigenvectors of it in .eigvecs2, come from
+    // the individual allele frequencies of the --em-k PCs the EM fitted
     if (params.pcangsd && (params.file_t == FileType::BEAGLE)) {
       cao.print(tick.date(), "estimate GRM for pcangsd");
       data->pcangsd_standardize_E(rsvd->U, rsvd->S, rsvd->V.transpose());
       // TODO: use matrix-free method e.g Arnoldi to decompose the cov
       write_pcangsd_cov(data->G, data->Dc, data->nsnps, params);
+    }
+
+    // EMU decomposes its final matrix standardized; PCAngsd writes the PCs of
+    // the EM's matrix of expected genotypes, which needs one more decomposition
+    // only when --em-k fitted another number of PCs than the -k written.
+    if (params.emu || params.em_k != params.k) {
+      if (params.emu) cao.print(tick.date(), "standardize the final matrix for EMU");
+      if (params.em_k != params.k) {
+        // The update below rebuilds the matrix from the U, S, V it is given, so
+        // a solver for -k PCs takes over the fit of the --em-k ones: they give
+        // the individual allele frequencies, and start its power iterations.
+        cao.print(tick.date(), "decompose the final matrix for", params.k,
+                  "PCs (-k), given the individual allele frequencies of the", params.em_k, "PCs of the EM (--em-k)");
+        RsvdOpData* out = new_rsvd(data, params, params.k, params.oversamples);
+        out->U = std::move(rsvd->U);
+        out->S = std::move(rsvd->S);
+        out->V = std::move(rsvd->V);
+        delete rsvd;
+        rsvd = out;
+      }
+      rsvd->setFlags(true, params.emu);
+      rsvd->computeUSV(params.maxp, params.tol);
+      flip_UV(rsvd->U, rsvd->V, false);
     }
   }
   // output PI

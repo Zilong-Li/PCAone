@@ -9,6 +9,8 @@
 #include <Spectra/contrib/PartialSVDSolver.h>
 #include <Spectra/SymEigsSolver.h>
 
+#include <memory>
+
 #include "Cmd.hpp"
 #include "Utils.hpp"
 
@@ -54,17 +56,20 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
   Mat1D svals, evals;
   uint nconv, nu;
   double diff;
+  // EM-PCA fits the individual allele frequencies with kfit PCs: --em-k, which
+  // is -k unless given. The final matrix is decomposed for -k PCs.
+  const uint kfit = params.missme ? params.em_k : params.k;
   if (!params.out_of_core) {
     // SpMatrix sG = data->G.sparseView();
-    PartialSVDSolver<Mat2D> svds(data->G, params.k, params.ncv);
+    PartialSVDSolver<Mat2D> svds(data->G, kfit, params.ncv);
     // only genotypes are standardized, as in run_pca_with_halko(). CSV has no F,
     // so standardize_E() read past the end of it and segfaulted
     bool standardized = !params.missme && params.genetic;
     if (standardized) data->standardize_E();
     nconv = svds.compute(params.imaxiter, params.itol);
-    if (nconv != params.k) cao.error("the nconv is not equal to k.");
-    U = svds.matrix_U(params.k);
-    V = svds.matrix_V(params.k);
+    if (nconv != kfit) cao.error("the nconv is not equal to k.");
+    U = svds.matrix_U(kfit);
+    V = svds.matrix_V(kfit);
     svals = svds.singular_values();
     evals.noalias() = svals.array().square().matrix() / data->nsnps;
     // impute information via EM-PCA
@@ -76,8 +81,8 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
         data->fit_with_pi(U, svals, V.transpose());
         nconv = svds.compute(params.imaxiter, params.itol);
         svals = svds.singular_values();
-        U = svds.matrix_U(params.k);
-        V2 = svds.matrix_V(params.k);
+        U = svds.matrix_U(kfit);
+        V2 = svds.matrix_V(kfit);
         flip_UV(U, V2);
         // Same measure as run_pca_with_halko() and the FULL solver, so that a
         // given --tol-em means the same thing whichever -d the user picked.
@@ -108,17 +113,30 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
         }
       }
 
-      if (params.emu) {
-        cao.print(tick.date(), "standardize the final matrix");
-        standardized = true;
+      // EMU decomposes its final matrix standardized; PCAngsd writes the PCs of
+      // the EM's matrix of expected genotypes, which needs one more decomposition
+      // only when --em-k fitted another number of PCs than the -k written.
+      if (params.emu || kfit != params.k) {
+        if (params.emu) cao.print(tick.date(), "standardize the final matrix");
+        standardized = params.emu;
         // the missing entries still held the imputation from the previous
-        // iteration; run_pca_with_halko() refits them from the final U, S, V
+        // iteration (and for PCAngsd, G the standardized matrix of the .cov);
+        // run_pca_with_halko() refits them from the final U, S, V
         data->fit_with_pi(U, svals, V.transpose());
-        data->standardize_E();
-        svds.compute(params.imaxiter, params.itol);
-        svals = svds.singular_values();
-        U = svds.matrix_U(params.k);
-        V = svds.matrix_V(params.k);
+        if (params.emu) data->standardize_E();
+        // a solver for -k PCs when --em-k fitted another number. It holds a
+        // reference to data->G, so it sees the matrix just rebuilt in place.
+        std::unique_ptr<PartialSVDSolver<Mat2D>> svds_k;
+        if (kfit != params.k) {
+          cao.print(tick.date(), "decompose the final matrix for", params.k,
+                    "PCs (-k), given the individual allele frequencies of the", kfit, "PCs of the EM (--em-k)");
+          svds_k = std::make_unique<PartialSVDSolver<Mat2D>>(data->G, params.k, params.ncv);
+        }
+        PartialSVDSolver<Mat2D>& final_svds = svds_k ? *svds_k : svds;
+        final_svds.compute(params.imaxiter, params.itol);
+        svals = final_svds.singular_values();
+        U = final_svds.matrix_U(params.k);
+        V = final_svds.matrix_V(params.k);
         flip_UV(U, V);
         evals.noalias() = svals.array().square().matrix() / data->nsnps;
       }
@@ -132,13 +150,13 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
     // SymEigsSolver< double, LARGEST_ALGE, ArnoldiOpData > *eigs = new
     // SymEigsSolver< double, LARGEST_ALGE, ArnoldiOpData >(op, params.k,
     // params.ncv);
-    SymEigsSolver<ArnoldiOpData>* eigs = new SymEigsSolver<ArnoldiOpData>(*op, params.k, params.ncv);
+    SymEigsSolver<ArnoldiOpData>* eigs = new SymEigsSolver<ArnoldiOpData>(*op, kfit, params.ncv);
     bool standardized = !params.missme && params.genetic;  // as in-core above
     op->setFlags(false, standardized);
     eigs->init();
     nconv = eigs->compute(SortRule::LargestAlge, params.imaxiter, params.itol);
-    if (nconv < params.k) cao.error("the nconv is not equal to k");
-    nu = min(params.k, nconv);
+    if (nconv < kfit) cao.error("the nconv is not equal to k");
+    nu = min(kfit, nconv);
     assert(eigs->info() == CompInfo::Successful);
     op->U = eigs->eigenvectors().leftCols(nu);
     op->S = eigs->eigenvalues().cwiseSqrt();
@@ -165,14 +183,14 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
         V = op->VT;
         eigs->init();
         nconv = eigs->compute(SortRule::LargestAlge, params.imaxiter, params.itol);
-        if (nconv < params.k) cao.error("the nconv is not equal to k.");
+        if (nconv < kfit) cao.error("the nconv is not equal to k.");
         assert(eigs->info() == CompInfo::Successful);
-        nu = min(params.k, nconv);
+        nu = min(kfit, nconv);
         U = (eigs->eigenvectors().leftCols(nu).transpose().array().colwise() /
              eigs->eigenvalues().head(nu).array().sqrt())
                 .matrix();
 
-        data->calcu_vt_update(U, op->U, op->S, op->VT, false);
+        data->calcu_vt_update(U, op->U, op->S, op->VT, op->VT, false);
         op->S = eigs->eigenvalues().cwiseSqrt();
         op->U = eigs->eigenvectors().leftCols(nu);
         flip_UV(op->U, op->VT);
@@ -195,23 +213,38 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
 
       standardized = true;
       op->setFlags(true, standardized);
-      eigs->init();
-      nconv = eigs->compute(SortRule::LargestAlge, params.imaxiter, params.itol);
+      // a solver for -k PCs when --em-k fitted another number. op keeps the
+      // --em-k fit in U, S and VT, which rebuild every block it reads.
+      std::unique_ptr<SymEigsSolver<ArnoldiOpData>> eigs_k;
+      if (kfit != params.k) {
+        cao.print(tick.date(), "decompose the final matrix for", params.k,
+                  "PCs (-k), given the individual allele frequencies of the", kfit, "PCs of the EM (--em-k)");
+        eigs_k = std::make_unique<SymEigsSolver<ArnoldiOpData>>(*op, params.k, params.ncv);
+      }
+      SymEigsSolver<ArnoldiOpData>& final_eigs = eigs_k ? *eigs_k : *eigs;
+      final_eigs.init();
+      nconv = final_eigs.compute(SortRule::LargestAlge, params.imaxiter, params.itol);
       if (nconv < params.k) cao.error("the nconv is not equal to k.");
-      assert(eigs->info() == CompInfo::Successful);
+      assert(final_eigs.info() == CompInfo::Successful);
       nu = min(params.k, nconv);
-      U = (eigs->eigenvectors().leftCols(nu).transpose().array().colwise() /
-           eigs->eigenvalues().head(nu).array().sqrt())
+      U = (final_eigs.eigenvectors().leftCols(nu).transpose().array().colwise() /
+           final_eigs.eigenvalues().head(nu).array().sqrt())
               .matrix();
 
-      data->calcu_vt_update(U, op->U, op->S, op->VT, standardized);
+      if (kfit == params.k) {
+        data->calcu_vt_update(U, op->U, op->S, op->VT, op->VT, standardized);
+      } else {  // op->VT has kfit rows and rebuilds the blocks as they are read; the final one has nu
+        Mat2D VT(nu, data->nsnps);
+        data->calcu_vt_update(U, op->U, op->S, op->VT, VT, standardized);
+        op->VT = std::move(VT);
+      }
       // S comes from this final solve as well. op->U, op->VT and evals all do,
       // so keeping the previous iteration's S left .sigvals disagreeing with
       // .eigvals and with the U/V written beside it.
-      op->S = eigs->eigenvalues().cwiseSqrt();
-      op->U = eigs->eigenvectors().leftCols(nu);
+      op->S = final_eigs.eigenvalues().cwiseSqrt();
+      op->U = final_eigs.eigenvectors().leftCols(nu);
       flip_UV(op->U, op->VT);
-      evals.noalias() = eigs->eigenvalues() / data->nsnps;
+      evals.noalias() = final_eigs.eigenvalues() / data->nsnps;
     }
 
     // `standardized` is the flag the solve that produced op->U/S/VT ran with
