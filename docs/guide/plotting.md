@@ -5,6 +5,9 @@ and the `data.table` package.
 
 - [SNP loadings](#snp-loadings): `scripts/plot-loadings.R`
 - [Sample PCA density](#sample-pca-density): `scripts/plot-pca.R`
+- [Compare PCA runs](#compare-pca-runs): `scripts/compare-pca.R`
+- [Per-site HWE](hwe.md#plot-per-site-results): `scripts/plot-hwe.R`
+- [Per-sample inbreeding](hwe.md#plot-per-sample-results): `scripts/plot-inbred.R`
 - [LD decay](#ld-decay): `scripts/plot-ld-decay.R`, `scripts/summarise_ld_r2bin.cpp`
   and the Nextflow workflow `workflows/ld.nf`
 
@@ -43,6 +46,50 @@ dev.off()
 sum(result$counts)  # number of plotted samples
 ```
 
+## Compare PCA runs
+
+Compare winSVD and IRAM sample coordinates with:
+
+```bash
+Rscript scripts/compare-pca.R winsvd.eigvecs2 iram.eigvecs2 \
+    --k 10 --labels winSVD,IRAM -o winsvd-vs-iram
+# Numeric matrices require confirmed identical sample order:
+Rscript scripts/compare-pca.R winsvd.eigvecs iram.eigvecs \
+    --k 10 --row-order -o winsvd-vs-iram
+```
+
+The first K PCs are compared (default 10). Inputs with IDs are matched by
+FID/IID, retaining their intersection and reporting excluded sample counts.
+Duplicate IDs and non-finite coordinates cause an error. Use `--format-a ids`
+or `--format-b ids` for headerless files with two ID columns under other names;
+`matrix` selects numeric-only input. Both runs should use the same variants
+and preprocessing for a solver comparison.
+
+The script writes a three-panel PDF and three tables:
+
+- `.pcs.tsv`: signed and absolute same-PC correlation, sign correction,
+  and relative coordinate errors after sign alignment or an orthogonal
+  Procrustes rotation of B toward A.
+- `.angles.tsv`: principal angles between the two K-dimensional subspaces,
+  ordered from best to worst agreement; these directions are not individual PCs.
+- `.summary.tsv`: shared/excluded sample counts, mean squared principal-angle
+  cosine (subspace overlap), largest angle, and overall Procrustes error.
+
+All coordinates are centred and each PC is normalised to unit length, so
+errors are scale independent. Zero error, zero angles and overlap one indicate
+agreement. The correlation heatmap also reveals PC swaps. Similar eigenvalues
+can allow PCs to rotate while spanning the same subspace, so inspect subspace
+agreement alongside individual-PC correlation. Rotation errors describe the
+normalised coordinates; principal angles measure subspaces independently of
+column scaling. This does not compare eigenvalues or establish which solver
+is more accurate relative to the original data matrix.
+
+Work scales as O(N K^2), memory as O(N K); no sample-by-sample N x N matrix is
+constructed. Only selected PCs and, when present, IDs are read. Large K can
+still be expensive. From R, source the script and call
+`compare_pca(file_a, file_b, k = 10)`; use `plot_comparison(result)` on an open
+graphics device.
+
 ## SNP loadings
 
 `scripts/plot-loadings.R` plots the SNP loadings of each PC along the genome.
@@ -59,7 +106,11 @@ PCAone -b example/plink -k 10 --printv -o pcaone
 ```
 
 This writes `pcaone.loadings`, with one row per variant and one column per PC,
-and `pcaone.mbim`, with the position of each variant. The script reads both.
+and `pcaone.mbim`, with the position of each variant. The script also reads
+`pcaone.sigvals` and, by default, multiplies each PC’s loadings by its singular
+value before plotting and reporting peak loadings. Use `--sigvals F` for a
+custom singular-values file, or `--no-weights` to plot raw loadings. In R, use
+`read_loadings(..., sigvals = "custom.sigvals")` or `weighted = FALSE`.
 
 ### Quick start
 
@@ -89,7 +140,8 @@ plotted variants, e.g. 1,650 SNPs per bin for 6.6M SNPs. Bins never cross
 chromosomes, and the maximum keeps every peak, so millions of variants plot in
 seconds. Use `--window 1` to plot every variant, e.g. in a small region.
 
-Loadings are small, about `1/sqrt(M)` for M SNPs, so the y axis is shown in
+Raw loadings are about `1/sqrt(M)` for M SNPs; singular-value weighting changes
+their scale. Small plotted values are shown in
 multiples of a power of ten, e.g. `(x10^-3)`.
 
 The x axis follows the variant order (`--xaxis index`), with chromosomes in
