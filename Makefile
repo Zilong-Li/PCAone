@@ -266,11 +266,11 @@ example_tests:
 	./PCAone --csv example/BrainSpinalCord.csv.zst -k 10 -m 4 --scale 2 -S
 
 projection:
-	./PCAone -b example/ref -k 3 -V -o ref -v3
+	./PCAone -b example/ref -k 3 -o ref -v3
 	./PCAone -b example/new --USV ref -k 3 --project 2 --project-bootstrap 100 -o new -v3
 
 hwe:
-	./PCAone -b example/plink -k 3 -V -m 1
+	./PCAone -b example/plink -k 3 -m 1
 	./PCAone -b example/plink --USV pcaone -k 3 --inbreed 1 -o m0
 	./PCAone -b example/plink --USV pcaone -k 3 --inbreed 1 -o m1 -m 1
 	./PCAone -b example/plink --USV pcaone -k 3 --inbreed 2 -o m0
@@ -281,8 +281,8 @@ hwe:
 # The LD analyses read the genotypes and remove the PCs of -P/--USV as they go.
 # ld_matrix makes those PCs, and checks the .mbim order in-core and out-of-core.
 ld_matrix:
-	./PCAone -b example/plink -k 3 -V -o adj -d 2
-	./PCAone -b example/plink -k 3 -V -o pcaone -d 2 -m 1
+	./PCAone -b example/plink -k 3 -o adj -d 2
+	./PCAone -b example/plink -k 3 -o pcaone -d 2 -m 1
 	diff adj.mbim pcaone.mbim
 	cut -f1 adj.mbim | sort -cn  ## check if sorted
 	awk '$$1==3' adj.mbim | cut -f4 | sort -cn
