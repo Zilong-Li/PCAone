@@ -194,7 +194,9 @@ FilePgen::~FilePgen() {
   if (block_reader) {
     block_reader->cancel();
     if (params.verbose > 1)
-      cao.print(tick.date(), "PGEN blocks requested ahead:", block_reader->predicted());
+      cao.print(tick.date(), "PGEN blocks predicted:", block_reader->predicted(),
+                ", requested from the disk:", block_reader->requested(), ", page cache probe:",
+                block_reader->probe_name());
   }
 }
 

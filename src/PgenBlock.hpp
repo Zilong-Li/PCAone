@@ -11,6 +11,7 @@
 #include <future>
 #include <memory>
 #include <string>
+#include <sys/stat.h>
 #include <utility>
 #include <vector>
 
@@ -28,10 +29,13 @@ namespace PCAone {
 // multiplied, the records of the next one (with the LD base of an
 // LD-compressed variant) are requested from the kernel in file order
 // (POSIX_FADV_WILLNEED, F_RDADVISE on macOS), so that reading them overlaps the
-// computation and the disk sees them sorted. Decoding is pgenlib's own, so the
-// values are exactly those of PgenReader, and the 2-bit calls are available to
-// decode straight into G.
+// computation and the disk sees them sorted. Blocks already in the page cache
+// (by a sample of their pages) are not requested. Decoding is pgenlib's
+// own, so the values are exactly those of PgenReader, and the 2-bit calls are
+// available to decode straight into G.
 class PgenBlockReader {
+  enum class Probe { None, NoWait, Mincore };
+
  public:
   // nthreads: decoding threads, by OpenMP thread number
   PgenBlockReader(const std::string& pgen, uint32_t nsamples, int nthreads);
@@ -62,17 +66,26 @@ class PgenBlockReader {
                                    uint32_t* dosage_ct);
 
   uint64_t predicted() const { return hits_; }
+  uint64_t requested() const { return requested_; }  // blocks not found in the page cache
+  const char* probe_name() const {
+    return probe_ == Probe::NoWait ? "RWF_NOWAIT" : probe_ == Probe::Mincore ? "mincore" : "none";
+  }
 
  private:
   // the page runs pgenlib reads for these variants, sorted and merged
   std::vector<std::pair<uint64_t, uint64_t>> pages(const std::vector<uint32_t>& variants) const;
+  void choose_probe(const std::string& pgen, const struct stat& st);
+  bool page_cached(uint64_t offset) const;
+  bool cached(const std::vector<std::pair<uint64_t, uint64_t>>& runs) const;
   void willneed(const std::vector<std::pair<uint64_t, uint64_t>>& runs, const std::atomic<bool>& stop);
 
   plink2::PgenFileInfo pgfi_;
   unsigned char* pgfi_alloc_ = nullptr;
   std::vector<uintptr_t> nonref_flags_;
   uint32_t nsamples_ = 0;
-  int fd_ = -1;  // for the read-ahead requests
+  int fd_ = -1;                    // for the read-ahead requests
+  Probe probe_ = Probe::None;       // how page_cached() asks the page cache
+  unsigned char* map_ = nullptr;   // the file, for mincore() only; never read
   uint64_t file_bytes_ = 0, page_ = 4096;
   std::vector<plink2::PgenReader*> pgr_;
   std::vector<unsigned char*> pgr_alloc_;
@@ -84,6 +97,7 @@ class PgenBlockReader {
   std::atomic<bool> stop_{false};
   const std::atomic<bool> never_stop_{false};
   uint64_t hits_ = 0;
+  std::atomic<uint64_t> requested_{0};
 };
 
 }  // namespace PCAone

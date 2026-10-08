@@ -6,8 +6,12 @@
 #include "PgenBlock.hpp"
 
 #include <fcntl.h>
+#include <sys/mman.h>
 #include <sys/stat.h>
+#include <sys/uio.h>
 #include <unistd.h>
+
+#include <cerrno>
 
 #include <algorithm>
 #include <cstdio>
@@ -70,6 +74,7 @@ PgenBlockReader::PgenBlockReader(const std::string& pgen, uint32_t nsamples, int
   struct stat st;
   if (::fstat(fd_, &st) == 0) file_bytes_ = (uint64_t)st.st_size;
   page_ = (uint64_t)::sysconf(_SC_PAGESIZE);
+  choose_probe(pgen, st);
 
   const uintptr_t genovec_bytes = DivUp(nsamples, kNypsPerVec) * kBytesPerVec;
   const uintptr_t bitvec_bytes = DivUp(nsamples, kBitsPerVec) * kBytesPerVec;
@@ -109,6 +114,7 @@ PgenBlockReader::~PgenBlockReader() {
   for (auto* p : sample_include_) plink2::aligned_free(p);
   plink2::CleanupPgfi(&pgfi_, &err);
   if (pgfi_alloc_) plink2::aligned_free(pgfi_alloc_);
+  if (map_) ::munmap(map_, file_bytes_);
   if (fd_ >= 0) ::close(fd_);
 }
 
@@ -132,7 +138,77 @@ std::vector<std::pair<uint64_t, uint64_t>> PgenBlockReader::pages(const std::vec
   return runs;
 }
 
+// How to tell whether a page is in the page cache. Linux: a one-byte read that
+// must not wait (preadv2 with RWF_NOWAIT), checked on the first page, read just
+// before; file systems that do not support it (FUSE, virtiofs) fail the check.
+// Then mincore() of the mapped file, the only way on macOS. Since Linux 5.0,
+// mincore() reports every page as cached for a file the caller neither owns
+// nor may write, such as shared read-only data, so it is not used for those,
+// and every block is requested.
+void PgenBlockReader::choose_probe(const std::string& pgen, const struct stat& st) {
+  if (!file_bytes_) return;
+  char byte;
+  if (::pread(fd_, &byte, 1, 0) != 1) return;  // now in the page cache
+#if defined(__linux__) && defined(RWF_NOWAIT)
+  struct iovec v = {&byte, 1};
+  if (::preadv2(fd_, &v, 1, 0, RWF_NOWAIT) == 1) {
+    probe_ = Probe::NoWait;
+    return;
+  }
+  const bool reliable = ::geteuid() == 0 || st.st_uid == ::geteuid() || ::access(pgen.c_str(), W_OK) == 0;
+  if (!reliable) return;
+#else
+  (void)pgen;
+  (void)st;
+#endif
+  void* m = ::mmap(nullptr, file_bytes_, PROT_READ, MAP_SHARED, fd_, 0);  // never read, only asked
+  if (m == MAP_FAILED) return;
+  map_ = static_cast<unsigned char*>(m);
+  probe_ = Probe::Mincore;
+}
+
+bool PgenBlockReader::page_cached(uint64_t offset) const {
+  switch (probe_) {
+#if defined(__linux__) && defined(RWF_NOWAIT)
+    case Probe::NoWait: {
+      char byte;
+      struct iovec v = {&byte, 1};
+      return ::preadv2(fd_, &v, 1, (off_t)offset, RWF_NOWAIT) == 1;
+    }
+#endif
+    case Probe::Mincore: {
+#ifdef __APPLE__
+      char in = 0;
+#else
+      unsigned char in = 0;
+#endif
+      const uint64_t page = offset / page_ * page_;
+      return ::mincore(map_ + page, std::min<uint64_t>(page_, file_bytes_ - page), &in) == 0 && (in & 1);
+    }
+    default:
+      return false;  // unknown: request it
+  }
+}
+
+// Whether the page cache holds these pages already: all pages of up to 32 runs
+// spread over the block. Requesting cached pages costs one call per run for
+// nothing, which on some file systems is more than the reads it saves.
+bool PgenBlockReader::cached(const std::vector<std::pair<uint64_t, uint64_t>>& runs) const {
+  if (probe_ == Probe::None) return false;
+  const size_t probes = std::min<size_t>(32, runs.size());
+  size_t hits = 0;
+  for (size_t i = 0; i < probes; ++i) {
+    const auto& [a, b] = runs[i * runs.size() / probes];
+    bool all = true;
+    for (uint64_t p = a; all && p < std::min(b, file_bytes_); p += page_) all = page_cached(p);
+    hits += all;
+  }
+  return probes && hits * 10 >= probes * 9;
+}
+
 void PgenBlockReader::willneed(const std::vector<std::pair<uint64_t, uint64_t>>& runs, const std::atomic<bool>& stop) {
+  if (cached(runs)) return;
+  ++requested_;
   // asynchronous: the kernel reads the pages into the page cache, in file order
   for (const auto& [a, b] : runs) {
     if (stop.load(std::memory_order_relaxed)) return;
