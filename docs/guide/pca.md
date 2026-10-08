@@ -54,6 +54,15 @@ it does not change the order. SNP indices and the BIM lines take additional
 memory. The permuted BED/BIM/FAM (`<out>.perm.*`) are removed after the PCA
 unless `-v 3` is used, and `-o` may not point them at the input.
 
+While the PCA works on one block, the next block is read in the background,
+so reading overlaps the computation instead of alternating with it. BED, and
+the binary copy of CSV input, are read into a second buffer of one block of
+packed records. For BGEN and PGEN, which their libraries read, the bytes of
+the next block are read ahead into the page cache; PGEN reads the variants of
+a block in file order and asks for the next block's records in file order,
+which matters most for the scattered reads of its logical permutation on a
+cold disk. The results are the same; `--no-prefetch` reads in the foreground.
+
 ### Run sSVD method with out-of-core mode
 
 ```shell
