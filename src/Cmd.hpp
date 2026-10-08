@@ -91,6 +91,7 @@ class Param {
   bool printv = true;  // write .loadings and .mbim; --no-loadings turns it off
   bool missme = false;  // keep track of missing information
   bool noshuffle = false;
+  bool noprefetch = false;  // out-of-core: no background read of the next block
   bool emu = false;
   bool pcangsd = false;  // enable pcangsd procedure
   // bool fancyem = false;  // true if emu/pcangsd + svd 2

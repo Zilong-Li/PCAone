@@ -26,6 +26,32 @@ void FileBed::check_file_offset_first_var() {
   }
 }
 
+FileBed::~FileBed() {
+  if (prefetcher) {
+    prefetcher->cancel();
+    if (params.verbose > 1)
+      cao.print(tick.date(), "BED blocks read in the background:", prefetcher->predicted(), ", waited for reads",
+                prefetcher->wait_seconds(), "seconds");
+  }
+}
+
+const uchar* FileBed::read_records(uint64 start_idx, uint64 count) {
+  if (!params.noprefetch) {
+    try {
+      if (!prefetcher)
+        prefetcher = std::make_unique<PCAone::RecordPrefetcher>(bed_path, 3, bed_bytes_per_snp, nsnps);
+      return prefetcher->get(start_idx, count);
+    } catch (const std::exception& e) {
+      cao.error(std::string("cannot read ") + bed_path + ": " + e.what());
+    }
+  }
+  if (bed_ifstream.tellg() != (long long)(3 + start_idx * bed_bytes_per_snp)) cao.error("read_records: offset wrong!");
+  if (inbed.size() < bed_bytes_per_snp * count) inbed.resize(bed_bytes_per_snp * count);
+  bed_ifstream.read(reinterpret_cast<char*>(inbed.data()), bed_bytes_per_snp * count);
+  if (!bed_ifstream) cao.error("cannot read " + bed_path);
+  return inbed.data();
+}
+
 void FileBed::read_all() {
   check_file_offset_first_var();
   // Begin to decode the plink bed
@@ -124,19 +150,14 @@ void FileBed::read_all() {
 
 void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize) {
   uint actual_block_size = stop_idx - start_idx + 1;
-  // check where we are
-  long long offset = 3 + start_idx * bed_bytes_per_snp;
-  if (bed_ifstream.tellg() != offset) cao.error("read_block_initial: offset wrong!");
   // if G is not initial then initial it
   // if actual_block_size is smaller than blocksize, don't resize G;
   if (G.cols() < blocksize || (actual_block_size < blocksize)) {
     G = Mat2D::Zero(nsamples, actual_block_size);
-    inbed.resize(bed_bytes_per_snp * blocksize);
   }
   uint64 c, b, i, j, k, snp_idx;
   uchar buf;
-  // inbed.resize(bed_bytes_per_snp * actual_block_size);
-  bed_ifstream.read(reinterpret_cast<char*>(inbed.data()), bed_bytes_per_snp * actual_block_size);
+  const uchar* bed = read_records(start_idx, actual_block_size);
   if (!params.dopca) frequency_was_estimated = true;  // read AF from external
   if (frequency_was_estimated) {
 #pragma omp parallel for private(i, j, b, k, snp_idx, buf)
@@ -149,7 +170,7 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
         if (sd > VAR_TOL) scale_factor = sqrt((double)params.ploidy) / sd;
       }
       for (b = 0, j = 0; b < bed_bytes_per_snp; ++b) {
-        buf = inbed[i * bed_bytes_per_snp + b];
+        buf = bed[i * bed_bytes_per_snp + b];
         for (k = 0; k < 4; ++k, ++j) {
           if (j < nsamples) {
             if (params.center) {
@@ -175,7 +196,7 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
       // estimates F has reached the last block, e.g. clumping several files
       F(snp_idx) = 0.0;
       for (b = 0, j = 0; b < bed_bytes_per_snp; ++b) {
-        buf = inbed[i * bed_bytes_per_snp + b];
+        buf = bed[i * bed_bytes_per_snp + b];
         for (k = 0; k < 4; ++k, ++j) {
           if (j < nsamples) {
             if ((buf & 3) != 1) {
@@ -208,7 +229,7 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
         if (sd > VAR_TOL) scale_factor = sqrt((double)params.ploidy) / sd;
       }
       for (b = 0, j = 0; b < bed_bytes_per_snp; ++b) {
-        buf = inbed[i * bed_bytes_per_snp + b];
+        buf = bed[i * bed_bytes_per_snp + b];
         for (k = 0; k < 4; ++k, ++j) {
           if (j < nsamples) {
             G(j, i) = centered_geno_lookup(buf & 3, snp_idx) * scale_factor;
@@ -231,14 +252,8 @@ void FileBed::read_block_update(
   uint actual_block_size = stop_idx - start_idx + 1;
   if (G.cols() < blocksize || (actual_block_size < blocksize)) {
     G = Mat2D::Zero(nsamples, actual_block_size);
-    inbed.resize(bed_bytes_per_snp * blocksize);
   }
-  // check where we are
-  if (params.verbose) {
-    long long offset = 3 + start_idx * bed_bytes_per_snp;
-    if (bed_ifstream.tellg() != offset) cao.error("read_block_initial: offset wrong!");
-  }
-  bed_ifstream.read(reinterpret_cast<char*>(inbed.data()), bed_bytes_per_snp * actual_block_size);
+  const uchar* bed = read_records(start_idx, actual_block_size);
   uint64 b, i, j, snp_idx;
   uint ks = svals.rows();
   uint ki, k;
@@ -253,7 +268,7 @@ void FileBed::read_block_update(
       if (sd > VAR_TOL) scale_factor = sqrt((double)params.ploidy) / sd;
     }
     for (b = 0, j = 0; b < bed_bytes_per_snp; ++b) {
-      buf = inbed[i * bed_bytes_per_snp + b];
+      buf = bed[i * bed_bytes_per_snp + b];
       for (ki = 0; ki < 4; ++ki, ++j) {
         if (j < nsamples) {
           G(j, i) = centered_geno_lookup(buf & 3, snp_idx);
@@ -316,6 +331,8 @@ void FileBed::apply_permutation(Param& config) {
   bed_ifstream.clear();
   bed_ifstream.open(config.filein + ".bed", std::ios::binary);
   bed_ifstream.seekg(3);
+  bed_path = config.filein + ".bed";
+  prefetcher.reset();
   if (!bed_ifstream) throw std::runtime_error("Cannot reopen permuted BED file");
 }
 

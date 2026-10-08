@@ -35,12 +35,27 @@ void FileBin::read_all() {
 
 // TODO : can standardize
 void FileBin::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize) {
-  // magic += missing_points.size() * sizeof(uint64);
+  uint actual_block_size = stop_idx - start_idx + 1;
+  G = Mat2D(nsamples, actual_block_size);
+  if (!params.noprefetch) {
+    const unsigned char* raw = nullptr;
+    try {
+      if (!prefetcher)
+        prefetcher = std::make_unique<PCAone::RecordPrefetcher>(params.filein, ibyte * 2, bytes_per_snp, nsnps);
+      raw = prefetcher->get(start_idx, actual_block_size);
+    } catch (const std::exception& e) {
+      cao.error(std::string("cannot read ") + params.filein + ": " + e.what());
+    }
+    for (Eigen::Index i = 0; i < G.cols(); i++) {
+      Eigen::Map<const Eigen::VectorXf> fg(reinterpret_cast<const float*>(raw + i * bytes_per_snp), nsamples);
+      G.col(i) = fg.cast<double>();
+      if (params.scale >= 1) G.col(i).array() -= G.col(i).mean();  // as below
+    }
+    return;
+  }
   // check where we are
   long long offset = ibyte * 2 + start_idx * bytes_per_snp;
   if (ifs_bin.tellg() != offset) cao.error("something wrong with read_snp_block!\n");
-  uint actual_block_size = stop_idx - start_idx + 1;
-  G = Mat2D(nsamples, actual_block_size);
   Eigen::VectorXf fg(nsamples);
   for (Eigen::Index i = 0; i < G.cols(); i++) {
     ifs_bin.read((char*)fg.data(), bytes_per_snp);

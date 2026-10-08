@@ -2,7 +2,10 @@
 #define FILEBINARY_H_
 
 #include "Data.hpp"
+#include "Prefetch.hpp"
 #include "Utils.hpp"
+
+#include <memory>
 
 class FileBin : public Data {
  public:
@@ -37,6 +40,8 @@ class FileBin : public Data {
   const uint ibyte = 4;
   uint64 bytes_per_snp;
   bool is_zstd = false;
+  // out-of-core: reads the next block while the current one is used (--no-prefetch: off)
+  std::unique_ptr<PCAone::RecordPrefetcher> prefetcher;
 };
 
 #endif  // FILEBINARY_H_

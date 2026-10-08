@@ -2,7 +2,10 @@
 #define PCAONE_FILEPLINK_
 
 #include "Data.hpp"
+#include "Prefetch.hpp"
 #include "Utils.hpp"
+
+#include <memory>
 
 class FileBed : public Data {
  public:
@@ -19,6 +22,7 @@ class FileBed : public Data {
     snpmajor = true;
     bed_bytes_per_snp = (nsamples + 3) >> 2;
     std::string fbed = params.filein + ".bed";
+    bed_path = fbed;
     bed_ifstream.open(fbed, std::ios::in | std::ios::binary);
     if (!bed_ifstream.is_open()) cao.error("Cannot open bed file.");
     // check magic number of bed file
@@ -30,7 +34,7 @@ class FileBed : public Data {
     if (params.dopca) F = Mat1D::Zero(nsnps);  // initial F
   }
 
-  ~FileBed() override = default;
+  ~FileBed() override;
 
   void read_all() final;
   // Called after prepare(), before any genotype reads or frequency estimates.
@@ -48,6 +52,11 @@ class FileBed : public Data {
   bool frequency_was_estimated = false;
   uint64 nmono_seen = 0;  // sites with MAF=0 met while estimating F block by block
   std::vector<uchar> inbed;
+  std::string bed_path;  // the BED read by the blocks: the input, or its permuted copy
+  // out-of-core: reads the next block while the current one is used (--no-prefetch: off)
+  std::unique_ptr<PCAone::RecordPrefetcher> prefetcher;
+  // the packed records of SNPs [start_idx, start_idx + count), valid until the next call
+  const uchar* read_records(uint64 start_idx, uint64 count);
 };
 
 // Shuffles the SNPs into random buckets of `bucket` SNPs, source order kept

@@ -105,6 +105,24 @@ void FileBgen::read_all() {
 }
 
 void FileBgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize = false) {
+  const uint64 block_start_offset = bg->offset;
+  read_block_decode(start_idx, stop_idx, standardize);
+  // the next block is about as long as this one; after the last, the first again
+  const uint64 bytes = bg->offset - block_start_offset;
+  if (start_idx == 0) first_block_bytes = bytes;
+  if (params.noprefetch) return;
+  try {
+    if (!readahead) readahead = std::make_unique<PCAone::ReadAhead>(params.filein);
+    if (stop_idx + 1 < nsnps)
+      readahead->hint(bg->offset, bytes + bytes / 8);
+    else
+      readahead->hint(bg->header.offset + 4, first_block_bytes);
+  } catch (const std::exception&) {
+    // only a hint
+  }
+}
+
+void FileBgen::read_block_decode(uint64 start_idx, uint64 stop_idx, bool standardize) {
   uint actual_block_size = stop_idx - start_idx + 1;
   uint i, j, snp_idx;
   if (G.cols() < blocksize || (actual_block_size < blocksize)) {

@@ -3,6 +3,9 @@
 
 #include "bgen/reader.h"
 #include "Data.hpp"
+#include "Prefetch.hpp"
+
+#include <memory>
 #include "Utils.hpp"
 
 // const double GENOTYPE_THRESHOLD = 0.9;
@@ -41,6 +44,11 @@ class FileBgen : public Data {
   bgen::CppBgenReader* bg;
   std::vector<float> dosages, probs1d;
   bool frequency_was_estimated = false;
+  // out-of-core: reads the bytes of the next block into the page cache while
+  // the current one is used (--no-prefetch: off)
+  std::unique_ptr<PCAone::ReadAhead> readahead;
+  void read_block_decode(uint64 start_idx, uint64 stop_idx, bool standardize);
+  uint64 first_block_bytes = 0;
 };
 
 void permute_bgen_thread(std::vector<int> idx, std::string fin, std::string fout, int ithread);
