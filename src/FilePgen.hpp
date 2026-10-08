@@ -7,8 +7,11 @@
 #define PCAONE_FILEPGEN_
 
 #include "Data.hpp"
+#include "PgenBlock.hpp"
 #include "pgenlib/pgenlibr.h"
 #include "Utils.hpp"
+
+#include <memory>
 
 class FilePgen : public Data {
  public:
@@ -44,7 +47,7 @@ class FilePgen : public Data {
     if (params.dopca) F = Mat1D::Zero(nsnps);  // initial F
   }
 
-  ~FilePgen() override = default;
+  ~FilePgen() override;
 
   void read_all() final;
   // PgenReader supports random access; no file-offset state to reset.
@@ -59,6 +62,33 @@ class FilePgen : public Data {
   bool frequency_was_estimated = false;
   uint64 nmono_seen = 0;  // sites with MAF=0 met while estimating F block by block
   bool dosage_mode = false;
+  // Out-of-core reads (read_block_*): pgenlib's readers with the next block read
+  // ahead into the page cache (PgenBlock.hpp); PgenReader with --no-prefetch, or
+  // if the block reader cannot be set up.
+  std::unique_ptr<PCAone::PgenBlockReader> block_reader;
+  bool block_reader_tried = false;
+  // A block's reads, sorted by file position: OpenMP's static schedule then gives
+  // each thread a run of nearby records. column is the logical column in G.
+  struct ReadRequest {
+    uint32_t variant, column;
+  };
+  std::vector<ReadRequest> requests;
+  std::vector<uint32_t> block_variants, next_variants;
+  uint64 last_end = 0, first_count = 0;
+  void begin_block(uint64 start_idx, uint64 stop_idx);
+  void variants_of(uint64 first, uint64 count, std::vector<uint32_t>& out) const;
+  void read_variant(int thr, uint64 pgen_idx, double* buf) {
+    if (block_reader) {
+      if (dosage_mode)
+        block_reader->dosages(thr, (uint32_t)pgen_idx, buf);
+      else
+        block_reader->hardcalls(thr, (uint32_t)pgen_idx, buf);
+    } else if (dosage_mode) {
+      reader.Read(buf, nsamples, thr, pgen_idx, 1);
+    } else {
+      reader.ReadHardcalls(buf, nsamples, thr, pgen_idx, 1);
+    }
+  }
   // ReadHardcalls returns 0.0/1.0/2.0/-3.0; map to lookup index 0/1/2/3
   static int pgen_code(double v) { return (v == -3.0) ? 3 : static_cast<int>(v); }
 };

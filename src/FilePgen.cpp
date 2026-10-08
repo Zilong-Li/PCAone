@@ -190,32 +190,108 @@ PermMat compute_pgen_perm(uint nsnps, uint nbatches, uint blocksize, uint nthrea
   return PermMat(indices);
 }
 
+FilePgen::~FilePgen() {
+  if (block_reader) {
+    block_reader->cancel();
+    if (params.verbose > 1)
+      cao.print(tick.date(), "PGEN blocks requested ahead:", block_reader->predicted());
+  }
+}
+
+// the file indices of the logical SNPs [first, first + count), sorted
+void FilePgen::variants_of(uint64 first, uint64 count, std::vector<uint32_t>& out) const {
+  out.resize(count);
+  for (uint64 j = 0; j < count; ++j) out[j] = params.perm ? (uint32_t)perm.indices()(first + j) : (uint32_t)(first + j);
+  if (params.perm) std::sort(out.begin(), out.end());
+}
+
+void FilePgen::begin_block(uint64 start_idx, uint64 stop_idx) {
+  const uint64 count = stop_idx - start_idx + 1;
+  requests.resize(count);
+  for (uint64 j = 0; j < count; ++j)
+    requests[j] = {params.perm ? (uint32_t)perm.indices()(start_idx + j) : (uint32_t)(start_idx + j), (uint32_t)j};
+  if (params.perm)
+    std::sort(requests.begin(), requests.end(),
+              [](const ReadRequest& a, const ReadRequest& b) { return a.variant < b.variant; });
+
+  if (!block_reader_tried) {
+    block_reader_tried = true;
+    if (!params.noprefetch) {
+      try {
+        block_reader = std::make_unique<PCAone::PgenBlockReader>(params.filein + ".pgen", nsamples, reader_threads);
+      } catch (const std::exception& e) {
+        cao.warn("reading the PGEN variant by variant:", e.what());
+      }
+    }
+  }
+  if (!block_reader) return;
+  block_variants.resize(count);
+  for (uint64 j = 0; j < count; ++j) block_variants[j] = requests[j].variant;
+  block_reader->load(block_variants);
+  // read ahead the next block of a pass, or the first block after the last
+  const bool sequential = start_idx == 0 || start_idx == last_end;
+  last_end = stop_idx + 1;
+  if (start_idx == 0) first_count = count;
+  if (sequential && count < nsnps) {
+    uint64 next = stop_idx + 1, n = std::min<uint64>(count, nsnps - std::min<uint64>(next, nsnps));
+    if (next >= nsnps) next = 0, n = std::min<uint64>(first_count ? first_count : count, nsnps);
+    variants_of(next, n, next_variants);
+    block_reader->prefetch(next_variants);
+  }
+}
+
 void FilePgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize) {
   uint actual_block_size = stop_idx - start_idx + 1;
   if (G.cols() < blocksize || actual_block_size < blocksize) G = Mat2D::Zero(nsamples, actual_block_size);
 
-  uint i, j;
+  begin_block(start_idx, stop_idx);
+  uint i, j, r;
   uint64 snp_idx;
 
   if (!params.dopca) frequency_was_estimated = true;
   if (frequency_was_estimated) {
-#pragma omp parallel for private(i, j, snp_idx) schedule(static)
-    for (i = 0; i < actual_block_size; ++i) {
+    // centred: the 2-bit calls through the SNP's 4 values, straight into G, then
+    // the dosages over them, with the arithmetic of the loop below
+    const bool lookup = block_reader && params.center;
+#pragma omp parallel for private(i, j, r, snp_idx) schedule(static)
+    for (r = 0; r < actual_block_size; ++r) {
+      i = requests[r].column;
       int thr = omp_get_thread_num();
       double* buf = thread_bufs[thr].data();
       snp_idx = start_idx + i;
-      uint64 pgen_idx = params.perm ? (uint64)perm.indices()(snp_idx) : snp_idx;
-      if (dosage_mode) {
-        reader.Read(buf, nsamples, thr, pgen_idx, 1);
-      } else {
-        reader.ReadHardcalls(buf, nsamples, thr, pgen_idx, 1);
-      }
+      uint64 pgen_idx = requests[r].variant;
       const double f = F(snp_idx);
       double scale_factor = 1.0;
       if (standardize && params.scale == SCALE_STANDARDIZE_GENETIC) {
         double sd = sqrt(f * (1.0 - f));
         if (sd > VAR_TOL) scale_factor = sqrt((double)params.ploidy) / sd;
       }
+      if (lookup) {
+        alignas(16) double table[32];
+        double* g = &G(0, i);
+        if (!dosage_mode) {
+          for (int c = 0; c < 4; ++c) table[2 * c] = centered_geno_lookup(c, snp_idx) * scale_factor;
+          plink2::InitLookup16x8bx2(table);
+          plink2::GenoarrLookup16x8bx2(block_reader->genovec(thr, (uint32_t)pgen_idx), table, nsamples, g);
+          continue;
+        }
+        const uintptr_t* present;
+        const uint16_t* dmain;
+        uint32_t dosage_ct = 0;
+        const uintptr_t* geno = block_reader->genovec_dosages(thr, (uint32_t)pgen_idx, &present, &dmain, &dosage_ct);
+        for (int c = 0; c < 4; ++c) table[2 * c] = centered_pgen_value(c == 3 ? PGEN_MISSING : c, f) * scale_factor;
+        plink2::InitLookup16x8bx2(table);
+        plink2::GenoarrLookup16x8bx2(geno, table, nsamples, g);
+        // as Dosage16ToDoubles: the d-th dosage belongs to the d-th set bit
+        for (uint32_t w = 0, d = 0; d < dosage_ct; ++w) {
+          for (uintptr_t bits = present[w]; bits; bits &= bits - 1) {
+            const uint32_t sample = w * plink2::kBitsPerWord + plink2::ctzw(bits);
+            g[sample] = centered_pgen_value(S_CAST(double, dmain[d++]) * 0.00006103515625, f) * scale_factor;
+          }
+        }
+        continue;
+      }
+      read_variant(thr, pgen_idx, buf);
 
       for (j = 0; j < nsamples; ++j) {
         if (!params.center) {
@@ -231,17 +307,13 @@ void FilePgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standa
   } else {
     if (start_idx == 0) nmono_seen = 0;  // a pass over the blocks restarted before F was complete
     uint64 nmono = 0;
-#pragma omp parallel for private(i, j, snp_idx) schedule(static) reduction(+ : nmono)
-    for (i = 0; i < actual_block_size; ++i) {
+#pragma omp parallel for private(i, j, r, snp_idx) schedule(static) reduction(+ : nmono)
+    for (r = 0; r < actual_block_size; ++r) {
+      i = requests[r].column;
       int thr = omp_get_thread_num();
       double* buf = thread_bufs[thr].data();
       snp_idx = start_idx + i;
-      uint64 pgen_idx = params.perm ? (uint64)perm.indices()(snp_idx) : snp_idx;
-      if (dosage_mode) {
-        reader.Read(buf, nsamples, thr, pgen_idx, 1);
-      } else {
-        reader.ReadHardcalls(buf, nsamples, thr, pgen_idx, 1);
-      }
+      read_variant(thr, requests[r].variant, buf);
 
       uint64 c = 0;
       double sum = 0.0;
@@ -290,21 +362,18 @@ void FilePgen::read_block_update(
   uint actual_block_size = stop_idx - start_idx + 1;
   if (G.cols() < blocksize || actual_block_size < blocksize) G = Mat2D::Zero(nsamples, actual_block_size);
 
-  uint i, j, k;
+  begin_block(start_idx, stop_idx);
+  uint i, j, k, r;
   uint64 snp_idx;
   uint ks = svals.rows();
 
-#pragma omp parallel for private(i, j, k, snp_idx) schedule(static)
-  for (i = 0; i < actual_block_size; ++i) {
+#pragma omp parallel for private(i, j, k, r, snp_idx) schedule(static)
+  for (r = 0; r < actual_block_size; ++r) {
+    i = requests[r].column;
     int thr = omp_get_thread_num();
     double* buf = thread_bufs[thr].data();
     snp_idx = start_idx + i;
-    uint64 pgen_idx = params.perm ? (uint64)perm.indices()(snp_idx) : snp_idx;
-    if (dosage_mode) {
-      reader.Read(buf, nsamples, thr, pgen_idx, 1);
-    } else {
-      reader.ReadHardcalls(buf, nsamples, thr, pgen_idx, 1);
-    }
+    read_variant(thr, requests[r].variant, buf);
     const double f = F(snp_idx);
     double scale_factor = 1.0;
     if (standardize && params.scale == SCALE_STANDARDIZE_GENETIC) {
