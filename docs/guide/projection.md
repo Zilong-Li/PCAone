@@ -1,10 +1,11 @@
 # Projection
 
 Project new samples onto existing PCs is supported with `--project` option.
-First, we run PCAone on a set of reference samples and output the loadings:
+First, we run PCAone on a set of reference samples, which writes the loadings
+and `.mbim` by default:
 
 ```shell
-PCAone -b example/ref -k 10 --printv -o ref
+PCAone -b example/ref -k 10 -o ref
 ```
 
 Pass the reference prefix with `-P/--USV` to read its loadings, singular

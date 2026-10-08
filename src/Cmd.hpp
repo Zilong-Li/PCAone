@@ -88,7 +88,7 @@ class Param {
   int scale = SCALE_STANDARDIZE_GENETIC;  // default: standardize genetic data by sqrt(ploidy*f*(1-f))
   bool hardcall = false;
   bool groff = false;
-  bool printv = false;
+  bool printv = true;  // write .loadings and .mbim; --no-loadings turns it off
   bool missme = false;  // keep track of missing information
   bool noshuffle = false;
   bool emu = false;

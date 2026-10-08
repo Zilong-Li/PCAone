@@ -105,7 +105,7 @@ def main() -> int:
         # and their size underflowed to ~2^64 (std::bad_alloc)
         run("winsvd_small_m", ["-b", str(t), "-k", "2", "-o", o], True)
         run("winsvd_w1024", ["-b", str(t), "-k", "2", "-w", "1024", "-o", o], True)
-        run("reference", ["-b", str(t), "-k", "2", "-V", "-o", str(tmp / "ref")], True)
+        run("reference", ["-b", str(t), "-k", "2", "-o", str(tmp / "ref")], True)
 
         # clumping over two chromosomes. The first row of chr2 is the top hit;
         # it was dropped in-core, and out-of-core the extra column per
@@ -159,7 +159,7 @@ def main() -> int:
         plink2 = shutil.which("plink2")
         if plink2:
             subprocess.run([plink2, "--bfile", str(t), "--make-pgen", "--out", str(tmp / "tp"), "--silent"], check=True)
-            run("pgen_reference", ["-p", str(tmp / "tp"), "-k", "2", "-V", "-o", str(tmp / "pref")], True)
+            run("pgen_reference", ["-p", str(tmp / "tp"), "-k", "2", "-o", str(tmp / "pref")], True)
             run("pgen_inbreed_ooc", ["-p", str(tmp / "tp"), "-P", str(tmp / "pref"), "--inbreed", "1", "-k", "2",
                                      "-m", "0.0001", "-o", o], True)
         else:

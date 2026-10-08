@@ -99,10 +99,10 @@ often worth dropping, or fixing with LD pruning, before downstream analyses.
 
 ### Input
 
-Run PCAone with `-V/--printv`:
+Run PCAone as usual (the loadings are written by default):
 
 ```bash
-PCAone -b example/plink -k 10 --printv -o pcaone
+PCAone -b example/plink -k 10 -o pcaone
 ```
 
 This writes `pcaone.loadings`, with one row per variant and one column per PC,

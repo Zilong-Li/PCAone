@@ -85,7 +85,7 @@ bool standardizes(const Param& params) {
 
 // G is never held whole: each block is read (centred and standardized as
 // in-core), added to the lower triangle of K = G G', and dropped. A second pass
-// forms the loadings V = G' U / s only when -V asks for them.
+// forms the loadings V = G' U / s, unless --no-loadings turns them off.
 void run_exact_streaming(Data* data, const Param& params) {
   const bool standardized = standardizes(params);
   const uint N = data->nsamples;
@@ -120,7 +120,7 @@ void run_exact_streaming(Data* data, const Param& params) {
 
   Mat2D V(data->nsnps, params.printv ? k : 0);  // write_eigs_files() takes nsnps from V.rows()
   if (params.printv) {
-    cao.print(tick.date(), "second pass over the data for the loadings (-V)");
+    cao.print(tick.date(), "second pass over the data for the loadings (skip with --no-loadings)");
     data->check_file_offset_first_var();
     for (uint b = 0; b < data->nblocks; ++b) {
       tick.clock();

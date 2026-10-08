@@ -86,7 +86,7 @@ with tempfile.TemporaryDirectory(prefix='pcaone-bed-') as name:
     def run(label, bfile=source, seed=42, memory='0.000003', extra=(), verbose=3):
         prefix = directory / label
         result = pcaone('--bfile', bfile, '-m', memory, '-k', 2, '--oversamples', 2, '-n', 2, '-w', 4,
-                        '--maxp', 5, '-v', verbose, '-V', '--seed', seed, '-o', prefix, *extra)
+                        '--maxp', 5, '-v', verbose, '--seed', seed, '-o', prefix, *extra)
         assert result.returncode == 0, result.stdout + result.stderr
         log = Path(str(prefix) + '.log').read_text()
         if verbose < 3 or '-S' in extra:

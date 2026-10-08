@@ -95,8 +95,9 @@ corresponding PC.
 ### Features loadings
 
 Features Loadings are saved in file with suffix `.loadings`. Each row
-represents a feature and each column represents a corresponding PC. Use
-`--printv` option to output it.
+represents a feature and each column represents a corresponding PC. It is
+written by default; use `--no-loadings` to skip it (with `--svd 3` this also
+skips the second pass over the data that computes it).
 To plot them along the genome, see
 [the plotting guide](plotting.md#snp-loadings).
 
@@ -104,8 +105,8 @@ To plot them along the genome, see
 
 A plink-like bim file named with `.mbim` is used to store the variants list
 with extra information. Currently, the `mbim` file has 7 columns with the 7th
-being the allele frequency. PCAone writes this file automatically whenever
-it outputs `.loadings` via `--printv`.
+being the allele frequency. PCAone writes this file together with the
+`.loadings`, from the input's `.bim` or `.pvar`.
 
 ### LD R2
 

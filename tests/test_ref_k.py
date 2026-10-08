@@ -61,7 +61,7 @@ def main() -> int:
         tmp = Path(d)
         t, _ = make_plink(tmp)
         ref, cut = tmp / "ref5", tmp / "cut3"
-        p = run(["-b", t, "-k", "5", "-V", "-o", ref])
+        p = run(["-b", t, "-k", "5", "-o", ref])
         check("reference_pca", p.returncode == 0, p.stderr[-300:])
         cut_reference(ref, cut, 3)
 

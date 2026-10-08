@@ -81,6 +81,10 @@ bad "--ld-r2" -b x --ld-r2 1.5
 bad "--ld-r2" -b x --ld-r2 -0.2
 bad "--ld-bp" -b x --ld-bp 0
 bad "--ld-stats" -b x --ld-stats 2
+# removed in v0.8.0: the loadings are written by default
+bad "-V/--printv was removed" -b x -V
+bad "-V/--printv was removed" -b x --printv
+bad "-V/--printv was removed" -b x -V --no-loadings
 bad "--clump-p1 cannot" -b x --clump-p1 0.05 --clump-p2 0.01
 bad "--clump-p1" -b x --clump-p1 0
 bad "--clump-p2" -b x --clump-p2 1.5

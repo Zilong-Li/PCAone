@@ -52,6 +52,7 @@ bool three_names(const std::string& s) {
 Param::Param(int argc, char** argv) {
   // clang-format off
   bool haploid = false;
+  bool noloadings = false;
   std::string copyr{"PCA All In One (v" + (std::string)VERSION + ")        https://github.com/Zilong-Li/PCAone\n" +
                     "(C) 2021-2024 Zilong Li        GNU General Public License v3\n" +
   "\n" +
@@ -132,7 +133,10 @@ Param::Param(int argc, char** argv) {
   
   opts.add<Value<std::string>, Attribute::headline>("","OUTPUT","Output options:");
   opts.add<Value<std::string>>("o", "out", "prefix of output files. default [pcaone].", fileout, &fileout);
-  opts.add<Switch>("V", "printv", "output the right eigenvectors with suffix .loadings.", &printv);
+  // removed in v0.8.0, when the .loadings became the default; kept hidden only to say so
+  auto printv_opt = opts.add<Switch, Attribute::hidden>("V", "printv", "removed. the .loadings are written by default.");
+  opts.add<Switch>("", "no-loadings", "do not output the right eigenvectors (.loadings) and .mbim, which are written by default.\n"
+                                      "with --svd 3, this also skips the second pass over the data", &noloadings);
   auto ld_opt = opts.add<Switch, Attribute::hidden>("D", "ld", "removed. LD no longer needs a residual matrix.");
   opts.add<Switch>("R", "print-r2", "print LD R2 to *.ld.gz file for pairwise SNPs within a window controlled by --ld-bp.", &print_r2);
   
@@ -216,6 +220,12 @@ Param::Param(int argc, char** argv) {
           "  PCAone -b plink -k 2 -o pcs\n"
           "  PCAone -b plink -P pcs --ld-r2 0.8 --ld-bp 1000000 -o adj\n"
           "-D/--ld computed its PCs without standardizing the sites; add --scale 0 to the first run to do the same");
+
+    if (printv_opt->is_set())
+      throw std::invalid_argument(
+          "-V/--printv was removed in v0.8.0. the .loadings and .mbim are now written by default; drop -V/--printv, "
+          "or use --no-loadings to turn them off");
+    printv = !noloadings;
 
     // all the inputs write to filein, so a second one would silently replace the first
     const int ninputs =

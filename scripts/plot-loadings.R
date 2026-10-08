@@ -2,7 +2,7 @@
 ##
 ## plot-loadings.R: plot PCAone SNP loadings along the genome.
 ##
-## `PCAone --printv` writes <prefix>.loadings (one row per variant, one column
+## A PCAone run writes <prefix>.loadings (one row per variant, one column
 ## per PC) and <prefix>.mbim (chr, id, cM, bp, A1, A2, freq). For each PC the
 ## script weights each PC by its singular value from <prefix>.sigvals and
 ## plots the max |weighted loading| in consecutive bins of variants. Bins never
@@ -515,7 +515,7 @@ plot_loadings <- function(d, mode = c("overlay", "panel"), highlight = NULL, gro
 
 ## ---- command line ----------------------------------------------------------
 
-PL_USAGE <- "Plot PCAone SNP loadings (from --printv) along the genome.
+PL_USAGE <- "Plot PCAone SNP loadings (.loadings) along the genome.
 
 Usage: Rscript plot-loadings.R -p PREFIX [options]
        Rscript plot-loadings.R -l FILE.loadings [-b FILE.mbim] [options]

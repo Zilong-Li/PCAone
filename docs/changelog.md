@@ -17,6 +17,12 @@ The old `-D/--ld` workflow did not standardize sites. Add `--scale 0` to the
 reference PCA command to reproduce that scaling. See v0.8.0 below for
 result changes and compatibility details.
 
+### Loadings before v0.8.0
+
+`-V/--printv` has been removed, and PCAone stops if it is given. The `.loadings`
+and `.mbim` are now written by default, so drop `-V/--printv` from old commands;
+add `--no-loadings` to skip them.
+
 ### Projection syntax before v0.4.8
 
 Older examples supplied `--read-V`, `--read-S`, and `--match-bim` separately.
@@ -34,6 +40,12 @@ so that sum no longer covers all the variance.
 
 ### v0.8.0
 
+- The `.loadings` and `.mbim` are now written by default, so the prefix of a plain PCA run can
+  be passed straight to `-P/--USV` for `--project` and `--inbreed`. `--no-loadings` turns them
+  off; with `--svd 3` it also skips the second pass over the data that forms the loadings.
+  `-V/--printv` is removed: passing it stops PCAone with a message to drop it, or to use
+  `--no-loadings`. The output of a default run is byte-identical to a run with `-V` before. CSV
+  input, which has no variant metadata, no longer warns that no `.mbim` was written.
 - `--em-k <n>` sets the number of PCs that model the individual allele frequencies in the EM-PCA
   of `--emu` and `--pcangsd` (and BEAGLE input), separately from the `-k` PCs written, as EMU's
   `--eig` and `--eig-out` do: e.g. `--emu --em-k 2 -k 10` fits the model with 2 PCs and writes

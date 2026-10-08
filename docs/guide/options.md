@@ -51,7 +51,8 @@ Input options:
 
 Output options:
   -o, --out arg (=pcaone)        prefix of output files. default [pcaone].
-  -V, --printv                   output the right eigenvectors with suffix .loadings.
+  --no-loadings                  do not output the right eigenvectors (.loadings) and .mbim, which are written by default.
+                                 with --svd 3, this also skips the second pass over the data
   -R, --print-r2                 print LD R2 to *.ld.gz file for pairwise SNPs within a window controlled by --ld-bp.
 
 Misc options:

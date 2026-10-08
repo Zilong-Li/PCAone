@@ -64,7 +64,7 @@ limited; convert to PGEN for production workflows.
 | `.eigvecs2` | The same with FID/IID columns and a header     |
 | `.eigvals`  | Eigenvalues                                    |
 | `.sigvals`  | Singular values and scaling metadata           |
-| `.loadings` | Feature loadings, requested with `--printv`    |
+| `.loadings` | Feature loadings; skip with `--no-loadings`    |
 | `.mbim`     | Variant metadata and frequencies with loadings |
 | `.log`      | Run settings and progress                      |
 
@@ -79,7 +79,7 @@ Use the default `--svd 2` for large datasets.
 PCAone -b reference -P ref -k 3 --ld-r2 0.2 -o pruned
 
 # Build a reference and project new samples
-PCAone -b reference -k 10 --printv -o ref
+PCAone -b reference -k 10 -o ref
 PCAone -b target -P ref --project 2 -o projected
 
 # PCA for count data in zstd-compressed CSV

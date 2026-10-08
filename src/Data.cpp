@@ -45,7 +45,7 @@ void Data::prepare() {
   const bool pca_blocks = params.dopca && !params.ld && !params.evaladmix;
   const bool exact = pca_blocks && params.svd_t == SvdType::FULL;
   if (exact) {
-    // exact PCA (Exact.cpp): the N x N GRM and F, plus the loadings for -V,
+    // exact PCA (Exact.cpp): the N x N GRM and F, plus the loadings unless --no-loadings,
     // are held besides one block. Without -m, blocks of ~64 MB (and at least
     // 2048 sites) keep the GRM update a large matrix product.
     const double n = std::max(1u, nsamples);
@@ -147,7 +147,9 @@ void Data::save_snps_in_mbim() {
   const std::string bim_path = params.filein + (has_metadata_header ? ".pvar" : ".bim");
   std::ifstream ifs_bim(bim_path);
   if (!ifs_bim.is_open()) {
-    cao.warn(params.filein + ".bim/.pvar not found; skipping mbim output");
+    // CSV has no variant metadata; now that .loadings are written by default,
+    // warning on every CSV run would be noise
+    if (params.file_t != FileType::CSV) cao.warn(params.filein + ".bim/.pvar not found; skipping mbim output");
     return;
   }
   std::ofstream ofs_bim(params.fileout + ".mbim");

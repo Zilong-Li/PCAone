@@ -490,8 +490,8 @@ Mat1D read_frq(const std::string& path) {
   std::ifstream fin(path);
   // without this the file simply reads as empty, F stays size 0, and the first
   // F(snp_idx) downstream segfaults with no message. -P/--USV points filebim at
-  // <prefix>.mbim, which only a run with -V/--printv writes, so a prefix from a
-  // plain PCA run lands here.
+  // <prefix>.mbim, which a PCA run does not write with --no-loadings (or, before
+  // v0.8.0, without -V/--printv) or from input with no .bim/.pvar.
   if (!fin.is_open()) cao.error("can not open the allele frequency file\n => " + path);
   std::string line;
   while (getline(fin, line)) {

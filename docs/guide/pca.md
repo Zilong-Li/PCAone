@@ -105,7 +105,7 @@ reported:
 The EM iterations cost what a run with `-k` equal to `--em-k` costs; only one
 final decomposition computes `-k` PCs, of the matrix rebuilt from the
 `--em-k` PCs: standardized for EMU, the expected genotypes for PCAngsd.
-`.eigvecs`, `.eigvals`, `.sigvals` and the `-V` `.loadings` hold the `-k` PCs.
+`.eigvecs`, `.eigvals`, `.sigvals` and `.loadings` hold the `-k` PCs.
 For BEAGLE input, the `.cov` is PCAngsd's covariance under the `--em-k` model,
 the matrix PCAngsd writes with `--eig` set to it, and `.eigvecs2` holds its top
 `-k` eigenvectors. `--em-k` works with `--svd 0`, `1` and `2`, in-core and
