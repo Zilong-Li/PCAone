@@ -194,6 +194,34 @@ Mat1D minSSE(const Mat2D& X, const Mat2D& Y) {
   return res;
 }
 
+void mul_X_Y(const Eigen::Ref<const Mat2D>& X, const Eigen::Ref<const Mat2D>& Y, Eigen::Ref<Mat2D> out, bool add) {
+  const Eigen::Index n = X.rows();
+#ifdef EIGEN_USE_BLAS
+  const Eigen::Index panels = 1;  // the BLAS threads the product itself
+#else
+  // panels of at least 96 rows (a multiple of every GEBP kernel height), at most one per thread
+  const Eigen::Index T = omp_in_parallel() ? 1 : omp_get_max_threads();
+  const Eigen::Index panels = std::min<Eigen::Index>(T, n / 96);
+#endif
+  if (panels <= 1) {
+    if (add)
+      out.noalias() += X * Y;
+    else
+      out.noalias() = X * Y;
+    return;
+  }
+  const Eigen::Index h = ((n + panels - 1) / panels + 47) / 48 * 48;
+#pragma omp parallel for schedule(static)
+  for (Eigen::Index p = 0; p < panels; ++p) {
+    const Eigen::Index r = p * h, m = std::min(h, n - r);
+    if (m <= 0) continue;
+    if (add)
+      out.middleRows(r, m).noalias() += X.middleRows(r, m) * Y;
+    else
+      out.middleRows(r, m).noalias() = X.middleRows(r, m) * Y;
+  }
+}
+
 void mul_Xt_Y(const Eigen::Ref<const Mat2D>& X, const Eigen::Ref<const Mat2D>& Y, Eigen::Ref<Mat2D> out) {
   const Eigen::Index m = X.cols();
   // ~2 MB of X per panel, and at least 64 columns

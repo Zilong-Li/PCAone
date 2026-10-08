@@ -120,7 +120,7 @@ void NormalRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
       PCAone::flipOmg(Omg2, Omg);
     }
     mul_Xt_Y(data->G, Omg, G);
-    H.noalias() = data->G * G;
+    mul_X_Y(data->G, G, H);
     return;
   }
 
@@ -145,7 +145,7 @@ void NormalRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
     }
     data->readtime += tick.reltime();
     mul_Xt_Y(data->G, Omg, G.middleRows(start_idx, actual_block_size));
-    H.noalias() += data->G * G.middleRows(start_idx, actual_block_size);
+    mul_X_Y(data->G, G.middleRows(start_idx, actual_block_size), H, true);
   }
 }
 
@@ -204,9 +204,11 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
 
       if (i <= bandsize / 2) {
         // continues to add in data based on current band
-        H1.noalias() += data->G.middleCols(start_idx, actual_block_size) * G.middleRows(start_idx, actual_block_size);
+        mul_X_Y(data->G.middleCols(start_idx, actual_block_size), G.middleRows(start_idx, actual_block_size), H1,
+                true);
       } else {
-        H2.noalias() += data->G.middleCols(start_idx, actual_block_size) * G.middleRows(start_idx, actual_block_size);
+        mul_X_Y(data->G.middleCols(start_idx, actual_block_size), G.middleRows(start_idx, actual_block_size), H2,
+                true);
       }
 
       // use the first quarter band of succesive iteration (H1)
@@ -250,9 +252,9 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
     mul_Xt_Y(data->G, Omg, G.middleRows(start_idx, actual_block_size));
 
     if (i <= bandsize / 2) {
-      H1.noalias() += data->G * G.middleRows(start_idx, actual_block_size);
+      mul_X_Y(data->G, G.middleRows(start_idx, actual_block_size), H1, true);
     } else {
-      H2.noalias() += data->G * G.middleRows(start_idx, actual_block_size);
+      mul_X_Y(data->G, G.middleRows(start_idx, actual_block_size), H2, true);
     }
 
     const bool adjacent =

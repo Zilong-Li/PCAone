@@ -60,6 +60,16 @@ double mev(const Mat2D& X, const Mat2D& Y);
 // result does not depend on the number of threads.
 void mul_Xt_Y(const Eigen::Ref<const Mat2D>& X, const Eigen::Ref<const Mat2D>& Y, Eigen::Ref<Mat2D> out);
 
+// out = X * Y, or out += X * Y with add, for a tall X (samples x sites) and a
+// thin Y, so out is samples x (k + oversamples). Eigen's multithreaded GEMM
+// splits such a product over the columns of out only, at most cols / 4
+// threads: 5 for -k 10 whatever -n is. Row panels of X, one per thread, use all
+// of them and read X once. The depth blocking of each panel's product does not
+// depend on its height, so the result does not depend on the number of threads.
+// With an external BLAS (MKL, OpenBLAS, Accelerate) the BLAS threads it instead.
+void mul_X_Y(const Eigen::Ref<const Mat2D>& X, const Eigen::Ref<const Mat2D>& Y, Eigen::Ref<Mat2D> out,
+             bool add = false);
+
 // K += X * X' on the lower triangle of the square K (the strict upper triangle
 // is left untouched), for X of K.rows() x b. Eigen's rankUpdate runs on one
 // thread and its GEMM does twice the flops, so the lower triangle is cut into
