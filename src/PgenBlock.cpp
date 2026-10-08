@@ -190,24 +190,25 @@ bool PgenBlockReader::page_cached(uint64_t offset) const {
   }
 }
 
-// Whether the page cache holds these pages already: all pages of up to 32 runs
-// spread over the block. Requesting cached pages costs one call per run for
-// nothing, which on some file systems is more than the reads it saves.
-bool PgenBlockReader::cached(const std::vector<std::pair<uint64_t, uint64_t>>& runs) const {
-  if (probe_ == Probe::None) return false;
-  const size_t probes = std::min<size_t>(32, runs.size());
+// Whether the page cache holds the records of these variants already, by all
+// pages of up to 32 of them spread over the block. Cheap enough for the calling
+// thread, so a block in the page cache costs neither a thread nor requests.
+bool PgenBlockReader::cached(const std::vector<uint32_t>& variants) const {
+  if (probe_ == Probe::None || variants.empty()) return false;
+  const size_t probes = std::min<size_t>(32, variants.size());
   size_t hits = 0;
   for (size_t i = 0; i < probes; ++i) {
-    const auto& [a, b] = runs[i * runs.size() / probes];
+    const uint32_t v = variants[i * variants.size() / probes];
+    const uint64_t a = plink2::GetPgfiLdbaseFpos(&pgfi_, v) / page_ * page_;
+    const uint64_t b = std::min<uint64_t>(plink2::GetPgfiFpos(&pgfi_, v + 1), file_bytes_);
     bool all = true;
-    for (uint64_t p = a; all && p < std::min(b, file_bytes_); p += page_) all = page_cached(p);
+    for (uint64_t p = a; all && p < b; p += page_) all = page_cached(p);
     hits += all;
   }
-  return probes && hits * 10 >= probes * 9;
+  return hits * 10 >= probes * 9;
 }
 
 void PgenBlockReader::willneed(const std::vector<std::pair<uint64_t, uint64_t>>& runs, const std::atomic<bool>& stop) {
-  if (cached(runs)) return;
   ++requested_;
   // asynchronous: the kernel reads the pages into the page cache, in file order
   for (const auto& [a, b] : runs) {
@@ -232,10 +233,10 @@ void PgenBlockReader::cancel() {
 
 void PgenBlockReader::load(const std::vector<uint32_t>& variants) {
   if (!ahead_.empty() && ahead_ == variants) {
-    ++hits_;  // requested while the previous block was used
+    ++hits_;  // seen, and requested if needed, while the previous block was used
   } else {
     cancel();
-    willneed(pages(variants), never_stop_);
+    if (!cached(variants)) willneed(pages(variants), never_stop_);
   }
   ahead_.clear();
 }
@@ -243,7 +244,9 @@ void PgenBlockReader::load(const std::vector<uint32_t>& variants) {
 void PgenBlockReader::prefetch(const std::vector<uint32_t>& variants) {
   cancel();
   ahead_ = variants;
-  pending_ = std::async(std::launch::async, [this, runs = pages(variants)] { willneed(runs, stop_); });
+  if (cached(variants)) return;
+  // the runs are worked out in the background too: sorting them is not free
+  pending_ = std::async(std::launch::async, [this, v = variants] { willneed(pages(v), stop_); });
 }
 
 const uintptr_t* PgenBlockReader::genovec(int thr, uint32_t vidx) {

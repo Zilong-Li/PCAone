@@ -76,7 +76,7 @@ class PgenBlockReader {
   std::vector<std::pair<uint64_t, uint64_t>> pages(const std::vector<uint32_t>& variants) const;
   void choose_probe(const std::string& pgen, const struct stat& st);
   bool page_cached(uint64_t offset) const;
-  bool cached(const std::vector<std::pair<uint64_t, uint64_t>>& runs) const;
+  bool cached(const std::vector<uint32_t>& variants) const;
   void willneed(const std::vector<std::pair<uint64_t, uint64_t>>& runs, const std::atomic<bool>& stop);
 
   plink2::PgenFileInfo pgfi_;
