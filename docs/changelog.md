@@ -333,7 +333,8 @@ so that sum no longer covers all the variance.
   `.loadings` differ in the last printed digit. Builds with MKL, OpenBLAS or Accelerate keep the
   BLAS product. BED 10,000 x 200,000, `-n 2`, BED in the page cache: 77 s to 52-54 s.
 - Out-of-core PGEN reads a block's variants in file order, each thread a run of nearby records,
-  and asks the kernel for the next block's records, in file order, while the block is used.
+  and asks the kernel for the next block's records, in file order, while the block is used,
+  unless a sample of them shows the block already in the page cache.
   pgenlib's readers are set up through its public API; pgenlib itself is unchanged. Centred hard
   calls go from the 2-bit calls straight into the block, dosages over them, with the same
   arithmetic. The output is byte-identical. 2,000 x 500,000 with dosages (1.7 GB), page cache

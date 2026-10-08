@@ -62,8 +62,9 @@ PCA spends on one; a file in the page cache is read on the spot, without a
 second thread competing for the cores. For BGEN and PGEN, which their
 libraries read, the bytes of the next block are read ahead into the page
 cache; PGEN reads the variants of a block in file order and asks for the next
-block's records in file order, which matters most for the scattered reads of
-its logical permutation on a cold disk. The results are the same;
+block's records in file order (unless they are in the page cache already),
+which matters most for the scattered reads of its logical permutation on a
+cold disk. The results are the same;
 `--no-prefetch` reads in the foreground.
 
 ### Run sSVD method with out-of-core mode
