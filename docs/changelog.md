@@ -320,6 +320,25 @@ so that sum no longer covers all the variance.
   reporting them as 0. Such markers are never significant, but the count is worth seeing.
 - build: the Makefile tracks header dependencies, so editing a `.hpp` rebuilds the `.cpp` files that
   include it instead of silently linking stale objects.
+- Out-of-core reads overlap the computation. While a block is used, the next is read in the
+  background: BED and the binary copy of CSV into a second buffer of packed records, BGEN and
+  PGEN ahead into the page cache. A BED in the page cache, whose reads take under 5% of the
+  computation, is read on the spot instead. The bytes are the same, so the output is
+  byte-identical; `--no-prefetch` reads in the foreground. BED 10,000 x 200,000, `-S -n 2`, on
+  an emulated 200 / 100 MB/s disk: 53.8 / 67.6 s, from 89.6 / 122.6 s with `--no-prefetch`.
+- The RSVD threads `H += X * G` over all of `-n`. Eigen split it over the columns of the
+  result only, at most (k + oversamples) / 4 threads (5 for `-k 10`), each reading the whole
+  block; each thread now takes a panel of rows. The PCs do not depend on the number of threads.
+  Against the GEMM the `.eigvals` and `.eigvecs` came out byte-identical in our tests and the
+  `.loadings` differ in the last printed digit. Builds with MKL, OpenBLAS or Accelerate keep the
+  BLAS product. BED 10,000 x 200,000, `-n 2`, BED in the page cache: 77 s to 52-54 s.
+- Out-of-core PGEN reads a block's variants in file order, each thread a run of nearby records,
+  and asks the kernel for the next block's records, in file order, while the block is used.
+  pgenlib's readers are set up through its public API; pgenlib itself is unchanged. Centred hard
+  calls go from the 2-bit calls straight into the block, dosages over them, with the same
+  arithmetic. The output is byte-identical. 2,000 x 500,000 with dosages (1.7 GB), page cache
+  capped below the file: 284 s to 76 s; in the page cache: 51 s to 45 s (hard calls 49 s to
+  39 s).
 ### v0.7.2
 
 - bug fix for out_of_range issue #23
