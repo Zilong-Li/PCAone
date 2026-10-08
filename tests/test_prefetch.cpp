@@ -42,7 +42,8 @@ int main() {
   };
 
   {
-    PCAone::RecordPrefetcher reader(name, header, width, n);
+    // min_share 0: always read ahead, whatever the speed of the reads
+    PCAone::RecordPrefetcher reader(name, header, width, n, 0.0);
     const uint64_t block = 64;
     for (int pass = 0; pass < 3; ++pass)
       for (uint64_t first = 0; first < n; first += block) {
@@ -70,6 +71,18 @@ int main() {
     }
     CHECK(threw);
   }  // destroyed with the first block of the next pass in flight
+
+  {
+    // reads from the page cache and slow work between the calls: read on the spot
+    PCAone::RecordPrefetcher reader(name, header, width, n);
+    for (int pass = 0; pass < 2; ++pass)
+      for (uint64_t first = 0; first < n; first += 100) {
+        const uint64_t count = std::min<uint64_t>(100, n - first);
+        CHECK(same(reader.get(first, count), first, count));
+        usleep(2000);
+      }
+    CHECK(reader.predicted() <= 1);  // only the first block, before any timing
+  }
 
   {
     // a block as large as the file: nothing to read ahead

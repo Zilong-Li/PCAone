@@ -55,7 +55,7 @@ inline int open_for_streaming(const std::string& path) {
 }  // namespace detail
 
 // Reads the fixed-width records of a file (BED SNPs, float columns of the binary
-// format) block by block, and the next block in the background.
+// format) block by block, and the next block in the background when that pays.
 //
 // The out-of-core PCA goes through the blocks in order, pass after pass. While
 // the caller decodes and multiplies block i, a second thread reads block i + 1,
@@ -65,11 +65,19 @@ inline int open_for_streaming(const std::string& path) {
 // predicted (e.g. LD reading blocks out of order) is read on the spot, and
 // nothing is read ahead until the access is sequential again.
 //
+// A read in the background is a thread that wants a core while the PCA uses
+// all of them, so it is worth it only when the reads take time. A block whose
+// read took less than `min_share` of the computation between two calls (the
+// file is in the page cache) has the next one read on the spot; a slower read
+// switches the reading ahead back on.
+//
 // Memory: two blocks of raw records.
 class RecordPrefetcher {
  public:
-  RecordPrefetcher(const std::string& path, uint64_t data_offset, uint64_t record_bytes, uint64_t nrecords)
-      : fd_(detail::open_for_streaming(path)), offset_(data_offset), width_(record_bytes), n_(nrecords) {}
+  RecordPrefetcher(const std::string& path, uint64_t data_offset, uint64_t record_bytes, uint64_t nrecords,
+                   double min_share = 0.05)
+      : fd_(detail::open_for_streaming(path)), offset_(data_offset), width_(record_bytes), n_(nrecords),
+        min_share_(min_share) {}
 
   ~RecordPrefetcher() {
     cancel();
@@ -81,23 +89,30 @@ class RecordPrefetcher {
 
   // The records [first, first + count), valid until the next call.
   const unsigned char* get(uint64_t first, uint64_t count) {
+    using clock = std::chrono::steady_clock;
     if (first + count > n_) throw std::out_of_range("RecordPrefetcher: records beyond the end of the file");
-    const auto t0 = std::chrono::steady_clock::now();
+    const auto t0 = clock::now();
+    // the caller's work on the previous block, which a read ahead can hide
+    const double work = returned_ ? std::chrono::duration<double>(t0 - last_return_).count() : 0.0;
+    double read = 0;
     if (pending_.valid() && next_first_ == first && next_count_ == count) {
       pending_.get();  // rethrows a read error
       std::swap(cur_, next_);
+      read = ahead_seconds_;
       ++hits_;
     } else {
       cancel();
       read_into(cur_, first, count, never_stop_);
+      read = std::chrono::duration<double>(clock::now() - t0).count();
     }
-    wait_ += std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+    wait_ += std::chrono::duration<double>(clock::now() - t0).count();
+    if (returned_) ahead_ = read >= min_share_ * work;
 
     // read ahead only along a sequential pass (or the start of one)
     const bool sequential = first == 0 || first == last_end_;
     last_end_ = first + count;
     if (first == 0) first_count_ = count;
-    if (sequential && count < n_) {
+    if (ahead_ && sequential && count < n_) {
       uint64_t nf = first + count, nc = std::min(count, n_ - nf);
       if (nf >= n_) {  // the first block of the next pass
         nf = 0;
@@ -105,8 +120,14 @@ class RecordPrefetcher {
       }
       next_first_ = nf;
       next_count_ = nc;
-      pending_ = std::async(std::launch::async, [this, nf, nc] { read_into(next_, nf, nc, stop_); });
+      pending_ = std::async(std::launch::async, [this, nf, nc] {
+        const auto a = clock::now();
+        read_into(next_, nf, nc, stop_);
+        ahead_seconds_ = std::chrono::duration<double>(clock::now() - a).count();
+      });
     }
+    returned_ = true;
+    last_return_ = clock::now();
     return cur_.data();
   }
 
@@ -134,6 +155,10 @@ class RecordPrefetcher {
 
   int fd_;
   uint64_t offset_, width_, n_;
+  double min_share_;
+  bool ahead_ = true, returned_ = false;
+  std::chrono::steady_clock::time_point last_return_;
+  double ahead_seconds_ = 0;  // written by the reading thread, read after it is joined
   std::vector<unsigned char> cur_, next_;
   std::future<void> pending_;
   uint64_t next_first_ = 0, next_count_ = 0, last_end_ = 0, first_count_ = 0, hits_ = 0;
