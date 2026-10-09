@@ -14,6 +14,7 @@
 #include <cstring>  // strtok_r
 #include <fstream>
 #include <memory>
+#include <utility>
 
 #include "Cmd.hpp"
 #include "Common.hpp"
@@ -194,15 +195,30 @@ Mat1D minSSE(const Mat2D& X, const Mat2D& Y) {
   return res;
 }
 
-void mul_X_Y(const Eigen::Ref<const Mat2D>& X, const Eigen::Ref<const Mat2D>& Y, Eigen::Ref<Mat2D> out, bool add) {
-  const Eigen::Index n = X.rows();
+// The row panels of mul_X_Y: their height, a multiple of 48 (of every GEBP
+// kernel height, so the kernels take the rows of the whole product in the same
+// groups), and how many have rows. A last panel under 48 rows joins the one
+// before: a one-row panel would be a GEMV, which sums in another order.
+static std::pair<Eigen::Index, Eigen::Index> mul_X_Y_split(Eigen::Index n) {
 #ifdef EIGEN_USE_BLAS
-  const Eigen::Index panels = 1;  // the BLAS threads the product itself
+  return {n, 1};  // the BLAS threads the product itself
 #else
-  // panels of at least 96 rows (a multiple of every GEBP kernel height), at most one per thread
+  // panels of at least 96 rows, at most one per thread
   const Eigen::Index T = omp_in_parallel() ? 1 : omp_get_max_threads();
   const Eigen::Index panels = std::min<Eigen::Index>(T, n / 96);
+  if (panels <= 1) return {n, 1};
+  const Eigen::Index h = ((n + panels - 1) / panels + 47) / 48 * 48;
+  Eigen::Index used = (n + h - 1) / h;
+  if (used > 1 && n - (used - 1) * h < 48) --used;
+  return {h, used};
 #endif
+}
+
+Eigen::Index mul_X_Y_panels(Eigen::Index rows) { return mul_X_Y_split(rows).second; }
+
+void mul_X_Y(const Eigen::Ref<const Mat2D>& X, const Eigen::Ref<const Mat2D>& Y, Eigen::Ref<Mat2D> out, bool add) {
+  const Eigen::Index n = X.rows();
+  const auto [h, panels] = mul_X_Y_split(n);
   if (panels <= 1) {
     if (add)
       out.noalias() += X * Y;
@@ -210,11 +226,9 @@ void mul_X_Y(const Eigen::Ref<const Mat2D>& X, const Eigen::Ref<const Mat2D>& Y,
       out.noalias() = X * Y;
     return;
   }
-  const Eigen::Index h = ((n + panels - 1) / panels + 47) / 48 * 48;
 #pragma omp parallel for schedule(static)
   for (Eigen::Index p = 0; p < panels; ++p) {
-    const Eigen::Index r = p * h, m = std::min(h, n - r);
-    if (m <= 0) continue;
+    const Eigen::Index r = p * h, m = p + 1 < panels ? h : n - r;
     if (add)
       out.middleRows(r, m).noalias() += X.middleRows(r, m) * Y;
     else

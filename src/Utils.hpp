@@ -64,11 +64,15 @@ void mul_Xt_Y(const Eigen::Ref<const Mat2D>& X, const Eigen::Ref<const Mat2D>& Y
 // thin Y, so out is samples x (k + oversamples). Eigen's multithreaded GEMM
 // splits such a product over the columns of out only, at most cols / 4
 // threads: 5 for -k 10 whatever -n is. Row panels of X, one per thread, use all
-// of them and read X once. The depth blocking of each panel's product does not
-// depend on its height, so the result does not depend on the number of threads.
+// of them and read X once. Each panel is a single-threaded product whose depth
+// blocking does not depend on its height, and the panels start at multiples of
+// every GEBP kernel height, so with 192 rows or more (two panels) the result is
+// that of one thread, whatever -n is. Fewer rows go to Eigen's GEMM as before.
 // With an external BLAS (MKL, OpenBLAS, Accelerate) the BLAS threads it instead.
 void mul_X_Y(const Eigen::Ref<const Mat2D>& X, const Eigen::Ref<const Mat2D>& Y, Eigen::Ref<Mat2D> out,
              bool add = false);
+// the number of row panels mul_X_Y uses for X with this many rows, here
+Eigen::Index mul_X_Y_panels(Eigen::Index rows);
 
 // K += X * X' on the lower triangle of the square K (the strict upper triangle
 // is left untouched), for X of K.rows() x b. Eigen's rankUpdate runs on one

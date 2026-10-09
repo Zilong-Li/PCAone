@@ -329,7 +329,8 @@ so that sum no longer covers all the variance.
   an emulated 200 / 100 MB/s disk: 53.8 / 67.6 s, from 89.6 / 122.6 s with `--no-prefetch`.
 - The RSVD threads `H += X * G` over all of `-n`. Eigen split it over the columns of the
   result only, at most (k + oversamples) / 4 threads (5 for `-k 10`), each reading the whole
-  block; each thread now takes a panel of rows. The PCs do not depend on the number of threads.
+  block; each thread now takes a panel of rows. With 192 samples or more (two panels), the PCs
+  are those of one thread whatever `-n` is.
   Against the GEMM the `.eigvals` and `.eigvecs` came out byte-identical in our tests and the
   `.loadings` differ in the last printed digit. Builds with MKL, OpenBLAS or Accelerate keep the
   BLAS product. BED 10,000 x 200,000, `-n 2`, BED in the page cache: 77 s to 52-54 s.

@@ -365,11 +365,16 @@ test_aarch64: test_cmd_guards test_bed_permutation test_prefetch data example_te
 test_full: test_cmd_guards test_bed_permutation test_prefetch data example_tests projection hwe ld_matrix ld_r2 ld_prune ld_clump ld_tests
 	@echo "SUCCESS: Full test suite completed."
 
-.PHONY: test_prefetch test_pgen_block
-test_prefetch: ${program} test_pgen_block
+.PHONY: test_prefetch test_mul_x_y test_pgen_block
+test_prefetch: ${program} test_mul_x_y test_pgen_block
 	$(CXX) -std=c++17 -Wall -Wextra -pthread tests/test_prefetch.cpp -o tests/test_prefetch
 	./tests/test_prefetch
 	python3 tests/test_prefetch.py
+
+# the row-panel product of the RSVD, H = X * G and H += X * G
+test_mul_x_y: zstdlib bgenlib pgenlib $(PCALIB) tests/test_mul_x_y.o
+	$(CXX) $(CXXFLAGS) -o tests/$@ tests/$@.o $(PCALIB) $(LPATHS) $(LIBS) $(LDFLAGS)
+	./tests/$@
 
 # pgenlib's readers of out-of-core PGEN runs, and their cleanup when set-up fails
 test_pgen_block: pgenlib src/PgenBlock.o tests/test_pgen_block.o

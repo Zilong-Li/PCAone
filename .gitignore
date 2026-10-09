@@ -44,5 +44,6 @@ Rplots.pdf
 !tests/test_evaladmix_pairs.py
 !tests/test_prefetch.cpp
 !tests/test_prefetch.py
+!tests/test_mul_x_y.cpp
 !tests/test_pgen_block.cpp
 /site/

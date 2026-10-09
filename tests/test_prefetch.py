@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Out-of-core reads with the next block read in the background (default) give
 the same bytes as without (--no-prefetch), so the same PCs, for every reader and
-method; and the hand-threaded H += X * G of winSVD gives the same PCs for any
-number of threads."""
+method; and the row-panel H = X * G and H += X * G give the PCs of one thread
+for any number of threads, with enough samples for the panels to be used."""
+import random
 import shutil
 import subprocess
 import tempfile
@@ -30,6 +31,25 @@ def same_outputs(a, b, suffixes=('.eigvals', '.eigvecs', '.loadings')):
             assert pa.read_bytes() == pb.read_bytes(), (a, b, s)
 
 
+def write_bed(prefix, n, m, seed):
+    """n samples in two populations, m SNPs, 2 % missing"""
+    rng = random.Random(seed)
+    width = (n + 3) // 4
+    bed = bytearray(b'\x6c\x1b\x01')
+    for j in range(m):
+        codes = []
+        for i in range(n):
+            p = 0.05 + (j % 9) * 0.05 + (0.3 if i < n // 3 else 0)
+            g = int(rng.random() < p) + int(rng.random() < p)
+            codes.append(1 if rng.random() < 0.02 else {0: 3, 1: 2, 2: 0}[g])
+        bed += bytes(sum(codes[i + k] << (2 * k) for k in range(min(4, n - i))) for i in range(0, n, 4))
+    assert len(bed) == 3 + m * width
+    Path(str(prefix) + '.bed').write_bytes(bytes(bed))
+    Path(str(prefix) + '.bim').write_text(''.join(f'1\trs{j}\t0\t{j + 1}\tA\tC\n' for j in range(m)))
+    Path(str(prefix) + '.fam').write_text(''.join(f'F{i} I{i} 0 0 0 -9\n' for i in range(n)))
+    return prefix
+
+
 checked = []
 with tempfile.TemporaryDirectory(prefix='pcaone-prefetch-') as name:
     directory = Path(name)
@@ -51,12 +71,20 @@ with tempfile.TemporaryDirectory(prefix='pcaone-prefetch-') as name:
     both('ssvd', *bed, '-n', 2, '--svd', 1)
     both('iram', *bed, '-n', 2, '--svd', 0)
     both('exact', *bed, '-n', 2, '--svd', 3)
-    # the row panels of H += X * G: the PCs do not depend on the number of threads
-    one, three = directory / 'n1', directory / 'n3'
-    pcaone(*bed, '-n', 1, '-o', one)
-    pcaone(*bed, '-n', 3, '-o', three)
-    same_outputs(one, three, ('.eigvals', '.eigvecs'))
-    checked.append('threads')
+    # The row panels of H = X * G and H += X * G (mul_X_Y) start at 192
+    # samples; the fixture has 41. With 300 samples and 3 threads, X is cut into
+    # two panels (0-143, 144-299: the last 12 rows join the second panel), each
+    # multiplied on one thread, and the PCs must be those of one thread: the
+    # in-core sSVD assigns H, the out-of-core winSVD accumulates block by block.
+    big = write_bed(directory / 'big', 300, 1500, seed=5)
+    for label, args in [('threads-insvd', ('--svd', 1)),
+                        ('threads-winsvd', ('-m', '0.0005')),
+                        ('threads-winsvd-noshuffle', ('-m', '0.0005', '-S'))]:
+        one, three = directory / (label + '-n1'), directory / (label + '-n3')
+        pcaone('--bfile', big, '-k', 4, *args, '-n', 1, '-o', one)
+        pcaone('--bfile', big, '-k', 4, *args, '-n', 3, '-o', three)
+        same_outputs(one, three)
+        checked.append(label)
 
     # PGEN (pgenlib's readers in place of PgenReader's), when the example is there
     pgen = ROOT / 'example' / 'plink2.chr1'
@@ -69,8 +97,7 @@ with tempfile.TemporaryDirectory(prefix='pcaone-prefetch-') as name:
     else:
         print('skip PGEN: example/plink2.chr1.pgen is not available')
 
-    # CSV, read through its binary copy
-    import random
+    # CSV, read through its binary copy (next block requested into the page cache)
     rng = random.Random(3)
     raw = directory / 'counts.csv'
     raw.write_text(''.join(','.join(str(rng.randint(0, 9)) for _ in range(30)) + '\n' for _ in range(500)))
