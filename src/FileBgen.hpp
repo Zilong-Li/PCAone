@@ -2,9 +2,12 @@
 #define PCAONE_FILEBGEN_
 
 #include "bgen/reader.h"
+#include "BgenBlock.hpp"
 #include "Data.hpp"
-#include "Prefetch.hpp"
 
+#include <omp.h>
+
+#include <chrono>
 #include <memory>
 #include "Utils.hpp"
 
@@ -17,19 +20,33 @@ class FileBgen : public Data {
   // using Data::Data;
   FileBgen(const Param& params_)
       : Data(params_) {
-    cao.warn("BGEN support is very limited. Please convert BGEN to PGEN instead!");
     cao.print(tick.date(), "start parsing BGEN format");
     bg = new bgen::CppBgenReader(params.filein, "", true);
     nsamples = bg->header.nsamples;
     nsnps = bg->header.nvariants;
-    dosages.resize(nsamples);
     if (params.dopca) F = Mat1D::Zero(nsnps);  // initial F
     cao.print(tick.date(), "N(#samples) =", nsamples, ", M(#SNPs) =", nsnps);
     cao.print(tick.date(), "the layout is", bg->header.layout, ", compressed by",
-              bg->header.compression == 2 ? "zstd" : "zlib");
+              bg->header.compression == 2 ? "zstd" : (bg->header.compression == 1 ? "zlib" : "none"));
+    if (!params.pcangsd) {
+      reader_threads = std::max(1, omp_get_max_threads());
+      const auto t0 = std::chrono::steady_clock::now();
+      try {
+        reader = std::make_unique<PCAone::BgenBlockReader>(params.filein, bg->header.layout, bg->header.compression,
+                                                           nsamples, bg->header.offset + 4, nsnps, reader_threads);
+      } catch (const std::exception& e) {
+        cao.error(e.what());
+      }
+      thread_dosages.resize(reader_threads, std::vector<float>(nsamples));
+      cao.print(tick.date(), "indexed", reader->bytes(0, nsnps), "bytes of BGEN variants in",
+                std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count(), "seconds");
+    }
   }
 
-  ~FileBgen() override { delete bg; }
+  ~FileBgen() override {
+    if (reader) reader->cancel();
+    delete bg;
+  }
 
   void read_all() final;
 
@@ -42,17 +59,28 @@ class FileBgen : public Data {
 
  private:
   bgen::CppBgenReader* bg;
-  std::vector<float> dosages, probs1d;
+  std::vector<float> probs1d;
   bool frequency_was_estimated = false;
-  // out-of-core: reads the bytes of the next block into the page cache while
-  // the current one is used (--no-prefetch: off)
-  std::unique_ptr<PCAone::ReadAhead> readahead;
-  void read_block_decode(uint64 start_idx, uint64 stop_idx, bool standardize);
-  uint64 first_block_bytes = 0;
+  // the dosages of all variants but --pcangsd's probabilities: each thread
+  // reads and decodes variants of its own, and the out-of-core blocks request
+  // the next block in the background (--no-prefetch: off)
+  std::unique_ptr<PCAone::BgenBlockReader> reader;
+  int reader_threads = 1;
+  std::vector<std::vector<float>> thread_dosages;
+  // the variants of a block in file order, and the column of each
+  struct ReadRequest {
+    uint32_t variant, column;
+  };
+  std::vector<ReadRequest> requests;
+  std::vector<uint32_t> next_variants;
+  uint64 last_end = 0, first_count = 0;
+  void begin_block(uint64 start_idx, uint64 stop_idx);
+  // the file indices of the logical SNPs [first, first + count), sorted
+  void variants_of(uint64 first, uint64 count, std::vector<uint32_t>& out) const;
 };
 
-void permute_bgen_thread(std::vector<int> idx, std::string fin, std::string fout, int ithread);
-
-PermMat permute_bgen(std::string& fin, std::string fout, int nthreads, int seed);
+// The out-of-core winSVD permutation of the BGEN variants: a shuffle by --seed.
+// The variants are read from the input in this order; nothing is rewritten.
+PermMat compute_bgen_perm(uint nsnps, int seed);
 
 #endif  // PCAONE_FILEBGEN_

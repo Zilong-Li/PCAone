@@ -40,6 +40,25 @@ so that sum no longer covers all the variance.
 
 ### v0.8.0
 
+- BGEN input is read by many threads at once. The variants are indexed by one pass over their
+  headers when the file is opened (0.4 s for 2.7 GB), and then each thread reads (`pread`),
+  inflates and decodes variants of its own, in-core and with `-m`; the bgen library read them
+  one after another through one stream. The out-of-core winSVD reads its shuffled variants from
+  the input (`--seed`), as PGEN does, instead of writing a shuffled copy of the file first, so it
+  needs no extra disk space. The next block is requested in the background unless
+  `--no-prefetch`. With 20 threads, on simulated data: N = 10,000 x M = 200,000 in-core reads in
+  2.4 s instead of 37 s; with `-m 2`, 59 s instead of 502 s; N = 20,000 x M = 500,000 with
+  `-m 4`, 344 s instead of 2,278 s. The output is the same to the printed precision, except
+  where a site's MAF is exactly the `--maf` cutoff: the dosages are now computed by dividing by
+  the largest probability value (the bgen library multiplies by its inverse), so that certain
+  genotypes are exactly 0, 1 and 2 at any bit depth.
+- **results change**: phased BGEN. The bgen library read the two haplotype probabilities of a
+  sample as those of the homozygote and the heterozygote, so a dosage could reach 3, and the PCs
+  of a phased file were wrong. The dosage is now the sum over the haplotypes; a phased file gives
+  the PCs of the same genotypes unphased. Ploidy other than 2 is handled the same way.
+- BGEN no longer warns that its support is limited. `tests/test_bgen_formats.py`
+  (`make test_bgen_formats`) checks that layouts 1 and 2, every compression, 8 to 16 bits and
+  phased files give the same output for the same genotypes.
 - The `.loadings` and `.mbim` are now written by default, so the prefix of a plain PCA run can
   be passed straight to `-P/--USV` for `--project` and `--inbreed`. `--no-loadings` turns them
   off; with `--svd 3` it also skips the second pass over the data that forms the loadings.

@@ -158,9 +158,10 @@ static int run(int argc, char* argv[]) {
       // Logical permutation is initialized after prepare(), when blocksize is known.
       data = new FilePgen(params);
     } else if (params.file_t == FileType::BGEN) {
-      auto perm = permute_bgen(params.filein, params.fileout, params.threads, params.seed);
+      // a logical permutation, as for PGEN: the blocks read the shuffled
+      // variants from the input itself
       data = new FileBgen(params);
-      data->perm = perm;
+      data->perm = compute_bgen_perm(data->nsnps, params.seed);
     } else if (params.file_t == FileType::CSV) {
       auto perm = shuffle_csvzstd_to_bin(params.filein, params.fileout, params.buffer, params.scale, params.scaleFactor,
                                          params.seed);
@@ -170,7 +171,7 @@ static int run(int argc, char* argv[]) {
     } else {
       cao.error("wrong file type used!");
     }
-    if (params.file_t != FileType::PGEN && params.file_t != FileType::PLINK)
+    if (params.file_t != FileType::PGEN && params.file_t != FileType::PLINK && params.file_t != FileType::BGEN)
       cao.print(tick.date(), "elapsed time of permuting data:", tick.reltime(), " seconds");
   } else {
     if (params.file_t == FileType::PLINK) {
@@ -276,8 +277,7 @@ static int run(int argc, char* argv[]) {
       }
     }
     // a shuffled CSV is read back as BINARY, from <out>.perm.bin
-    if ((params.file_t == FileType::BGEN) || (params.file_t == FileType::CSV) ||
-        (params.file_t == FileType::BINARY)) {
+    if ((params.file_t == FileType::CSV) || (params.file_t == FileType::BINARY)) {
       std::filesystem::path tmpfile{params.filein};
       std::filesystem::remove(tmpfile);
     }

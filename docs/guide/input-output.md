@@ -8,9 +8,7 @@ population structure, such as [PLINK](https://www.cog-genomics.org/plink/1.9/for
 a comma delimited CSV format compressed by zstd, which is useful for other
 datasets requiring specific normalization such as single cell RNAs data. PCAone also supports [PLINK2 PGEN](https://www.cog-genomics.org/plink/2.0/input#pgen)
 input via `--pgen`. If dosages are stored in the `.pgen` file, PCAone uses
-them by default; add `--hardcall` to force hard-call genotypes instead. The
-current `BGEN` support is limited, so for large production workflows we
-recommend converting `BGEN` to `PGEN` when possible.
+them by default; add `--hardcall` to force hard-call genotypes instead.
 
 ### Example data
 
@@ -56,9 +54,7 @@ If you want to ignore dosages and use hard-call genotypes instead, add
 ./PCAone --pgen example/plink2 -k 10 -m 2 --hardcall
 ```
 
-### BGEN (limited support)
-
-**NB:** `BGEN support is very limited. Please convert BGEN to PGEN and use PGEN input!`
+### BGEN
 
 Imputation tools usually generate the genotype probabilities or dosages in
 BGEN format. To do PCA with the imputed genotype probabilities, we can
@@ -67,6 +63,14 @@ work on BGEN file with `--bgen` option instead.
 ```shell
 ./PCAone --bgen example/test.bgen -k 10 -m 2
 ```
+
+PCAone reads BGEN layouts 1 and 2 (v1.1 to v1.3), uncompressed or compressed
+by zlib or zstd, at any bit depth, phased or unphased. It uses the dosage of
+the minor allele of each variant, as the bgen library computes it, and a
+sample with the missing flag counts as missing. Only biallelic variants are
+supported. The variants are found by one pass over their headers when the file
+is opened, and then each thread reads and decodes variants of its own, in-core
+and with `-m`.
 
 ### CSV (single-cell RNA-seq)
 

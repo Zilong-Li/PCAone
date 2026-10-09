@@ -138,7 +138,7 @@ else
 endif
 
 OBJ = src/Arnoldi.o src/Halko.o src/Data.o src/Utils.o src/Cmd.o \
-		src/FileBeagle.o src/FileCsv.o src/FileBgen.o src/FilePlink.o src/FilePgen.o src/PgenBlock.o \
+		src/FileBeagle.o src/FileCsv.o src/FileBgen.o src/BgenBlock.o src/FilePlink.o src/FilePgen.o src/PgenBlock.o \
 		src/FileBinary.o src/FileUSV.o src/LD.o src/Projection.o \
 		src/InbredSites.o src/InbredSamples.o src/Selection.o src/EvalAdmix.o src/Exact.o \
 		src/kfunc.o
@@ -156,7 +156,7 @@ SLIBS += ./external/bgen/bgenlib.a ./external/zstd/lib/libzstd.a  ./external/pge
 
 LIBS += $(SLIBS) $(DLIBS) -lpthread -ldl -lm
 
-.PHONY: all clean docs serve-docs projection hwe ld_matrix ld_r2 ld_prune ld_clump ld_tests test_full test_aarch64 test_pgen_plink_equivalence test_em_snp_order test_projection_bootstrap test_cmd_guards test_crash_regressions test_review_fixes test_ref_k test_exact_streaming test_inbreed_samples test_evaladmix test_evaladmix_pairs test_evaladmix_ibd test_em_k
+.PHONY: all clean docs serve-docs projection hwe ld_matrix ld_r2 ld_prune ld_clump ld_tests test_full test_aarch64 test_pgen_plink_equivalence test_em_snp_order test_projection_bootstrap test_cmd_guards test_crash_regressions test_review_fixes test_ref_k test_exact_streaming test_inbreed_samples test_evaladmix test_evaladmix_pairs test_evaladmix_ibd test_em_k test_bgen_formats
 
 all: ${program}
 
@@ -221,6 +221,9 @@ test_emu_simulated: ${program}
 
 test_em_k: ${program}
 	python3 tests/test_em_k.py
+
+test_bgen_formats: ${program}
+	python3 tests/test_bgen_formats.py
 
 test_projection_bootstrap: zstdlib bgenlib pgenlib $(PCALIB) tests/test_projection_bootstrap.o
 	$(CXX) $(CXXFLAGS) -o tests/$@ tests/$@.o $(PCALIB) $(LPATHS) $(LIBS) $(LDFLAGS)
