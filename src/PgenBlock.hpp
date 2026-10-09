@@ -72,6 +72,8 @@ class PgenBlockReader {
   }
 
  private:
+  void init(const std::string& pgen, int nthreads);
+  void release() noexcept;
   // the page runs pgenlib reads for these variants, sorted and merged
   std::vector<std::pair<uint64_t, uint64_t>> pages(const std::vector<uint32_t>& variants) const;
   void choose_probe(const std::string& pgen, const struct stat& st);

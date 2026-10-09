@@ -19,6 +19,7 @@
 #include <cstring>
 #include <stdexcept>
 
+#include "Prefetch.hpp"
 #include "pgenlib/pgenlib_ffi_support.h"
 
 namespace PCAone {
@@ -44,12 +45,26 @@ T* aligned_buffer(uintptr_t bytes) {
 
 PgenBlockReader::PgenBlockReader(const std::string& pgen, uint32_t nsamples, int nthreads)
     : nsamples_(nsamples) {
+  plink2::PreinitPgfi(&pgfi_);
+  // The destructor does not run when a constructor throws, and FilePgen falls
+  // back to PgenReader then: give back what was acquired so far (pgenlib's
+  // files, the descriptor, the mapping, the readers and their buffers).
+  try {
+    init(pgen, nthreads);
+  } catch (...) {
+    release();
+    throw;
+  }
+}
+
+PgenBlockReader::~PgenBlockReader() { release(); }
+
+void PgenBlockReader::init(const std::string& pgen, int nthreads) {
   using namespace plink2;
   char errstr[kPglErrstrBufBlen];
-  PreinitPgfi(&pgfi_);
   PgenHeaderCtrl header_ctrl;
   uintptr_t pgfi_cachelines = 0;
-  if (PgfiInitPhase1(pgen.c_str(), nullptr, UINT32_MAX, nsamples, &header_ctrl, &pgfi_, &pgfi_cachelines, errstr) !=
+  if (PgfiInitPhase1(pgen.c_str(), nullptr, UINT32_MAX, nsamples_, &header_ctrl, &pgfi_, &pgfi_cachelines, errstr) !=
       kPglRetSuccess)
     throw std::runtime_error(&errstr[7]);
   // the limits of PgenReader, which FilePgen uses for everything else
@@ -76,13 +91,20 @@ PgenBlockReader::PgenBlockReader(const std::string& pgen, uint32_t nsamples, int
   page_ = (uint64_t)::sysconf(_SC_PAGESIZE);
   choose_probe(pgen, st);
 
-  const uintptr_t genovec_bytes = DivUp(nsamples, kNypsPerVec) * kBytesPerVec;
-  const uintptr_t bitvec_bytes = DivUp(nsamples, kBitsPerVec) * kBytesPerVec;
-  const uintptr_t dosage_bytes = DivUp(nsamples, 2 * kInt32PerVec) * kBytesPerVec;
-  for (int t = 0; t < std::max(1, nthreads); ++t) {
+  const uintptr_t genovec_bytes = DivUp(nsamples_, kNypsPerVec) * kBytesPerVec;
+  const uintptr_t bitvec_bytes = DivUp(nsamples_, kBitsPerVec) * kBytesPerVec;
+  const uintptr_t dosage_bytes = DivUp(nsamples_, 2 * kInt32PerVec) * kBytesPerVec;
+  const size_t readers = (size_t)std::max(1, nthreads);
+  // reserved, so that pushing a pointer cannot throw and lose it
+  for (auto* v : {&genovec_, &dosage_present_, &sample_include_}) v->reserve(readers);
+  pgr_.reserve(readers);
+  pgr_alloc_.reserve(readers);
+  pssi_.reserve(readers);
+  dosage_main_.reserve(readers);
+  for (size_t t = 0; t < readers; ++t) {
     auto* pgr = static_cast<PgenReader*>(std::malloc(sizeof(PgenReader)));
     if (!pgr) throw std::bad_alloc();
-    PreinitPgr(pgr);
+    PreinitPgr(pgr);  // no file: CleanupPgr() is a no-op until PgrInit() opens one
     PgrSetFreadBuf(nullptr, pgr);
     pgr_.push_back(pgr);
     pgr_alloc_.push_back(aligned_buffer<unsigned char>(pgr_cachelines * kCacheline));
@@ -100,22 +122,35 @@ PgenBlockReader::PgenBlockReader(const std::string& pgen, uint32_t nsamples, int
   }
 }
 
-PgenBlockReader::~PgenBlockReader() {
-  cancel();
+// Everything acquired, whether construction got to the end or not. Each piece
+// starts out empty (null, -1, no file) and is reset, so this can run twice.
+void PgenBlockReader::release() noexcept {
+  try {
+    cancel();
+  } catch (...) {
+  }
   plink2::PglErr err = plink2::kPglRetSuccess;
   for (auto* pgr : pgr_) {
-    plink2::CleanupPgr(pgr, &err);
+    plink2::CleanupPgr(pgr, &err);  // closes the reader's file, if PgrInit() opened one
     std::free(pgr);
   }
+  pgr_.clear();
   for (auto* p : pgr_alloc_) plink2::aligned_free(p);
-  for (auto* p : genovec_) plink2::aligned_free(p);
-  for (auto* p : dosage_present_) plink2::aligned_free(p);
+  pgr_alloc_.clear();
+  for (auto* v : {&genovec_, &dosage_present_, &sample_include_}) {
+    for (auto* p : *v) plink2::aligned_free(p);
+    v->clear();
+  }
   for (auto* p : dosage_main_) plink2::aligned_free(p);
-  for (auto* p : sample_include_) plink2::aligned_free(p);
-  plink2::CleanupPgfi(&pgfi_, &err);
+  dosage_main_.clear();
+  pssi_.clear();
+  plink2::CleanupPgfi(&pgfi_, &err);  // the file of PgfiInitPhase1(), unless a reader took it over
   if (pgfi_alloc_) plink2::aligned_free(pgfi_alloc_);
+  pgfi_alloc_ = nullptr;
   if (map_) ::munmap(map_, file_bytes_);
+  map_ = nullptr;
   if (fd_ >= 0) ::close(fd_);
+  fd_ = -1;
 }
 
 // pgenlib reads a variant's record, from the record of its LD base when it is
@@ -213,14 +248,7 @@ void PgenBlockReader::willneed(const std::vector<std::pair<uint64_t, uint64_t>>&
   // asynchronous: the kernel reads the pages into the page cache, in file order
   for (const auto& [a, b] : runs) {
     if (stop.load(std::memory_order_relaxed)) return;
-#if defined(POSIX_FADV_WILLNEED)
-    ::posix_fadvise(fd_, (off_t)a, (off_t)(b - a), POSIX_FADV_WILLNEED);
-#elif defined(F_RDADVISE)
-    struct radvisory ra;
-    ra.ra_offset = (off_t)a;
-    ra.ra_count = (int)std::min<uint64_t>(b - a, INT32_MAX);
-    ::fcntl(fd_, F_RDADVISE, &ra);
-#endif
+    detail::willneed(fd_, a, b - a);
   }
 }
 
