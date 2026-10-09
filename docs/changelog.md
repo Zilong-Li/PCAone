@@ -321,8 +321,9 @@ so that sum no longer covers all the variance.
 - build: the Makefile tracks header dependencies, so editing a `.hpp` rebuilds the `.cpp` files that
   include it instead of silently linking stale objects.
 - Out-of-core reads overlap the computation. While a block is used, the next is read in the
-  background: BED and the binary copy of CSV into a second buffer of packed records, BGEN and
-  PGEN ahead into the page cache. A BED in the page cache, whose reads take under 5% of the
+  background: BED into a second buffer of packed records (1/32 of the decoded block, given back
+  while unused), the binary copy of CSV, BGEN and PGEN into the page cache, which takes none of
+  the memory `-m` budgets. A BED in the page cache, whose reads take under 5% of the
   computation, is read on the spot instead. The bytes are the same, so the output is
   byte-identical; `--no-prefetch` reads in the foreground. BED 10,000 x 200,000, `-S -n 2`, on
   an emulated 200 / 100 MB/s disk: 53.8 / 67.6 s, from 89.6 / 122.6 s with `--no-prefetch`.

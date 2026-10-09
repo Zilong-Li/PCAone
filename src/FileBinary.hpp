@@ -40,8 +40,10 @@ class FileBin : public Data {
   const uint ibyte = 4;
   uint64 bytes_per_snp;
   bool is_zstd = false;
-  // out-of-core: reads the next block while the current one is used (--no-prefetch: off)
-  std::unique_ptr<PCAone::RecordPrefetcher> prefetcher;
+  // out-of-core: the next block is read into the page cache while the current
+  // one is used (--no-prefetch: off)
+  std::unique_ptr<PCAone::ReadAhead> readahead;
+  uint64 first_block_size = 0;
 };
 
 #endif  // FILEBINARY_H_

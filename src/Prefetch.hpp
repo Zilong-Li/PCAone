@@ -18,7 +18,6 @@
 #include <future>
 #include <stdexcept>
 #include <string>
-#include <thread>
 #include <utility>
 #include <vector>
 
@@ -52,6 +51,34 @@ inline int open_for_streaming(const std::string& path) {
 #endif
   return fd;
 }
+
+#if defined(POSIX_FADV_WILLNEED) || defined(F_RDADVISE)
+constexpr bool kCanAdvise = true;
+#else
+constexpr bool kCanAdvise = false;
+#endif
+
+// Ask the kernel to read [offset, offset + len) into the page cache. It queues
+// the reads and returns; the process holds no copy of the bytes. Only a hint:
+// a file system that ignores it (or an error) leaves the reads as they were.
+inline void willneed(int fd, uint64_t offset, uint64_t len) {
+#if defined(POSIX_FADV_WILLNEED)
+  ::posix_fadvise(fd, (off_t)offset, (off_t)len, POSIX_FADV_WILLNEED);
+#elif defined(F_RDADVISE)
+  while (len) {  // ra_count is an int
+    struct radvisory ra;
+    ra.ra_offset = (off_t)offset;
+    ra.ra_count = (int)std::min<uint64_t>(len, 1ULL << 30);
+    ::fcntl(fd, F_RDADVISE, &ra);
+    offset += (uint64_t)ra.ra_count;
+    len -= (uint64_t)ra.ra_count;
+  }
+#else
+  (void)fd;
+  (void)offset;
+  (void)len;
+#endif
+}
 }  // namespace detail
 
 // Reads the fixed-width records of a file (BED SNPs, float columns of the binary
@@ -71,7 +98,8 @@ inline int open_for_streaming(const std::string& path) {
 // file is in the page cache) has the next one read on the spot; a slower read
 // switches the reading ahead back on.
 //
-// Memory: two blocks of raw records.
+// Memory: one block of raw records more than a plain read, only while reading
+// ahead (for BED, 1/32 of the decoded block); freed when reading on the spot.
 class RecordPrefetcher {
  public:
   RecordPrefetcher(const std::string& path, uint64_t data_offset, uint64_t record_bytes, uint64_t nrecords,
@@ -107,6 +135,7 @@ class RecordPrefetcher {
     }
     wait_ += std::chrono::duration<double>(clock::now() - t0).count();
     if (returned_) ahead_ = read >= min_share_ * work;
+    if (!ahead_ && next_.capacity()) std::vector<unsigned char>().swap(next_);  // not needed until it pays again
 
     // read ahead only along a sequential pass (or the start of one)
     const bool sequential = first == 0 || first == last_end_;
@@ -145,6 +174,7 @@ class RecordPrefetcher {
   double wait_seconds() const { return wait_; }   // time the caller was blocked on reads
   uint64_t predicted() const { return hits_; }    // blocks that came from the background
   uint64_t bytes_read() const { return bytes_; }  // call cancel() first
+  uint64_t buffer_bytes() const { return cur_.capacity() + next_.capacity(); }
 
  private:
   void read_into(std::vector<unsigned char>& buf, uint64_t first, uint64_t count, const std::atomic<bool>& stop) {
@@ -168,13 +198,16 @@ class RecordPrefetcher {
   double wait_ = 0;
 };
 
-// Reads byte ranges of a file in the background and throws the bytes away, so
-// that a library which reads the file itself (BGEN, PGEN) then finds them in
-// the page cache. A hint for later reads, it never changes what is read.
+// Asks for byte ranges of a file to be read into the page cache in the
+// background, so that a reader that reads the file itself (the binary copy of
+// CSV, BGEN) then finds them there. The process holds no copy of the bytes, so
+// the memory of -m is unchanged. A hint for later reads, it never changes what
+// is read; where the kernel ignores it, the reads are as without it.
 class ReadAhead {
  public:
-  explicit ReadAhead(const std::string& path, int threads = 1)
-      : fd_(detail::open_for_streaming(path)), threads_(std::max(1, threads)) {}
+  explicit ReadAhead(const std::string& path) : fd_(::open(path.c_str(), O_RDONLY)) {
+    if (fd_ < 0) throw std::runtime_error("cannot open " + path + ": " + std::strerror(errno));
+  }
 
   ~ReadAhead() {
     cancel();
@@ -184,7 +217,7 @@ class ReadAhead {
   ReadAhead(const ReadAhead&) = delete;
   ReadAhead& operator=(const ReadAhead&) = delete;
 
-  // Read the ranges (offset, length) in the background; they are sorted and
+  // Request the ranges (offset, length) in the background; they are sorted and
   // merged when less than `gap` bytes apart. A hint still running is stopped.
   void hint(std::vector<std::pair<uint64_t, uint64_t>> ranges, uint64_t gap = 4096) {
     cancel();
@@ -198,12 +231,14 @@ class ReadAhead {
       else
         merged.emplace_back(r.first, r.first + r.second);
     }
+    if (merged.empty()) return;
+    ++hints_;
     pending_ = std::async(std::launch::async, [this, merged = std::move(merged)] { run(merged); });
   }
 
   void hint(uint64_t offset, uint64_t length) { hint({{offset, length}}); }
 
-  // Wait until the ranges of the last hint are read.
+  // Wait until the ranges of the last hint are requested.
   void wait() {
     if (pending_.valid()) pending_.get();
   }
@@ -218,35 +253,34 @@ class ReadAhead {
     stop_ = false;
   }
 
+  uint64_t hints() const { return hints_; }
+
  private:
   void run(const std::vector<std::pair<uint64_t, uint64_t>>& ranges) {
-    // a few readers keep a disk queue busy when the ranges are scattered
-    const int nt = (int)std::min<size_t>(threads_, ranges.size());
-    std::atomic<size_t> next{0};
-    auto worker = [&] {
-      std::vector<unsigned char> sink(1ULL << 20);
-      for (size_t i; (i = next++) < ranges.size() && !stop_;) {
-        uint64_t off = ranges[i].first;
-        const uint64_t end = ranges[i].second;
-        while (off < end && !stop_) {
-          const uint64_t len = std::min<uint64_t>(sink.size(), end - off);
-          const ssize_t got = ::pread(fd_, sink.data(), len, (off_t)off);
-          if (got <= 0) {
-            if (got < 0 && errno == EINTR) continue;
-            return;  // only a hint: the library reports real read errors
-          }
-          off += (uint64_t)got;
+    // in pieces, so that a cancel does not wait for a whole block to be queued
+    constexpr uint64_t piece = 8ULL << 20;
+#if !defined(POSIX_FADV_WILLNEED) && !defined(F_RDADVISE)
+    std::vector<unsigned char> sink(1ULL << 20);  // no advice: read and discard
+#endif
+    for (const auto& [a, b] : ranges)
+      for (uint64_t off = a; off < b; off += piece) {
+        if (stop_.load(std::memory_order_relaxed)) return;
+        const uint64_t len = std::min(piece, b - off);
+#if defined(POSIX_FADV_WILLNEED) || defined(F_RDADVISE)
+        detail::willneed(fd_, off, len);
+#else
+        for (uint64_t done = 0; done < len;) {
+          const ssize_t got = ::pread(fd_, sink.data(), std::min<uint64_t>(sink.size(), len - done), (off_t)(off + done));
+          if (got < 0 && errno == EINTR) continue;
+          if (got <= 0) return;  // only a hint: the reader reports real read errors
+          done += (uint64_t)got;
         }
+#endif
       }
-    };
-    std::vector<std::thread> pool;
-    for (int t = 1; t < nt; ++t) pool.emplace_back(worker);
-    worker();
-    for (auto& t : pool) t.join();
   }
 
   int fd_;
-  int threads_;
+  uint64_t hints_ = 0;
   std::future<void> pending_;
   std::atomic<bool> stop_{false};
 };

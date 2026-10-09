@@ -1,6 +1,7 @@
 // Prefetch.hpp: the records RecordPrefetcher returns are those of the file,
 // whatever the order of the requests (passes, wrap-around, random access, a
-// short last block) and with a read in flight; ReadAhead never breaks reads.
+// short last block) and with a read in flight; the second buffer is held only
+// while reading ahead; ReadAhead never breaks reads.
 #include "../src/Prefetch.hpp"
 
 #include <unistd.h>
@@ -82,6 +83,16 @@ int main() {
         usleep(2000);
       }
     CHECK(reader.predicted() <= 1);  // only the first block, before any timing
+    // reading on the spot: the second buffer is given back
+    CHECK(reader.buffer_bytes() <= 100 * width);
+  }
+
+  {
+    // reading ahead holds two blocks
+    PCAone::RecordPrefetcher reader(name, header, width, n, 0.0);
+    for (uint64_t first = 0; first < 300; first += 100) CHECK(same(reader.get(first, 100), first, 100));
+    reader.cancel();
+    CHECK(reader.buffer_bytes() >= 2 * 100 * width);
   }
 
   {
@@ -92,14 +103,27 @@ int main() {
   }
 
   {
-    PCAone::ReadAhead ahead(name, 3);
+    // page cache requests: never an error, and the file reads as before
+    PCAone::ReadAhead ahead(name);
     ahead.hint({{header, 100}, {header + 5000, 10}, {header + 90, 50}, {0, 0}});
     ahead.wait();
     ahead.hint(header, n * width);
     ahead.cancel();
     ahead.hint(n * width * 10, 4096);  // beyond the end: only a hint
     ahead.wait();
+    ahead.hint({{0, 0}});  // nothing to ask for
+    ahead.wait();
+    CHECK(ahead.hints() == 3);
+    PCAone::RecordPrefetcher reader(name, header, width, n);
+    CHECK(same(reader.get(0, n), 0, n));
   }
+  bool threw = false;
+  try {
+    PCAone::ReadAhead missing(std::string(name) + ".none");
+  } catch (const std::runtime_error&) {
+    threw = true;
+  }
+  CHECK(threw);
 
   ::close(fd);
   std::remove(name);
