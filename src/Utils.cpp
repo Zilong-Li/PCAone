@@ -218,7 +218,9 @@ Eigen::Index mul_X_Y_panels(Eigen::Index rows) { return mul_X_Y_split(rows).seco
 
 void mul_X_Y(const Eigen::Ref<const Mat2D>& X, const Eigen::Ref<const Mat2D>& Y, Eigen::Ref<Mat2D> out, bool add) {
   const Eigen::Index n = X.rows();
-  const auto [h, panels] = mul_X_Y_split(n);
+  // plain locals: Apple Clang cannot capture structured bindings in an OpenMP loop
+  const auto split = mul_X_Y_split(n);
+  const Eigen::Index h = split.first, panels = split.second;
   if (panels <= 1) {
     if (add)
       out.noalias() += X * Y;

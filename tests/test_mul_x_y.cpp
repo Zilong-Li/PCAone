@@ -46,7 +46,7 @@ static Mat2D reference(const Mat2D& X, const Mat2D& Y, const Mat2D* init) {
   return out;
 }
 
-static bool same_bytes(const Mat2D& a, const Mat2D& b) {
+[[maybe_unused]] static bool same_bytes(const Mat2D& a, const Mat2D& b) {
   return a.rows() == b.rows() && a.cols() == b.cols() &&
          std::memcmp(a.data(), b.data(), sizeof(double) * a.size()) == 0;
 }
@@ -61,7 +61,7 @@ int main() {
   const Eigen::Index depths[] = {37, 700};
   // columns of out: -k 10 with the default oversampling, a ragged count, one
   const Eigen::Index cols[] = {20, 7, 1};
-  int split_cases = 0;
+  [[maybe_unused]] int split_cases = 0;  // not read with EIGEN_USE_BLAS
   for (const Eigen::Index n : rows)
     for (const Eigen::Index b : depths)
       for (const Eigen::Index l : cols) {
@@ -98,7 +98,11 @@ int main() {
           CHECK((add - want_add).cwiseAbs().maxCoeff() <= tol, "add n=%ld b=%ld l=%ld t=%d err=%g", (long)n, (long)b,
                 (long)l, t, (add - want_add).cwiseAbs().maxCoeff());
           // with two panels or more, the bytes of one thread (Eigen's own GEMM
-          // blocks the depth differently once it threads, so not below that)
+          // blocks the depth differently once it threads, so not below that).
+          // With EIGEN_USE_BLAS there is one panel and the BLAS threads the
+          // product itself (Accelerate's GEMV differs between thread counts),
+          // so only the tolerance above is checked.
+#ifndef EIGEN_USE_BLAS
           if (t == 1) {
             first_set = set;
             first_add = add;
@@ -108,6 +112,7 @@ int main() {
             CHECK(same_bytes(add, first_add), "add n=%ld b=%ld l=%ld: %d threads differ from 1", (long)n, (long)b,
                   (long)l, t);
           }
+#endif
         }
       }
   // inside an OpenMP region, one panel: the caller's threads are taken
