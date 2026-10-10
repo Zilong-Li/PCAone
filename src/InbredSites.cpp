@@ -14,7 +14,7 @@
 
 // Shared floor for genotype probabilities, applied identically to the null
 // and the alternative model, solely to keep log() finite.  See
-// docs/dev/hwe-lrt-fix.md for why a one-sided floor was a bug.
+// dev/hwe-lrt-fix.md for why a one-sided floor was a bug.
 static constexpr double PROB_EPS = 1e-12;
 
 // The target is paired with the reference site by site, so its variants must be
@@ -133,7 +133,7 @@ void calc_inbreed_site_lrt(
       // lies in the range where all three are non-negative they sum to one
       // exactly, so renormalising was a no-op; when the old 1e-4 floor fired it
       // rescaled the ALTERNATIVE while the NULL below was left raw, putting the
-      // two models on different scales. See docs/dev/hwe-lrt-fix.md.
+      // two models on different scales. See dev/hwe-lrt-fix.md.
       //
       // F is only bounded to [-1, 1], so it can leave that range: measured at
       // 2.5% of sites on example/plink.chr1 (400 samples, K=3). There a

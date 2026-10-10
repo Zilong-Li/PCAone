@@ -12,7 +12,7 @@ of large datasets, with in-core and out-of-core algorithms.
 - **PCA:** window-based randomized SVD (default), single-pass randomized SVD, IRAM, and exact sample-GRM eigendecomposition.
 - **Genetics:** EMU/PCAngsd, projection, selection scans, HWE tests, per-sample inbreeding coefficients, ancestry-adjusted LD pruning and clumping, and evalAdmix residual correlations.
 
-[Documentation](https://zilongli.org/PCAone/) · [Changelog and migration notes](docs/changelog.md) · [R package](https://github.com/Zilong-Li/PCAoneR)
+[Documentation](https://zilongli.org/PCAone/) · [Change log and migration notes](docs/changelog.md) · [R package](https://github.com/Zilong-Li/PCAoneR)
 
 ![Figure 1](docs/assets/images/fig1.png)
 
@@ -94,15 +94,22 @@ use every reference PC unless `-k` selects the leading PCs.
 The full documentation is at **[zilongli.org/PCAone](https://zilongli.org/PCAone/)**; its
 Markdown sources are in [`docs/`](https://github.com/Zilong-Li/PCAone/tree/main/docs).
 
-- [Installation](docs/installation.md): binaries, Bioconda, and builds with MKL or OpenBLAS.
-- User guide: [options](docs/guide/options.md), [PCA methods and memory](docs/guide/pca.md),
-  [input and output](docs/guide/input-output.md), [projection](docs/guide/projection.md),
-  [selection scans](docs/guide/selection.md), [HWE and inbreeding](docs/guide/hwe.md),
-  [evalAdmix](docs/guide/evaladmix.md), [ancestry-adjusted LD](docs/guide/ld.md), and
-  [plotting](docs/guide/plotting.md) SNP loadings and LD decay.
-- Methods: [ancestry-adjusted LD](docs/methods/ld-ancestry-adjusted.md), [evalAdmix](docs/methods/evaladmix.md),
-  and [reproducing the benchmark](docs/methods/reproducing-the-benchmark.md).
-- [Changelog](docs/changelog.md): release history, result changes, and legacy command migration.
+- [Install](docs/installation.md): binaries, Bioconda, and builds with MKL or OpenBLAS.
+- User guide: [options](docs/guide/options.md), [input and output](docs/guide/input-output.md),
+  [choosing a PCA method](docs/guide/pca.md), and [plotting](docs/guide/plotting.md)
+  SNP loadings and LD decay.
+- [Small-N](docs/small-n/index.md), up to a few thousand samples: [exact PCA and EM-PCA](docs/small-n/pca.md),
+  [projection](docs/small-n/projection.md), [selection scans](docs/small-n/selection.md),
+  [HWE and inbreeding](docs/small-n/hwe.md), [relatedness](docs/small-n/relatedness.md), and
+  [ancestry-adjusted LD](docs/small-n/ld.md).
+- [Biobank analysis](docs/biobank/index.md), tens of thousands of samples or more:
+  [out-of-core PCA](docs/biobank/pca.md), [projection](docs/biobank/projection.md),
+  [LD pruning and clumping](docs/biobank/ld.md), [relatedness](docs/biobank/relatedness.md), and
+  [plotting large cohorts](docs/biobank/plotting.md).
+- [Change log](docs/changelog.md): release history, result changes, and legacy command migration.
+
+Each analysis guide ends with the method details: the model, how PCAone
+computes it, and how it was checked.
 
 Run `PCAone --help` for all options, or generate a man page:
 

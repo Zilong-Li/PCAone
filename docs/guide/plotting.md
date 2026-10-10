@@ -3,48 +3,16 @@
 Scripts for plotting PCAone output. They are in `scripts/` and need R >= 4.0
 and the `data.table` package.
 
-- [SNP loadings](#snp-loadings): `scripts/plot-loadings.R`
-- [Sample PCA density](#sample-pca-density): `scripts/plot-pca.R`
 - [Compare PCA runs](#compare-pca-runs): `scripts/compare-pca.R`
-- [Per-site HWE](hwe.md#plot-per-site-results): `scripts/plot-hwe.R`
-- [Per-sample inbreeding](hwe.md#plot-per-sample-results): `scripts/plot-inbred.R`
+- [SNP loadings](#snp-loadings): `scripts/plot-loadings.R`
 - [LD decay](#ld-decay): `scripts/plot-ld-decay.R`, `scripts/summarise_ld_r2bin.cpp`
   and the Nextflow workflow `workflows/ld.nf`
 
-## Sample PCA density
+Plots that belong to one analysis are described with it:
 
-`scripts/plot-pca.R` plots large cohorts, including 500,000 samples, as a
-2D density raster. Every sample contributes to a bin; no subsampling is used.
-Colours show log-scaled sample counts, with empty bins white. This shows
-population density rather than individual points or population labels.
-
-```bash
-Rscript -e 'install.packages("data.table")'
-Rscript scripts/plot-pca.R pcaone.eigvecs2 -o pca.png
-Rscript scripts/plot-pca.R pcaone.eigvecs --pcs 3,4 -o pca.pdf
-```
-
-The script reads only the two selected PCs. It recognises headers containing
-`PC1`, `PC2`, etc., and PCAone's `.eigvecs2` format with FID/IID columns.
-For other headerless files with two ID columns, specify `--format ids`;
-for numeric matrices, use `--format matrix`. Non-finite coordinates are
-excluded with a warning.
-
-`--bins 700` controls the raster resolution per axis (default 700; maximum
-2000). PNG and PDF are supported; PDF embeds the density raster while keeping
-axes and text as vectors. `--title "My cohort"` sets the title.
-The raster preserves the full coordinate range, so extreme outliers can
-compress the central cloud. Bin counts depend on the chosen resolution.
-
-From R, source the script and call it on an open graphics device:
-
-```r
-source("scripts/plot-pca.R")
-png("pca.png", width = 1800, height = 1500, res = 200)
-result <- plot_pca("pcaone.eigvecs2", pcs = c(1, 2), bins = 700)
-dev.off()
-sum(result$counts)  # number of plotted samples
-```
+- [Sample PCA density](../biobank/plotting.md#sample-pca-density) for large cohorts: `scripts/plot-pca.R`
+- [Per-site HWE](../small-n/hwe.md#plot-per-site-results): `scripts/plot-hwe.R`
+- [Per-sample inbreeding](../small-n/hwe.md#plot-per-sample-results): `scripts/plot-inbred.R`
 
 ## Compare PCA runs
 

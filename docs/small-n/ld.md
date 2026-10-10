@@ -1,19 +1,102 @@
-# Ancestry-adjusted LD without a residual matrix
+# Ancestry-adjusted LD
 
-Since v0.8.0 the LD analyses (`-R/--print-r2`, `--ld-r2`, `--clump`) read the
-genotypes and remove the PCs of a previous run as they are read:
+In a structured or admixed sample, variants that differ in frequency between
+populations are correlated even when they are far apart, so the standard LD
+statistic, e.g. `plink --r2`, mixes LD with population structure. Pruning and
+clumping on it then remove too many variants. The ancestry-adjusted LD removes
+the structure first. See our
+[paper](https://doi.org/10.1093/genetics/iyaf009) for more details.
 
-```bash
-PCAone -b plink -k 3 -o pcs                                  # the PCs
-PCAone -b plink -P pcs --ld-r2 0.8 --ld-bp 1000000 -o adj    # LD on the residuals
+The ancestry-adjusted LD is the correlation between the residuals of the
+genotypes after removing the top principal components, which capture the
+population structure. We first figure out the number of PCs (`-k/--pc`) that
+capture population structure and run the PCA. In this example, assuming that 3
+PCs can account for population structure:
+
+```shell
+./PCAone -b example/plink -k 3 -o adj
 ```
 
-This replaces the old two-step route, where `-D/--ld` wrote a `.residuals`
-matrix `G - U S V'` and `-B/--binary` read it back. This note explains why the
-residuals `(I - Q Q') G` are the same thing, where the two differ, and how the
-new path is computed.
+Then pass its prefix to `-P/--USV` in any of the LD analyses below. PCAone
+reads the genotypes again, removes the PCs in `adj.eigvecs` from them as they
+are read, and computes the LD from the residuals, so no residual matrix is
+written to disk. The PCs must come from the same samples in the same order, but
+the variants need not be the ones the PCA used (e.g. a different `--maf`). This
+works in-core and out-of-core (`-m`), for PLINK (`-b`) and PGEN (`-p`) input.
+By default every PC in `.eigvecs` is removed; `-k/--pc` removes only the
+leading ones, so one reference PCA run with e.g. `-k 10` serves any smaller
+number of PCs (`-P adj -k 3`). Use `--ld-stats 1` without `-P` for the standard
+LD instead. BGEN, BEAGLE and CSV input do not support LD.
 
-## The residuals are a projection
+## Report LD statistics
+
+`-R/--print-r2` writes the R2 of every pair of SNPs within `--ld-bp` to
+`.ld.gz`, in the long format of
+[`plink --r2`](https://www.cog-genomics.org/plink/1.9/ld#r).
+
+```shell
+./PCAone -b example/plink \
+         -P adj \
+         --ld-bp 1000000 \
+         --print-r2 \
+         -o adj
+```
+
+To plot LD decay curves from the `.ld.gz` files, e.g. standard (`--ld-stats 1`)
+against ancestry-adjusted LD, use [plot-ld-decay.R](https://github.com/Zilong-Li/PCAone/blob/main/scripts/plot-ld-decay.R):
+
+```shell
+Rscript scripts/plot-ld-decay.R adj.ld.gz std.ld.gz --labels Adjusted,Standard -n example/plink.fam
+```
+
+The nextflow workflow [ld.nf](https://github.com/Zilong-Li/PCAone/blob/main/workflows/ld.nf) runs the whole comparison. See
+[the plotting guide](../guide/plotting.md#ld-decay) for both.
+
+## Pruning
+
+`--ld-r2` prunes the variants as PLINK's `--indep-pairwise` does, but on the
+ancestry-adjusted LD: of each pair of variants within `--ld-bp` whose R2 is
+above the cutoff, the one with the lower MAF is removed. The kept and removed
+variants are written to `.ld.prune.in` and `.ld.prune.out`, for `--extract`.
+
+```shell
+./PCAone -b example/plink \
+         -P adj \
+         --ld-r2 0.8 \
+         --ld-bp 1000000 \
+         -o adj
+```
+
+## Clumping
+
+`--clump` groups the variants of association results around their most
+significant ones, as `plink --clump` does, on the ancestry-adjusted LD. It
+reads one or more comma-separated association files; `--clump-names` gives
+the columns of the chromosome, position and p-value (default `CHR,BP,P`).
+Index variants have p below `--clump-p1`, and the variants within
+`--clump-bp` of one, with p below `--clump-p2` and R2 above `--clump-r2`, join
+its clump. The clumps of the i-th file (from 0) are written to
+`<out>.p<i>.clump`: its columns, plus `SP2` with the variants in each clump.
+
+```shell
+./PCAone -b example/plink \
+         -P adj \
+         --clump example/plink.pheno0.assoc,example/plink.pheno1.assoc  \
+         --clump-p1 0.01 \
+         --clump-p2 0.05 \
+         --clump-r2 0.1 \
+         --clump-bp 10000000 \
+         -o adj
+```
+
+## Method details
+
+Before v0.8.0, `-D/--ld` wrote a `.residuals` matrix `G - U S V'` and
+`-B/--binary` read it back. PCAone now computes the residuals `(I - Q Q') G`
+as the genotypes are read, from the `.eigvecs` alone. This section explains why
+the two are the same thing, where they differ, and how the LD is computed.
+
+### The residuals are a projection
 
 `G` is the N x M matrix of centred genotypes, one column per site. Missing calls
 are imputed to the site mean, i.e. 0. `U` (N x k) holds the top k PCs, with
@@ -29,7 +112,7 @@ r = g - U b = (I - U U') g
 Over all sites, `R = (I - U U') G`. This is what "ancestry adjusted" means: what
 is left of each site once the PCs are regressed out.
 
-## Why it equals `G - U S V'`
+### Why it equals `G - U S V'`
 
 Write the full SVD of `G` as the top k components plus the rest:
 
@@ -53,7 +136,7 @@ Row by row, row `j` of `V` is `S^-1 U' g_j`. `V` never adds information:
 it can always be recomputed from `U` and the genotypes. That is why the new path
 needs only the `.eigvecs`, and neither `.sigvals`, `.loadings` nor `.mbim`.
 
-## Where the two can differ
+### Where the two can differ
 
 - **The SVD method.** The identity needs `S V' = U' G` exactly. It holds for an
   exact truncated SVD, and for any method whose final `V` is the projection of
@@ -84,7 +167,7 @@ needs only the `.eigvecs`, and neither `.sigvals`, `.loadings` nor `.mbim`.
   genotypes. The new path uses mean imputation, as every other LD path does,
   including the old out-of-core one.
 
-## How it is computed
+### How it is computed
 
 `LDColumns` (`src/LD.cpp`) holds the residuals of the sites in memory: the whole
 matrix in-core, or with `-m` the two consecutive blocks the current windows
@@ -110,7 +193,7 @@ column while it is in cache.
 In-core and `-m` go through the same code. A window must fit in two blocks of
 `-m`; otherwise PCAone asks for a larger `-m` or a smaller `--ld-bp`.
 
-## Checks
+### Checks
 
 - **Old vs new, the same PCs.** Both paths used the IRAM `.eigvecs` of
   `example/plink.chr1` (400 x 50,736).

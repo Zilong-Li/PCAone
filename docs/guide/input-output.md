@@ -24,13 +24,14 @@ Commands using `./PCAone` assume a local binary; use `PCAone` if it is on your P
 
 ### PLINK
 
-Run exact PCA with `--svd 3` and plot the sample coordinates in R.
+Run PCA on a PLINK `.bed/.bim/.fam` prefix and plot the sample coordinates in R.
 
 ```shell
-./PCAone --bfile example/plink -d 3
+./PCAone --bfile example/plink -k 10
 ```
 
-Then, we can make a PCA plot in R.
+The `.eigvecs2` file has the FID and IID of each sample in its first two
+columns, so the populations of the example data can colour the plot.
 
 ```r
 pcs <- read.table("pcaone.eigvecs2",h=F)

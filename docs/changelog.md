@@ -1,4 +1,4 @@
-# Changelog
+# Change log
 
 ## Legacy command migration
 
@@ -40,340 +40,91 @@ so that sum no longer covers all the variance.
 
 ### v0.8.0
 
-- BGEN input is read by many threads at once. The variants are indexed by one pass over their
-  headers when the file is opened (0.4 s for 2.7 GB), and then each thread reads (`pread`),
-  inflates and decodes variants of its own, in-core and with `-m`; the bgen library read them
-  one after another through one stream. The out-of-core winSVD reads its shuffled variants from
-  the input (`--seed`), as PGEN does, instead of writing a shuffled copy of the file first, so it
-  needs no extra disk space. The next block is requested in the background unless
-  `--no-prefetch`. With 20 threads, on simulated data: N = 10,000 x M = 200,000 in-core reads in
-  2.4 s instead of 37 s; with `-m 2`, 59 s instead of 502 s; N = 20,000 x M = 500,000 with
-  `-m 4`, 344 s instead of 2,278 s. The output is the same to the printed precision, except
-  where a site's MAF is exactly the `--maf` cutoff: the dosages are now computed by dividing by
-  the largest probability value (the bgen library multiplies by its inverse), so that certain
-  genotypes are exactly 0, 1 and 2 at any bit depth.
-- Out-of-core winSVD reads the shuffled SNPs of a BED from the input, as for PGEN and BGEN, instead
-  of writing a shuffled copy (`<out>.perm.*`) first. The order is the copy's (random `-w` bands,
-  source order within each), so every output is byte-identical, and no disk space or rewrite is
-  needed. A block's records are requested from the kernel and read in file order, consecutive ones
-  together. `--bed-copy` writes the copy as before. On a spinning disk each SNP not in the page
-  cache costs a seek, so PCAone warns there (Linux) and the copy is faster for a BED larger than the
-  memory: 20,000 x 1.39M SNPs (7 GB) with a 4 GB memory cap took 224 s with `--bed-copy` and 1,840 s
-  without. From an SSD it took 209 s and 215 s, from the page cache 168 s and 160 s; with 134,400
-  samples (34 KB records) 136 s and 170 s on the spinning disk, 126 s and 116 s on the SSD. Tiny
-  records cost a system call each: `example/plink` (400 samples) takes 5.7 s instead of 2.4 s.
-  Shuffling runs of neighbouring SNPs instead would keep the reads large, but winSVD then converged
-  more slowly (9 to 21 epochs instead of 7, and PCs further from the exact ones), so it was not
-  kept.
-- **results change**: phased BGEN. The bgen library read the two haplotype probabilities of a
-  sample as those of the homozygote and the heterozygote, so a dosage could reach 3, and the PCs
-  of a phased file were wrong. The dosage is now the sum over the haplotypes; a phased file gives
-  the PCs of the same genotypes unphased. Ploidy other than 2 is handled the same way.
-- BGEN no longer warns that its support is limited. `tests/test_bgen_formats.py`
-  (`make test_bgen_formats`) checks that layouts 1 and 2, every compression, 8 to 16 bits and
-  phased files give the same output for the same genotypes.
-- The `.loadings` and `.mbim` are now written by default, so the prefix of a plain PCA run can
-  be passed straight to `-P/--USV` for `--project` and `--inbreed`. `--no-loadings` turns them
-  off; with `--svd 3` it also skips the second pass over the data that forms the loadings.
-  `-V/--printv` is removed: passing it stops PCAone with a message to drop it, or to use
-  `--no-loadings`. The output of a default run is byte-identical to a run with `-V` before. CSV
-  input, which has no variant metadata, no longer warns that no `.mbim` was written.
-- `--em-k <n>` sets the number of PCs that model the individual allele frequencies in the EM-PCA
-  of `--emu` and `--pcangsd` (and BEAGLE input), separately from the `-k` PCs written, as EMU's
-  `--eig` and `--eig-out` do: e.g. `--emu --em-k 2 -k 10` fits the model with 2 PCs and writes
-  10. The EM runs with `--em-k` PCs (and oversamples by at least that many). One final
-  decomposition computes the `-k` PCs of the matrix rebuilt from the `--em-k` fit: standardized
-  for EMU, the expected genotypes for PCAngsd. For BEAGLE input the `.cov` is that of the
-  `--em-k` model, so it does not depend on `-k`, and `.eigvecs2` holds its top `-k`
-  eigenvectors. It works with every solver (`--svd 0`, `1`, `2`), in-core and with `-m`. Without
-  `--em-k`, or with it equal to `-k`, every output is byte-identical to before. Checked against
-  an exact EMU and PCAngsd in numpy (a full SVD in each iteration) at a matched `--tol-em`, for
-  `--em-k` below and above `-k`: IRAM agrees to 0.05 degrees, the RSVDs to 0.45 degrees, and
-  the `.cov` to 1e-5.
-- `--inbreed 2` estimates the inbreeding coefficient of each sample, accounting for population
-  structure with the individual allele frequencies of `-P/--USV`, and writes `.inbred` (FID, IID,
-  sites used, observed and expected heterozygotes, F). The estimator is PCAngsd's
-  `--inbreed-samples`: closed form, in one pass, for `--bfile`/`--pgen` calls, and EM with SQUAREM
-  for `--beagle` likelihoods. Missing calls and flat likelihoods are skipped rather than
-  imputed with their prior, which leaves the fixed point unchanged but removes the iterations.
-  On `example/plink.chr1` the output agrees with PCAngsd's code, given the same allele
-  frequencies, to 4e-9. For likelihoods the 1e-4 prior floor is replaced by 1e-12, as for
-  `--inbreed 1`; that moves F by up to 0.017 on `example/beagle.gz`. The result is identical
-  in-core, with `-m` and for any `-n`, and a PGEN of the same genotypes gives the BED's bytes.
-- `--inbreed` refuses `--maf` (the sites are the reference's, and no reader filtered them, so it
-  was ignored) and `--haploid`.
-- out-of-core `--inbreed` with `--beagle` leaked a file handle per pass over the data.
-- `--evaladmix` now follows the two-stage analysis workflow: compute PCA first, then pass
-  `-P/--USV` (or `--read-U`) with scores for the same samples in the same order. It no longer
-  runs PCA. `-k/--pc` selects the leading reference columns, as in the other two-stage analyses.
-- `--evaladmix-kin <cutoff>` runs `--evaladmix` at biobank scale. It computes the statistic in
-  stripes of samples that fit in `-m`, each one more pass over the genotypes. It writes only
-  the pairs with kinship >= the cutoff, to `.kin0` (`FID1 IID1 FID2 IID2 NSNP KINSHIP`), and a
-  maximal unrelated set to `.unrelated`, built with the greedy rule of Hail's
-  `maximal_independent_set`. `--evaladmix-unrelated` gives the set its own cutoff. With missing
-  genotypes, the sites a pair misses together are counted from the lists of missing calls, not
-  from a second N x N product. The kinship equals the dense `.kinship` to the printed digit. At
-  N = 20,000 it runs in 1 GB, where the dense output needs 6 GB of RAM and two 3.6 GB files.
-  The log estimates the time left after each stripe and warns when unrelated pairs scatter
-  more than chance (PCs that leave structure) or when the cutoff is within the noise.
-- `--evaladmix-ibd` adds the probabilities of sharing 0, 1 and 2 alleles IBD, which tell
-  parent–offspring (`k0` = 0) from full sibs (`k0` = 1/4). `k2` is the evalAdmix statistic of
-  PC-Relate's dominance residuals, computed with the same projection, `cov2cor`, `chat` and
-  missing-call rescaling as the kinship; `k0 = 1 - 4 phi + k2` and `k1 = 4 phi - 2 k2`. The dense
-  run writes `.k0` and `.k2`; with `--evaladmix-kin`, `.kin0` gains `K0 K1 K2` columns and the log
-  splits the first-degree pairs by `k0`. On the relateAdmix pedigree, parent–offspring have
-  `k0` <= 0.009 and full sibs >= 0.240. It costs one more Gram product; without the option the
-  output is byte-identical.
-- `--evaladmix` compares the sample IDs of `<prefix>.eigvecs2` with the `.fam`/`.psam` and stops
-  on a mismatch: the reference had to be of the same samples in the same order, but only the
-  number of rows was checked. Without `.eigvecs2` it warns.
-- the dense `--evaladmix` and the exact PCA (`--svd 3`) no longer build a second N x N matrix
-  each time a block is added to the Gram matrix. `syrk_lower_add()` built the fill value of an
-  empty vector of copies. For `--evaladmix` at N = 8,000, peak memory drops from 1.86 to 1.45 GB
-  and run time from 15.3 to 12.4 s. The output is byte-identical.
-- **results change**: out-of-core BED winSVD shuffles the SNPs at random with `--seed`, in place
-  of a fixed interleave. SNPs go to random `-w` bands and keep source order within a band; as
-  winSVD updates only between bands, the PCs equal those of a full shuffle. One read and one
-  write of the BED, in large writes, within `--buffer`. The same `--seed` gives the same order
-  on every platform. `-o` can no longer make the permuted files overwrite the input, and a failed
-  permutation removes what it wrote.
-- `--svd 3` streams the N x N GRM instead of holding the genotypes, when N <= M, in-core and with
-  `-m`. Each block of sites is read, standardized as before and added to the lower triangle of the
-  GRM by a multithreaded rank update. The top `-k` eigenpairs come from Lanczos (Spectra, tolerance
-  1e-12) for N > 1000, and from the full eigendecomposition below that. The loadings take a second
-  pass over the data, only with `-V`. Memory is the GRM plus one block (about 64 MB, or as much as
-  `-m` allows), not N x M: 2.1 GB before, 0.11 GB now on `example/plink` (400 x 656,281).
-  Times with 2 threads:
-  - `example/plink`, `-k 10`: 4.2 s before, 2.1 s now. PLINK 2 `--pca` takes 2.9 s and the
-    default `--svd 2` 8.5 s.
-  - 2,000 x 100,000 with `-V`: 16.6 s before, 6.5 s now.
-  - 4,000 x 20,000 with `-V`: 89.7 s before, 6.7 s now.
+**Breaking changes**, with the new commands in [Legacy command migration](#legacy-command-migration)
 
-  The output is unchanged to the printed precision. BGEN with `-V` is slower (11.7 s before,
-  14.0 s now), because its decoding dominates and the loadings read it twice; without `-V` it
-  takes 8.4 s. `--maf`, and N > M, keep the in-core path and ignore `-m` with a warning; with N
-  <= M the in-core path now uses the same rank update and solver. evalAdmix builds its N x N Gram
-  matrix with the same rank update, with half the flops and the same output.
-- **results change**: CSV with the default `--scale` and `-m`. The out-of-core CSV readers took
-  `--scale` as unsigned, so its default of -9 standardized every block, while in-core it applies
-  no transform. Both wrote `scale=0` to `.sigvals`. Both now apply no transform, which the
-  streamed `--svd 3` needs to match in-core.
-- invalid option values now stop with a message naming the option instead of running on
-  silently: e.g. `--maxp 0`, `-k 0`, `-n 0`, `-d 7` (fell back to `-d 2`), `-w 12` (only evenness
-  was checked, not a power of 2), negative `--maf`/`--ld-r2`/`--project`, out-of-range
-  `--inbreed`/`--selection`/`--ld-stats`/`--rand`/`-C`, non-positive tolerances and window sizes,
-  `--clump-p1` above `--clump-p2` (it silently acted as `--clump-p2`), `--clump-names` without
-  three columns, `-k` above the reference PC count in a two-stage analysis, `--emu` with `--pcangsd` or BEAGLE input. A negative
-  value for an unsigned option (`--maxp -1`) was read as 4294967295 and is now refused. Also
-  refused: no input file, more than one input file (the last one silently won), and stray
-  arguments (`-b plink 3`).
-- fix: `--ncv` was always overwritten by max(20, 2k+1); it is now used when given, and must
-  exceed `-k`.
-- fix crashes:
-  - an error anywhere (e.g. a missing input file) aborted with `terminate called ...` and exit code
-    134; it now prints `Error: <message>` and exits with 1.
-  - `--svd 2` in-core with fewer than 64^2 = 4096 sites (or `-w` large for the data), e.g. after
-    `--maf`, died with `std::bad_alloc`: the trailing mini-batches are empty and their size
-    underflowed.
-  - `--clump` with more than one chromosome: out-of-core it segfaulted, and in-core the first row of
-    every chromosome after the first was dropped (**results change**: that row is now clumped, and
-    in-core and `-m` agree). Each chromosome also started one site early. NA p-values aborted with
-    `stod`; those rows are now skipped with a warning.
-  - LD windows: a duplicated position at the end of the last chromosome read out of bounds.
-  - `-p ... -P ... --inbreed 1 -m` segfaulted (an empty permutation), and `--inbreed` on a target
-    with fewer sites than the reference segfaulted; sample and site counts are now checked.
-  - CSV: `--svd 0` in-core segfaulted; `--buffer 4` (or more) died with SIGFPE; a line with more
-    columns than the first (including the second line, never checked), a non-numeric field such as
-    `NA`, `--M`/`--N` smaller than the file, and an empty file all crashed. Each is now an error
-    naming the line. CSV `--svd 0` with `-m` records `scale=0` in `.sigvals`, like the other
-    methods.
-  - in-core EM (`--emu`, `--pcangsd`) with `N x M >= 2^32`: the missingness mask was allocated and
-    indexed with 32-bit products, so it overflowed the heap. The out-of-core memory estimate also
-    wrapped at `M x (k + oversamples) >= 2^31`.
-  - refused up front instead of crashing or silently computing something else: `--pcangsd` with
-    `-p`, `-g` or `-c` (only `-G` and `-b` carry likelihoods or calls); `--emu` with `-c`;
-    `--emu -m` with `-g` (its out-of-core update was a no-op and returned garbage); `--project`
-    with `-g` or `-c` (it ran an EM-PCA instead); `--project 3` without `-G`; `--evaladmix` with
-    input other than `-b`/`-p` (it failed only after the PCA had run); `--inbreed` with `-g`/`-c`.
-  - the per-site "MAF=0" warning was written from inside OpenMP loops, a data race on the log that
-    garbled it; it is now one warning with the count.
-- **results change**: the sign of each PC from `--svd 1` and `--svd 2` (the default). It came from
-  the internals of the QR and of the small SVD; it now follows the rule of `--svd 0` and `--svd 3`,
-  where the entry of largest magnitude in each column of U is positive. The values are otherwise
-  unchanged.
-- **results change**: `--seed`. The in-core winSVD shuffle used a default-seeded engine, so `--seed`
-  never changed it, and the BGEN and CSV `-m` shuffles ignored it too. The PGEN `-m` permutation
-  depended on `-n`, so the same seed gave different PCs with another thread count. And the test
-  matrix and the projection bootstrap drew from `std::normal_distribution` and
-  `std::uniform_int_distribution`, whose output differs between standard libraries (Linux and
-  macOS). A seed now fixes every draw, on every platform and thread count, but gives different
-  draws from before.
-- **results change**: BEAGLE input filters `--maf 0.05` by default, as PCAngsd does; `--maf 0` turns
-  it off. The PCAngsd covariance divides each site by 2f(1-f), so rare sites dominated it, and a
-  site with EM frequency 0 made the whole `.cov` diagonal `inf`. Such a site is now also left out
-  of the diagonal when `--maf 0` is given.
-- fix: the BEAGLE `.eigvecs2` header listed one PC per sample and the values were space-padded. It
-  now has one column per PC, tab-separated like the other `.eigvecs2` files. Its eigenvectors come
-  from a symmetric eigensolver instead of `JacobiSVD` (2.5 s instead of 215 s at N = 1500), with
-  the same sign rule, and the `.cov` diagonal is summed in a fixed order, so repeated runs match.
-- **results change**: `--ld-r2` pruning follows PLINK `--indep-pairwise`: once the lead variant of a
-  pair is removed, it removes no more partners. It used to go on removing them, so it pruned more
-  than PLINK.
-- **results change**: `--clump` no longer depends on the row order of the association file. Each
-  chromosome is walked by position, and tied p-values are taken by position; they were taken in an
-  arbitrary order, and an unsorted file could make a variant both an index SNP and a member of
-  another clump.
-- **results change**: `--selection` with `--maf` writes one row per input site, NA for the removed
-  ones. The outputs have no IDs and are read by position against the `.bim`/`.pvar`, so every row
-  after the first removed site belonged to a later site.
-- **results change**: CSV `--scale 0` with `-m` (and the default shuffling) centred every column,
-  which made it a different PCA from the in-core one. Both are now uncentred.
-- **results change**: `--project 2` writes NA for a sample with fewer called sites than PCs, with a
-  warning. Such a sample was projected to 0 on every PC, which looks like a real score.
-- **results change**: `--inbreed 1` on a PGEN with dosages. The test compares each genotype with the
-  three genotype codes, so a fractional dosage counted as missing, and F came out close to 1 at
-  every site. It now uses the hard calls, and warns that the reference PCA should use `--hardcall`
-  too. `--inbreed` also checks that the target's variants are the reference `.mbim`'s, in order and
-  with the same alleles; only their number was compared.
-- **results change**: in-core `--svd 0 --emu`. The last decomposition used a matrix whose missing
-  entries still held the imputation of the previous iteration. They are now refitted from the
-  final U, S and V first, as `--svd 1` and `--svd 2` do.
-- `-k` must be smaller than both the number of samples and of sites. Beyond that, PCs were
-  arbitrary vectors from the null space, different on every run. `--oversamples` and `--ncv` are
-  reduced to the size of the problem, with a warning.
-- EM-PCA (`--emu`, `--pcangsd`) warns when it reaches `--maxiter` without converging, and the
-  RSVD warns when it reaches `--maxp`. Both used to stop without a word.
-- faster. One Householder QR per power iteration instead of two (the second, of an already
-  orthonormal Q, changed only signs). Q is formed once, at the end. The products X'Y are formed in
-  column panels: Eigen's multithreaded GEMM packed close to a second copy of X for them. EM
-  updates start the RSVD from the previous PCs, and a warm-started winSVD uses the full band from
-  its first epoch. The reconstructions U S V' in the EM, PCAngsd and `--project 3` steps are panel
-  matrix products instead of scalar loops. PGEN in-core decodes each variant once instead of
-  twice when no `--maf` is given. The out-of-core `--svd 0 --emu` no longer makes a redundant pass
-  over the data. With 2 threads, on `example/plink` (400 x 656,281, `-k 10`), the times are:
-  - `--svd 2` (the default): 22.4 s before, 11.3 s now.
-  - `--svd 1`: 84.5 s before, 21.5 s now. Peak memory fell from 3.74 GB to 2.29 GB.
-  - `--svd 0`: 37.7 s before, 30.2 s now.
-  - `--svd 3`: 6.6 s before, 4.6 s now.
+- `-D/--ld`, `-B/--binary` and the `.residuals` file are removed. LD (`-R`, `--ld-r2`, `--clump`)
+  reads the PLINK or PGEN genotypes and removes the PCs of a previous run given with `-P/--USV`.
+  BGEN, BEAGLE and CSV input no longer support LD.
+- `-V/--printv` is removed: the `.loadings` and `.mbim` are written by default. Use
+  `--no-loadings` to skip them.
+- `--evaladmix` no longer runs a PCA; pass the PCs of a previous run with `-P/--USV`.
+- Invalid option values and unsupported combinations stop with an error naming the option,
+  instead of running on or crashing: e.g. `-k 0`, `-d 7`, more than one input file, `--clump-p1`
+  above `--clump-p2`, EM-PCA with `--svd 3`, `--inbreed` with `--maf`, or `-k` not below the
+  number of samples and sites. Errors print `Error: <message>` and exit with status 1.
 
-  Other cases:
-  - `-m` on 2,000 x 100,000: 11.1 s before, 5.0 s now.
-  - `--emu` on 1,000 x 50,000 with 21% missing: 3.1-3.7x faster.
-  - `--pcangsd` on `example/plink.chr1`: 4.8 s before, 1.5 s now.
-  - BEAGLE `-G`, 1,500 x 4,000: 211 s before, 7.0 s now.
-- fix: reading the BEAGLE sample names leaked 128 MB, and a file that failed to open was not
-  reported.
-- **breaking**: removed `-D/--ld`, `-B/--binary` and the `.residuals` file. `-R`, `--ld-r2` and
-  `--clump` now read the PLINK/PGEN genotypes directly and remove the PCs of a previous run, given
-  by `-P/--USV`, as the genotypes are read:
-  `PCAone -b plink -k 3 -o pcs` then `PCAone -b plink -P pcs --ld-r2 0.8 -o adj`. A `.residuals`
-  took 4 bytes per genotype, 16 times the `.bed`, and is no longer written at all. In-core and
-  out-of-core (`-m`) work for both formats and give identical output, `--maf` applies in-core, and
-  no `.mbim` is needed. `--ld-stats 0` (default) requires `-P`; `--ld-stats 1` is the standard LD
-  and takes no PCs. BGEN, BEAGLE and CSV input no longer support LD. Old command lines stop with a
-  message showing the new ones.
-- **results change**: `-k/--pc` in the two-stage analyses, which read a reference PCA with
-  `-P/--USV`: LD (`-R`, `--ld-r2`, `--clump`), `--evaladmix`, `--project`, `--selection` and
-  `--inbreed`. Each uses the leading `-k` PCs of the reference, so one PCA run with `-k 10` serves
-  any smaller number (`-P ref -k 3`), and every PC in the reference without `-k`. A `-k` above the
-  number of PCs in the reference is refused. Before, LD and `--evaladmix` ignored `-k`, while
-  `--project`, `--selection` and `--inbreed` used min(`-k`, reference PCs), so without `-k` they
-  used at most 10 PCs of a larger reference and silently clamped a `-k` above its count.
-- fix: `--selection 1` with `-k` below the reference's PC count read its singular values from
-  freed memory, so every Galinsky statistic was garbage (NA or 1e307), and `--project` with such a
-  `-k` multiplied the loadings by all singular values instead of the first `-k`, which corrupted
-  the heap (`double free or corruption`).
-- **results change**: the ancestry adjusted LD, when the PCs come from a default PCA. `-D/--ld` ran
-  its PCA without standardizing the sites; a default PCA standardizes them, which gives different
-  PCs. `--scale 0` in the PCA reproduces the old PCs exactly, and then R2 agrees with the old
-  `.residuals` path to the printed precision (1e-6) and pruning and clumping are identical.
-- **results change**: `-b/-p -P --clump` in-core clumped on the standard LD: the PCs were removed
-  for `-R` and `--ld-r2` only. And `-b/-p -P` LD took the allele frequencies from `<prefix>.mbim`,
-  assuming it listed every variant of the genotype file in order; a prefix from a PCA with `--maf`
-  misaligned them silently (R2 off by up to 1 on `example/plink.chr1`). They are now estimated
-  from the genotypes.
-- faster LD. The correlations of a batch of windows come from one matrix product instead of one
-  dot product per pair, and the out-of-core path no longer copies both columns and recomputes both
-  variances for every pair. On 2,000-20,000 samples (N x M = 1e8, 1 Mb windows) pruning is
-  1.4-3.4x faster in-core and 5-14x faster with `-m`, and `-R` is 2.5-10x faster in-core and up
-  to 38x with `-m`; `-m` now runs as fast as in-core. The output is unchanged. `-R` formats and
-  compresses on all threads: the `.ld.gz` is a series of gzip members, which zcat, gzip, R and
-  Python read as one file.
-- fix: out-of-core clumping indexed past the block in memory when the target variants skipped a
-  whole block, and a chromosome in the association file that the genotypes lack was read out of
-  bounds.
-- fix: `-c -m` with shuffling left the temporary `<out>.perm.bin` behind.
-- **results change**: `-P/--USV` with `-R`, `--ld-r2` or `--clump` and `-k > 1`. `read_usv()` mapped a
-  row-major buffer as column-major, scrambling the PC matrix, so the ancestry-adjusted residuals
-  were taken against the wrong subspace. Only `-k 1` was correct before.
-- **results change**: `-P --inbreed 1`. The individual allele frequencies were reconstructed on the
-  wrong scale, and the HWE likelihood ratio put the null and the alternative on different scales,
-  which made the statistic negative at many markers and removed far too many of them.
-- **results change**: `--project 3`. The EM regressed `E[g]/2 - f` (0..1 scale) on the reference
-  loadings but mapped the reconstruction back to allele frequencies with PCAngsd's dosage-scale
-  factor of 1/2, shrinking every individual allele frequency halfway to `f`. It also ignored the
-  reference's scaling, so a standardised (default) reference or a pcangsd (0..2) reference put the
-  projected samples on a different scale from the reference samples. The target is now put on the
-  scale recorded in `.sigvals` and the reconstruction is inverted with the same per-site factor;
-  equivalent 0..1 and 0..2 references give identical coordinates.
-- **results change**: `--project 3` matched BEAGLE alleles to the `.mbim` the wrong way round. BEAGLE
-  likelihoods count `allele2` and the `.mbim` counts `A1`, but `allele1` was compared to `A1`, so
-  aligned sites were flipped and swapped ones were not: against a PLINK or PGEN reference, either
-  allele order gave mirrored, offset coordinates. `allele2` is now matched to `A1`, and either
-  order works.
-- **results change**: `--project-bootstrap`. Each replicate PC was sign-flipped to point the same way
-  as the baseline, but the reference design is fixed, so a replicate is an ordinary least-squares
-  fit with no arbitrary sign. The flip folded replicates onto the baseline's side, which biased the
-  bootstrap mean away from zero and shrank the SE, min/max range and PC-pair covariance, most for
-  PCs on which the projected samples sit near zero. The replicates are no longer flipped.
-- `.sigvals` now records how the reference PCA scaled its matrix, as `scale`, `ploidy` and `gscale`
-  fields on the header line, so `-P` inverts exactly that rather than assuming the defaults. The
-  defaults are wrong when the reference run passed `-D/--ld`, and when it was a genotype-likelihood
-  (pcangsd) run, which decomposes dosages rather than PCAone's 0..1 coding. An older PCAone reads a
-  new `.sigvals` correctly and ignores the fields; this version warns and assumes the old behaviour
-  when they are absent, and refuses the combinations it cannot invert.
-- new: `--evaladmix` computes the correlation of residuals (evalAdmix) from the top PCs, writing
-  `.corres` and `.kinship`, with sample IDs on the header line (from the `.fam` or `.psam`).
-  `-k/--pc` selects how many PCs enter the projection; use `K-1` for a `K`-population
-  admixture model. PLINK and PGEN input, in-core and out-of-core. It makes one pass over the
-  genotypes, holds one dense N x N matrix and writes two N x N files, so it prints the RAM and
-  output size it will need before reading them. Missing genotypes are imputed to the site mean, and
-  each pair is rescaled by the sites both samples are genotyped at, since imputed calls carry no
-  relatedness; without it the kinship of every pair shrank by the fraction missing (by 20% at 20%
-  missing calls, the RMSE on related pairs 21 times that on complete data). The counts are a second
-  N x N matrix and double the cost of the pass, only when genotypes are missing. Refused with
-  `--haploid`, whose genotypes carry no heterozygosity for its null model, and with
-  `--project`/`--selection`/`--inbreed`/`--ld-r2`/`--print-r2`/`--clump`, which run no PCA.
-- fix: LD `R2` came out `-nan` for monomorphic variants, and for variants with no variance left after
-  the ancestry adjustment, spreading to every pair involving them. Reported as 0 now, with a
-  warning naming the count.
-- fix: a missing `.mbim` under `-P` segfaulted with no message.
-- `--inbreed` now reports how many markers have a negative likelihood ratio instead of silently
-  reporting them as 0. Such markers are never significant, but the count is worth seeing.
-- build: the Makefile tracks header dependencies, so editing a `.hpp` rebuilds the `.cpp` files that
-  include it instead of silently linking stale objects.
-- Out-of-core reads overlap the computation. While a block is used, the next is read in the
-  background: BED into a second buffer of packed records (1/32 of the decoded block, given back
-  while unused), the binary copy of CSV, BGEN and PGEN into the page cache, which takes none of
-  the memory `-m` budgets. A BED in the page cache, whose reads take under 5% of the
-  computation, is read on the spot instead. The bytes are the same, so the output is
-  byte-identical; `--no-prefetch` reads in the foreground. BED 10,000 x 200,000, `-S -n 2`, on
-  an emulated 200 / 100 MB/s disk: 53.8 / 67.6 s, from 89.6 / 122.6 s with `--no-prefetch`.
-- The RSVD threads `H += X * G` over all of `-n`. Eigen split it over the columns of the
-  result only, at most (k + oversamples) / 4 threads (5 for `-k 10`), each reading the whole
-  block; each thread now takes a panel of rows. With 192 samples or more (two panels), the PCs
-  are those of one thread whatever `-n` is.
-  Against the GEMM the `.eigvals` and `.eigvecs` came out byte-identical in our tests and the
-  `.loadings` differ in the last printed digit. Builds with MKL, OpenBLAS or Accelerate keep the
-  BLAS product. BED 10,000 x 200,000, `-n 2`, BED in the page cache: 77 s to 52-54 s.
-- Out-of-core PGEN reads a block's variants in file order, each thread a run of nearby records,
-  and asks the kernel for the next block's records, in file order, while the block is used,
-  unless a sample of them shows the block already in the page cache.
-  pgenlib's readers are set up through its public API; pgenlib itself is unchanged. Centred hard
-  calls go from the 2-bit calls straight into the block, dosages over them, with the same
-  arithmetic. The output is byte-identical. 2,000 x 500,000 with dosages (1.7 GB), page cache
-  capped below the file: 284 s to 76 s; in the page cache: 51 s to 45 s (hard calls 49 s to
-  39 s).
+**New**
+
+- [Relatedness](small-n/relatedness.md): `--evaladmix` writes the kinship of every pair of
+  samples (`.kinship`, `.corres`) from the residuals of the PCs, with no admixture run.
+  `--evaladmix-ibd` adds the IBD sharing probabilities `k0`, `k2`, which tell parent–offspring
+  from full sibs.
+- [Relatedness at biobank scale](biobank/relatedness.md): `--evaladmix-kin <cutoff>` writes only
+  the pairs above a kinship cutoff (`.kin0`) and a maximal unrelated set (`.unrelated`), within
+  the memory set by `-m`; `--evaladmix-unrelated` gives the set its own cutoff.
+- `--inbreed 2` estimates the inbreeding coefficient of each sample under population structure
+  (`.inbred`). See [HWE and inbreeding](small-n/hwe.md).
+- `--em-k` sets the number of PCs that model the allele frequencies in `--emu` and `--pcangsd`,
+  separately from the `-k` PCs written.
+- In every analysis that reads a reference with `-P/--USV` (LD, `--evaladmix`, `--project`,
+  `--selection`, `--inbreed`), `-k` selects the leading PCs, and all of them are used by default,
+  so one reference run serves any smaller number.
+- BGEN layouts 1 and 2, every compression and bit depth, and phased files are tested, and BGEN
+  input no longer warns that its support is limited.
+- `.sigvals` records how the PCA scaled the data, so analyses with `-P/--USV` put new genotypes
+  on the same scale. A `.sigvals` from an older version gives a warning.
+- Out-of-core PCA reads the shuffled variants straight from BED, PGEN and BGEN, so it needs no
+  extra disk space; `--bed-copy` writes a shuffled copy first, which is faster for a large BED on
+  a spinning disk. The next block is read while the current one is used; `--no-prefetch` turns
+  this off.
+- Warnings when EM-PCA reaches `--maxiter` or the RSVD reaches `--maxp` without converging.
+
+**Faster**
+
+- BGEN is read by all threads: with 20 threads, 15x faster in-core and 7-8x with `-m`.
+- `--svd 3` streams the data into the N x N GRM, in N x N memory instead of N x M (0.11 GB
+  instead of 2.1 GB on 400 x 656,281), and is faster.
+- The default `--svd 2` is about 2x faster, `--svd 1` 4x, `--emu` 3x, `--pcangsd` 3x and BEAGLE
+  input up to 30x.
+- Ancestry-adjusted LD is up to 14x faster for pruning and 38x for `-R` with `-m`, and in-core
+  and `-m` now run equally fast.
+- Out-of-core PGEN is up to 3.7x faster when the file is not in the page cache.
+
+**Results change**
+
+- The sign of each PC from `--svd 1` and `--svd 2` follows the rule of `--svd 0` and `--svd 3`:
+  the largest entry of each PC is positive.
+- `--seed` now fixes every random draw, on every platform and thread count, so the draws differ
+  from earlier versions.
+- BEAGLE input filters `--maf 0.05` by default, as PCAngsd does.
+- `--inbreed 1` removed far too many sites as out of HWE; it now agrees with PCAngsd.
+- Ancestry-adjusted LD with `-P` and more than one PC used the wrong subspace, and in-core
+  `--clump` used the standard LD; both are fixed. The PCs of a default PCA are standardized, so
+  add `--scale 0` to the PCA to reproduce the old `-D/--ld`.
+- `--ld-r2` follows PLINK `--indep-pairwise` and prunes fewer variants; `--clump` no longer
+  depends on the row order of the association file.
+- `--project 3` put targets on the wrong scale and matched BEAGLE alleles the wrong way round.
+  `--project-bootstrap` underestimated the uncertainty. `--project 2` writes NA for a sample with
+  fewer called sites than PCs.
+- `--selection` with `--maf` writes one row per input site, NA for the removed ones.
+- Phased BGEN gave wrong dosages.
+- In-core `--svd 0 --emu` computed the final PCs from the imputation of the previous iteration.
+- CSV with `-m` is now transformed as in-core: not at all with the default `--scale` or with
+  `--scale 0`.
+
+**Fixes**
+
+- Crashes: in-core `--svd 2` with fewer than 4,096 sites; `--clump` across chromosomes out-of-core;
+  `--inbreed` with PGEN and `-m`; a missing `.mbim` with `-P`; several malformed CSV files;
+  EM-PCA on very large matrices.
+- `--selection 1` and `--project` with `-k` below the reference's number of PCs.
+- LD `R2` of monomorphic variants is 0 instead of `NaN`.
+- The BEAGLE `.eigvecs2` has one tab-separated column per PC.
+- `--ncv` is used when given.
+
+The full notes, with measurements, are in
+[`dev/changes-v0.8.0.md`](https://github.com/Zilong-Li/PCAone/blob/main/dev/changes-v0.8.0.md).
+
 ### v0.7.2
 
 - bug fix for out_of_range issue #23

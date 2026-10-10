@@ -26,6 +26,7 @@ theme:
     - content.action.edit
     - content.code.copy
     - navigation.footer
+    - navigation.indexes
     - navigation.sections
     - navigation.top
     - search.highlight
@@ -88,30 +89,34 @@ exclude_docs: |
 
 # docs/ layout, one folder per section below:
 #   index.md, installation.md, changelog.md   top-level pages
-#   guide/     how to run each analysis, with examples on the example data
-#   methods/   derivations, benchmarks and how to reproduce them
-#   dev/       architecture and bug-fix write-ups
+#   guide/     reference shared by all analyses: options, input/output, methods
+#   small-n/   analysis guides for up to a few thousand samples
+#   biobank/   analysis guides for tens of thousands of samples or more
 #   assets/    images, stylesheets and javascripts
+#   guide/*.html, methods/*.html   static redirects from the old page URLs
+# Each analysis guide ends with a "Method details" section. Developer notes
+# live in dev/ at the repository root and are not published.
 nav:
   - Home: index.md
   - Install: installation.md
   - User guide:
       - Options: guide/options.md
-      - PCA methods and memory: guide/pca.md
       - Input and output: guide/input-output.md
-      - Projection: guide/projection.md
-      - Selection scan: guide/selection.md
-      - HWE and inbreeding: guide/hwe.md
-      - evalAdmix: guide/evaladmix.md
-      - Ancestry-adjusted LD: guide/ld.md
+      - Choosing a PCA method: guide/pca.md
       - Plotting: guide/plotting.md
-  - Methods:
-      - Ancestry-adjusted LD: methods/ld-ancestry-adjusted.md
-      - evalAdmix: methods/evaladmix.md
-      - Reproducing the benchmark: methods/reproducing-the-benchmark.md
-  - Developer notes:
-      - Architecture: dev/architecture.md
-      - HWE test fixes: dev/hwe-lrt-fix.md
-      - LD robustness fixes: dev/ld-robustness-fixes.md
-      - read_usv() fix: dev/read-usv-fix.md
-  - Changelog: changelog.md
+  - Small-N:
+      - small-n/index.md
+      - Exact PCA and EM-PCA: small-n/pca.md
+      - Projection: small-n/projection.md
+      - Selection scan: small-n/selection.md
+      - HWE and inbreeding: small-n/hwe.md
+      - Relatedness: small-n/relatedness.md
+      - Ancestry-adjusted LD: small-n/ld.md
+  - Biobank analysis:
+      - biobank/index.md
+      - Out-of-core PCA: biobank/pca.md
+      - Projection: biobank/projection.md
+      - LD pruning and clumping: biobank/ld.md
+      - Relatedness: biobank/relatedness.md
+      - Plotting large cohorts: biobank/plotting.md
+  - Change log: changelog.md

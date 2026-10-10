@@ -1,5 +1,5 @@
 #!/usr/bin/env Rscript
-# Reproduce every table in docs/methods/evaladmix.md from the outputs of run_all.sh.
+# Reproduce every table in docs/small-n/relatedness.md from the outputs of run_all.sh.
 #
 #   Rscript benchmark.R <workdir> <path/to/relateAdmix/data>
 #
