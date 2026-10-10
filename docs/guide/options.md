@@ -44,7 +44,7 @@ Input options:
   -b, --bfile arg                prefix of PLINK .bed/.bim/.fam files.
   -p, --pgen arg                 prefix of PLINK2 .pgen/.pvar/.psam files.
   -c, --csv arg                  path of comma seperated CSV file compressed by zstd.
-  -g, --bgen arg                 path of BGEN file compressed by gzip/zstd.
+  -g, --bgen arg                 path of BGEN file (layout 1 or 2; zlib, zstd or no compression).
   -G, --beagle arg               path of BEAGLE file compressed by gzip.
   -F, --match-bim arg            the .mbim file to be matched, where the 7th column is allele frequency.
   -P, --USV arg                  prefix of PCAone .eigvecs/.sigvals/.loadings/.mbim.

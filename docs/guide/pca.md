@@ -93,7 +93,7 @@ results are the same; `--no-prefetch` reads in the foreground.
 ### Run IRAM method with out-of-core mode
 
 ```shell
-./PCAone --bfile example/plink --svd 0 -m 2
+./PCAone --bfile example/plink --svd 0 -m 1
 ```
 
 ### Run the exact PCA (streams the GRM when N <= M)

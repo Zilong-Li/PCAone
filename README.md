@@ -8,7 +8,7 @@
 PCAone is a fast, memory-efficient C++ tool for principal component analysis
 of large datasets, with in-core and out-of-core algorithms.
 
-- **Inputs:** PLINK BED, PLINK2 PGEN, BEAGLE genotype likelihoods, zstd-compressed CSV, and limited BGEN support.
+- **Inputs:** PLINK BED, PLINK2 PGEN, BGEN, BEAGLE genotype likelihoods, and zstd-compressed CSV.
 - **PCA:** window-based randomized SVD (default), single-pass randomized SVD, IRAM, and exact sample-GRM eigendecomposition.
 - **Genetics:** EMU/PCAngsd, projection, selection scans, HWE tests, per-sample inbreeding coefficients, ancestry-adjusted LD pruning and clumping, and evalAdmix residual correlations.
 
@@ -55,8 +55,7 @@ PCAone -b data -k 10 -m 2 -o pcs
 ```
 
 Replace `data` with your input prefix. Add `--hardcall` to use PGEN hard calls.
-`-m` sizes the working blocks, so total RAM can exceed it. BGEN support is
-limited; convert to PGEN for production workflows.
+`-m` sizes the working blocks, so total RAM can exceed it.
 
 | Output      | Contents                                       |
 | ----------- | ---------------------------------------------- |

@@ -125,7 +125,7 @@ Param::Param(int argc, char** argv) {
   // removed in v0.8.0; kept hidden only to say what replaces them
   auto binfile = opts.add<Value<std::string>, Attribute::hidden>("B", "binary", "removed. LD now reads the genotypes directly.");
   auto csvfile = opts.add<Value<std::string>>("c", "csv", "path of comma seperated CSV file compressed by zstd.", "", &filein);
-  auto bgenfile = opts.add<Value<std::string>>("g", "bgen", "path of BGEN file compressed by gzip/zstd.", "", &filein);
+  auto bgenfile = opts.add<Value<std::string>>("g", "bgen", "path of BGEN file (layout 1 or 2; zlib, zstd or no compression).", "", &filein);
   auto beaglefile = opts.add<Value<std::string>>("G", "beagle", "path of BEAGLE file compressed by gzip.", "", &filein);
   opts.add<Value<std::string>>("F", "match-bim", "the .mbim file to be matched, where the 7th column is allele frequency.", "", &filebim);
   auto usvprefix = opts.add<Value<std::string>>("P", "USV", "prefix of PCAone .eigvecs/.sigvals/.loadings/.mbim.");

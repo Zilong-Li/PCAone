@@ -61,7 +61,7 @@ BGEN format. To do PCA with the imputed genotype probabilities, we can
 work on BGEN file with `--bgen` option instead.
 
 ```shell
-./PCAone --bgen example/test.bgen -k 10 -m 2
+./PCAone --bgen example/test.bgen -k 10 -m 1
 ```
 
 PCAone reads BGEN layouts 1 and 2 (v1.1 to v1.3), uncompressed or compressed
