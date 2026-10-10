@@ -24,8 +24,12 @@ namespace PCAone {
 // budget / 2 bytes (the other half holds the regrouped chunk), and each chunk
 // costs at most one seek and write per bucket. With about -w buckets the
 // writes stay large however big the file is.
-inline void rewrite_bed_buckets(std::istream& in, std::ostream& out, std::vector<uint32_t>& order,
-                                uint64_t width, uint64_t budget, uint64_t bucket) {
+inline void rewrite_bed_buckets(std::istream& in,
+                                std::ostream& out,
+                                std::vector<uint32_t>& order,
+                                uint64_t width,
+                                uint64_t budget,
+                                uint64_t bucket) {
   if (!width || budget / 2 < width || order.empty() || !bucket)
     throw std::invalid_argument("Invalid BED shuffle dimensions or buffer");
   const uint64_t n = order.size();

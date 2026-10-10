@@ -1,11 +1,11 @@
 #ifndef PCAONE_FILEPLINK_
 #define PCAONE_FILEPLINK_
 
+#include <memory>
+
 #include "Data.hpp"
 #include "Prefetch.hpp"
 #include "Utils.hpp"
-
-#include <memory>
 
 class FileBed : public Data {
  public:

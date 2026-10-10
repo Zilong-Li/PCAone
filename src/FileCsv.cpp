@@ -10,12 +10,8 @@ using namespace std;
 
 // normalize count x of sample i according to --scale. libsize is only
 // populated for the modes that need it (see csv_needs_libsize).
-static inline double normalize_count(double x,
-                                     int scale,
-                                     const std::vector<double>& libsize,
-                                     size_t i,
-                                     double median_libsize,
-                                     double scaleFactor) {
+static inline double normalize_count(
+    double x, int scale, const std::vector<double>& libsize, size_t i, double median_libsize, double scaleFactor) {
   if (!csv_needs_libsize(scale)) return x;
   const double total = libsize[i];
   if (total <= 0) return 0.0;  // empty sample: all its counts are zero, keep them at 0 instead of 0/0

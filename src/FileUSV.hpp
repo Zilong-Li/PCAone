@@ -13,7 +13,7 @@ class FileUSV : public Data {
       : Data(params_) {
     cao.print(tick.date(), "start parsing U:", params.fileU, ", S:", params.fileS, ", V:", params.fileV);
     read_sigvals(params.fileS, nsamples, nsnps, S, &usv);  // could not structual bindings
-    K = ref_pcs(params, S.size(), params.fileS);  // -k: the leading PCs, else all
+    K = ref_pcs(params, S.size(), params.fileS);           // -k: the leading PCs, else all
     cao.print(tick.date(), "using", K, "of the", S.size(), "PCs in the reference");
     cao.print(tick.date(), "start parsing mbim and read allele frequency of SNPs from", params.filebim);
     F = read_frq(params.filebim);
@@ -38,9 +38,9 @@ class FileUSV : public Data {
   // factor mapping the reconstruction back onto the 0..1 allele-frequency
   // scale: pi = U*S*V' * inv_scale(f) + f. See check_transform().
   double inv_scale(double f) const {
-    if (usv.gscale == 2) return 0.5;                              // centred dosages, 0..2
-    if (usv.scale != SCALE_STANDARDIZE_GENETIC) return 1.0;       // centred only, 0..1
-    const double sd = std::sqrt(f * (1.0 - f));                   // standardized, 0..1
+    if (usv.gscale == 2) return 0.5;                         // centred dosages, 0..2
+    if (usv.scale != SCALE_STANDARDIZE_GENETIC) return 1.0;  // centred only, 0..1
+    const double sd = std::sqrt(f * (1.0 - f));              // standardized, 0..1
     return (sd > VAR_TOL) ? sd / std::sqrt((double)usv.ploidy) : 1.0;
   }
 

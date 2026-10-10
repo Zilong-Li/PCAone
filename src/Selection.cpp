@@ -48,8 +48,7 @@ void run_selection(Data* data, const Param& params) {
     Mat1D rs;
     read_sigvals(params.fileS, rn, rm, rs, &usv);
   }
-  const bool standardize =
-      data->resolve_ref_scaling(usv, params.fileS.empty() ? "the reference PCA" : params.fileS);
+  const bool standardize = data->resolve_ref_scaling(usv, params.fileS.empty() ? "the reference PCA" : params.fileS);
 
   // V = G'U as one product in column panels of G; it was M matrix-vector
   // products, each writing a strided row of V

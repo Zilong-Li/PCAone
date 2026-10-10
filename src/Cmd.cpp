@@ -54,134 +54,138 @@ Param::Param(int argc, char** argv) {
   bool haploid = false;
   bool noloadings = false;
   std::string copyr{"PCA All In One (v" + (std::string)VERSION + ")        https://github.com/Zilong-Li/PCAone\n" +
-                    "(C) 2021-2024 Zilong Li        GNU General Public License v3\n" +
-  "\n" +
-                    "Usage: 1) use PLINK files as input and apply default window-based RSVD method\n" +
-                    "       $ PCAone -b plink \n\n" +
-                    "       2) use CSV file as input and apply the Implicitly Restarted Arnoldi Method\n" +
-                    "       $ PCAone -c csv.zst -d 0 \n\n" +
-                    "       3) compute the ancestry adjusted LD R2, removing the PCs of a previous run\n" +
-                    "       $ PCAone -b plink -k 2 -o pcs \n" +
-                    "       $ PCAone -b plink -P pcs -R --ld-bp 1000 -o adj" +
-  "\n"};
+                    "(C) 2021-2026 Zilong Li        GNU General Public License v3\n" +
+                    "\n" +
+                    "Usage: PCAone <input> [options]\n" +
+                    "\n" +
+                    "Common usage:\n" +
+                    "  PCAone -b plink -k 10 -o pcs                  PCA of PLINK files with winSVD (default)\n" +
+                    "  PCAone -b plink -k 10 -m 4 -o pcs             the same out-of-core, with 4 GB for the data blocks\n" +
+                    "  PCAone -p plink2 -k 10 -m 4 -o pcs            PLINK2 PGEN, with dosages when present\n" +
+                    "  PCAone -g data.bgen -k 10 -m 4 -o pcs         BGEN, e.g. imputed genotypes\n" +
+                    "  PCAone -b plink -d 3 -k 10 -o pcs             exact PCA, fastest for a few thousand samples\n" +
+                    "  PCAone -b plink --emu -k 10 -o pcs            EMU, for genotypes with many missing calls\n" +
+                    "  PCAone -G data.beagle.gz -k 10 -o pcs         PCAngsd, for genotype likelihoods\n" +
+                    "\n" +
+                    "Then reuse the PCs in pcs.* with -P:\n" +
+                    "  PCAone -b new -P pcs --project 2 -o new       project new samples onto the PCs\n" +
+                    "  PCAone -b plink -P pcs -k 3 --ld-r2 0.2       prune on the LD left after the top 3 PCs\n" +
+                    "  PCAone -b plink -P pcs -k 3 --evaladmix       kinship of every pair of samples\n" +
+                    "  PCAone -b plink -P pcs -k 3 --inbreed 1       HWE test of each site under structure\n" +
+                    "  PCAone -b plink -P pcs --selection 2          selection scan along the PCs\n" +
+                    "\n" +
+                    "Other data:\n" +
+                    "  PCAone -c data.csv.zst -k 10 -C 2 -S          CSV counts, e.g. single-cell RNA-seq\n" +
+                    "\n" +
+                    "Common options are below; --help adds the advanced ones. Documentation: https://zilongli.org/PCAone\n"};
   OptionParser opts(copyr);
   opts.add<Value<std::string>, Attribute::headline>("","PCAone","General options:");
-  auto help_opt = opts.add<Switch>("h", "help", "print all options including hidden advanced options");
-  opts.add<Value<double>>("m", "memory", "RAM usage in GB unit for out-of-core mode. default is in-core mode.\n"
-                                        "with --svd 3, it sets the blocks the GRM is streamed in;\n"
-                                        "with --evaladmix-kin, the stripes of the N x N matrix", memory, &memory);
-  opts.add<Unsigned>("n", "threads", "the number of threads to be used", threads, &threads);
-  opts.add<Unsigned>("v", "verbose", "verbosity level for logs. Options are\n"
-                                     "0: silent, no messages on screen;\n"
-                                     "1: concise messages to screen;\n"
-                                     "2: more verbose information;\n"
-                                     "3: enable debug information."
-                     , verbose, &verbose);
-  opts.add<Value<std::string>, Attribute::headline>("","PCA","PCA algorithms:");
-  auto svd_opt = opts.add<Unsigned>("d", "svd", "SVD method to be applied. default 2 is recommended for big data. Options are\n"
-                                                "0: the Implicitly Restarted Arnoldi Method (IRAM);\n"
-                                                "1: the Yu's single-pass Randomized SVD with power iterations;\n"
-                                                "2: the accurate window-based Randomized SVD method (PCAone);\n"
-                                                "3: exact PCA by eigendecomposition of the sample GRM, streamed block by block when N <= M,\n"
-                                                "   in N x N memory (no EM-PCA support).", 2);
-  auto k_opt = opts.add<Unsigned>("k", "pc", "top k principal components (PCs) to be calculated. with -P/--USV, the number\n"
-                                             "of leading PCs of the reference to use (default all)", k, &k);
-  opts.add<Value<int>>("C", "scale", "do normalization or scaling for input file. Options are\n"
-                                     "-9: standardize genetic data by sqrt(ploidy*f*(1-f));\n"
-                                     " 0: do nothing and proceed to SVD;\n"
-                                     " 1: do direct standardization, as the scale(x, center=TRUE, scale=TRUE) function in R;\n"
-                                     " 2: do first count per median log transformation (CPMED), then standardization;\n"
-                                     " 3: do first log1p transformation, then standardization;\n"
-                                     " 4: do first relative counts, then standardization.", scale,  &scale);
-  opts.add<Unsigned>("", "maxp", "maximum number of power iterations for RSVD algorithm.", maxp, &maxp);
-  opts.add<Switch>("S", "no-shuffle", "do not shuffle columns of data for --svd 2 (if not locally correlated).", &noshuffle);
-  opts.add<Unsigned, Attribute::advanced>("w", "batches", "the number of mini-batches used by --svd 2.", bands, &bands);
-  opts.add<Value<int>>("", "seed", "seeds for reproducing results.\n", seed, &seed);
-  opts.add<Switch>("", "emu", "use EMU algorithm for genotype input with missingness. not with --svd 3.", &emu);
-  opts.add<Switch>("", "pcangsd", "use PCAngsd algorithm for genotype likelihood input. not with --svd 3.", &pcangsd);
-  auto em_k_opt = opts.add<Unsigned>("", "em-k", "the number of PCs that model the individual allele frequencies in the EM iterations\n"
-                                                 "of --emu and --pcangsd. -k PCs of the final matrix are written. default is -k");
-  opts.add<Unsigned, Attribute::advanced>("", "M", "the number of features (eg. SNPs) if already known.", 0, &nsnps);
-  opts.add<Unsigned, Attribute::advanced>("", "N", "the number of samples if already known.", 0, &nsamples);
-  opts.add<Value<double>, Attribute::advanced>("", "scale-factor", "feature counts for each sample are normalized and multiplied by this value", 1.0, &scaleFactor);
-  opts.add<Switch, Attribute::advanced>("", "no-prefetch", "read the out-of-core blocks in the foreground, without reading the next block during the computation.", &noprefetch);
-  opts.add<Switch, Attribute::advanced>("", "bed-copy", "out-of-core winSVD on BED: write the shuffled SNPs to <out>.perm.* and read that copy, instead of reading them from the input. faster when the BED is on a spinning disk and larger than the memory.", &bedcopy);
-  opts.add<Unsigned, Attribute::advanced>("", "buffer", "genotype buffer in GiB for permuting data (indices/metadata extra).", buffer, &buffer);
-  opts.add<Unsigned, Attribute::advanced>("", "imaxiter", "maximum number of IRAM iterations.", imaxiter, &imaxiter);
-  opts.add<Value<double>, Attribute::advanced>("", "itol", "stopping tolerance for IRAM algorithm.", itol, &itol);
-  auto ncv_opt = opts.add<Unsigned, Attribute::advanced>("", "ncv", "the number of Lanzcos basis vectors for IRAM.", ncv, &ncv);
-  opts.add<Unsigned, Attribute::advanced>("", "oversamples", "the number of oversampling columns for RSVD.", oversamples, &oversamples);
-  opts.add<Unsigned, Attribute::advanced>("", "rand", "the random matrix type. 0: uniform; 1: guassian.", rand, &rand);
-  opts.add<Unsigned, Attribute::advanced>("", "maxiter", "maximum number of EM iterations.", maxiter, &maxiter);
-  opts.add<Value<double>, Attribute::advanced>("", "tol-rsvd", "tolerance for RSVD algorithm.", tol, &tol);
-  opts.add<Value<double>, Attribute::advanced>("", "tol-em", "tolerance for EMU/PCAngsd algorithm.", tolem, &tolem);
-  opts.add<Value<double>, Attribute::advanced>("", "tol-maf", "tolerance for MAF estimation by EM.", tolmaf, &tolmaf);
-  
+  auto help_opt = opts.add<Switch>("h", "help", "print all options, including the advanced ones");
+  opts.add<Value<double>>("m", "memory", "memory in GB for out-of-core mode; 0 runs in-core. also sets the blocks\n"
+                                        "of --svd 3 and the stripes of --evaladmix-kin", memory, &memory);
+  opts.add<Unsigned>("n", "threads", "number of threads", threads, &threads);
+  opts.add<Unsigned>("v", "verbose", "verbosity: 0 silent, 1 concise, 2 verbose, 3 debug", verbose, &verbose);
+
+  opts.add<Value<std::string>, Attribute::headline>("","PCA","PCA methods:");
+  auto svd_opt = opts.add<Unsigned>("d", "svd", "PCA method:\n"
+                                                "0: IRAM, the implicitly restarted Arnoldi method;\n"
+                                                "1: sSVD, single-pass randomized SVD with power iterations;\n"
+                                                "2: winSVD, window-based randomized SVD, for large data;\n"
+                                                "3: exact PCA from the N x N sample GRM, for small N (no EM-PCA)", 2);
+  auto k_opt = opts.add<Unsigned>("k", "pc", "number of PCs. with -P/--USV, the number of leading PCs of the\n"
+                                             "reference to use (default: all)", k, &k);
+  opts.add<Value<int>>("C", "scale", "scaling after centering:\n"
+                                     "-9: standardize genotypes by sqrt(ploidy*f*(1-f));\n"
+                                     " 0: none;\n"
+                                     " 1: center and scale each feature, as R's scale();\n"
+                                     " 2: count per median and log (CPMED), then standardize;\n"
+                                     " 3: log1p, then standardize;\n"
+                                     " 4: relative counts, then standardize", scale,  &scale);
+  opts.add<Unsigned>("", "maxp", "maximum number of power iterations of --svd 1 and 2", maxp, &maxp);
+  opts.add<Switch>("S", "no-shuffle", "do not shuffle the features for --svd 2, e.g. for gene counts", &noshuffle);
+  opts.add<Unsigned, Attribute::advanced>("w", "batches", "number of mini-batches of --svd 2", bands, &bands);
+  opts.add<Value<int>>("", "seed", "random seed", seed, &seed);
+  opts.add<Switch>("", "emu", "EM-PCA of EMU, for genotypes with missing calls", &emu);
+  opts.add<Switch>("", "pcangsd", "EM-PCA of PCAngsd, for genotype likelihoods; implied by -G", &pcangsd);
+  auto em_k_opt = opts.add<Unsigned>("", "em-k", "number of PCs that model the allele frequencies in --emu and --pcangsd\n");
+  opts.add<Unsigned, Attribute::advanced>("", "M", "number of features (e.g. SNPs), if known", 0, &nsnps);
+  opts.add<Unsigned, Attribute::advanced>("", "N", "number of samples, if known", 0, &nsamples);
+  opts.add<Value<double>, Attribute::advanced>("", "scale-factor", "multiply the normalized counts of each sample by this value", 1.0, &scaleFactor);
+  opts.add<Switch, Attribute::advanced>("", "no-prefetch", "out-of-core: do not read the next block during the computation", &noprefetch);
+  opts.add<Switch, Attribute::advanced>("", "bed-copy", "out-of-core --svd 2 on BED: write and read a shuffled copy, <out>.perm.*;\n"
+                                                        "faster for a BED larger than the memory on a spinning disk", &bedcopy);
+  opts.add<Unsigned, Attribute::advanced>("", "buffer", "memory in GiB for the genotypes when shuffling to a copy", buffer, &buffer);
+  opts.add<Unsigned, Attribute::advanced>("", "imaxiter", "maximum number of IRAM iterations", imaxiter, &imaxiter);
+  opts.add<Value<double>, Attribute::advanced>("", "itol", "tolerance of IRAM", itol, &itol);
+  auto ncv_opt = opts.add<Unsigned, Attribute::advanced>("", "ncv", "number of Lanczos vectors of IRAM", ncv, &ncv);
+  opts.add<Unsigned, Attribute::advanced>("", "oversamples", "number of oversampling columns of the RSVD", oversamples, &oversamples);
+  opts.add<Unsigned, Attribute::advanced>("", "rand", "random matrix of the RSVD: 0 uniform, 1 Gaussian", rand, &rand);
+  opts.add<Unsigned, Attribute::advanced>("", "maxiter", "maximum number of EM iterations", maxiter, &maxiter);
+  opts.add<Value<double>, Attribute::advanced>("", "tol-rsvd", "tolerance of the RSVD", tol, &tol);
+  opts.add<Value<double>, Attribute::advanced>("", "tol-em", "tolerance of the EM iterations", tolem, &tolem);
+  opts.add<Value<double>, Attribute::advanced>("", "tol-maf", "tolerance of the EM for allele frequencies", tolmaf, &tolmaf);
+
   opts.add<Value<std::string>, Attribute::headline>("","INPUT","Input options:");
-  auto plinkfile = opts.add<Value<std::string>>("b", "bfile", "prefix of PLINK .bed/.bim/.fam files.", "", &filein);
-  opts.add<Switch, Attribute::advanced>("", "haploid", "the plink format represents haploid data.", &haploid);
-  auto pgenfile = opts.add<Value<std::string>>("p", "pgen", "prefix of PLINK2 .pgen/.pvar/.psam files.", "", &filein);
-  opts.add<Switch, Attribute::advanced>("", "hardcall", "use hardcall genotype instead of dosages.", &hardcall);
+  auto plinkfile = opts.add<Value<std::string>>("b", "bfile", "prefix of PLINK .bed/.bim/.fam", "", &filein);
+  opts.add<Switch, Attribute::advanced>("", "haploid", "the PLINK files hold haploid data", &haploid);
+  auto pgenfile = opts.add<Value<std::string>>("p", "pgen", "prefix of PLINK2 .pgen/.pvar/.psam", "", &filein);
+  opts.add<Switch, Attribute::advanced>("", "hardcall", "use the hard calls of a PGEN instead of its dosages", &hardcall);
   // removed in v0.8.0; kept hidden only to say what replaces them
   auto binfile = opts.add<Value<std::string>, Attribute::hidden>("B", "binary", "removed. LD now reads the genotypes directly.");
-  auto csvfile = opts.add<Value<std::string>>("c", "csv", "path of comma seperated CSV file compressed by zstd.", "", &filein);
-  auto bgenfile = opts.add<Value<std::string>>("g", "bgen", "path of BGEN file (layout 1 or 2; zlib, zstd or no compression).", "", &filein);
-  auto beaglefile = opts.add<Value<std::string>>("G", "beagle", "path of BEAGLE file compressed by gzip.", "", &filein);
-  opts.add<Value<std::string>>("F", "match-bim", "the .mbim file to be matched, where the 7th column is allele frequency.", "", &filebim);
-  auto usvprefix = opts.add<Value<std::string>>("P", "USV", "prefix of PCAone .eigvecs/.sigvals/.loadings/.mbim.");
+  auto bgenfile = opts.add<Value<std::string>>("g", "bgen", "BGEN file (layout 1 or 2)", "", &filein);
+  auto beaglefile = opts.add<Value<std::string>>("G", "beagle", "BEAGLE genotype likelihoods, gzip-compressed", "", &filein);
+  auto csvfile = opts.add<Value<std::string>>("c", "csv", "comma-separated values, zstd-compressed", "", &filein);
+  auto usvprefix = opts.add<Value<std::string>>("P", "USV", "prefix of a previous PCAone run (.eigvecs, .sigvals, .loadings, .mbim)");
+  opts.add<Value<std::string>>("F", "match-bim", "the .mbim to match the variants with (allele frequencies in column 7)", "", &filebim);
   opts.add<Value<std::string>, Attribute::hidden>("", "read-U", "path of file with left singular vectors (.eigvecs).", "", &fileU);
   opts.add<Value<std::string>, Attribute::hidden>("", "read-V", "path of file with right singular vectors (.loadings).", "", &fileV);
   opts.add<Value<std::string>, Attribute::hidden>("", "read-S", "path of file with sigular values (.sigvals).", "", &fileS);
-  
+  auto maf_opt = opts.add<Value<double>>("", "maf", "exclude variants with MAF below this (default: 0.05 for -G, else 0)", maf, &maf);
+
   opts.add<Value<std::string>, Attribute::headline>("","OUTPUT","Output options:");
-  opts.add<Value<std::string>>("o", "out", "prefix of output files. default [pcaone].", fileout, &fileout);
+  opts.add<Value<std::string>>("o", "out", "prefix of the output files", fileout, &fileout);
   // removed in v0.8.0, when the .loadings became the default; kept hidden only to say so
   auto printv_opt = opts.add<Switch, Attribute::hidden>("V", "printv", "removed. the .loadings are written by default.");
-  opts.add<Switch>("", "no-loadings", "do not output the right eigenvectors (.loadings) and .mbim, which are written by default.\n"
-                                      "with --svd 3, this also skips the second pass over the data", &noloadings);
+  opts.add<Switch>("", "no-loadings", "do not write the .loadings and .mbim (skips the second pass of --svd 3)", &noloadings);
   auto ld_opt = opts.add<Switch, Attribute::hidden>("D", "ld", "removed. LD no longer needs a residual matrix.");
-  opts.add<Switch>("R", "print-r2", "print LD R2 to *.ld.gz file for pairwise SNPs within a window controlled by --ld-bp.", &print_r2);
-  
-  opts.add<Value<std::string>, Attribute::headline>("","MISC","Misc options:");
-  auto maf_opt = opts.add<Value<double>>("", "maf", "exclude variants with MAF lower than this value. default is 0.05 for\n"
-                                         "BEAGLE input, as in PCAngsd, and 0 (no filter) otherwise", maf, &maf);
-  opts.add<Value<int>>("", "project", "project the new samples onto the existing PCs. Options are\n"
-                                      "0: disabled;\n"
-                                      "1: by multiplying the loadings with mean imputation for missing genotypes;\n"
-                                      "2: by solving the least squares system Vx=g. skip sites with missingness;\n"
-                                      "3: by EM to account for genotype uncertainty (BEAGLE input);\n"
-                                      "4: by Augmentation, Decomposition and Procrusters transformation.\n", project, &project);
-  opts.add<Unsigned>("", "project-bootstrap", "run SNP bootstrap diagnostics for --project 2 using this many replicates.", project_bootstrap, &project_bootstrap);
-  opts.add<Switch>("", "project-bootstrap-save", "save raw bootstrap projection coordinates to *.proj.bootstrap.eigvecs.", &project_bootstrap_save);
-  opts.add<Value<int>>("", "inbreed", "compute the inbreeding coefficient accounting for population structure. Options are\n"
-                                      "0: disabled;\n"
-                                      "1: compute per-site inbreeding coefficient and HWE test;\n"
-                                      "2: compute per-sample inbreeding coefficient.\n", inbreed, &inbreed);
-  opts.add<Switch>("", "evaladmix", "compute the correlation of residuals (evalAdmix) given existing PCs from -P/--USV (same samples in the same order).", &evaladmix);
-  auto kin_opt = opts.add<Value<double>>("", "evaladmix-kin", "with --evaladmix, write only the pairs with kinship >= this cutoff to .kin0, and a\n"
-                                         "maximal unrelated set to .unrelated, instead of the two N x N matrices. computes the\n"
-                                         "matrix in stripes that fit in -m, for biobank-scale samples (e.g. 0.0442, 3rd degree)");
-  auto unrel_opt = opts.add<Value<double>>("", "evaladmix-unrelated", "kinship cutoff for the .unrelated set of --evaladmix-kin, at least that cutoff.\n"
-                                           "default is the --evaladmix-kin cutoff");
-  opts.add<Switch>("", "evaladmix-ibd", "with --evaladmix, also estimate the probabilities of sharing 0, 1 and 2 alleles IBD\n"
-                                        "(k0, k1, k2): .k0 and .k2 matrices, or K0 K1 K2 columns in the .kin0 of --evaladmix-kin.\n"
-                                        "one more Gram product of the size of the kinship one", &evaladmix_ibd);
-  opts.add<Value<int>>("", "selection", "compute selection statistics. Options are\n"
-                                      "0: disabled;\n"
-                                      "1: perform selection scan using Galinsky et al method;\n"
-                                      "2: perform selection scan using PCAdapt method.\n", selection, &selection);
-  opts.add<Value<double>>("", "ld-r2", "R2 cutoff for LD-based pruning (usually 0.2).", ld_r2, &ld_r2);
-  opts.add<Unsigned>("", "ld-bp", "physical distance threshold in bases for LD window.", ld_bp, &ld_bp);
-  opts.add<Value<int>>("", "ld-stats", "statistics to compute LD R2 for pairwise SNPs. Options are\n"
-                                       "0: the ancestry adjusted, i.e. correlation between the residuals after\n"
-                                       "   removing the PCs given by -P/--USV (reads .eigvecs of the same samples);\n"
-                                       "1: the standard, i.e. correlation between two alleles.\n", ld_stats, &ld_stats);
-  auto clumpfile = opts.add<Value<std::string>>("", "clump", "assoc-like file with target variants and pvalues for clumping.", "", &clump);
-  auto assocnames = opts.add<Value<std::string>>("", "clump-names", "column names in assoc-like file for locating chr, pos and pvalue.", "CHR,BP,P", &assoc_colnames);
-  opts.add<Value<double>>("", "clump-p1", "significance threshold for index SNPs.", clump_p1, &clump_p1);
-  opts.add<Value<double>>("", "clump-p2", "secondary significance threshold for clumped SNPs.", clump_p2, &clump_p2);
-  opts.add<Value<double>>("", "clump-r2", "r2 cutoff for LD-based clumping.", clump_r2, &clump_r2);
-  opts.add<Unsigned>("", "clump-bp", "physical distance threshold in bases for clumping.", clump_bp, &clump_bp);
+
+  opts.add<Value<std::string>, Attribute::headline>("","MISC","Analyses of a previous PCA, given with -P/--USV:");
+  opts.add<Value<int>>("", "project", "project new samples onto the PCs:\n"
+                                      "0: off;\n"
+                                      "1: multiply by the loadings, missing calls at the mean;\n"
+                                      "2: least squares on the called sites;\n"
+                                      "3: EM over the genotype likelihoods of -G", project, &project);
+  opts.add<Unsigned>("", "project-bootstrap", "number of SNP bootstrap replicates of --project 2", project_bootstrap, &project_bootstrap);
+  opts.add<Switch>("", "project-bootstrap-save", "also write the replicates to .proj.bootstrap.eigvecs", &project_bootstrap_save);
+  opts.add<Value<int>>("", "inbreed", "inbreeding under population structure:\n"
+                                      "0: off;\n"
+                                      "1: per-site F and HWE test (.hwe);\n"
+                                      "2: per-sample F (.inbred)", inbreed, &inbreed);
+  opts.add<Switch>("", "evaladmix", "kinship from the correlation of residuals (evalAdmix): .kinship and .corres.\n"
+                                    "-P must hold the same samples in the same order", &evaladmix);
+  auto kin_opt = opts.add<Value<double>>("", "evaladmix-kin", "with --evaladmix, write only the pairs with kinship >= this (.kin0) and an\n"
+                                         "unrelated set (.unrelated), within -m. for biobanks, e.g. 0.0442 (3rd degree)");
+  auto unrel_opt = opts.add<Value<double>>("", "evaladmix-unrelated", "kinship cutoff of the .unrelated set, at least that of --evaladmix-kin\n"
+                                           "(default: the same)");
+  opts.add<Switch>("", "evaladmix-ibd", "with --evaladmix, also estimate the IBD sharing k0, k1, k2 (.k0, .k2, or .kin0 columns)", &evaladmix_ibd);
+  opts.add<Value<int>>("", "selection", "selection scan along the PCs:\n"
+                                        "0: off;\n"
+                                        "1: Galinsky et al. (FastPCA);\n"
+                                        "2: pcadapt", selection, &selection);
+
+  opts.add<Value<std::string>, Attribute::headline>("","LD","LD, ancestry-adjusted with -P/--USV:");
+  opts.add<Switch>("R", "print-r2", "write the R2 of the SNP pairs within --ld-bp to .ld.gz", &print_r2);
+  opts.add<Value<double>>("", "ld-r2", "prune to R2 below this cutoff, e.g. 0.2 (.ld.prune.in, .ld.prune.out)", ld_r2, &ld_r2);
+  opts.add<Unsigned>("", "ld-bp", "LD window in bases", ld_bp, &ld_bp);
+  opts.add<Value<int>>("", "ld-stats", "LD statistic:\n"
+                                       "0: ancestry-adjusted, the R2 of the residuals of the PCs of -P/--USV;\n"
+                                       "1: standard", ld_stats, &ld_stats);
+  auto clumpfile = opts.add<Value<std::string>>("", "clump", "association files to clump, comma-separated", "", &clump);
+  auto assocnames = opts.add<Value<std::string>>("", "clump-names", "columns of the chromosome, position and p-value", "CHR,BP,P", &assoc_colnames);
+  opts.add<Value<double>>("", "clump-p1", "p-value cutoff of the index variants", clump_p1, &clump_p1);
+  opts.add<Value<double>>("", "clump-p2", "p-value cutoff of the clumped variants", clump_p2, &clump_p2);
+  opts.add<Value<double>>("", "clump-r2", "R2 cutoff of clumping", clump_r2, &clump_r2);
+  opts.add<Unsigned>("", "clump-bp", "clumping window in bases", clump_bp, &clump_bp);
   opts.add<Switch, Attribute::hidden>("", "groff", "PCAone 1 \"24 December 2024\" \"PCAone-v"+ std::string(VERSION)+"\"  \"Bioinformatics tools\"", &groff);
   
   // collect command line options acutal in effect
@@ -463,7 +467,8 @@ Param::Param(int argc, char** argv) {
     // order. For PGEN the permutation is logical and is only built for a PCA
     // run (Main.cpp), so leaving the flag on made those reads index an empty
     // permutation -- out-of-core --inbreed on PGEN segfaulted.
-    if (svd_t == SvdType::PCAoneAlg2 && !noshuffle && !ld && !evaladmix && inbreed == 0 && project == 0 && selection == 0)
+    if (svd_t == SvdType::PCAoneAlg2 && !noshuffle && !ld && !evaladmix && inbreed == 0 && project == 0 &&
+        selection == 0)
       perm = true;
 
   } catch (const popl::invalid_option& e) {

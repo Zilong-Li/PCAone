@@ -69,7 +69,9 @@ void mul_Xt_Y(const Eigen::Ref<const Mat2D>& X, const Eigen::Ref<const Mat2D>& Y
 // every GEBP kernel height, so with 192 rows or more (two panels) the result is
 // that of one thread, whatever -n is. Fewer rows go to Eigen's GEMM as before.
 // With an external BLAS (MKL, OpenBLAS, Accelerate) the BLAS threads it instead.
-void mul_X_Y(const Eigen::Ref<const Mat2D>& X, const Eigen::Ref<const Mat2D>& Y, Eigen::Ref<Mat2D> out,
+void mul_X_Y(const Eigen::Ref<const Mat2D>& X,
+             const Eigen::Ref<const Mat2D>& Y,
+             Eigen::Ref<Mat2D> out,
              bool add = false);
 // the number of row panels mul_X_Y uses for X with this many rows, here
 Eigen::Index mul_X_Y_panels(Eigen::Index rows);
@@ -282,7 +284,7 @@ double qchisq(double p, int df);
 void galinsky_selection_stat(Mat2D& V);
 // `keep[i] == 0` marks a site with no residual variance: it is left out of the
 // robust fit and the inflation factor, and its outputs come back as NaN.
-void pcadapt_selection_stats(const Mat2D& Z, const std::vector<char>& keep, Mat1D& stat, Mat1D& chi2_stat,
-                             Mat1D& pval, double& gif);
+void pcadapt_selection_stats(
+    const Mat2D& Z, const std::vector<char>& keep, Mat1D& stat, Mat1D& chi2_stat, Mat1D& pval, double& gif);
 
 #endif  // PCAONE_UTILES_

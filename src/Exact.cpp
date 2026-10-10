@@ -7,7 +7,6 @@
 #include "Exact.hpp"
 
 #include <omp.h>
-
 #include <Spectra/SymEigsSolver.h>
 
 #include "Utils.hpp"
@@ -19,7 +18,8 @@ namespace {
 class ParallelSymProd {
  public:
   using Scalar = double;
-  explicit ParallelSymProd(const Mat2D& K) : K_(K) {}
+  explicit ParallelSymProd(const Mat2D& K)
+      : K_(K) {}
   Eigen::Index rows() const { return K_.rows(); }
   Eigen::Index cols() const { return K_.cols(); }
   void perform_op(const double* x_in, double* y_out) const {

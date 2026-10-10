@@ -88,9 +88,17 @@ struct BgenBlockReader::Thread {
   }
 };
 
-BgenBlockReader::BgenBlockReader(const std::string& path, int layout, int compression, uint32_t nsamples,
-                                 uint64_t first, uint64_t nvariants, int nthreads)
-    : layout_(layout), compression_(compression), nsamples_(nsamples), path_(path) {
+BgenBlockReader::BgenBlockReader(const std::string& path,
+                                 int layout,
+                                 int compression,
+                                 uint32_t nsamples,
+                                 uint64_t first,
+                                 uint64_t nvariants,
+                                 int nthreads)
+    : layout_(layout),
+      compression_(compression),
+      nsamples_(nsamples),
+      path_(path) {
   if (layout_ != 1 && layout_ != 2) throw std::invalid_argument("unsupported BGEN layout " + std::to_string(layout_));
   if (compression_ < 0 || compression_ > 2)
     throw std::invalid_argument("unsupported BGEN compression " + std::to_string(compression_));
@@ -144,9 +152,9 @@ void BgenBlockReader::index(uint64_t first, uint64_t nvariants) {
     if (pos >= fsize) throw std::runtime_error("BGEN: the file ends after " + std::to_string(v) + " variants");
     offsets_[v] = pos;
     uint64_t at = pos;
-    if (layout_ == 1) at += 4;  // the number of samples
+    if (layout_ == 1) at += 4;                                // the number of samples
     for (int f = 0; f < 3; ++f) at += 2 + rd16(need(at, 2));  // variant id, rsid, chromosome
-    at += 4;                                                    // position
+    at += 4;                                                  // position
     uint16_t nalleles = 2;
     if (layout_ == 2) {
       nalleles = rd16(need(at, 2));

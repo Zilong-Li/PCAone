@@ -18,7 +18,8 @@ class Data {
   // for blockwise
   virtual void check_file_offset_first_var() = 0;
   virtual void read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize) = 0;
-  virtual void read_block_update(uint64 start, uint64 stop, const Mat2D& U, const Mat1D& svals, const Mat2D& VT, bool standardize) = 0;
+  virtual void read_block_update(
+      uint64 start, uint64 stop, const Mat2D& U, const Mat1D& svals, const Mat2D& VT, bool standardize) = 0;
 
   void prepare();
   // one warning for all sites with MAF=0. The readers count them inside their
@@ -33,9 +34,7 @@ class Data {
   void fit_with_pi(const Mat2D& U, const Mat1D& svals, const Mat2D& VT);
   // In-core winSVD keeps G and V in shuffled order, but F and C retain
   // filtered input order. P additionally needs the keepSNPs mapping.
-  uint unpermuted_snp_index(uint j) const {
-    return in_core_permuted ? static_cast<uint>(perm.indices()(j)) : j;
-  }
+  uint unpermuted_snp_index(uint j) const { return in_core_permuted ? static_cast<uint>(perm.indices()(j)) : j; }
   void write_eigs_files(const Mat1D& E, const Mat1D& S, const Mat2D& U, const Mat2D& V);
   // Record how the matrix that was just decomposed relates to the 0..1
   // allele-frequency scale, so write_eigs_files() can put it in .sigvals and
@@ -74,21 +73,21 @@ class Data {
   uint bandFactor = 1;
   uint nops = 0;
   std::vector<uint> start, stop;
-  double p_miss = 0.0;         // proportion of genotype missingness
-  PermMat perm;                // permuation order of SNPs
-  bool in_core_permuted = false;  // true only after G has actually been shuffled
+  double p_miss = 0.0;             // proportion of genotype missingness
+  PermMat perm;                    // permuation order of SNPs
+  bool in_core_permuted = false;   // true only after G has actually been shuffled
   bool metadata_permuted = false;  // the .bim read is the permuted copy's (BED rewritten out-of-core)
-  Mat2D G;                     // genotype matrix, can be initial E or centered E, which is nsamples x nsnps;
-  Mat2D P;                     // normalized genotype likelihoods, (nsamples x 2) x nsnps.
-  Mat1D F;                     // observed or estimated population allele frequency
-  Mat1D Dc;                    // diagnal vector of covariance matrix
-  ArrBool C;                   // nsnps x nsample, if there is missing value
-  Arr2D centered_geno_lookup;  // lookup table for centering genotypes
+  Mat2D G;                         // genotype matrix, can be initial E or centered E, which is nsamples x nsnps;
+  Mat2D P;                         // normalized genotype likelihoods, (nsamples x 2) x nsnps.
+  Mat1D F;                         // observed or estimated population allele frequency
+  Mat1D Dc;                        // diagnal vector of covariance matrix
+  ArrBool C;                       // nsnps x nsample, if there is missing value
+  Arr2D centered_geno_lookup;      // lookup table for centering genotypes
   int svd_scale = SCALE_STANDARDIZE_GENETIC;  // scaling applied to the decomposed matrix; 0 = none
   int svd_gscale = 1;                         // 1: genotypes coded 0..1; 2: dosages coded 0..2
-  Int1D keepSNPs;              // store index of SNPs to keep
-  Int1D keepRefSNPs;           // store matching SNP indices in the reference .mbim
-  Int1D flipSNPs;              // local SNP indices (into keepSNPs order) with flipped alleles
+  Int1D keepSNPs;                             // store index of SNPs to keep
+  Int1D keepRefSNPs;                          // store matching SNP indices in the reference .mbim
+  Int1D flipSNPs;                             // local SNP indices (into keepSNPs order) with flipped alleles
 };
 
 #endif  // PCAONE_DATA_

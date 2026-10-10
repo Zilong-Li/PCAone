@@ -119,7 +119,7 @@ void calc_inbreed_site_lrt(
   if (type != 1 && type != 2) cao.error("type must be 1 or 2");
   const int nsnps = size;
   const int nsamples = PI.rows();
-  int nneg = 0;       // sites where the statistic came out negative
+  int nneg = 0;        // sites where the statistic came out negative
   double worst = 0.0;  // and the most negative value among them
 #pragma omp parallel for reduction(+ : nneg) reduction(min : worst)
   for (int j = 0; j < nsnps; j++) {
@@ -200,8 +200,7 @@ void calc_inbreed_site_lrt(
     T(jj) = fmax(0.0, t);
   }
   if (nneg > 0)
-    cao.warn(nneg, " of ", nsnps,
-             " sites have a negative likelihood ratio (most negative ", worst,
+    cao.warn(nneg, " of ", nsnps, " sites have a negative likelihood ratio (most negative ", worst,
              ") and are reported as 0. this is the F estimator being a moment estimator rather than the maximum "
              "likelihood one, not a numerical artefact; such sites are never significant.");
 }

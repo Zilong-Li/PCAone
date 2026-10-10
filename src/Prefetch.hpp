@@ -102,9 +102,12 @@ inline void willneed(int fd, uint64_t offset, uint64_t len) {
 // ahead (for BED, 1/32 of the decoded block); freed when reading on the spot.
 class RecordPrefetcher {
  public:
-  RecordPrefetcher(const std::string& path, uint64_t data_offset, uint64_t record_bytes, uint64_t nrecords,
-                   double min_share = 0.05)
-      : fd_(detail::open_for_streaming(path)), offset_(data_offset), width_(record_bytes), n_(nrecords),
+  RecordPrefetcher(
+      const std::string& path, uint64_t data_offset, uint64_t record_bytes, uint64_t nrecords, double min_share = 0.05)
+      : fd_(detail::open_for_streaming(path)),
+        offset_(data_offset),
+        width_(record_bytes),
+        n_(nrecords),
         min_share_(min_share) {}
 
   ~RecordPrefetcher() {
@@ -241,7 +244,8 @@ class RecordPrefetcher {
 // is read; where the kernel ignores it, the reads are as without it.
 class ReadAhead {
  public:
-  explicit ReadAhead(const std::string& path) : fd_(::open(path.c_str(), O_RDONLY)) {
+  explicit ReadAhead(const std::string& path)
+      : fd_(::open(path.c_str(), O_RDONLY)) {
     if (fd_ < 0) throw std::runtime_error("cannot open " + path + ": " + std::strerror(errno));
   }
 
@@ -306,7 +310,8 @@ class ReadAhead {
         detail::willneed(fd_, off, len);
 #else
         for (uint64_t done = 0; done < len;) {
-          const ssize_t got = ::pread(fd_, sink.data(), std::min<uint64_t>(sink.size(), len - done), (off_t)(off + done));
+          const ssize_t got =
+              ::pread(fd_, sink.data(), std::min<uint64_t>(sink.size(), len - done), (off_t)(off + done));
           if (got < 0 && errno == EINTR) continue;
           if (got <= 0) return;  // only a hint: the reader reports real read errors
           done += (uint64_t)got;

@@ -363,8 +363,7 @@ bool Data::resolve_ref_scaling(const UsvTransform& t, const std::string& src, bo
     return params.scale == SCALE_STANDARDIZE_GENETIC;
   }
   if (t.scale > 0)
-    cao.error("the reference PCA used -C/--scale ", t.scale,
-              ", which cannot be replayed on the target genotypes here");
+    cao.error("the reference PCA used -C/--scale ", t.scale, ", which cannot be replayed on the target genotypes here");
   if (t.gscale != 1 && !(allow_dosage && t.gscale == 2))
     cao.error("the reference PCA decomposed dosages on the 0..2 scale (gscale=", t.gscale,
               "), which is not the 0..1 coding used here. this combination was silently mis-scaled before; "
@@ -372,8 +371,9 @@ bool Data::resolve_ref_scaling(const UsvTransform& t, const std::string& src, bo
   // mirrors FileUSV::check_transform(): standardize_E() and
   // pcangsd_standardize_E() disagree on what this matrix is, so it has no inverse
   if (t.gscale == 2 && t.scale == SCALE_STANDARDIZE_GENETIC)
-    cao.error("the reference PCA standardised a dosage-scale matrix (gscale=2, scale=-9), which cannot be "
-              "replayed on the target here. rerun the reference PCA so it decomposes centred dosages");
+    cao.error(
+        "the reference PCA standardised a dosage-scale matrix (gscale=2, scale=-9), which cannot be "
+        "replayed on the target here. rerun the reference PCA so it decomposes centred dosages");
   if (t.ploidy != params.ploidy)
     cao.error("the reference PCA used ploidy ", t.ploidy, " but this run uses ", params.ploidy,
               "; pass --haploid consistently");

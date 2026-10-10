@@ -49,8 +49,9 @@ void FileUSV::check_transform() {
               ", which does not map back to allele frequencies. --inbreed needs a reference run with the default "
               "genetic standardisation or none at all");
   if (usv.gscale == 2 && usv.scale == SCALE_STANDARDIZE_GENETIC)
-    cao.error("the reference PCA standardised a dosage-scale matrix (gscale=2, scale=-9); --inbreed cannot invert "
-              "that combination. rerun the reference PCA with --svd 1 or 2");
+    cao.error(
+        "the reference PCA standardised a dosage-scale matrix (gscale=2, scale=-9); --inbreed cannot invert "
+        "that combination. rerun the reference PCA with --svd 1 or 2");
   cao.print(tick.date(), "USV transform: scale =", usv.scale, ", ploidy =", usv.ploidy, ", gscale =", usv.gscale);
 }
 

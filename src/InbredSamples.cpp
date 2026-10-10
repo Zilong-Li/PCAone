@@ -71,8 +71,8 @@ namespace {
 
 // sums over the informative sites of each sample
 struct HetSums {
-  Mat1D obs;                    // heterozygotes observed (called) or expected a posteriori (GL)
-  Mat1D exp;                    // heterozygotes expected at F = 0: sum of 2 pi (1 - pi)
+  Mat1D obs;                   // heterozygotes observed (called) or expected a posteriori (GL)
+  Mat1D exp;                   // heterozygotes expected at F = 0: sum of 2 pi (1 - pi)
   std::vector<uint64> nsites;  // called genotypes, or GLs that are not flat
 
   void reset(Eigen::Index n) {
@@ -228,7 +228,9 @@ static std::vector<SampleName> read_sample_names(const Param& params) {
   return ids;
 }
 
-static void write_inbred_samples(const std::string& fout, const std::vector<SampleName>& ids, const HetSums& s,
+static void write_inbred_samples(const std::string& fout,
+                                 const std::vector<SampleName>& ids,
+                                 const HetSums& s,
                                  const Mat1D& F) {
   std::ofstream ofs(fout);
   if (!ofs.is_open()) cao.error("can not open " + fout);
@@ -279,8 +281,7 @@ static void solve_gl(Mat1D& F, HetSums& s, Data* data, Data* Pi, const Param& pa
       return;
     }
   }
-  cao.warn("EM inbreeding coefficient not converged in " + std::to_string(maxiter) +
-           " iterations! raise --maxiter");
+  cao.warn("EM inbreeding coefficient not converged in " + std::to_string(maxiter) + " iterations! raise --maxiter");
 }
 
 void run_inbred_samples(Data* Pi, const Param& params) {
@@ -320,8 +321,8 @@ void run_inbred_samples(Data* Pi, const Param& params) {
     cao.warn(std::to_string(nempty) + " sample(s) have no " +
              (gl ? "informative genotype likelihood" : "called genotype") + " at any site; their F is NA");
   if (nempty < (uint64)N)
-    cao.print(tick.date(), "per-sample F: mean =", fsum / (double)(N - nempty), ", min =", fmin, ", max =", fmax,
-              ",", nneg, "sample(s) with F < 0");
+    cao.print(tick.date(), "per-sample F: mean =", fsum / (double)(N - nempty), ", min =", fmin, ", max =", fmax, ",",
+              nneg, "sample(s) with F < 0");
   write_inbred_samples(params.fileout + ".inbred", ids, s, F);
   cao.print(tick.date(), "per-sample inbreeding coefficients saved to", params.fileout + ".inbred");
 }

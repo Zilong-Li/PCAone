@@ -1,11 +1,11 @@
 #ifndef FILEBINARY_H_
 #define FILEBINARY_H_
 
+#include <memory>
+
 #include "Data.hpp"
 #include "Prefetch.hpp"
 #include "Utils.hpp"
-
-#include <memory>
 
 class FileBin : public Data {
  public:

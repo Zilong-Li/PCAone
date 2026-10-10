@@ -1,14 +1,14 @@
 #ifndef PCAONE_FILEBGEN_
 #define PCAONE_FILEBGEN_
 
-#include "bgen/reader.h"
-#include "BgenBlock.hpp"
-#include "Data.hpp"
-
 #include <omp.h>
 
 #include <chrono>
 #include <memory>
+
+#include "bgen/reader.h"
+#include "BgenBlock.hpp"
+#include "Data.hpp"
 #include "Utils.hpp"
 
 // const double GENOTYPE_THRESHOLD = 0.9;

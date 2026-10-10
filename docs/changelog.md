@@ -78,6 +78,8 @@ so that sum no longer covers all the variance.
   a spinning disk. The next block is read while the current one is used; `--no-prefetch` turns
   this off.
 - Warnings when EM-PCA reaches `--maxiter` or the RSVD reaches `--maxp` without converging.
+- `PCAone` without arguments lists common commands, and the option descriptions are shorter;
+  the analyses of a previous PCA and the LD options have their own sections.
 
 **Faster**
 

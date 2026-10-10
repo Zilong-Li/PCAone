@@ -6,12 +6,12 @@
 #ifndef PCAONE_FILEPGEN_
 #define PCAONE_FILEPGEN_
 
+#include <memory>
+
 #include "Data.hpp"
 #include "PgenBlock.hpp"
 #include "pgenlib/pgenlibr.h"
 #include "Utils.hpp"
-
-#include <memory>
 
 class FilePgen : public Data {
  public:

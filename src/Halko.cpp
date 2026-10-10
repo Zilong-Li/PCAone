@@ -204,11 +204,9 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
 
       if (i <= bandsize / 2) {
         // continues to add in data based on current band
-        mul_X_Y(data->G.middleCols(start_idx, actual_block_size), G.middleRows(start_idx, actual_block_size), H1,
-                true);
+        mul_X_Y(data->G.middleCols(start_idx, actual_block_size), G.middleRows(start_idx, actual_block_size), H1, true);
       } else {
-        mul_X_Y(data->G.middleCols(start_idx, actual_block_size), G.middleRows(start_idx, actual_block_size), H2,
-                true);
+        mul_X_Y(data->G.middleCols(start_idx, actual_block_size), G.middleRows(start_idx, actual_block_size), H2, true);
       }
 
       // use the first quarter band of succesive iteration (H1)

@@ -5,12 +5,15 @@
  ******************************************************************************/
 
 #include "FilePlink.hpp"
-#include "BedShuffle.hpp"
+
+#include <sys/stat.h>
+
 #include <climits>
 #include <fstream>
-#include <sys/stat.h>
+
+#include "BedShuffle.hpp"
 #ifdef __linux__
-#include <sys/sysmacros.h>
+  #include <sys/sysmacros.h>
 #endif
 #include <filesystem>
 
@@ -349,9 +352,12 @@ bool FileBed::apply_permutation(Param& config) {
     cao.print(tick.date(), "shuffle SNPs into random -w bands, read from the input; seed:", config.seed,
               ", SNPs per band:", bucket);
     if (on_rotating_disk(bed_path) == 1)
-      cao.warn("the BED is on a spinning disk, where reading its shuffled SNPs takes a seek per SNP once the file is "
-               "not in the memory. if the BED (" + std::to_string(st.st_size >> 20) + " MiB) is larger than the free "
-               "memory, --bed-copy, which writes a shuffled copy first, is usually much faster");
+      cao.warn(
+          "the BED is on a spinning disk, where reading its shuffled SNPs takes a seek per SNP once the file is "
+          "not in the memory. if the BED (" +
+          std::to_string(st.st_size >> 20) +
+          " MiB) is larger than the free "
+          "memory, --bed-copy, which writes a shuffled copy first, is usually much faster");
     return false;
   }
   perm = permute_plink(config.filein, config.fileout, config.buffer, bucket, config.seed);
@@ -381,8 +387,7 @@ int on_rotating_disk(const std::string& path) {
   struct stat st;
   if (::stat(path.c_str(), &st) != 0 || major(st.st_dev) == 0) return -1;
   // a whole disk has queue/, a partition takes its disk's
-  const std::string dev =
-      "/sys/dev/block/" + std::to_string(major(st.st_dev)) + ":" + std::to_string(minor(st.st_dev));
+  const std::string dev = "/sys/dev/block/" + std::to_string(major(st.st_dev)) + ":" + std::to_string(minor(st.st_dev));
   for (const char* queue : {"/queue/rotational", "/../queue/rotational"}) {
     std::ifstream f(dev + queue);
     int r;
@@ -424,8 +429,7 @@ PermMat permute_plink(std::string& fin, const std::string& fout, uint gb, uint64
   if (budget / 2 < width) cao.error("--buffer must hold two SNP records for the BED permutation.");
   const uint64 bytes = nsnps * width + 3;
   std::ifstream in(fin + ".bed", std::ios::binary | std::ios::ate);
-  if (!in || in.tellg() != static_cast<std::streamoff>(bytes))
-    cao.error("BED size does not match BIM/FAM dimensions.");
+  if (!in || in.tellg() != static_cast<std::streamoff>(bytes)) cao.error("BED size does not match BIM/FAM dimensions.");
   in.seekg(0);
   char header[3];
   in.read(header, 3);

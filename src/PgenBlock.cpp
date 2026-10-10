@@ -11,16 +11,15 @@
 #include <sys/uio.h>
 #include <unistd.h>
 
-#include <cerrno>
-
 #include <algorithm>
+#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <stdexcept>
 
-#include "Prefetch.hpp"
 #include "pgenlib/pgenlib_ffi_support.h"
+#include "Prefetch.hpp"
 
 namespace PCAone {
 
@@ -288,8 +287,8 @@ void PgenBlockReader::hardcalls(int thr, uint32_t vidx, double* buf) {
   plink2::GenoarrLookup16x8bx2(genovec(thr, vidx), kAltCountPairs, nsamples_, buf);
 }
 
-const uintptr_t* PgenBlockReader::genovec_dosages(int thr, uint32_t vidx, const uintptr_t** present,
-                                                  const uint16_t** main, uint32_t* dosage_ct) {
+const uintptr_t* PgenBlockReader::genovec_dosages(
+    int thr, uint32_t vidx, const uintptr_t** present, const uint16_t** main, uint32_t* dosage_ct) {
   const plink2::PglErr err = plink2::PgrGet1D(sample_include_[thr], pssi_[thr], nsamples_, vidx, 1, pgr_[thr],
                                               genovec_[thr], dosage_present_[thr], dosage_main_[thr], dosage_ct);
   if (err != plink2::kPglRetSuccess) fail("PgrGet1D()", (int)err);

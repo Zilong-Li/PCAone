@@ -51,14 +51,14 @@ void adjust_for_pcs(Mat2D& G, const Mat2D& Q);
 class LDColumns {
  public:
   LDColumns(Data* data, const Mat2D& Q);
-  void rewind();                    // start another pass over the blocks (-m)
-  void need(uint lo, uint hi);      // make sites lo..hi available
-  uint max_reach(uint lo) const;    // the last site that fits in memory with lo
+  void rewind();                  // start another pass over the blocks (-m)
+  void need(uint lo, uint hi);    // make sites lo..hi available
+  uint max_reach(uint lo) const;  // the last site that fits in memory with lo
   Eigen::Ref<const Mat1D> col(uint k) const;
   // sites lo..hi as one matrix: a view, or a copy into buf across two blocks
   Eigen::Ref<const Mat2D> span(uint lo, uint hi, Mat2D& buf) const;
   uint nsamples() const { return data->nsamples; }
-  uint batch_cols() const;  // columns per batch buffer of ld_prune/ld_r2
+  uint batch_cols() const;                              // columns per batch buffer of ld_prune/ld_r2
   Eigen::Index zero_variance() const { return nzero; }  // since the last rewind
 
  private:
@@ -66,7 +66,7 @@ class LDColumns {
   Data* data;
   const Mat2D& Q;
   const bool ooc;
-  uint b = 0;          // block in data->G; block b - 1 is in prev
+  uint b = 0;  // block in data->G; block b - 1 is in prev
   Mat2D prev;
   Eigen::Index nzero = 0;
 };

@@ -63,8 +63,7 @@ void FileBgen::read_all() {
       if (k != j) {
         G.col(k) = G.col(j);
         F(k) = F(j);
-        if (params.missme)
-          std::copy_n(C.data() + (uint64)j * nsamples, nsamples, C.data() + k * nsamples);
+        if (params.missme) std::copy_n(C.data() + (uint64)j * nsamples, nsamples, C.data() + k * nsamples);
       }
       k++;
     }

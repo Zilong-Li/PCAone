@@ -34,8 +34,13 @@ class BgenBlockReader {
  public:
   // layout, compression and nsamples from the BGEN header; first: offset of the
   // first variant; nthreads: decoding threads, by OpenMP thread number
-  BgenBlockReader(const std::string& path, int layout, int compression, uint32_t nsamples, uint64_t first,
-                  uint64_t nvariants, int nthreads);
+  BgenBlockReader(const std::string& path,
+                  int layout,
+                  int compression,
+                  uint32_t nsamples,
+                  uint64_t first,
+                  uint64_t nvariants,
+                  int nthreads);
   ~BgenBlockReader();
   BgenBlockReader(const BgenBlockReader&) = delete;
   BgenBlockReader& operator=(const BgenBlockReader&) = delete;

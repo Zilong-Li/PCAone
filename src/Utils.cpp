@@ -270,7 +270,7 @@ void syrk_lower_add(Eigen::Ref<Mat2D> K, const Eigen::Ref<const Mat2D>& X) {
   // peak of the dense --evaladmix and of the exact PCA
   std::vector<Mat2D> Kd(D - 1);
   for (auto& Kc : Kd) Kc.setZero(n, n);
-#pragma omp parallel for schedule(dynamic, 1)
+  #pragma omp parallel for schedule(dynamic, 1)
   for (Eigen::Index task = 0; task < ntiles * D; ++task) {
     const Eigen::Index t = task % ntiles, d = task / ntiles;
     // t -> tile (i, j), j <= i, row by row of the triangle of tiles
@@ -289,7 +289,7 @@ void syrk_lower_add(Eigen::Ref<Mat2D> K, const Eigen::Ref<const Mat2D>& X) {
       Kt.block(r, c, h, w).noalias() += Xd.middleRows(r, h) * Xd.middleRows(c, w).transpose();
   }
   if (D > 1) {
-#pragma omp parallel for schedule(dynamic, 16)
+  #pragma omp parallel for schedule(dynamic, 16)
     for (Eigen::Index j = 0; j < n; ++j)
       for (const auto& Q : Kd) K.col(j).tail(n - j) += Q.col(j).tail(n - j);
   }
@@ -458,10 +458,14 @@ void read_sigvals(const std::string& path, uint& N, uint& M, Mat1D& S, UsvTransf
       const size_t eq = tok.find('=');
       if (eq == std::string::npos) continue;
       const std::string key = tok.substr(0, eq), val_s = tok.substr(eq + 1);
-      if (key == "scale") transform->scale = std::stoi(val_s);
-      else if (key == "ploidy") transform->ploidy = std::stoi(val_s);
-      else if (key == "gscale") transform->gscale = std::stoi(val_s);
-      else continue;
+      if (key == "scale")
+        transform->scale = std::stoi(val_s);
+      else if (key == "ploidy")
+        transform->ploidy = std::stoi(val_s);
+      else if (key == "gscale")
+        transform->gscale = std::stoi(val_s);
+      else
+        continue;
       transform->known = true;
     }
   }
@@ -507,8 +511,7 @@ Mat2D read_eigvecs(const std::string& path, int n, int k) {
   while (std::getline(fin, line)) {
     while (!line.empty() && (line.back() == '\r' || line.back() == '\n')) line.pop_back();
     if (line.find_first_not_of(" \t") == std::string::npos) continue;  // blank line
-    if (j >= n)
-      cao.error(path, " has more than the ", n, " rows this dataset needs. is it from a different cohort?");
+    if (j >= n) cao.error(path, " has more than the ", n, " rows this dataset needs. is it from a different cohort?");
     const char* p = line.c_str();
     for (int c = 0; c < k; ++c) {
       char* end = nullptr;
@@ -852,8 +855,7 @@ void write_eigvecs2_beagle(const Mat2D& U, const std::string& fin, const std::st
 int ref_pcs(const Param& params, int navail, const std::string& path) {
   if (navail <= 0) cao.error(path, "has no PCs");
   if (params.ref_k == 0) return navail;
-  if ((int)params.ref_k > navail)
-    cao.error("-k/--pc", params.ref_k, "is larger than the", navail, "PCs in", path);
+  if ((int)params.ref_k > navail) cao.error("-k/--pc", params.ref_k, "is larger than the", navail, "PCs in", path);
   return params.ref_k;
 }
 
@@ -1080,7 +1082,7 @@ namespace {
 
 constexpr double TAU_C1 = 4.5;
 constexpr double TAU_C2 = 3.0;
-constexpr double QNORM_3_4 = 0.6744897501960817;   // qnorm(3/4)
+constexpr double QNORM_3_4 = 0.6744897501960817;  // qnorm(3/4)
 constexpr double INV_SQRT2 = 0.7071067811865475244;
 constexpr double SQRT_2PI = 2.5066282746310005024;
 
@@ -1101,7 +1103,7 @@ double scale_tau2(const double* x, Eigen::Index n, std::vector<double>& buf, dou
   const double mu0 = median_inplace(buf);
   for (Eigen::Index i = 0; i < n; ++i) buf[i] = std::abs(x[i] - mu0);
   const double sigma0 = median_inplace(buf);  // MAD without the consistency factor
-  if (!(sigma0 > 0.0)) {  // more than half the column is a single value
+  if (!(sigma0 > 0.0)) {                      // more than half the column is a single value
     if (mu_out) *mu_out = mu0;
     return 0.0;
   }
@@ -1257,8 +1259,8 @@ void robust_cov_ogk(const Mat2D& U, Mat1D& wcenter, Mat2D& wcov, int niter, doub
 }
 }  // namespace
 
-void pcadapt_selection_stats(const Mat2D& Z, const std::vector<char>& keep, Mat1D& stat, Mat1D& chi2_stat,
-                             Mat1D& pval, double& gif) {
+void pcadapt_selection_stats(
+    const Mat2D& Z, const std::vector<char>& keep, Mat1D& stat, Mat1D& chi2_stat, Mat1D& pval, double& gif) {
   const int k = (int)Z.cols();
   const Eigen::Index n = Z.rows();
 
@@ -1271,8 +1273,8 @@ void pcadapt_selection_stats(const Mat2D& Z, const std::vector<char>& keep, Mat1
     if (keep[i]) idx.push_back(i);
   const Eigen::Index nk = (Eigen::Index)idx.size();
   if (nk <= k)
-    cao.error("pcadapt: only ", nk, " of ", n,
-              " sites have any residual variance, too few to fit a ", k, "-dimensional covariance");
+    cao.error("pcadapt: only ", nk, " of ", n, " sites have any residual variance, too few to fit a ", k,
+              "-dimensional covariance");
 
   const bool subset = (nk != n);
   Mat2D Zs;
@@ -1286,8 +1288,7 @@ void pcadapt_selection_stats(const Mat2D& Z, const std::vector<char>& keep, Mat1
   Mat2D cov;
   robust_cov_ogk(W, center, cov, 2, 0.9);  // bigutilsr::covrob_ogk defaults
   Mat2D inv_cov = cov.inverse();
-  if (!inv_cov.allFinite())
-    cao.error("pcadapt: the robust covariance of the z-scores is singular; try a smaller -k");
+  if (!inv_cov.allFinite()) cao.error("pcadapt: the robust covariance of the z-scores is singular; try a smaller -k");
 
   Mat1D s(nk);
 #pragma omp parallel for schedule(static)

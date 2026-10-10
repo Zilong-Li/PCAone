@@ -193,8 +193,8 @@ Mat2D read_ld_pcs(const Param& params, uint nsamples) {
   Eigen::HouseholderQR<Mat2D> qr(U);
   Mat2D Q = qr.householderQ() * Mat2D::Identity(U.rows(), U.cols());
   if (U.cols() < ntotal)
-    cao.print(tick.date(), "compute the ancestry adjusted LD, removing the top", U.cols(), "of the", ntotal,
-              "PCs in", params.fileU);
+    cao.print(tick.date(), "compute the ancestry adjusted LD, removing the top", U.cols(), "of the", ntotal, "PCs in",
+              params.fileU);
   else
     cao.print(tick.date(), "compute the ancestry adjusted LD, removing", U.cols(), "PCs in", params.fileU);
   return Q;
@@ -213,7 +213,9 @@ void adjust_for_pcs(Mat2D& G, const Mat2D& Q) {
 }
 
 LDColumns::LDColumns(Data* data_, const Mat2D& Q_)
-    : data(data_), Q(Q_), ooc(data_->params.out_of_core) {
+    : data(data_),
+      Q(Q_),
+      ooc(data_->params.out_of_core) {
   if (ooc) {
     rewind();
   } else {
@@ -388,7 +390,11 @@ void write_pruned_snp_ids(const String1D& variants, const std::string& fileout, 
 // the same decisions as one window at a time. Leads removed within their own
 // batch waste their row, so R grows while most leads survive and shrinks when
 // they do not. F is filled as blocks are read (-m); every site used is read.
-void ld_prune(LDColumns& X, const Mat1D& F, const String1D& variants, const SNPld& snp, double r2_tol,
+void ld_prune(LDColumns& X,
+              const Mat1D& F,
+              const String1D& variants,
+              const SNPld& snp,
+              double r2_tol,
               const std::string& fileout) {
   cao.print(tick.date(), "LD pruning, the site with the lower MAF of each pair is removed");
   const uint N = X.nsamples();

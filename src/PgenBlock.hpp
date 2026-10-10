@@ -6,12 +6,13 @@
 #ifndef PCAONE_PGENBLOCK_HPP
 #define PCAONE_PGENBLOCK_HPP
 
+#include <sys/stat.h>
+
 #include <atomic>
 #include <cstdint>
 #include <future>
 #include <memory>
 #include <string>
-#include <sys/stat.h>
 #include <utility>
 #include <vector>
 
@@ -62,8 +63,8 @@ class PgenBlockReader {
   const uintptr_t* genovec(int thr, uint32_t vidx);
   // the same with the dosages: the dosage_ct samples set in *present have the
   // dosage (*main)[i] / 16384 instead of their call
-  const uintptr_t* genovec_dosages(int thr, uint32_t vidx, const uintptr_t** present, const uint16_t** main,
-                                   uint32_t* dosage_ct);
+  const uintptr_t* genovec_dosages(
+      int thr, uint32_t vidx, const uintptr_t** present, const uint16_t** main, uint32_t* dosage_ct);
 
   uint64_t predicted() const { return hits_; }
   uint64_t requested() const { return requested_; }  // blocks not found in the page cache
@@ -85,16 +86,16 @@ class PgenBlockReader {
   unsigned char* pgfi_alloc_ = nullptr;
   std::vector<uintptr_t> nonref_flags_;
   uint32_t nsamples_ = 0;
-  int fd_ = -1;                    // for the read-ahead requests
-  Probe probe_ = Probe::None;       // how page_cached() asks the page cache
-  unsigned char* map_ = nullptr;   // the file, for mincore() only; never read
+  int fd_ = -1;                   // for the read-ahead requests
+  Probe probe_ = Probe::None;     // how page_cached() asks the page cache
+  unsigned char* map_ = nullptr;  // the file, for mincore() only; never read
   uint64_t file_bytes_ = 0, page_ = 4096;
   std::vector<plink2::PgenReader*> pgr_;
   std::vector<unsigned char*> pgr_alloc_;
   std::vector<plink2::PgrSampleSubsetIndex> pssi_;
   std::vector<uintptr_t*> genovec_, dosage_present_, sample_include_;
   std::vector<uint16_t*> dosage_main_;
-  std::vector<uint32_t> ahead_;                        // the variants requested ahead
+  std::vector<uint32_t> ahead_;  // the variants requested ahead
   std::future<void> pending_;
   std::atomic<bool> stop_{false};
   const std::atomic<bool> never_stop_{false};
