@@ -6,6 +6,7 @@
 #include "../src/PgenBlock.hpp"
 
 #include <dirent.h>
+#include <fcntl.h>
 #include <sys/resource.h>
 #include <unistd.h>
 
@@ -145,6 +146,18 @@ int main() {
     struct rlimit old;
     CHECK(getrlimit(RLIMIT_NOFILE, &old) == 0, "getrlimit");
     const int fds = open_fds(), maps = mappings();
+    // RLIMIT_NOFILE bounds the descriptor numbers, and a new descriptor takes
+    // the lowest free one. Fill the free numbers below the highest open
+    // descriptor (a CI runner can leave e.g. 145 open), so that only the few
+    // above it are left for the readers.
+    std::vector<int> fillers;
+    for (int f; (f = ::open("/dev/null", O_RDONLY)) >= 0;) {
+      if (f > highest) {
+        ::close(f);
+        break;
+      }
+      fillers.push_back(f);
+    }
     struct rlimit low = old;
     low.rlim_cur = (rlim_t)highest + 1 + 4;  // room for a few files, not for 32 readers
     bool threw = false;
@@ -155,12 +168,15 @@ int main() {
         threw = true;
       }
       setrlimit(RLIMIT_NOFILE, &old);
+      for (int f : fillers) ::close(f);
+      fillers.clear();
       CHECK(threw, "32 readers under a limit of %ld descriptors: no exception", (long)low.rlim_cur);
       const int fds_after = open_fds(), maps_after = mappings();
       CHECK(fds_after == fds, "descriptor limit: %d open descriptors before, %d after", fds, fds_after);
       if (maps >= 0)
         CHECK(maps_after == maps, "descriptor limit: %d mappings of the file before, %d after", maps, maps_after);
     } else {
+      for (int f : fillers) ::close(f);
       std::printf("skip the descriptor limit case: setrlimit failed\n");
     }
   }
