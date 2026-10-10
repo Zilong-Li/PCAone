@@ -40,22 +40,34 @@ for large dataset and PCAone will allocate more RAM when needed.
 ./PCAone --bfile example/plink -m 2
 ```
 
-Out-of-core BED winSVD writes a shuffled copy of the BED before the PCA. It
-assigns the SNPs at random (`--seed`) to the `-w` bands of read blocks and
-keeps their source order within each band. winSVD only updates its test
-matrix between bands, so the PCs equal those of a full random permutation in
-exact arithmetic. Floating-point rounding can differ slightly. The rewrite
-reads the BED once and writes it once, in large writes whatever its size.
-It needs disk space for one more BED. Samples keep their order; `-S` turns
-the shuffle off.
+Out-of-core winSVD shuffles the SNPs. It assigns them at random (`--seed`)
+to the `-w` bands of read blocks and keeps their source order within each
+band. winSVD only updates its test matrix between bands, so the PCs equal
+those of a full random permutation in exact arithmetic. Floating-point
+rounding can differ slightly. Samples keep their order; `-S` turns the
+shuffle off.
 
-`--buffer` (default 2 GiB) bounds the two genotype buffers of the rewrite;
-it does not change the order. SNP indices and the BIM lines take additional
-memory. The permuted BED/BIM/FAM (`<out>.perm.*`) are removed after the PCA
-unless `-v 3` is used, and `-o` may not point them at the input.
+The shuffled SNPs are read from the input itself, so no disk space is
+needed: BED, PGEN and BGEN read the variants of each block in file order.
+On a spinning disk, a file that is not in the page cache costs a seek per
+SNP, since each block takes about one SNP in `-w` from the whole file.
+PCAone warns when the BED is on a spinning disk (Linux).
 
-PGEN and BGEN are not rewritten: winSVD reads the variants of each block in a
-random order (`--seed`) from the input itself, so no disk space is needed.
+For a BED on a spinning disk that is larger than the free memory, use
+`--bed-copy`. It writes the shuffled BED to `<out>.perm.*` before the PCA and
+reads that copy in sequence: one read and one write of the BED, in large
+writes whatever its size, and disk space for one more BED. On 20,000 samples
+x 1.39M SNPs (7 GB) read from a spinning disk without the page cache, the PCA
+took 224 s with `--bed-copy` and 1,840 s without; from an SSD, 209 s and
+215 s; from the page cache, 168 s and 160 s. With 134,400 samples, a record
+is 34 KB and a seek costs less: 136 s and 170 s on the spinning disk. Both
+give the same bytes of every output.
+
+With `--bed-copy`, `--buffer` (default 2 GiB) bounds the two genotype
+buffers of the rewrite; it does not change the order. SNP indices and the
+BIM lines take additional memory. The permuted BED/BIM/FAM (`<out>.perm.*`)
+are removed after the PCA unless `-v 3` is used, and `-o` may not point them
+at the input.
 
 While the PCA works on one block, the next block is read in the background,
 so reading overlaps the computation instead of alternating with it. BED is

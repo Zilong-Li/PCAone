@@ -6,9 +6,11 @@
 
 #include <unistd.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
+#include <numeric>
 #include <random>
 #include <string>
 #include <vector>
@@ -117,6 +119,82 @@ int main() {
     PCAone::RecordPrefetcher reader(name, header, width, n);
     CHECK(same(reader.get(0, n), 0, n));
   }
+  {
+    // set_order: record r is record order[r] of the file (the BED permutation
+    // read from the input), in passes with reads ahead, at random, and with
+    // the reads ahead off; runs of consecutive records and single ones
+    std::vector<uint32_t> order(n);
+    std::iota(order.begin(), order.end(), 0);
+    std::mt19937 rng(11);
+    std::shuffle(order.begin(), order.end(), rng);
+    for (uint64_t b = 0; b < n; b += 250) std::sort(order.begin() + b, order.begin() + std::min(n, b + 250));
+    std::iota(order.begin() + 500, order.begin() + 600, 500);  // a run of 100
+    auto same_order = [&](const unsigned char* p, uint64_t first, uint64_t count) {
+      for (uint64_t r = 0; r < count; ++r)
+        for (uint64_t b = 0; b < width; ++b)
+          if (p[r * width + b] != byte_of(order[first + r], b)) return false;
+      return true;
+    };
+    PCAone::RecordPrefetcher reader(name, header, width, n, 0.0);
+    reader.set_order(order);
+    for (int pass = 0; pass < 2; ++pass)
+      for (uint64_t first = 0; first < n; first += 50) {
+        const uint64_t count = std::min<uint64_t>(50, n - first);
+        CHECK(same_order(reader.get(first, count), first, count));
+      }
+    CHECK(reader.predicted() > 0);
+    for (int i = 0; i < 100; ++i) {
+      const uint64_t first = rng() % n, count = 1 + rng() % std::min<uint64_t>(100, n - first);
+      CHECK(same_order(reader.get(first, count), first, count));
+    }
+    PCAone::RecordPrefetcher quiet(name, header, width, n, 0.0);
+    quiet.set_order(order);
+    quiet.set_read_ahead(false);
+    for (uint64_t first = 0; first < n; first += 100)
+      CHECK(same_order(quiet.get(first, std::min<uint64_t>(100, n - first)), first, std::min<uint64_t>(100, n - first)));
+    CHECK(quiet.predicted() == 0);
+    bool threw = false;
+    try {
+      std::vector<uint32_t> bad(order);
+      bad[3] = n;
+      quiet.set_order(bad);
+    } catch (const std::out_of_range&) {
+      threw = true;
+    }
+    CHECK(threw);
+  }
+
+  {
+    // set_order with records larger than a page
+    char big[] = "/tmp/pcaone-prefetch-big-XXXXXX";
+    const int bfd = mkstemp(big);
+    CHECK(bfd >= 0);
+    const uint64_t bw = 5000, bn = 120;
+    std::vector<unsigned char> bytes(header + bn * bw);
+    for (uint64_t r = 0; r < bn; ++r)
+      for (uint64_t b = 0; b < bw; ++b) bytes[header + r * bw + b] = byte_of(r, b);
+    std::ofstream(big, std::ios::binary).write(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+    std::vector<uint32_t> order(bn);
+    for (uint64_t r = 0; r < bn; ++r) order[r] = (uint32_t)((r * 7) % bn);  // 7 and 120 are coprime
+    PCAone::RecordPrefetcher reader(big, header, bw, bn, 0.0);
+    reader.set_order(order);
+    for (int pass = 0; pass < 2; ++pass)
+      for (uint64_t first = 0; first < bn; first += 16) {
+        const uint64_t count = std::min<uint64_t>(16, bn - first);
+        const unsigned char* p = reader.get(first, count);
+        bool ok = true;
+        for (uint64_t r = 0; r < count && ok; ++r)
+          for (uint64_t b = 0; b < bw; ++b)
+            if (p[r * bw + b] != byte_of(order[first + r], b)) {
+              ok = false;
+              break;
+            }
+        CHECK(ok);
+      }
+    ::close(bfd);
+    std::remove(big);
+  }
+
   bool threw = false;
   try {
     PCAone::ReadAhead missing(std::string(name) + ".none");
@@ -131,6 +209,6 @@ int main() {
     std::fprintf(stderr, "%d check(s) failed\n", failures);
     return 1;
   }
-  std::printf("Prefetch: records match the file in passes, at random and with a read in flight\n");
+  std::printf("Prefetch: records match the file in passes, at random, with a read in flight and through set_order\n");
   return 0;
 }

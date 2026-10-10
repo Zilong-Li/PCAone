@@ -148,6 +148,7 @@ static int run(int argc, char* argv[]) {
   }
 
   const bool ooc_permutation = params.perm && params.out_of_core;
+  bool bed_copy = false;  // --bed-copy: the BED was rewritten to <out>.perm.*, removed at the end
 
   if (ooc_permutation) {
     tick.clock();
@@ -233,7 +234,8 @@ static int run(int argc, char* argv[]) {
   }
   if (ooc_permutation && params.file_t == FileType::PLINK) {
     tick.clock();
-    static_cast<FileBed*>(data)->apply_permutation(params);
+    bed_copy = static_cast<FileBed*>(data)->apply_permutation(params);
+    data->metadata_permuted = bed_copy;
     cao.print(tick.date(), "elapsed time of permuting data:", tick.reltime(), " seconds");
   }
   if (ooc_permutation && params.file_t == FileType::PGEN) {
@@ -270,7 +272,7 @@ static int run(int argc, char* argv[]) {
 
   // remove temp files if verbose < 3
   if (ooc_permutation && params.verbose < 3) {
-    if (params.file_t == FileType::PLINK) {
+    if (params.file_t == FileType::PLINK && bed_copy) {
       for (auto suf : std::vector<std::string>{".bed", ".bim", ".fam"}) {
         std::filesystem::path tmpfile{params.filein + suf};
         std::filesystem::remove(tmpfile);

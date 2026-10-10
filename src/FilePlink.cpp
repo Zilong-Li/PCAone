@@ -7,6 +7,11 @@
 #include "FilePlink.hpp"
 #include "BedShuffle.hpp"
 #include <climits>
+#include <fstream>
+#include <sys/stat.h>
+#ifdef __linux__
+#include <sys/sysmacros.h>
+#endif
 #include <filesystem>
 
 using namespace std;
@@ -36,10 +41,13 @@ FileBed::~FileBed() {
 }
 
 const uchar* FileBed::read_records(uint64 start_idx, uint64 count) {
-  if (!params.noprefetch) {
+  if (!params.noprefetch || !bed_order.empty()) {
     try {
-      if (!prefetcher)
+      if (!prefetcher) {
         prefetcher = std::make_unique<PCAone::RecordPrefetcher>(bed_path, 3, bed_bytes_per_snp, nsnps);
+        if (!bed_order.empty()) prefetcher->set_order(bed_order);
+        if (params.noprefetch) prefetcher->set_read_ahead(false);
+      }
       return prefetcher->get(start_idx, count);
     } catch (const std::exception& e) {
       cao.error(std::string("cannot read ") + bed_path + ": " + e.what());
@@ -321,11 +329,31 @@ void FileBed::read_block_update(
   }
 }
 
-void FileBed::apply_permutation(Param& config) {
+bool FileBed::apply_permutation(Param& config) {
   // winSVD changes Omg only between -w bands of bandFactor blocks, so the
   // order within a band is free (BedShuffle.hpp). One bucket per band keeps
   // the writes large; one per block would shrink them as the file grows.
   const uint64 bucket = (uint64)blocksize * bandFactor;
+  if (!config.bedcopy) {
+    // The order of the copy, read from the input: each block's SNPs are a
+    // sorted subset of it, read in file order (RecordPrefetcher::set_order).
+    if (nsnps > INT_MAX) cao.error("too many SNPs for the BED permutation.");
+    struct stat st;
+    if (::stat(bed_path.c_str(), &st) != 0 || (uint64)st.st_size != 3 + (uint64)nsnps * bed_bytes_per_snp)
+      cao.error("BED size does not match BIM/FAM dimensions.");
+    bed_order = bed_bucket_order(nsnps, bucket, config.seed);
+    Eigen::VectorXi indices(nsnps);
+    for (uint64 d = 0; d < nsnps; ++d) indices(d) = bed_order[d];
+    perm = PermMat(indices);
+    prefetcher.reset();
+    cao.print(tick.date(), "shuffle SNPs into random -w bands, read from the input; seed:", config.seed,
+              ", SNPs per band:", bucket);
+    if (on_rotating_disk(bed_path) == 1)
+      cao.warn("the BED is on a spinning disk, where reading its shuffled SNPs takes a seek per SNP once the file is "
+               "not in the memory. if the BED (" + std::to_string(st.st_size >> 20) + " MiB) is larger than the free "
+               "memory, --bed-copy, which writes a shuffled copy first, is usually much faster");
+    return false;
+  }
   perm = permute_plink(config.filein, config.fileout, config.buffer, bucket, config.seed);
   bed_ifstream.close();
   bed_ifstream.clear();
@@ -334,6 +362,36 @@ void FileBed::apply_permutation(Param& config) {
   bed_path = config.filein + ".bed";
   prefetcher.reset();
   if (!bed_ifstream) throw std::runtime_error("Cannot reopen permuted BED file");
+  return true;
+}
+
+std::vector<uint32_t> bed_bucket_order(uint64 nsnps, uint64 bucket, int seed) {
+  // the shuffle of permute_plink()
+  std::vector<uint32_t> order(nsnps);
+  std::iota(order.begin(), order.end(), 0);
+  PortableRng rng(seed);
+  portable_shuffle(order.begin(), order.end(), rng);
+  // rewrite_bed_buckets() keeps the source order within a bucket
+  for (uint64 b = 0; b < nsnps; b += bucket) std::sort(order.begin() + b, order.begin() + std::min(nsnps, b + bucket));
+  return order;
+}
+
+int on_rotating_disk(const std::string& path) {
+#ifdef __linux__
+  struct stat st;
+  if (::stat(path.c_str(), &st) != 0 || major(st.st_dev) == 0) return -1;
+  // a whole disk has queue/, a partition takes its disk's
+  const std::string dev =
+      "/sys/dev/block/" + std::to_string(major(st.st_dev)) + ":" + std::to_string(minor(st.st_dev));
+  for (const char* queue : {"/queue/rotational", "/../queue/rotational"}) {
+    std::ifstream f(dev + queue);
+    int r;
+    if (f >> r) return r;
+  }
+#else
+  (void)path;
+#endif
+  return -1;
 }
 
 namespace {

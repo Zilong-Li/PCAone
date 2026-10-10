@@ -52,6 +52,19 @@ so that sum no longer covers all the variance.
   where a site's MAF is exactly the `--maf` cutoff: the dosages are now computed by dividing by
   the largest probability value (the bgen library multiplies by its inverse), so that certain
   genotypes are exactly 0, 1 and 2 at any bit depth.
+- Out-of-core winSVD reads the shuffled SNPs of a BED from the input, as for PGEN and BGEN, instead
+  of writing a shuffled copy (`<out>.perm.*`) first. The order is the copy's (random `-w` bands,
+  source order within each), so every output is byte-identical, and no disk space or rewrite is
+  needed. A block's records are requested from the kernel and read in file order, consecutive ones
+  together. `--bed-copy` writes the copy as before. On a spinning disk each SNP not in the page
+  cache costs a seek, so PCAone warns there (Linux) and the copy is faster for a BED larger than the
+  memory: 20,000 x 1.39M SNPs (7 GB) with a 4 GB memory cap took 224 s with `--bed-copy` and 1,840 s
+  without. From an SSD it took 209 s and 215 s, from the page cache 168 s and 160 s; with 134,400
+  samples (34 KB records) 136 s and 170 s on the spinning disk, 126 s and 116 s on the SSD. Tiny
+  records cost a system call each: `example/plink` (400 samples) takes 5.7 s instead of 2.4 s.
+  Shuffling runs of neighbouring SNPs instead would keep the reads large, but winSVD then converged
+  more slowly (9 to 21 epochs instead of 7, and PCs further from the exact ones), so it was not
+  kept.
 - **results change**: phased BGEN. The bgen library read the two haplotype probabilities of a
   sample as those of the homozygote and the heterozygote, so a dosage could reach 3, and the PCs
   of a phased file were wrong. The dosage is now the sum over the haplotypes; a phased file gives

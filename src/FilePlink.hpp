@@ -38,7 +38,10 @@ class FileBed : public Data {
 
   void read_all() final;
   // Called after prepare(), before any genotype reads or frequency estimates.
-  void apply_permutation(Param& config);
+  // Shuffles the SNPs for out-of-core winSVD. By default the blocks read the
+  // shuffled SNPs from the input; with --bed-copy they are written to
+  // <out>.perm.*, which replaces the input. Returns true if it wrote the copy.
+  bool apply_permutation(Param& config);
   // for blockwise
   void check_file_offset_first_var() final;
 
@@ -53,6 +56,8 @@ class FileBed : public Data {
   uint64 nmono_seen = 0;  // sites with MAF=0 met while estimating F block by block
   std::vector<uchar> inbed;
   std::string bed_path;  // the BED read by the blocks: the input, or its permuted copy
+  // the source SNP of each logical SNP, when the blocks read them from the input
+  std::vector<uint32_t> bed_order;
   // out-of-core: reads the next block while the current one is used (--no-prefetch: off)
   std::unique_ptr<PCAone::RecordPrefetcher> prefetcher;
   // the packed records of SNPs [start_idx, start_idx + count), valid until the next call
@@ -62,5 +67,13 @@ class FileBed : public Data {
 // Shuffles the SNPs into random buckets of `bucket` SNPs, source order kept
 // within each, and writes <fout>.perm.{bed,bim,fam}. fin becomes <fout>.perm.
 PermMat permute_plink(std::string& fin, const std::string& fout, uint gb, uint64 bucket, int seed);
+
+// The order permute_plink() writes, without writing it: the SNPs shuffled at
+// random (--seed) into buckets of `bucket` SNPs, each in source order.
+std::vector<uint32_t> bed_bucket_order(uint64 nsnps, uint64 bucket, int seed);
+
+// 1 if the file is on a rotating disk, 0 if not, -1 if unknown (not Linux, or
+// a network or virtual file system)
+int on_rotating_disk(const std::string& path);
 
 #endif  // PCAONE_FILEPLINK_

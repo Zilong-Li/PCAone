@@ -115,6 +115,22 @@ class RecordPrefetcher {
   RecordPrefetcher(const RecordPrefetcher&) = delete;
   RecordPrefetcher& operator=(const RecordPrefetcher&) = delete;
 
+  // Read record order[r] of the file for record r (a logical permutation),
+  // instead of record r. Consecutive file records are read together, and the
+  // runs of a block are requested from the kernel first, so that a disk can
+  // serve them in its own order.
+  void set_order(std::vector<uint32_t> order) {
+    cancel();
+    for (auto r : order)
+      if (r >= n_) throw std::out_of_range("RecordPrefetcher: a record beyond the end of the file");
+    order_ = std::move(order);
+  }
+  // false: never read ahead in the background (--no-prefetch)
+  void set_read_ahead(bool on) {
+    cancel();
+    allow_ahead_ = on;
+  }
+
   // The records [first, first + count), valid until the next call.
   const unsigned char* get(uint64_t first, uint64_t count) {
     using clock = std::chrono::steady_clock;
@@ -141,7 +157,7 @@ class RecordPrefetcher {
     const bool sequential = first == 0 || first == last_end_;
     last_end_ = first + count;
     if (first == 0) first_count_ = count;
-    if (ahead_ && sequential && count < n_) {
+    if (allow_ahead_ && ahead_ && sequential && count < n_) {
       uint64_t nf = first + count, nc = std::min(count, n_ - nf);
       if (nf >= n_) {  // the first block of the next pass
         nf = 0;
@@ -180,13 +196,33 @@ class RecordPrefetcher {
   void read_into(std::vector<unsigned char>& buf, uint64_t first, uint64_t count, const std::atomic<bool>& stop) {
     const uint64_t len = count * width_;
     if (buf.size() < len) buf.resize(len);
-    if (detail::pread_all(fd_, buf.data(), len, offset_ + first * width_, stop)) bytes_ += len;
+    if (order_.empty()) {
+      if (detail::pread_all(fd_, buf.data(), len, offset_ + first * width_, stop)) bytes_ += len;
+      return;
+    }
+    // runs of consecutive file records: (first logical record, count)
+    std::vector<std::pair<uint64_t, uint64_t>> runs;
+    for (uint64_t i = first, end = first + count; i < end;) {
+      uint64_t j = i + 1;
+      while (j < end && order_[j] == order_[j - 1] + 1) ++j;
+      runs.emplace_back(i, j - i);
+      i = j;
+    }
+    if (runs.size() > 1)
+      for (const auto& [i, n] : runs) detail::willneed(fd_, offset_ + (uint64_t)order_[i] * width_, n * width_);
+    for (const auto& [i, n] : runs) {
+      if (!detail::pread_all(fd_, buf.data() + (i - first) * width_, n * width_, offset_ + (uint64_t)order_[i] * width_,
+                             stop))
+        return;
+      bytes_ += n * width_;
+    }
   }
 
   int fd_;
   uint64_t offset_, width_, n_;
   double min_share_;
-  bool ahead_ = true, returned_ = false;
+  bool ahead_ = true, returned_ = false, allow_ahead_ = true;
+  std::vector<uint32_t> order_;  // logical record -> file record; empty: the same
   std::chrono::steady_clock::time_point last_return_;
   double ahead_seconds_ = 0;  // written by the reading thread, read after it is joined
   std::vector<unsigned char> cur_, next_;

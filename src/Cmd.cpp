@@ -105,6 +105,7 @@ Param::Param(int argc, char** argv) {
   opts.add<Unsigned, Attribute::advanced>("", "N", "the number of samples if already known.", 0, &nsamples);
   opts.add<Value<double>, Attribute::advanced>("", "scale-factor", "feature counts for each sample are normalized and multiplied by this value", 1.0, &scaleFactor);
   opts.add<Switch, Attribute::advanced>("", "no-prefetch", "read the out-of-core blocks in the foreground, without reading the next block during the computation.", &noprefetch);
+  opts.add<Switch, Attribute::advanced>("", "bed-copy", "out-of-core winSVD on BED: write the shuffled SNPs to <out>.perm.* and read that copy, instead of reading them from the input. faster when the BED is on a spinning disk and larger than the memory.", &bedcopy);
   opts.add<Unsigned, Attribute::advanced>("", "buffer", "genotype buffer in GiB for permuting data (indices/metadata extra).", buffer, &buffer);
   opts.add<Unsigned, Attribute::advanced>("", "imaxiter", "maximum number of IRAM iterations.", imaxiter, &imaxiter);
   opts.add<Value<double>, Attribute::advanced>("", "itol", "stopping tolerance for IRAM algorithm.", itol, &itol);

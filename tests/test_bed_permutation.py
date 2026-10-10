@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Out-of-core BED permutation: bytes and metadata, --seed, the invariance of
-winSVD/EMU to the SNP order within a -w band, and the output guards."""
+winSVD/EMU to the SNP order within a -w band, and the output guards.
+
+By default the blocks read the shuffled SNPs from the input; --bed-copy writes
+them to <out>.perm.* first. Both must give the same bytes of every output, and
+the default must write nothing next to the input nor remove it."""
 import math
 import os
 import random
@@ -83,13 +87,14 @@ with tempfile.TemporaryDirectory(prefix='pcaone-bed-') as name:
     def pcaone(*args, cwd=None):
         return subprocess.run([str(ROOT / 'PCAone'), *map(str, args)], capture_output=True, text=True, cwd=cwd)
 
-    def run(label, bfile=source, seed=42, memory='0.000003', extra=(), verbose=3):
+    def run(label, bfile=source, seed=42, memory='0.000003', extra=(), verbose=3, copy=True):
         prefix = directory / label
         result = pcaone('--bfile', bfile, '-m', memory, '-k', 2, '--oversamples', 2, '-n', 2, '-w', 4,
-                        '--maxp', 5, '-v', verbose, '--seed', seed, '-o', prefix, *extra)
+                        '--maxp', 5, '-v', verbose, '--seed', seed, '-o', prefix, *extra,
+                        *(('--bed-copy',) if copy else ()))
         assert result.returncode == 0, result.stdout + result.stderr
         log = Path(str(prefix) + '.log').read_text()
-        if verbose < 3 or '-S' in extra:
+        if verbose < 3 or '-S' in extra or not copy:
             for suffix in ['bed', 'bim', 'fam']:
                 assert not Path(str(prefix) + '.perm.' + suffix).exists()
             return prefix, [], log
@@ -118,6 +123,12 @@ with tempfile.TemporaryDirectory(prefix='pcaone-bed-') as name:
     for label, memory, extra in [('many', '0.000003', ()), ('few', '0.0002', ()),
                                  ('emu', '0.000003', ('--emu', '--maxiter', 2))]:
         permuted, order, log = run(label, memory=memory, extra=extra)
+        # the same shuffle read from the input: the same bytes, nothing written
+        direct, _, direct_log = run(label + '-direct', memory=memory, extra=extra, copy=False)
+        assert 'read from the input' in direct_log
+        for suffix in ['eigvals', 'sigvals', 'eigvecs', 'loadings', 'mbim']:
+            assert Path(f'{permuted}.{suffix}').read_bytes() == Path(f'{direct}.{suffix}').read_bytes(), \
+                label + ' ' + suffix
         band = int(re.search(r'SNPs per band:\s*(\d+)', log)[1])
         blocksize, nblocks, factor = map(int, re.search(
             r'after adjustment by PCAone: .*blocksize = (\d+) , nblocks = (\d+) , factor = (\d+)', log).groups())
@@ -152,31 +163,43 @@ with tempfile.TemporaryDirectory(prefix='pcaone-bed-') as name:
             raise AssertionError('a different band membership gave the same PCs: ' + label)
 
     run('cleanup', verbose=1)
+    # the cleanup of --bed-copy must not touch the input when nothing was copied
+    run('direct-cleanup', verbose=1, copy=False)
+    for suffix, content in [('.bed', bed), ('.fam', fam)]:
+        assert plink_file(source, suffix).read_bytes() == content
+    assert plink_file(source, '.bim').read_text() == ''.join(line + '\n' for line in bim)
     run('disabled', extra=('-S',))
     result = pcaone('-b', source, '-m', '0.001', '--bed-shuffle', 'block', '-o', directory / 'removed')
     assert result.returncode != 0
 
     for label, bad_bed, bad_bim in [('header', b'\x6c', bim), ('body', bed[:-1], bim), ('empty', bed[:3], [])]:
         broken = write_plink(directory / ('bad-' + label), bad_bed, bad_bim, fam)
-        out = directory / ('failed-' + label)
-        result = pcaone('-b', broken, '-m', '0.000003', '-k', 2, '-n', 2, '-o', out)
-        assert result.returncode != 0
-        assert not Path(str(out) + '.perm.bed').exists()
+        for copy in [(), ('--bed-copy',)]:
+            out = directory / ('failed-' + label)
+            result = pcaone('-b', broken, '-m', '0.000003', '-k', 2, '-n', 2, '-o', out, *copy)
+            assert result.returncode != 0
+            assert not Path(str(out) + '.perm.bed').exists()
 
-    # The output must never overwrite the input, whatever the spelling or link.
+    # The copy must never overwrite the input, whatever the spelling or link.
     alias = write_plink(directory / 'alias.perm', bed, bim, fam)
-    result = pcaone('-b', './alias.perm', '-m', '0.000003', '-k', 2, '-n', 2, '-o', 'alias', cwd=directory)
+    result = pcaone('-b', './alias.perm', '-m', '0.000003', '-k', 2, '-n', 2, '-o', 'alias', '--bed-copy',
+                    cwd=directory)
     assert result.returncode != 0 and 'overwrite the input' in result.stdout + result.stderr
     assert plink_file(alias, '.bed').read_bytes() == bed and plink_file(alias, '.fam').read_bytes() == fam
+    # without the copy there is nothing to overwrite
+    result = pcaone('-b', './alias.perm', '-m', '0.000003', '-k', 2, '-n', 2, '-o', 'alias', cwd=directory)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert plink_file(alias, '.bed').read_bytes() == bed and plink_file(alias, '.fam').read_bytes() == fam
     os.symlink(plink_file(source, '.bed'), directory / 'link.perm.bed')
-    result = pcaone('-b', source, '-m', '0.000003', '-k', 2, '-n', 2, '-o', directory / 'link')
+    result = pcaone('-b', source, '-m', '0.000003', '-k', 2, '-n', 2, '-o', directory / 'link', '--bed-copy')
     assert result.returncode != 0 and 'overwrite the input' in result.stdout + result.stderr
     assert (directory / 'link.perm.bed').is_symlink()
 
     # A failure part way removes what the permutation wrote, and only that.
     (directory / 'blocked.perm.bim').mkdir()
-    result = pcaone('-b', source, '-m', '0.000003', '-k', 2, '-n', 2, '-o', directory / 'blocked')
+    result = pcaone('-b', source, '-m', '0.000003', '-k', 2, '-n', 2, '-o', directory / 'blocked', '--bed-copy')
     assert result.returncode != 0 and 'blocked.perm.bim' in result.stdout + result.stderr
     assert not (directory / 'blocked.perm.bed').exists() and (directory / 'blocked.perm.bim').is_dir()
     assert plink_file(source, '.bed').read_bytes() == bed
-print('BED permutation: bytes, metadata, seed, band invariance (winSVD/EMU), and guards passed')
+print('BED permutation: read from the input and --bed-copy give the same bytes; bytes, metadata, seed, '
+      'band invariance (winSVD/EMU), and guards passed')

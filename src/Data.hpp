@@ -77,6 +77,7 @@ class Data {
   double p_miss = 0.0;         // proportion of genotype missingness
   PermMat perm;                // permuation order of SNPs
   bool in_core_permuted = false;  // true only after G has actually been shuffled
+  bool metadata_permuted = false;  // the .bim read is the permuted copy's (BED rewritten out-of-core)
   Mat2D G;                     // genotype matrix, can be initial E or centered E, which is nsamples x nsnps;
   Mat2D P;                     // normalized genotype likelihoods, (nsamples x 2) x nsnps.
   Mat1D F;                     // observed or estimated population allele frequency
