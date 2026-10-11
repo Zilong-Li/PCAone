@@ -1,19 +1,19 @@
-# Principal Component Analysis All in One (v0.8.0-pre)
+# Principal Component Analysis All in One (v0.8.0)
 
 <a href="https://github.com/Zilong-Li/PCAone/actions/workflows/linux.yml"><img src="https://github.com/Zilong-Li/PCAone/actions/workflows/linux.yml/badge.svg" alt="Linux build"></a>
 <a href="https://github.com/Zilong-Li/PCAone/actions/workflows/mac.yml"><img src="https://github.com/Zilong-Li/PCAone/actions/workflows/mac.yml/badge.svg" alt="macOS build"></a>
 <a href="https://github.com/Zilong-Li/PCAone/releases/latest"><img src="https://img.shields.io/github/v/release/Zilong-Li/PCAone.svg" alt="Latest release"></a>
 <a href="https://zilongli.org/PCAone/"><img src="https://github.com/Zilong-Li/PCAone/actions/workflows/docs.yml/badge.svg" alt="Documentation"></a>
 
-PCAone is a fast, memory-efficient C++ tool for principal component analysis
-(PCA) of large datasets. It runs with all data in memory or streams it from
-disk, so biobank-scale data fit on an ordinary machine.
+PCAone is a scalable and memory-efficient C++ tool for principal component analysis(PCA). 
+It runs with all data in memory or streams it from disk, so biobank-scale data fit on an ordinary machine. PCA methods supported (`--svd`): 
+window-based randomized SVD (default, ours), single-pass randomized SVD, IRAM, and exact sample-GRM eigendecomposition.
 
 What sets PCAone apart is **structure-aware analysis**. Standard estimators of
 relatedness, LD and HWE assume one homogeneous population with a single allele
 frequency per site. In structured or admixed samples, that assumption turns
 population structure into false signal. PCAone models the structure with the
-top PCs of one PCA run, saved once and read back with `-P/--USV`:
+top PCs of one PCA run with informative SNPs, saved once and read back with `-P/--USV`:
 
 - **Relatedness (`--evaladmix`):** with one allele frequency per site,
   unrelated samples from the same population look related. PCAone estimates
@@ -53,9 +53,6 @@ sequencing:
 
 Also included: selection scans, and PCA of other data such as zstd-compressed
 CSV counts.
-
-PCA methods (`--svd`): window-based randomized SVD (default), single-pass
-randomized SVD, IRAM, and exact sample-GRM eigendecomposition.
 
 [Documentation](https://zilongli.org/PCAone/) · [Change log and migration notes](docs/changelog.md) · [R package](https://github.com/Zilong-Li/PCAoneR)
 
