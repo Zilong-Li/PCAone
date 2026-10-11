@@ -119,6 +119,9 @@ so that sum no longer covers all the variance.
 - Crashes: in-core `--svd 2` with fewer than 4,096 sites; `--clump` across chromosomes out-of-core;
   `--inbreed` with PGEN and `-m`; a missing `.mbim` with `-P`; several malformed CSV files;
   EM-PCA on very large matrices.
+- `--inbreed` with `-m` used twice the memory given, three times with BEAGLE input: the target
+  and the individual allele frequencies each took a block of `-m`. They now share it (70 GB
+  instead of 140 GB at `-m 64` on 2,530 samples and 12 million sites, with the same output).
 - `--selection 1` and `--project` with `-k` below the reference's number of PCs.
 - LD `R2` of monomorphic variants is 0 instead of `NaN`.
 - The BEAGLE `.eigvecs2` has one tab-separated column per PC.

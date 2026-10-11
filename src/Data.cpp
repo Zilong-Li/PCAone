@@ -83,6 +83,14 @@ void Data::prepare() {
     // room from the stripes, i.e. add passes over the genotypes.
     const double b = 0.2 * params.memory * 134217728 / std::max(1u, nsamples);
     blocksize = (uint)std::min<double>(std::max(1u, nsnps), std::max(256.0, std::min(2048.0, std::floor(b))));
+  } else if (params.inbreed) {
+    // --inbreed (InbredSites.cpp, InbredSamples.cpp) holds a block of the target
+    // and the matching block of individual allele frequencies (N rows) at once.
+    // The target is N rows of genotypes, or 2N rows of likelihoods for BEAGLE, so
+    // -m is split over 2 or 3 such N-row blocks. Both Data objects size their
+    // blocks here, alike.
+    const double parts = params.file_t == FileType::BEAGLE ? 3.0 : 2.0;
+    blocksize = (uint)ceil((double)params.memory / parts * 134217728 / nsamples);
   } else {
     // ram of non-pca run
     blocksize = (uint)ceil((double)params.memory * 134217728 / nsamples);
