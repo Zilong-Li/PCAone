@@ -6,11 +6,56 @@
 <a href="https://zilongli.org/PCAone/"><img src="https://github.com/Zilong-Li/PCAone/actions/workflows/docs.yml/badge.svg" alt="Documentation"></a>
 
 PCAone is a fast, memory-efficient C++ tool for principal component analysis
-of large datasets, with in-core and out-of-core algorithms.
+(PCA) of large datasets. It runs with all data in memory or streams it from
+disk, so biobank-scale data fit on an ordinary machine.
 
-- **Inputs:** PLINK BED, PLINK2 PGEN, BGEN, BEAGLE genotype likelihoods, and zstd-compressed CSV.
-- **PCA:** window-based randomized SVD (default), single-pass randomized SVD, IRAM, and exact sample-GRM eigendecomposition.
-- **Genetics:** EMU/PCAngsd, projection, selection scans, HWE tests, per-sample inbreeding coefficients, ancestry-adjusted LD pruning and clumping, and evalAdmix residual correlations.
+What sets PCAone apart is **structure-aware analysis**. Standard estimators of
+relatedness, LD and HWE assume one homogeneous population with a single allele
+frequency per site. In structured or admixed samples, that assumption turns
+population structure into false signal. PCAone models the structure with the
+top PCs of one PCA run, saved once and read back with `-P/--USV`:
+
+- **Relatedness (`--evaladmix`):** with one allele frequency per site,
+  unrelated samples from the same population look related. PCAone estimates
+  pairwise kinship from the correlation of the genotype residuals left after
+  the PCs (evalAdmix, with PCA in place of an admixture model), so no
+  admixture run is needed.
+- **LD (`--ld-r2`, `--clump`):** variants that differ in frequency between
+  populations are correlated even when far apart, so pruning on standard LD
+  removes too many. PCAone computes LD on the residuals after removing the
+  PCs, and prunes and clumps on that ancestry-adjusted LD.
+- **HWE and inbreeding (`--inbreed`):** pooling populations creates a deficit
+  of heterozygotes (the Wahlund effect), so standard tests flag every
+  differentiated site. PCAone tests each site against individual allele
+  frequencies, the frequency for each sample predicted from the PCs.
+
+It handles the main kinds of genetic data:
+
+- **Array or imputed genotypes:** PLINK BED, PLINK2 PGEN (dosages when
+  available) and BGEN.
+- **Low-coverage sequencing:** genotype likelihoods in BEAGLE format, with
+  PCAngsd-style EM-PCA (`--pcangsd`).
+- **Missing data:** EM-PCA (`--emu`) imputes missing genotypes from the PCs
+  instead of filling them with the mean.
+
+PCAone also projects new samples onto the PCs of a reference panel without
+recomputing them, built for sparse data such as ancient DNA and low-coverage
+sequencing:
+
+- **Called genotypes with missing calls (`--project 2`):** each sample is
+  fitted on its own called sites only, rather than filling the gaps with the
+  reference allele frequency.
+- **Low-coverage data (`--project 3`):** projects genotype likelihoods (BEAGLE)
+  directly, by EM, without calling genotypes.
+- **Bootstrap (`--project-bootstrap`):** resamples the matched SNPs to give
+  each projected sample a standard error and PC covariances for uncertainty
+  ellipses (with `--project 2`).
+
+Also included: selection scans, and PCA of other data such as zstd-compressed
+CSV counts.
+
+PCA methods (`--svd`): window-based randomized SVD (default), single-pass
+randomized SVD, IRAM, and exact sample-GRM eigendecomposition.
 
 [Documentation](https://zilongli.org/PCAone/) · [Change log and migration notes](docs/changelog.md) · [R package](https://github.com/Zilong-Li/PCAoneR)
 
@@ -67,27 +112,44 @@ Replace `data` with your input prefix. Add `--hardcall` to use PGEN hard calls.
 | `.mbim`     | Variant metadata and frequencies with loadings |
 | `.log`      | Run settings and progress                      |
 
-For a small sample count and many variants, use `--svd 3` for exact PCA.
-It needs an N × N sample GRM in memory and does not support EM-PCA.
-Use the default `--svd 2` for large datasets.
+For up to a few thousand samples, use `--svd 3` for exact PCA. It holds an
+N × N sample GRM in memory and does not support EM-PCA. Keep the
+default `--svd 2` for large datasets; see
+[choosing a PCA method](docs/guide/pca.md).
 
 ## Common workflows
 
-```shell
-# Ancestry-adjusted LD pruning with the first 3 reference PCs
-PCAone -b reference -P ref -k 3 --ld-r2 0.2 -o pruned
+Most analyses take two steps: compute the PCs once, then pass them back with
+`-P/--USV`.
 
-# Build a reference and project new samples
+```shell
+# Step 1: compute the PCs once
+PCAone -b data -k 3 -o pcs
+
+# Relatedness: pairwise kinship from the PCA residuals
+PCAone -b data -P pcs --evaladmix -o rel
+
+# LD pruning adjusted for ancestry
+PCAone -b data -P pcs --ld-r2 0.2 -o pruned
+
+# HWE tests and inbreeding that account for population structure
+PCAone -b data -k 3 --pcangsd -o pcs_hwe
+PCAone -b data -P pcs_hwe --inbreed 1 -o hwe
+
+# Build a reference and project new samples, with 100 bootstrap replicates
 PCAone -b reference -k 10 -o ref
-PCAone -b target -P ref --project 2 -o projected
+PCAone -b target -P ref --project 2 --project-bootstrap 100 -o projected
+
+# Project low-coverage samples from genotype likelihoods
+PCAone -G target.beagle.gz -P ref --project 3 -o projected_gl
 
 # PCA for count data in zstd-compressed CSV
 PCAone -c counts.csv.zst -k 10 --scale 2 -S -o counts
 ```
 
-Projection requires compatible genome builds and alleles. LD requires the
-same samples in the same order as the reference PCA. Analyses using `-P`
-use every reference PC unless `-k` selects the leading PCs.
+Projection requires compatible genome builds and alleles. Relatedness, LD and
+HWE require the same samples in the same order as the reference PCA. Analyses
+using `-P` use every reference PC unless `-k` selects the leading PCs.
 
 ## Documentation
 
