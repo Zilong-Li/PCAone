@@ -48,10 +48,16 @@ so that sum no longer covers all the variance.
   `.cov`, the selection scans, `.hwe`, `.ld.gz`, `.ld.prune.*`, the projection bootstrap and
   the evalAdmix matrices. Writing the `.loadings` of 1M sites and 10 PCs took 2.5 s and now
   takes 0.6 s on one thread, less with more.
+- The `.loadings`, `.eigvecs` and `.mbim` of a `-P/--USV` run are read in blocks, the next block
+  while this one is parsed on all threads, and the numbers converted exactly without `strtod`:
+  the same values as before. Reading the `.loadings` of 5M sites and 10 PCs took 5.2 s and now
+  takes 1.6 s on one thread, 1.1 s on two.
 
 **Fixed**
 
 - The `.eigvecs2` of a PGEN whose `.psam` has no header line had no samples.
+- LD and `--evaladmix` read a value of the `-P/--USV` `.eigvecs` that is not a number, such as
+  the `NA` of a projected sample, as 0. They now stop with an error naming the row.
 
 ### v0.8.0
 

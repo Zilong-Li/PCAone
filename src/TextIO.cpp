@@ -6,6 +6,7 @@
 
 #include "TextIO.hpp"
 
+#include <charconv>
 #include <cstdio>
 #include <cstdlib>  // strtod
 #include <fstream>
@@ -238,6 +239,179 @@ void write_matrix(const std::string& path,
 }
 
 // ---------------------------------------------------------------------------
+// text to numbers
+// ---------------------------------------------------------------------------
+
+namespace {
+
+constexpr double EXACT_POW10[23] = {1e0,  1e1,  1e2,  1e3,  1e4,  1e5,  1e6,  1e7,  1e8,  1e9,  1e10, 1e11,
+                                    1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22};
+
+inline bool is_blank(char c) { return c == ' ' || c == '\t' || c == '\r' || c == '\v' || c == '\f'; }
+inline bool is_digit(char c) { return (unsigned)(c - '0') < 10u; }
+
+// strtod of the number at p (no blanks). strtod needs a terminated string: a
+// number holds no blank, so the token up to the next blank is enough
+const char* parse_double_strtod(const char* p, const char* end, double& v) {
+  const char* q = p;
+  while (q < end && !is_blank(*q)) ++q;
+  const std::string tok(p, q);
+  char* stop = nullptr;
+  v = std::strtod(tok.c_str(), &stop);
+  return stop == tok.c_str() ? nullptr : p + (stop - tok.c_str());
+}
+
+}  // namespace
+
+#if defined(__cpp_lib_to_chars) && __cpp_lib_to_chars >= 201611L
+
+// libstdc++ has std::from_chars for double (GCC 11 on), as fast as the path
+// below and exact. It reads no '+', and leaves v alone out of range, where
+// strtod gives +-inf or a denormal: those few go to strtod.
+const char* parse_double(const char* p, const char* end, double& v) {
+  while (p < end && is_blank(*p)) ++p;
+  const char* s = (p < end && *p == '+' && end - p > 1 && p[1] != '-') ? p + 1 : p;
+  const auto r = std::from_chars(s, end, v);
+  if (r.ec == std::errc()) return r.ptr;
+  if (r.ec == std::errc::result_out_of_range) return parse_double_strtod(p, end, v);
+  return nullptr;
+}
+
+#else
+
+// libc++, so Apple Clang, has no std::from_chars for double: up to 19
+// significant digits with a decimal exponent within +-22 are converted here,
+// the rest by strtod
+const char* parse_double(const char* p, const char* end, double& v) {
+  while (p < end && is_blank(*p)) ++p;
+  const char* const start = p;
+  bool neg = false;
+  if (p < end && (*p == '-' || *p == '+')) neg = *p++ == '-';
+  uint64 m = 0;       // the significant digits
+  int nd = 0, e = 0;  // how many, and the decimal exponent of the last
+  bool any = false;
+  for (; p < end && is_digit(*p); ++p) {
+    any = true;
+    if (m == 0 && *p == '0') continue;  // leading zeros
+    if (++nd > 19) return parse_double_strtod(start, end, v);
+    m = 10 * m + (uint64)(*p - '0');
+  }
+  if (p < end && *p == '.') {
+    for (++p; p < end && is_digit(*p); ++p) {
+      any = true;
+      --e;
+      if (m == 0 && *p == '0') continue;
+      if (++nd > 19) return parse_double_strtod(start, end, v);
+      m = 10 * m + (uint64)(*p - '0');
+    }
+  }
+  if (!any) return parse_double_strtod(start, end, v);  // nan, inf, or no number at all
+  if (p < end && (*p == 'e' || *p == 'E')) {
+    const char* q = p + 1;
+    bool eneg = false;
+    if (q < end && (*q == '-' || *q == '+')) eneg = *q++ == '-';
+    if (q < end && is_digit(*q)) {  // else "1e" is 1, and the 'e' is not read, as strtod does
+      int x = 0;
+      for (; q < end && is_digit(*q); ++q)
+        if (x < 100000) x = 10 * x + (*q - '0');
+      e += eneg ? -x : x;
+      p = q;
+    }
+  }
+  if (m == 0) {
+    v = neg ? -0.0 : 0.0;
+    return p;
+  }
+  if (m > (uint64(1) << 53) || e < -22 || e > 22) return parse_double_strtod(start, end, v);
+  // m and 10^|e| are exact doubles, so one operation rounds correctly (Clinger 1990)
+  const double d = e < 0 ? (double)m / EXACT_POW10[-e] : (double)m * EXACT_POW10[e];
+  v = neg ? -d : d;
+  return p;
+}
+
+#endif
+
+LineReader::LineReader(const std::string& path, size_t block_bytes)
+    : path_(path),
+      block_(std::max<size_t>(block_bytes, 1 << 16)) {
+  fp_ = std::fopen(path.c_str(), "rb");
+  if (!fp_) cao.error("can not open ", path);
+  for (auto& b : buf_) b.resize(block_ + 1);
+  fill(0, 0);
+}
+
+LineReader::~LineReader() {
+  if (ahead_.joinable()) ahead_.join();
+  if (fp_) std::fclose(fp_);
+}
+
+void LineReader::fill(int which, size_t offset) {
+  std::vector<char>& b = buf_[which];
+  size_t len = offset;
+  while (len < b.size() - 1) {
+    const size_t got = std::fread(b.data() + len, 1, b.size() - 1 - len, fp_);
+    len += got;
+    if (got == 0) break;
+  }
+  if (std::ferror(fp_)) failed_ = true;
+  len_[which] = len;
+  eof_[which] = len < b.size() - 1;
+}
+
+bool LineReader::next_block(std::vector<LineSpan>& lines) {
+  lines.clear();
+  if (done_) return false;
+  if (ahead_.joinable()) {
+    ahead_.join();
+    cur_ = 1 - cur_;
+  }
+  if (failed_) cao.error("error reading ", path_);
+  std::vector<char>& b = buf_[cur_];
+  size_t len = len_[cur_];
+  if (len == 0) return false;
+  // the whole lines in b; a line longer than the block grows it
+  size_t cut = len;
+  if (!eof_[cur_]) {
+    for (;;) {
+      size_t i = len;
+      while (i > 0 && b[i - 1] != '\n') --i;
+      if (i > 0) {
+        cut = i;
+        break;
+      }
+      b.resize(2 * b.size());
+      fill(cur_, len);
+      if (failed_) cao.error("error reading ", path_);
+      len = len_[cur_];
+      if (eof_[cur_]) {
+        cut = len;
+        break;
+      }
+    }
+  }
+  if (eof_[cur_]) {
+    done_ = true;
+  } else {  // the start of the next line goes first in the other buffer, read behind it on another thread
+    const int other = 1 - cur_;
+    const size_t tail = len - cut;
+    if (buf_[other].size() < std::max(block_, 2 * tail) + 1) buf_[other].resize(std::max(block_, 2 * tail) + 1);
+    std::memcpy(buf_[other].data(), b.data() + cut, tail);
+    ahead_ = std::thread([this, other, tail] { fill(other, tail); });
+  }
+  const char* p = b.data();
+  const char* const stop = b.data() + cut;
+  while (p < stop) {
+    const char* nl = static_cast<const char*>(std::memchr(p, '\n', stop - p));
+    const char* e = nl ? nl : stop;
+    const char* q = p;
+    while (q < e && is_blank(*q)) ++q;
+    if (q < e) lines.push_back({p, e});
+    p = e + 1;
+  }
+  return true;
+}
+
+// ---------------------------------------------------------------------------
 // sample IDs
 // ---------------------------------------------------------------------------
 
@@ -392,83 +566,89 @@ Mat1D read_eigvals(const std::string& path) {
 Mat2D read_eigvecs(const std::string& path, int n, int k) {
   cao.print(tick.date(), "read matrix from " + path);
   if (n <= 0 || k <= 0) cao.error("read_eigvecs: asked for a ", n, " x ", k, " matrix from ", path);
-
-  std::ifstream fin(path);
-  if (!fin.is_open()) cao.error("can not open ", path);
-
-  // Every bound is checked BEFORE the write it guards. The previous version
-  // filled M(j, k1) for every line in the file and only compared j with n after
-  // the loop, so a .eigvecs from a bigger cohort wrote past the end of the
-  // matrix -- silently, since Eigen has no bounds check under -DNDEBUG. Its
-  // inner loop had the mirror problem: it stopped only on k1 == k, so a short
-  // line ran i past the end of the string, and the "columns not aligned" check
-  // below it could never fire.
+  // Every bound is checked before the write it guards: a .eigvecs from a
+  // bigger cohort, or a short row, is an error, never a write past the end.
+  // Blank lines are skipped, and the values after the k-th of a row ignored.
   Mat2D M(n, k);
-  std::string line;
-  int j = 0;
-  while (std::getline(fin, line)) {
-    while (!line.empty() && (line.back() == '\r' || line.back() == '\n')) line.pop_back();
-    if (line.find_first_not_of(" \t") == std::string::npos) continue;  // blank line
-    if (j >= n) cao.error(path, " has more than the ", n, " rows this dataset needs. is it from a different cohort?");
-    const char* p = line.c_str();
-    for (int c = 0; c < k; ++c) {
-      char* end = nullptr;
-      const double v = std::strtod(p, &end);  // strtod skips leading blanks itself
-      if (end == p)
-        cao.error(path, ": row ", j + 1, " has only ", c, " values but ", k,
-                  " are needed. rerun the reference with a larger -k, or use a smaller one here");
-      M(j, c) = v;
-      p = end;
-    }
-    ++j;
-  }
-  if (j != n) cao.error(path, " has ", j, " rows but this dataset needs ", n);
-
+  const ReadLines r = read_lines(
+      path,
+      [&](Eigen::Index j, const char* b, const char* e) -> int {
+        if (j >= n) return -1;
+        for (int c = 0; c < k; ++c) {
+          double v;
+          if (!(b = parse_double(b, e, v))) return c + 1;
+          M(j, c) = v;
+        }
+        return 0;
+      },
+      [](Eigen::Index) {});
+  if (r.code == -1)
+    cao.error(path, " has more than the ", n, " rows this dataset needs. is it from a different cohort?");
+  if (r.code > 0)
+    cao.error(path, ": row ", r.bad + 1, " has only ", r.code - 1, " values but ", k,
+              " are needed. rerun the reference with a larger -k, or use a smaller one here");
+  if (r.lines != n) cao.error(path, " has ", r.lines, " rows but this dataset needs ", n);
   return M;
 }
 
 Mat2D read_usv(const std::string& path) {
-  std::ifstream fin(path);
-  if (!fin.is_open()) cao.error("can not open ", path);
-  Double1D V;
-  std::string line;
-  int nrow = 0, ncol = 0;
-  while (std::getline(fin, line)) {
-    if (!line.empty() && line.back() == '\r') line.pop_back();
-    int c = 0;
-    for (const auto& tok : split_string(line, "\t")) {
-      V.push_back(std::strtod(tok.c_str(), nullptr));
-      ++c;
-    }
-    if (nrow == 0) ncol = c;
-    if (c != ncol) cao.error("the columns are not aligned!\n =>" + path);
-    ++nrow;
-  }
+  std::vector<Double1D> rows;
+  // the tab-separated values of each row, every one a number
+  const ReadLines r = read_lines(
+      path,
+      [&](Eigen::Index j, const char* b, const char* e) -> int {
+        Double1D& row = rows[j];
+        for (;;) {
+          const char* t = static_cast<const char*>(std::memchr(b, '\t', e - b));
+          const char* fe = t ? t : e;
+          double v;
+          const char* q = parse_double(b, fe, v);
+          if (!q) return 1;
+          while (q < fe && is_blank(*q)) ++q;
+          if (q != fe) return 1;
+          row.push_back(v);
+          if (!t) return 0;
+          b = t + 1;
+        }
+      },
+      [&](Eigen::Index n) { rows.resize(n); });
+  if (r.code) cao.error(path, ": row ", r.bad + 1, " has a value that is not a number");
+  const Eigen::Index nrow = (Eigen::Index)rows.size(), ncol = nrow ? (Eigen::Index)rows[0].size() : 0;
   if (nrow < 1 || ncol < 1) cao.error("can not parse a matrix from file\n =>" + path);
-  // V is filled row by row, so it must be mapped as row-major. Mapping it with
-  // Eigen::Map<Mat2D> (column-major) transposes the contents of any file with
-  // more than one column.
-  using MatRowMajor = Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-  return Eigen::Map<MatRowMajor>(V.data(), nrow, ncol);
+  Mat2D M(nrow, ncol);
+  for (Eigen::Index i = 0; i < nrow; ++i) {
+    if ((Eigen::Index)rows[i].size() != ncol) cao.error("the columns are not aligned!\n =>" + path);
+    for (Eigen::Index j = 0; j < ncol; ++j) M(i, j) = rows[i][j];
+  }
+  return M;
 }
 
 Mat1D read_frq(const std::string& path) {
-  const std::string sep{" \t"};
-  Double1D V;
-  std::ifstream fin(path);
   // without this the file simply reads as empty, F stays size 0, and the first
   // F(snp_idx) downstream segfaults with no message. -P/--USV points filebim at
   // <prefix>.mbim, which a PCA run does not write with --no-loadings (or, before
   // v0.8.0, without -V/--printv) or from input with no .bim/.pvar.
-  if (!fin.is_open()) cao.error("can not open the allele frequency file\n => " + path);
-  std::string line;
-  while (getline(fin, line)) {
-    auto tokens = split_string(line, sep);
-    if ((int)tokens.size() != 7) cao.error("the input file is not valid!\n => " + path);
-    V.push_back(std::stod(tokens[6]));
-  }
-  if (V.empty()) cao.error("no allele frequencies found in\n => " + path);
-  return Eigen::Map<Mat1D>(V.data(), V.size());
+  if (!std::ifstream(path).is_open()) cao.error("can not open the allele frequency file\n => " + path);
+  Mat1D F;
+  // the 7th of exactly 7 fields, each blank (' ' or '\t') ending one, as split_string splits them
+  const ReadLines r = read_lines(
+      path,
+      [&](Eigen::Index j, const char* b, const char* e) -> int {
+        int nsep = 0;
+        const char* f7 = nullptr;
+        for (const char* q = b; q < e; ++q)
+          if ((*q == ' ' || *q == '\t') && ++nsep == 6) f7 = q + 1;
+        if (nsep != 6) return 1;
+        double v;
+        if (!parse_double(f7, e, v)) return 2;
+        F(j) = v;
+        return 0;
+      },
+      [&](Eigen::Index n) { F.conservativeResize(n); });
+  if (r.code == 1) cao.error("the input file is not valid: line ", r.bad + 1, " does not have 7 columns\n => " + path);
+  if (r.code == 2) cao.error("the input file is not valid: no allele frequency on line ", r.bad + 1, "\n => " + path);
+  if (F.size() == 0) cao.error("no allele frequencies found in\n => " + path);
+  return F;
 }
 
 int ref_pcs(const Param& params, int navail, const std::string& path) {

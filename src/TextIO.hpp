@@ -5,14 +5,16 @@
  *
  * Text input and output: the files of a PCA (.eigvecs, .eigvals, .sigvals,
  * .loadings, .mbim), the sample IDs of the input, and the fast, parallel
- * writer that every large text output goes through.
+ * writer and reader that every large text file goes through.
  ******************************************************************************/
 #ifndef PCAONE_TEXTIO_
 #define PCAONE_TEXTIO_
 
 #include <omp.h>
 
+#include <cstdio>
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <ostream>
 #include <thread>
@@ -138,6 +140,101 @@ void write_matrix(const std::string& path,
                   const TextFormat& fmt = {},
                   const std::string& header = "",
                   const std::vector<Eigen::Index>* rows = nullptr);
+
+// ---------------------------------------------------------------------------
+// text to numbers
+// ---------------------------------------------------------------------------
+//
+// Reading the M x k .loadings of a -P run with getline and strtod took ~90 ns
+// a value on one thread: strtod goes through the locale, and the lines were
+// read and parsed one by one. std::from_chars (C++17) converts without the
+// locale, exactly and ~4x faster, but libc++ -- so Apple Clang -- has no
+// from_chars for double (deleted up to LLVM 18 at least), and there an exact
+// parser of the decimals PCAone writes takes its place. read_lines reads a
+// file in blocks, the next block while this one is parsed, and parses the
+// lines of a block on every thread.
+
+// The number after any blanks at p, as strtod reads it, but within [p, end) and
+// without the locale: its value in v and its end, or nullptr when there is no
+// number. std::from_chars where the library has it; else up to 19 significant
+// digits with a decimal exponent within +-22 -- all PCAone writes -- are one
+// exact multiplication or division of two exact doubles, so correctly rounded
+// (Clinger 1990). Out of range, nan, inf and longer numbers go to strtod. So
+// every value is the double strtod gives. Hexadecimal is not read.
+const char* parse_double(const char* p, const char* end, double& v);
+
+struct LineSpan {
+  const char* b;  // a line without its '\n'
+  const char* e;
+};
+
+// The lines of a file, a block at a time, the next block being read on another
+// thread while the caller parses this one. A line may be any length.
+class LineReader {
+ public:
+  LineReader(const std::string& path, size_t block_bytes);
+  ~LineReader();
+  // the lines of the next block that are not blank (blanks are " \t\r\v\f"),
+  // valid until the next call; false at the end of the file
+  bool next_block(std::vector<LineSpan>& lines);
+
+ private:
+  void fill(int which, size_t offset);  // read into buf_[which] after the first `offset` bytes
+  std::string path_;
+  std::FILE* fp_ = nullptr;
+  size_t block_;
+  std::vector<char> buf_[2];
+  size_t len_[2] = {0, 0};
+  bool eof_[2] = {false, false};
+  bool failed_ = false, done_ = false;
+  int cur_ = 0;
+  std::thread ahead_;
+};
+
+struct ReadLines {
+  Eigen::Index lines = 0;  // the lines not blank, up to the end of the last block parsed
+  Eigen::Index bad = -1;   // the first line whose parser returned a code, if any
+  int code = 0;            // and that code
+};
+
+// Call line(i, b, e) for the i-th line [b, e) of the file that is not blank, on
+// every thread, a block of about TEXT_BLOCK_BYTES per thread at a time, and
+// grow(n) before the lines of a block, n being the lines up to its end, so the
+// destination can be sized. line returns 0, or a code of the caller's for an
+// error; the first line, in file order, with a code ends the reading. line must
+// not throw.
+template <typename LineFn, typename GrowFn>
+ReadLines read_lines(const std::string& path, LineFn&& line, GrowFn&& grow) {
+  const int T = omp_in_parallel() ? 1 : std::max(1, omp_get_max_threads());
+  LineReader reader(path, T * TEXT_BLOCK_BYTES);
+  ReadLines res;
+  std::vector<LineSpan> spans;
+  while (reader.next_block(spans)) {
+    const Eigen::Index first = res.lines, nb = (Eigen::Index)spans.size();
+    res.lines += nb;
+    grow(res.lines);
+    Eigen::Index bad = std::numeric_limits<Eigen::Index>::max();
+    int code = 0;
+#pragma omp parallel num_threads(T)
+    {
+      Eigen::Index my_bad = std::numeric_limits<Eigen::Index>::max();
+      int my_code = 0;
+#pragma omp for schedule(static)
+      for (Eigen::Index i = 0; i < nb; ++i) {
+        const int c = line(first + i, spans[i].b, spans[i].e);
+        if (c && first + i < my_bad) my_bad = first + i, my_code = c;
+      }
+#pragma omp critical(pcaone_read_lines)
+      if (my_bad < bad) bad = my_bad, code = my_code;
+    }
+    if (code) {
+      res.bad = bad;
+      res.code = code;
+      break;
+    }
+  }
+  return res;
+}
 
 // ---------------------------------------------------------------------------
 // sample IDs
