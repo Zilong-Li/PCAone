@@ -9,7 +9,10 @@
 #include <omp.h>
 
 #include "Cmd.hpp"
+#include "LinAlg.hpp"
+#include "TextIO.hpp"
 #include "Utils.hpp"
+#include "Variants.hpp"
 
 using namespace std;
 
@@ -147,12 +150,11 @@ void Data::filter_snps_resize_F() {
   F.noalias() = Fnew.head(nsnps);
 }
 
-// initially only works with plink inputs
-// but can work with beagle file as long as there is beagle.gz.bim file
-// TODO: always output mbim even though there is no beagle.gz.bim file
+// The variants of the .bim/.pvar, each with its allele frequency, in the order
+// of the input; not written for CSV and BEAGLE, which have no .bim
 void Data::save_snps_in_mbim() {
-  const bool has_metadata_header = params.file_t == FileType::PGEN;
-  const std::string bim_path = params.filein + (has_metadata_header ? ".pvar" : ".bim");
+  const bool pvar = params.file_t == FileType::PGEN;
+  const std::string bim_path = params.filein + (pvar ? ".pvar" : ".bim");
   std::ifstream ifs_bim(bim_path);
   if (!ifs_bim.is_open()) {
     // CSV has no variant metadata; now that .loadings are written by default,
@@ -160,42 +162,50 @@ void Data::save_snps_in_mbim() {
     if (params.file_t != FileType::CSV) cao.warn(params.filein + ".bim/.pvar not found; skipping mbim output");
     return;
   }
-  std::ofstream ofs_bim(params.fileout + ".mbim");
-  std::string line;
-  auto read_metadata_line = [&]() {
-    while (getline(ifs_bim, line)) {
-      if (has_metadata_header && !line.empty() && line[0] == '#') continue;
-      if (has_metadata_header) line = pvar_line_to_bim_line(line, bim_path);
-      return true;
-    }
-    return false;
+  const std::string fout = params.fileout + ".mbim";
+  std::ofstream ofs_bim(fout, std::ios::binary);
+  if (!ofs_bim.is_open()) cao.error("can not open file for writing: " + fout);
+  // a line of the .mbim: the .bim line and the frequency
+  auto put_line = [](TextBuf& buf, const std::string& meta, double f) {
+    buf.append(meta);
+    char* p = buf.reserve(TEXT_NUM_MAX + 2);
+    *p++ = '\t';
+    p = put_g6(f, p);
+    *p++ = '\n';
+    buf.commit(p);
   };
+  std::string line;
   const bool metadata_is_permuted = metadata_permuted && perm.indices().size() == nsnps;
   const bool frequency_is_permuted = params.perm && params.out_of_core && perm.indices().size() == nsnps;
 
-  if (!params.filterSNP && !params.perm) {
-    for (Eigen::Index j = 0; j < F.size() && read_metadata_line(); ++j) {
-      ofs_bim << line << "\t" << F(j) << "\n";
+  if (!params.filterSNP && !params.perm) {  // the variants are in the order of F: stream them
+    TextBuf buf;
+    for (Eigen::Index j = 0; j < F.size() && read_bim_line(ifs_bim, pvar, bim_path, line); ++j) {
+      put_line(buf, line, F(j));
+      if (buf.size() >= (size_t(32) << 20)) buf.write_to(ofs_bim), buf.clear();
     }
+    buf.write_to(ofs_bim);
     ofs_bim.close();
+    if (!ofs_bim) cao.error("error writing " + fout);
     return;
   }
 
   std::vector<std::string> metadata(nsnps);
   if (metadata_is_permuted) {
-    for (Eigen::Index permuted_idx = 0; permuted_idx < nsnps && read_metadata_line(); ++permuted_idx) {
+    for (Eigen::Index permuted_idx = 0; permuted_idx < nsnps && read_bim_line(ifs_bim, pvar, bim_path, line);
+         ++permuted_idx) {
       Eigen::Index original_idx = perm.indices()[permuted_idx];
       metadata[original_idx] = line;
     }
   } else if (params.filterSNP) {
     int kept = 0;
-    for (int source_idx = 0; kept < (int)nsnps && read_metadata_line(); ++source_idx) {
+    for (int source_idx = 0; kept < (int)nsnps && read_bim_line(ifs_bim, pvar, bim_path, line); ++source_idx) {
       if (kept < (int)keepSNPs.size() && keepSNPs[kept] == source_idx) {
         metadata[kept++] = line;
       }
     }
   } else {
-    for (Eigen::Index j = 0; j < nsnps && read_metadata_line(); ++j) {
+    for (Eigen::Index j = 0; j < nsnps && read_bim_line(ifs_bim, pvar, bim_path, line); ++j) {
       metadata[j] = line;
     }
   }
@@ -206,10 +216,10 @@ void Data::save_snps_in_mbim() {
     original_to_logical[original_idx] = logical_idx;
   }
 
-  for (Eigen::Index original_idx = 0; original_idx < nsnps; ++original_idx) {
-    ofs_bim << metadata[original_idx] << "\t" << F(original_to_logical[original_idx]) << "\n";
-  }
+  write_lines(ofs_bim, nsnps, 64,
+              [&](Eigen::Index i, TextBuf& buf) { put_line(buf, metadata[i], F(original_to_logical[i])); });
   ofs_bim.close();
+  if (!ofs_bim) cao.error("error writing " + fout);
   cao.print(tick.date(), "save matched sites in .mbim file and permutation mode is", params.perm);
 }
 
@@ -265,37 +275,52 @@ void Data::set_svd_transform(bool standardized) {
 }
 
 void Data::write_eigs_files(const Mat1D& E, const Mat1D& S, const Mat2D& U, const Mat2D& V) {
-  std::ofstream outs(params.fileout + ".sigvals");
-  std::ofstream oute(params.fileout + ".eigvals");
-  std::ofstream outu(params.fileout + ".eigvecs");
-  Eigen::IOFormat fmt(6, Eigen::DontAlignCols, "\t", "\n");
-  if (outs.is_open()) {
-    // key=value fields are appended after nsamples,nsnps; older PCAone parses
-    // the first two with stoi and ignores the rest. See UsvTransform.
-    outs << '#' << U.rows() << ',' << V.rows() << ",scale=" << svd_scale << ",ploidy=" << params.ploidy
-         << ",gscale=" << svd_gscale << '\n';
-    outs << S.format(fmt) << '\n';
-  }
-  if (oute.is_open()) oute << E.format(fmt) << '\n';
-  if (outu.is_open()) outu << U.format(fmt) << '\n';
+  // key=value fields are appended after nsamples,nsnps; older PCAone parses
+  // the first two with stoi and ignores the rest. See UsvTransform.
+  const std::string sig = "#" + std::to_string(U.rows()) + "," + std::to_string(V.rows()) +
+                          ",scale=" + std::to_string(svd_scale) + ",ploidy=" + std::to_string(params.ploidy) +
+                          ",gscale=" + std::to_string(svd_gscale) + "\n";
+  write_matrix(params.fileout + ".sigvals", S, {}, sig);
+  write_matrix(params.fileout + ".eigvals", E);
+  write_matrix(params.fileout + ".eigvecs", U);
+  // the PCs again, with the FID and IID of each sample, as plink2's .eigenvec
+  if (params.file_t == FileType::PLINK || params.file_t == FileType::PGEN)
+    write_eigvecs2(params.fileout + ".eigvecs2", U, read_sample_ids(params));
   if (params.printv) {
     save_snps_in_mbim();
-    std::ofstream outv(params.fileout + ".loadings");
-    if (!outv.is_open()) cao.error("can not open " + params.fileout + ".loadings");
+    // the loadings of a shuffled run are put back in the order of the input
+    std::vector<Eigen::Index> order;
     if (params.perm && V.rows() == nsnps && perm.indices().size() == nsnps) {
-      std::vector<Eigen::Index> original_to_logical(nsnps);
-      for (Eigen::Index logical_idx = 0; logical_idx < nsnps; ++logical_idx) {
-        original_to_logical[perm.indices()[logical_idx]] = logical_idx;
-      }
-      for (Eigen::Index original_idx = 0; original_idx < V.rows(); ++original_idx) {
-        outv << V.row(original_to_logical[original_idx]).format(fmt) << '\n';
-      }
-    } else {
-      outv << V.format(fmt) << '\n';
+      order.resize(nsnps);
+      for (Eigen::Index logical_idx = 0; logical_idx < nsnps; ++logical_idx)
+        order[perm.indices()[logical_idx]] = logical_idx;
     }
+    write_matrix(params.fileout + ".loadings", V, {}, "", order.empty() ? nullptr : &order);
   }
 
   cao.print(tick.date(), "eigen vectors and values saved");
+}
+
+void Data::write_pcangsd_cov() const {
+  Mat2D C = G * G.transpose();
+  C.array() /= (double)nsnps;
+  C.diagonal() = Dc.array() / (double)nsnps;
+  TextFormat fmt;  // Eigen's default `os << C`, as it has always been written
+  fmt.sep = ' ';
+  fmt.align = true;
+  write_matrix(params.fileout + ".cov", C, fmt);
+  // C is symmetric: its eigenvectors are its singular vectors. JacobiSVD took
+  // 21 s at N = 1000 and 215 s at N = 1500; this takes 0.7 s and 2.5 s.
+  Eigen::SelfAdjointEigenSolver<Mat2D> es(C);
+  if (es.info() != Eigen::Success) cao.error("failed eigendecomposition of the PCAngsd covariance matrix");
+  const Eigen::Index k = std::min<Eigen::Index>(params.k, C.rows());
+  Mat2D U = es.eigenvectors().rightCols(k).rowwise().reverse();  // largest first
+  for (Eigen::Index j = 0; j < k; ++j) {                         // same sign rule as flip_UV
+    Eigen::Index x;
+    U.col(j).cwiseAbs().maxCoeff(&x);
+    if (U(x, j) < 0) U.col(j) *= -1;
+  }
+  write_eigvecs2(params.fileout + ".eigvecs2", U, read_sample_ids(params));
 }
 
 void Data::fit_with_pi(const Mat2D& U, const Mat1D& svals, const Mat2D& VT) {

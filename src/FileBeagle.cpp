@@ -7,8 +7,25 @@
 #include "FileBeagle.hpp"
 
 #include "Data.hpp"
+#include "Stats.hpp"
 
 using namespace std;
+
+// The GLs of a BEAGLE line (marker allele1 allele2, then AA AB BB of each
+// sample) into column j of P: AA and AB of sample i in rows 2i and 2i + 1.
+// BB is one minus the two.
+static void parse_gl_line(char* line, Mat2D& P, uint j, uint nsamples) {
+  const char* delims = "\t \n";
+  char* save = nullptr;
+  strtok_r(line, delims, &save);  // marker
+  strtok_r(NULL, delims, &save);  // allele1
+  strtok_r(NULL, delims, &save);  // allele2
+  for (uint i = 0; i < nsamples; i++) {
+    P(2 * i + 0, j) = strtod(strtok_r(NULL, delims, &save), NULL);
+    P(2 * i + 1, j) = strtod(strtok_r(NULL, delims, &save), NULL);
+    strtok_r(NULL, delims, &save);
+  }
+}
 
 // read all data and estimate F
 void FileBeagle::read_all() {
@@ -17,7 +34,15 @@ void FileBeagle::read_all() {
   if (fp) gzclose(fp);  // the constructor's, left at the end of the file
   fp = gzopen(params.filein.c_str(), "r");
   if (!fp) cao.error("can not open " + params.filein);
-  parse_beagle_file(P, fp, nsamples, total_nsnps);
+  tgets(fp, &buffer, &bufsize);  // the header line
+  uint j = 0;
+  while (tgets(fp, &buffer, &bufsize)) {
+    if (j >= total_nsnps)
+      cao.error("more sites in " + params.filein + " than the " + to_string(total_nsnps) + " counted");
+    parse_gl_line(buffer, P, j++, nsamples);
+  }
+  if (j != total_nsnps) cao.error("something wrong parsing beagle");
+  original = buffer;  // tgets may have grown it
   // --inbreed pairs the GLs with the reference's individual allele frequencies
   // and needs nothing else: not the frequencies of this input, which the EM
   // below spent -maxiter passes on, nor the N x M expected genotypes
@@ -89,22 +114,9 @@ void FileBeagle::read_block_initial(uint64 start_idx, uint64 stop_idx, bool stan
   uint actual_block_size = stop_idx - start_idx + 1;
   // P, not G: G is never allocated here, so P was reallocated for every block
   if (P.cols() != (Eigen::Index)actual_block_size) P = Mat2D::Zero(nsamples * 2, actual_block_size);
-  const char* delims = "\t \n";
-  char* tok;
-  // read all GL data into P
   for (uint j = 0; j < actual_block_size; ++j) {
     tgets(fp, &buffer, &bufsize);  // get a line
-    if (buffer != original) original = buffer;
-    tok = strtok_r(buffer, delims, &buffer);
-    tok = strtok_r(NULL, delims, &buffer);
-    tok = strtok_r(NULL, delims, &buffer);
-    for (uint i = 0; i < nsamples; i++) {
-      tok = strtok_r(NULL, delims, &buffer);
-      P(2 * i + 0, j) = strtod(tok, NULL);
-      tok = strtok_r(NULL, delims, &buffer);
-      P(2 * i + 1, j) = strtod(tok, NULL);
-      tok = strtok_r(NULL, delims, &buffer);
-    }
-    buffer = original;
+    parse_gl_line(buffer, P, j, nsamples);
   }
+  original = buffer;  // tgets may have grown it
 }

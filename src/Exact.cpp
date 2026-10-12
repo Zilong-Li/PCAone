@@ -9,6 +9,7 @@
 #include <omp.h>
 #include <Spectra/SymEigsSolver.h>
 
+#include "LinAlg.hpp"
 #include "Utils.hpp"
 
 namespace {

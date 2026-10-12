@@ -8,7 +8,6 @@
 #include <omp.h>
 
 #include <algorithm>
-#include <array>
 #include <cmath>
 #include <fstream>
 #include <iomanip>
@@ -18,6 +17,8 @@
 
 #include "Common.hpp"
 #include "InbredSites.hpp"  // open_inbreed_target
+#include "LinAlg.hpp"
+#include "TextIO.hpp"
 #include "Utils.hpp"
 
 // The model. For sample i at site j with individual allele frequency pi, an
@@ -81,8 +82,6 @@ struct HetSums {
     nsites.assign(n, 0);
   }
 };
-
-using SampleName = std::array<std::string, 2>;  // FID, IID
 
 }  // namespace
 
@@ -192,51 +191,12 @@ static void update_F(Mat1D& F, const HetSums& s) {
     F(i) = (s.nsites[i] > 0 && s.exp(i) > 0.0) ? std::min(1.0, std::max(-1.0, 1.0 - s.obs(i) / s.exp(i))) : 0.0;
 }
 
-// FID and IID of each sample of the target, in its order: the .fam, the .psam
-// (its #-header names the columns, and IID alone means FID 0 as in .eigvecs2;
-// without a header it is laid out like a .fam), or the BEAGLE header
-static std::vector<SampleName> read_sample_names(const Param& params) {
-  std::vector<SampleName> ids;
-  if (params.file_t == FileType::BEAGLE) {
-    for (const auto& id : parse_beagle_samples(params.filein)) ids.push_back({id, id});
-    return ids;
-  }
-  const std::string path = params.filein + (params.file_t == FileType::PGEN ? ".psam" : ".fam");
-  std::ifstream ifs(path);
-  if (!ifs.is_open()) cao.error("can not open " + path);
-  int cfid = 0, ciid = 1;
-  std::string line, tok;
-  while (std::getline(ifs, line)) {
-    if (!line.empty() && line.back() == '\r') line.pop_back();
-    if (line.empty()) continue;
-    std::vector<std::string> t;
-    std::istringstream iss(line[0] == '#' ? line.substr(1) : line);
-    while (iss >> tok) t.push_back(tok);
-    if (line[0] == '#') {
-      if (line.size() > 1 && line[1] == '#') continue;  // ## lines of a .psam
-      cfid = ciid = -1;
-      for (int c = 0; c < (int)t.size(); ++c) {
-        if (t[c] == "FID") cfid = c;
-        if (t[c] == "IID") ciid = c;
-      }
-      if (ciid < 0) cao.error("the header line of " + path + " has no IID column");
-      continue;
-    }
-    if ((int)t.size() <= std::max(cfid, ciid)) cao.error("too few columns in " + path + " at: " + line);
-    ids.push_back({cfid >= 0 ? t[cfid] : std::string("0"), t[ciid]});
-  }
-  return ids;
-}
-
-static void write_inbred_samples(const std::string& fout,
-                                 const std::vector<SampleName>& ids,
-                                 const HetSums& s,
-                                 const Mat1D& F) {
+static void write_inbred_samples(const std::string& fout, const SampleIds& ids, const HetSums& s, const Mat1D& F) {
   std::ofstream ofs(fout);
   if (!ofs.is_open()) cao.error("can not open " + fout);
   ofs << "#FID\tIID\tN_SITES\tO_HET\tE_HET\tF\n" << std::setprecision(8);
   for (Eigen::Index i = 0; i < F.size(); ++i) {
-    ofs << ids[i][0] << '\t' << ids[i][1] << '\t' << s.nsites[i] << '\t' << s.obs(i) << '\t' << s.exp(i) << '\t';
+    ofs << ids.fid[i] << '\t' << ids.iid[i] << '\t' << s.nsites[i] << '\t' << s.obs(i) << '\t' << s.exp(i) << '\t';
     if (s.nsites[i] > 0)
       ofs << F(i) << '\n';
     else
@@ -286,7 +246,8 @@ static void solve_gl(Mat1D& F, HetSums& s, Data* data, Data* Pi, const Param& pa
 
 void run_inbred_samples(Data* Pi, const Param& params) {
   // before any work: a malformed sample file should not cost an EM run
-  const std::vector<SampleName> ids = read_sample_names(params);
+  const SampleIds ids = read_sample_ids(params);
+  if (!ids.error.empty()) cao.error(ids.error);
   std::unique_ptr<Data> data(open_inbreed_target(Pi, params));
   const Eigen::Index N = Pi->nsamples;
   if ((Eigen::Index)ids.size() != N)

@@ -38,6 +38,21 @@ so that sum no longer covers all the variance.
 
 ## Release history
 
+### Unreleased
+
+**Faster**
+
+- Every large text output is formatted on all threads (`-n`) and written while the next block
+  is formatted, with the same bytes as before (but a NaN is always `nan`, never `-nan`):
+  `.loadings`, `.eigvecs`, `.mbim`, the PCAngsd
+  `.cov`, the selection scans, `.hwe`, `.ld.gz`, `.ld.prune.*`, the projection bootstrap and
+  the evalAdmix matrices. Writing the `.loadings` of 1M sites and 10 PCs took 2.5 s and now
+  takes 0.6 s on one thread, less with more.
+
+**Fixed**
+
+- The `.eigvecs2` of a PGEN whose `.psam` has no header line had no samples.
+
 ### v0.8.0
 
 **Breaking changes**, with the new commands in [Legacy command migration](#legacy-command-migration)

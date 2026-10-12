@@ -3,7 +3,8 @@
 
 #include "Cmd.hpp"
 #include "Common.hpp"
-#include "Utils.hpp"  // UsvTransform
+#include "TextIO.hpp"  // UsvTransform
+#include "Utils.hpp"
 
 const double VAR_TOL = 1e-9;
 
@@ -35,7 +36,12 @@ class Data {
   // In-core winSVD keeps G and V in shuffled order, but F and C retain
   // filtered input order. P additionally needs the keepSNPs mapping.
   uint unpermuted_snp_index(uint j) const { return in_core_permuted ? static_cast<uint>(perm.indices()(j)) : j; }
+  // .sigvals, .eigvals, .eigvecs, .eigvecs2 (PLINK, PGEN) and, unless
+  // --no-loadings, .loadings and .mbim
   void write_eigs_files(const Mat1D& E, const Mat1D& S, const Mat2D& U, const Mat2D& V);
+  // .cov and .eigvecs2 of the PCAngsd path: the covariance of the standardized
+  // expected genotypes G with its corrected diagonal Dc, and its top -k eigenvectors
+  void write_pcangsd_cov() const;
   // Record how the matrix that was just decomposed relates to the 0..1
   // allele-frequency scale, so write_eigs_files() can put it in .sigvals and
   // -P/--USV can invert U*S*V' later. Call right before write_eigs_files(),

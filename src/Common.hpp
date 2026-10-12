@@ -29,7 +29,6 @@
 using Mat2D = Eigen::MatrixXd;
 using Mat1D = Eigen::VectorXd;
 using Arr2D = Eigen::ArrayXXd;
-using Arr1D = Eigen::ArrayXd;
 using ArrBool = Eigen::Array<bool, Eigen::Dynamic, 1>;
 using PermMat = Eigen::PermutationMatrix<Eigen::Dynamic, Eigen::Dynamic>;
 
@@ -41,7 +40,6 @@ using Int2D = std::vector<Int1D>;
 using Double1D = std::vector<double>;
 using String1D = std::vector<std::string>;
 using UMapIntInt = std::unordered_map<int, int>;
-using UMapIntDouble = std::unordered_map<int, double>;
 using UMapIntString = std::unordered_map<int, std::string>;
 using Pds = std::pair<double, std::string>;
 using UMapIntPds = std::unordered_map<int, Pds>;
@@ -110,14 +108,6 @@ inline UMapIntInt vector2map(const Int1D& v) {
   int i = 0;
   for (const auto& k : v) m.insert({k, i++});
   return m;
-}
-
-template <typename T>
-inline std::vector<size_t> sortidx(const std::vector<T>& v) {
-  std::vector<size_t> idx(v.size());
-  std::iota(idx.begin(), idx.end(), 0);
-  std::sort(idx.begin(), idx.end(), [&v](size_t i1, size_t i2) { return v[i1] < v[i2]; });
-  return idx;
 }
 
 struct Line {

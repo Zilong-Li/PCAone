@@ -6,12 +6,17 @@
 
 #include "Projection.hpp"
 
+#include <cstring>
+#include <initializer_list>
 #include <limits>
 
 #include "Cmd.hpp"
 #include "Common.hpp"
 #include "Data.hpp"
+#include "LinAlg.hpp"
+#include "TextIO.hpp"
 #include "Utils.hpp"
+#include "Variants.hpp"
 
 Mat2D solve_bootstrap_projection_no_missing(const Mat2D& design, const Mat2D& G, const std::vector<uint>& counts) {
   const int M = design.rows();
@@ -113,13 +118,16 @@ void write_projection_bootstrap_stats(
       cross_sum.col(p).array() += Ub.col(pairs[p].first).array() * Ub.col(pairs[p].second).array();
     }
 
-    if (raw.is_open()) {
-      for (int i = 0; i < N; ++i) {
-        raw << r + 1 << '\t' << i + 1;
-        for (int k = 0; k < K; ++k) raw << '\t' << Ub(i, k);
-        raw << '\n';
-      }
-    }
+    if (raw.is_open())
+      write_lines(raw, N, 24 + 12 * K, [&](Eigen::Index i, TextBuf& buf) {
+        char* p = buf.reserve(42 + K * (TEXT_NUM_MAX + 1) + 1);
+        p = put_uint(r + 1, p);
+        *p++ = '\t';
+        p = put_uint(i + 1, p);
+        for (int k = 0; k < K; ++k) *p++ = '\t', p = put_g6(Ub(i, k), p);
+        *p++ = '\n';
+        buf.commit(p);
+      });
   }
 
   const double R = (double)nreps;
@@ -128,31 +136,42 @@ void write_projection_bootstrap_stats(
   Mat2D sd = variance.array().sqrt().matrix();
   Mat2D rmsd = (diff_sumsq.array() / R).sqrt().matrix();
 
-  std::ofstream out(params.fileout + ".proj.bootstrap.tsv");
-  if (!out.is_open()) cao.error("can not open " + params.fileout + ".proj.bootstrap.tsv");
-  out << "sample\tpc\tbaseline\tmean\tbootstrap_se\tmin\tmax\trmsd\n";
-  for (int i = 0; i < N; ++i) {
-    for (int k = 0; k < K; ++k) {
-      out << i + 1 << "\tPC" << k + 1 << '\t' << U0(i, k) << '\t' << mean(i, k) << '\t' << sd(i, k) << '\t'
-          << minv(i, k) << '\t' << maxv(i, k) << '\t' << rmsd(i, k) << '\n';
-    }
-  }
+  // "<i>\tPC<a>" then the values, each after a tab
+  auto put_row = [](TextBuf& buf, Eigen::Index i, std::initializer_list<int> pcs, std::initializer_list<double> vals) {
+    char* p = buf.reserve(21 + pcs.size() * 24 + vals.size() * (TEXT_NUM_MAX + 1) + 1);
+    p = put_uint(i + 1, p);
+    for (int pc : pcs) std::memcpy(p, "\tPC", 3), p = put_uint(pc + 1, p + 3);
+    for (double v : vals) *p++ = '\t', p = put_g6(v, p);
+    *p++ = '\n';
+    buf.commit(p);
+  };
 
-  std::ofstream covout(params.fileout + ".proj.bootstrap.cov.tsv");
-  if (!covout.is_open()) cao.error("can not open " + params.fileout + ".proj.bootstrap.cov.tsv");
+  const std::string ftsv = params.fileout + ".proj.bootstrap.tsv";
+  std::ofstream out(ftsv, std::ios::binary);
+  if (!out.is_open()) cao.error("can not open " + ftsv);
+  out << "sample\tpc\tbaseline\tmean\tbootstrap_se\tmin\tmax\trmsd\n";
+  write_lines(out, (Eigen::Index)N * K, 96, [&](Eigen::Index l, TextBuf& buf) {
+    const Eigen::Index i = l / K, k = l % K;
+    put_row(buf, i, {(int)k}, {U0(i, k), mean(i, k), sd(i, k), minv(i, k), maxv(i, k), rmsd(i, k)});
+  });
+  out.close();
+  if (!out) cao.error("error writing " + ftsv);
+
+  const std::string fcov = params.fileout + ".proj.bootstrap.cov.tsv";
+  std::ofstream covout(fcov, std::ios::binary);
+  if (!covout.is_open()) cao.error("can not open " + fcov);
   covout << "sample\tpc_x\tpc_y\tbaseline_x\tbaseline_y\tmean_x\tmean_y\tvar_x\tvar_y\tcov\tcorr\n";
-  for (int i = 0; i < N; ++i) {
-    for (int p = 0; p < (int)pairs.size(); ++p) {
-      const int a = pairs[p].first;
-      const int b = pairs[p].second;
-      const double cov = (cross_sum(i, p) - R * mean(i, a) * mean(i, b)) / std::max(1.0, R - 1.0);
-      const double denom = std::sqrt(variance(i, a) * variance(i, b));
-      const double corr = denom > 0.0 ? cov / denom : std::numeric_limits<double>::quiet_NaN();
-      covout << i + 1 << "\tPC" << a + 1 << "\tPC" << b + 1 << '\t' << U0(i, a) << '\t' << U0(i, b) << '\t'
-             << mean(i, a) << '\t' << mean(i, b) << '\t' << variance(i, a) << '\t' << variance(i, b) << '\t' << cov
-             << '\t' << corr << '\n';
-    }
-  }
+  const Eigen::Index np = (Eigen::Index)pairs.size();
+  write_lines(covout, (Eigen::Index)N * np, 160, [&](Eigen::Index l, TextBuf& buf) {
+    const Eigen::Index i = l / np;
+    const int a = pairs[l % np].first, b = pairs[l % np].second;
+    const double cov = (cross_sum(i, l % np) - R * mean(i, a) * mean(i, b)) / std::max(1.0, R - 1.0);
+    const double denom = std::sqrt(variance(i, a) * variance(i, b));
+    const double corr = denom > 0.0 ? cov / denom : std::numeric_limits<double>::quiet_NaN();
+    put_row(buf, i, {a, b}, {U0(i, a), U0(i, b), mean(i, a), mean(i, b), variance(i, a), variance(i, b), cov, corr});
+  });
+  covout.close();
+  if (!covout) cao.error("error writing " + fcov);
   cao.print(tick.date(), "projection bootstrap diagnostics saved to", params.fileout + ".proj.bootstrap.tsv");
 }
 
@@ -217,20 +236,7 @@ static Mat1D gl_site_scale(const Mat1D& F, bool standardize, const UsvTransform&
    // NOTE: we don't support out-of-core for projection.
  */
 void run_projection(Data* data, const Param& params) {
-  BimMatch match;
-  if (params.file_t == FileType::BEAGLE) {
-    match = match_beagle_to_mbim(params.filein, params.filebim);
-    if (match.bim_indices.empty())
-      cao.error("no overlapped SNPs found between " + params.filein + " and " + params.filebim);
-  } else if (params.file_t == FileType::PGEN) {
-    match = match_pvar_to_mbim(params.filein + ".pvar", params.filebim);
-    if (match.bim_indices.empty())
-      cao.error("no overlapped SNPs found between " + params.filein + ".pvar and " + params.filebim);
-  } else {
-    match = match_bim_to_mbim(params.filein + ".bim", params.filebim);
-    if (match.bim_indices.empty())
-      cao.error("no overlapped SNPs found between " + params.filein + ".bim and " + params.filebim);
-  }
+  const BimMatch match = match_variants_to_mbim(params);
   if (!match.identical) {
     data->keepSNPs = match.bim_indices;
     data->keepRefSNPs = match.mbim_indices;
@@ -345,6 +351,7 @@ void run_projection(Data* data, const Param& params) {
     cao.error("unsupported --project mode: " + std::to_string(params.project));
   }
 
-  std::ofstream outu(params.fileout + ".eigvecs");
-  if (outu.is_open()) write_rows(outu, U);  // NA for a sample without a score
+  TextFormat fmt;
+  fmt.na = "NA";  // a sample without a score
+  write_matrix(params.fileout + ".eigvecs", U, fmt);
 }

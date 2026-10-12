@@ -10,7 +10,11 @@
 #include "FileBeagle.hpp"
 #include "FilePgen.hpp"
 #include "FilePlink.hpp"
+#include "LinAlg.hpp"
+#include "Stats.hpp"
+#include "TextIO.hpp"
 #include "Utils.hpp"
+#include "Variants.hpp"
 
 // Shared floor for genotype probabilities, applied identically to the null
 // and the alternative model, solely to keep log() finite.  See
@@ -35,9 +39,8 @@ static void check_same_sites(const Param& params) {
   };
   std::string lt, lm;
   uint64 n = 0;
-  while (getline(ft, lt)) {
-    if (lt.empty() || (pvar && lt[0] == '#')) continue;
-    if (pvar) lt = pvar_line_to_bim_line(lt, path);
+  while (read_bim_line(ft, pvar, path, lt)) {
+    if (!pvar && lt.empty()) continue;
     if (!getline(fm, lm)) break;  // the counts are compared by the caller
     ++n;
     if (key(lt) != key(lm))
@@ -362,16 +365,27 @@ void write_hwe_per_site(
     const std::string& fout, const std::string& fbim, const Mat1D& hwe, const Mat1D& lrt, const Mat1D& coef) {
   std::ifstream fin(fbim);
   if (!fin.is_open()) cao.error("can not open " + fbim);
-  std::ofstream ohwe(fout);
+  std::ofstream ohwe(fout, std::ios::binary);
   if (!ohwe.is_open()) cao.error("can not open " + fout);
+  ohwe << "#ID\tHWE_P\tLRT\tInbreeding_coefficient\n";
+  // the IDs are read in order; a line of numbers is formatted in place
+  TextBuf buf;
   std::string line;
   const std::string sep{" \t"};
-  int j = 0;
-  ohwe << "#ID\tHWE_P\tLRT\tInbreeding_coefficient\n";
+  Eigen::Index j = 0;
   while (getline(fin, line)) {
-    auto id = split_string(line, sep)[1];
-    ohwe << id << "\t" << hwe(j) << "\t" << lrt(j) << "\t" << coef(j) << "\n";
-    j++;
+    if (j >= coef.size()) cao.error(fbim + " has more sites than the " + std::to_string(coef.size()) + " analysed");
+    buf.append(split_string(line, sep).at(1));
+    char* p = buf.reserve(3 * (TEXT_NUM_MAX + 1) + 1);
+    for (double v : {hwe(j), lrt(j), coef(j)}) *p++ = '\t', p = put_g6(v, p);
+    *p++ = '\n';
+    buf.commit(p);
+    if (buf.size() >= (size_t(32) << 20)) buf.write_to(ohwe), buf.clear();
+    ++j;
   }
-  assert(j == coef.size());
+  buf.write_to(ohwe);
+  ohwe.close();
+  if (!ohwe) cao.error("error writing " + fout);
+  if (j != coef.size())
+    cao.error(fbim + " has " + std::to_string(j) + " sites but " + std::to_string(coef.size()) + " were analysed");
 }

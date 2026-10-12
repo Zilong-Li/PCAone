@@ -66,95 +66,25 @@
 #include <utility>
 #include <vector>
 
+#include "LinAlg.hpp"
+#include "TextIO.hpp"
 #include "Utils.hpp"
 
-// "%.6f" of x, rounded exactly as printf rounds it (to nearest, ties to even),
-// about ten times faster than an ostream. nan is written as "nan".
-static inline char* put_fixed6(double x, char* p) {
-  if (std::isnan(x)) {
-    std::memcpy(p, "nan", 3);
-    return p + 3;
-  }
-  const double ax = std::fabs(x);
-  if (!(ax < 1e9)) return p + std::snprintf(p, 16, "%.6g", x);  // not reached: the entries are in [-1, 1]
-  if (std::signbit(x)) *p++ = '-';
-  const double y = ax * 1e6;  // 1e6 is exact, so ax * 1e6 = y + e exactly
-  const double e = std::fma(ax, 1e6, -y);
-  double n = std::floor(y);
-  const double s = ((y - n) - 0.5) + e;  // y - n - 0.5 is exact; the sign of s is too
-  if (s > 0 || (s == 0 && std::fmod(n, 2.0) != 0)) n += 1;
-  uint64 q = (uint64)n, ip = q / 1000000, fp = q % 1000000;
-  char tmp[20];
-  int t = 0;
-  do tmp[t++] = char('0' + ip % 10);
-  while (ip /= 10);
-  while (t) *p++ = tmp[--t];
-  *p++ = '.';
-  for (int k = 5; k >= 0; --k, fp /= 10) p[k] = char('0' + fp % 10);
-  return p + 6;
-}
-
-// M is symmetric, so row i is written from column i, which is contiguous. Rows
-// are formatted in parallel, a block of about 64 MB at a time, and written in order.
-static void write_matrix(const std::string& fn,
-                         const Mat2D& M,
-                         const std::vector<std::string>& ids,
-                         double scale = 1.0) {
-  std::ofstream ofs(fn, std::ios::binary);
-  if (!ofs.is_open()) cao.error("can not open file for writing: " + fn);
-  if (!ids.empty()) {
-    for (size_t i = 0; i < ids.size(); ++i) ofs << (i ? "\t" : "") << ids[i];
-    ofs << "\n";
-  }
-  const Eigen::Index n = M.rows();
-  const Eigen::Index width = 16 * n + 1;  // "-0.123456\t" is 10 bytes
-  const Eigen::Index R = std::max<Eigen::Index>(1, std::min<Eigen::Index>(n, (Eigen::Index(1) << 26) / width));
-  std::vector<std::vector<char>> buf(R, std::vector<char>(width));
-  std::vector<Eigen::Index> len(R);
-  for (Eigen::Index r0 = 0; r0 < n; r0 += R) {
-    const Eigen::Index h = std::min(R, n - r0);
-#pragma omp parallel for schedule(dynamic, 1)
-    for (Eigen::Index t = 0; t < h; ++t) {
-      char* p = buf[t].data();
-      const double* c = M.col(r0 + t).data();
-      for (Eigen::Index j = 0; j < n; ++j) {
-        if (j) *p++ = '\t';
-        p = put_fixed6(c[j] * scale, p);
-      }
-      *p++ = '\n';
-      len[t] = p - buf[t].data();
-    }
-    for (Eigen::Index t = 0; t < h; ++t) ofs.write(buf[t].data(), len[t]);
-  }
-  if (!ofs) cao.error("error writing " + fn);
+// M is symmetric, so line i is written from column i, which is contiguous, as
+// "%.6f", with the sample IDs as the header line when there are any
+static void write_symmetric(const std::string& fn, const Mat2D& M, const String1D& ids, double scale = 1.0) {
+  std::string header;
+  for (size_t i = 0; i < ids.size(); ++i) header += (i ? "\t" : "") + ids[i];
+  if (!ids.empty()) header += '\n';
+  TextFormat fmt;
+  fmt.fixed = true;
+  fmt.scale = scale;
+  fmt.by_column = true;
+  write_matrix(fn, M, fmt, header);
 }
 
 // bytes of one N x N double matrix, in GiB
 static double nn_gib(Eigen::Index N) { return (double)N * (double)N * 8.0 / 1073741824.0; }
-
-// sample IDs for the header of the output matrices: the IID column of the
-// .fam, or of the .psam, whose #-header names its columns (without one it is
-// laid out like a .fam). Empty when the count does not match.
-static std::vector<std::string> read_sample_ids(const Param& params, Eigen::Index N) {
-  const bool pgen = params.file_t == FileType::PGEN;
-  std::ifstream ifs(params.filein + (pgen ? ".psam" : ".fam"));
-  std::vector<std::string> ids;
-  std::string line, tok;
-  int col = 1;  // FID IID ...
-  while (std::getline(ifs, line)) {
-    if (line.empty() || (line[0] == '#' && line.size() > 1 && line[1] == '#')) continue;
-    std::istringstream iss(line[0] == '#' ? line.substr(1) : line);
-    if (line[0] == '#') {  // #FID IID ... or #IID ...
-      for (int c = 0; iss >> tok; ++c)
-        if (tok == "IID") col = c;
-      continue;
-    }
-    for (int c = 0; c <= col && iss >> tok; ++c)
-      if (c == col) ids.push_back(tok);
-  }
-  if ((Eigen::Index)ids.size() != N) ids.clear();
-  return ids;
-}
 
 // The missing calls of a block of sites, one ascending list of samples per site
 // that has any, in ascending order of the sites. Only the sites where
@@ -338,46 +268,6 @@ static void dominance(const Mat2D& G,
 
 // ---- shared by the dense and the pairwise output ------------------------
 
-// FID and IID of each sample, from the .fam or the .psam (whose #-header names
-// its columns; without one it is laid out like a .fam). Without an FID column
-// has_fid is false. Empty when the count does not match.
-struct SampleIds {
-  std::vector<std::string> fid, iid;
-  bool has_fid = true;
-};
-
-static SampleIds read_fid_iid(const Param& params, Eigen::Index N) {
-  const bool pgen = params.file_t == FileType::PGEN;
-  std::ifstream ifs(params.filein + (pgen ? ".psam" : ".fam"));
-  SampleIds ids;
-  std::string line, tok;
-  int cf = 0, ci = 1;  // FID IID ...
-  while (std::getline(ifs, line)) {
-    if (line.empty() || (line[0] == '#' && line.size() > 1 && line[1] == '#')) continue;
-    std::istringstream iss(line[0] == '#' ? line.substr(1) : line);
-    if (line[0] == '#') {  // #FID IID ... or #IID ...
-      cf = -1;
-      for (int c = 0; iss >> tok; ++c) {
-        if (tok == "IID") ci = c;
-        if (tok == "FID") cf = c;
-      }
-      ids.has_fid = cf >= 0;
-      continue;
-    }
-    std::string f, id;
-    int c = 0;
-    for (; c <= std::max(ci, cf) && iss >> tok; ++c) {
-      if (c == ci) id = tok;
-      if (c == cf) f = tok;
-    }
-    if (c <= std::max(ci, cf)) break;  // a short line: give up, as for a count mismatch
-    ids.fid.push_back(f);
-    ids.iid.push_back(id);
-  }
-  if ((Eigen::Index)ids.iid.size() != N) ids.fid.clear(), ids.iid.clear();
-  return ids;
-}
-
 // The PC scores have to be of these samples in this order, which their number
 // alone cannot tell. A PCA of PLINK or PGEN input writes the FID and IID of
 // each row to .eigvecs2 beside .eigvecs, so the IIDs are compared with the
@@ -396,8 +286,8 @@ static void check_sample_order(const Param& params, Eigen::Index N) {
              fids, "in the same order");
     return;
   }
-  const SampleIds ids = read_fid_iid(params, N);
-  if (ids.iid.empty()) {
+  const SampleIds ids = read_sample_ids(params);
+  if ((Eigen::Index)ids.size() != N) {
     cao.warn("evalAdmix: could not read", N, "sample IDs from", fids, "to compare with", f2);
     return;
   }
@@ -702,30 +592,31 @@ void run_evaladmix(Data* data, const Param& params) {
       for (Eigen::Index i = 0; i < N; ++i)
         if (!std::isnan((*X)(i, j))) (*X)(i, j) = std::min(1.0, std::max(-1.0, (*X)(i, j)));
     X->diagonal().setZero();
-    mirror_lower(*X);  // exactly symmetric, as write_matrix() relies on
+    mirror_lower(*X);  // exactly symmetric, as write_symmetric() relies on
   }
   if (nopair > 0)
     cao.warn(nopair / 2, "pair(s) of samples are never genotyped at the same site; their entries are nan");
   cao.print(tick.date(), "evalAdmix: correlation of residuals computed in", tick.reltime(), "seconds");
 
   // ---- 5. output ---------------------------------------------------------
-  const std::vector<std::string> ids = read_sample_ids(params, N);
+  const SampleIds sids = read_sample_ids(params);
+  const String1D ids = (Eigen::Index)sids.size() == N ? sids.iid : String1D{};
   if (ids.empty())
     cao.warn("evalAdmix: could not read", N, "sample IDs from",
              params.filein + (params.file_t == FileType::PGEN ? ".psam" : ".fam") + "; the output has no header line");
-  write_matrix(params.fileout + ".corres", A, ids);
+  write_symmetric(params.fileout + ".corres", A, ids);
   // the correlation of residuals estimates 2*phi, so halve it for kinship. done
   // at write time rather than in another N x N copy; the diagonal is already 0.
-  write_matrix(params.fileout + ".kinship", A, ids, 0.5);
+  write_symmetric(params.fileout + ".kinship", A, ids, 0.5);
   cao.print(tick.date(), "evalAdmix: correlation of residuals saved to", params.fileout + ".corres");
   cao.print(tick.date(), "evalAdmix: kinship (corres/2) saved to", params.fileout + ".kinship");
   if (ibd) {
     // k2, then k0 = 1 - 4 phi + k2 = 1 - 2 corres + k2 in its place. k1 = 4 phi - 2 k2
     // follows from the two. Like the kinship, the diagonal is no estimate
-    write_matrix(params.fileout + ".k2", K, ids);
+    write_symmetric(params.fileout + ".k2", K, ids);
 #pragma omp parallel for schedule(static)
     for (Eigen::Index j = 0; j < N; ++j) K.col(j).array() += 1.0 - 2.0 * A.col(j).array();
-    write_matrix(params.fileout + ".k0", K, ids);
+    write_symmetric(params.fileout + ".k0", K, ids);
     cao.print(tick.date(), "evalAdmix: k2, the probability of sharing two alleles IBD, saved to",
               params.fileout + ".k2");
     cao.print(tick.date(), "evalAdmix: k0 = 1 - 4 kinship + k2 saved to", params.fileout + ".k0",
@@ -828,16 +719,6 @@ static void add_both_missing(MatF& MM, const MissingCalls& ms, Eigen::Index i0, 
     }
     MM.noalias() += XJ * XI.transpose();
   }
-}
-
-// unsigned integer to decimal
-static inline char* put_uint(uint64 v, char* p) {
-  char tmp[20];
-  int t = 0;
-  do tmp[t++] = char('0' + v % 10);
-  while (v /= 10);
-  while (t) *p++ = tmp[--t];
-  return p;
 }
 
 // A maximal set of samples without a pair among the edges, by the greedy rule
@@ -1047,8 +928,9 @@ static void run_evaladmix_pairs(Data* data, const Param& params) {
              "passes over the genotypes, and needs about", (fixed + elem * 64.0 * N) / gib,
              "GB at the least. raise -m to make fewer passes");
 
-  SampleIds ids = read_fid_iid(params, N);
-  if (ids.iid.empty()) {
+  SampleIds ids = read_sample_ids(params);
+  if ((Eigen::Index)ids.size() != N) {
+    ids.fid.clear(), ids.iid.clear();
     cao.warn("evalAdmix: could not read", N, "sample IDs from",
              params.filein + (params.file_t == FileType::PGEN ? ".psam" : ".fam") +
                  "; the samples are numbered 1..N instead");
@@ -1202,7 +1084,7 @@ static void run_evaladmix_pairs(Data* data, const Param& params) {
           o += pre[j];
           char* p = put_uint((uint64)(nsnp + 0.5), num);
           *p++ = '\t';
-          p = put_fixed6(kin, p);
+          p = put_f6(kin, p);
           if (ibd) {  // k0 = 1 - 4 phi + k2, k1 = 4 phi - 2 k2
             const double k2 = std::min(1.0, std::max(-1.0, Ks(rr, c) * resc)), k0 = 1.0 - 4.0 * kin + k2;
             if (kin >= edges[1] && kin < edges[0]) {
@@ -1212,11 +1094,11 @@ static void run_evaladmix_pairs(Data* data, const Param& params) {
                 ++nfs;
             }
             *p++ = '\t';
-            p = put_fixed6(k0, p);
+            p = put_f6(k0, p);
             *p++ = '\t';
-            p = put_fixed6(4.0 * kin - 2.0 * k2, p);
+            p = put_f6(4.0 * kin - 2.0 * k2, p);
             *p++ = '\t';
-            p = put_fixed6(k2, p);
+            p = put_f6(k2, p);
           }
           *p++ = '\n';
           o.append(num, p - num);

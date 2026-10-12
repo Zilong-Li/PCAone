@@ -263,13 +263,6 @@ static int run(int argc, char* argv[]) {
 
   delete data;
 
-  if (params.file_t == FileType::PLINK)
-    make_plink2_eigenvec_file(params.k, params.fileout + ".eigvecs2", params.fileout + ".eigvecs",
-                              params.filein + ".fam");
-  else if (params.file_t == FileType::PGEN)
-    make_plink2_eigenvec_from_psam(params.k, params.fileout + ".eigvecs2", params.fileout + ".eigvecs",
-                                   params.filein + ".psam");
-
   // remove temp files if verbose < 3
   if (ooc_permutation && params.verbose < 3) {
     if (params.file_t == FileType::PLINK && bed_copy) {

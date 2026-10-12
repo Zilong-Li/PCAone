@@ -9,6 +9,8 @@
 #include <algorithm>
 #include <numeric>
 
+#include "Stats.hpp"
+
 using namespace std;
 
 void FileBgen::read_all() {

@@ -16,7 +16,9 @@
 
 #include "Cmd.hpp"
 #include "Data.hpp"
+#include "TextIO.hpp"
 #include "Utils.hpp"
+#include "Variants.hpp"
 
 using namespace std;
 
@@ -375,10 +377,10 @@ void write_pruned_snp_ids(const String1D& variants, const std::string& fileout, 
     const auto fields = split_string(line, " \t");
     if (keep(i))
       ofs_in << fields[0] << "\t" << fields[1] << "\t" << fields[2] << "\t" << fields[3] << "\t" << fields[4] << "\t"
-             << fields[5] << std::endl;
+             << fields[5] << '\n';
     else
       ofs_out << fields[0] << "\t" << fields[1] << "\t" << fields[2] << "\t" << fields[3] << "\t" << fields[4] << "\t"
-              << fields[5] << std::endl;
+              << fields[5] << '\n';
     i++;
   }
 }
@@ -550,7 +552,7 @@ void ld_clump_single_pheno(const std::string& fileout,
                            const std::vector<UMapIntPds>& pvals_per_chr) {
   // the columns of G have unit norm (LDColumns), so r is their dot product
   std::ofstream ofs(fileout);
-  ofs << head + "\tSP2" << std::endl;
+  ofs << head + "\tSP2\n";
   for (int c = 0; c < (int)bp_per_chr.size(); c++) {
     const auto idx = idx_per_chr[c];
     const auto bp = bp_per_chr[c];
@@ -621,7 +623,7 @@ void ld_clump_single_pheno(const std::string& fileout,
           k++;
         }
       }
-      ofs << std::endl;
+      ofs << '\n';
     }
     // end current chr
   }
@@ -673,11 +675,12 @@ void ld_r2(LDColumns& X, const String1D& variants, const SNPld& snp, const std::
         for (int j = 1; j < snp.we[x]; ++j) {
           const uint k = i + j;
           const double r = C(i - lo, k - lo);
+          char num[TEXT_NUM_MAX];
           s += bims[i];
           s += '\t';
           s += bims[k];
           s += '\t';
-          s += std::to_string(r * r);
+          s.append(num, put_f6(r * r, num) - num);  // as std::to_string, without its allocation
           s += '\n';
         }
       }

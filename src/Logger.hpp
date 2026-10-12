@@ -11,36 +11,16 @@
 #include <iomanip>  // setw
 #include <iostream>
 #include <sstream>
+#include <stdexcept>
 
 class Logger {
  public:
   std::ofstream cao;
-  bool is_screen;
+  bool is_screen = false;
 
   Logger() {}
 
-  Logger(std::string filename, bool screen = true) {
-    is_screen = screen;
-    cao.open(filename.c_str());
-    if (!cao) throw std::runtime_error(filename + " : " + std::strerror(errno));
-    cao.precision(6);
-    cao.flags(std::ios::fixed | std::ios::right);
-  }
-
   ~Logger() {}
-
-  template <class S>
-  Logger& operator<<(const S& val) {
-    cao << val;
-    if (is_screen) std::cout << val;
-    return *this;
-  }
-
-  Logger& operator<<(std::ostream& (*pfun)(std::ostream&)) {
-    pfun(cao);
-    if (is_screen) pfun(std::cout);
-    return *this;
-  };
 
   template <class S>
   void printSpace(std::ostream& os, const S& val) {
@@ -57,13 +37,6 @@ class Logger {
       (..., printSpace(std::cout, args));
       std::cout << std::endl;
     }
-  }
-
-  // only print to stderr
-  template <typename... Args>
-  void cerr(const Args&... args) {
-    (..., printSpace(std::cerr, args));
-    std::cerr << std::endl;
   }
 
   template <typename... Args>
@@ -86,17 +59,6 @@ class Logger {
     (..., printSpace(oss, args));
     oss << "\033[0m" << std::endl;
     throw std::runtime_error(oss.str());
-  }
-
-  template <typename... Args>
-  void done(const Args&... args) {
-    (..., printSpace(cao, args));
-    cao << std::endl;
-    if (is_screen) {
-      std::cout << "\x1B[32m";
-      (..., printSpace(std::cout, args));
-      std::cout << "\033[0m" << std::endl;
-    }
   }
 };
 

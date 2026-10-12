@@ -7,6 +7,7 @@
 #include "Halko.hpp"
 
 #include "Common.hpp"
+#include "LinAlg.hpp"
 #include "RSVD.hpp"
 #include "Utils.hpp"
 
@@ -330,7 +331,7 @@ void run_pca_with_halko(Data* data, const Param& params) {
       cao.print(tick.date(), "estimate GRM for pcangsd");
       data->pcangsd_standardize_E(rsvd->U, rsvd->S, rsvd->V.transpose());
       // TODO: use matrix-free method e.g Arnoldi to decompose the cov
-      write_pcangsd_cov(data->G, data->Dc, data->nsnps, params);
+      data->write_pcangsd_cov();
     }
 
     // EMU decomposes its final matrix standardized; PCAngsd writes the PCs of

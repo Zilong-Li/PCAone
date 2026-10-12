@@ -12,6 +12,7 @@
 #include <memory>
 
 #include "Cmd.hpp"
+#include "LinAlg.hpp"
 #include "Utils.hpp"
 
 using namespace std;
@@ -109,7 +110,7 @@ void run_pca_with_arnoldi(Data* data, const Param& params) {
         data->pcangsd_standardize_E(U, svals, V.transpose());
         evals.noalias() = svals.array().square().matrix() / data->nsnps;
         if (params.file_t == FileType::BEAGLE) {
-          write_pcangsd_cov(data->G, data->Dc, data->nsnps, params);
+          data->write_pcangsd_cov();
         }
       }
 

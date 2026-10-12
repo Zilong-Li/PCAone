@@ -1,4 +1,4 @@
-// mul_X_Y (Utils.cpp), the product H = X * G and H += X * G of the RSVD:
+// mul_X_Y (LinAlg.cpp), the product H = X * G and H += X * G of the RSVD:
 // the row-panel split gives the product's values (against a plain loop), for
 // assignment and accumulation, for heights that are and are not multiples of
 // the panel rounding, and the same bytes whatever the number of threads once
@@ -13,6 +13,7 @@
 #include <vector>
 
 #define _DECLARE_TOOLBOX_HERE  // the logger and timer of the library, as Main.cpp
+#include "../src/LinAlg.hpp"
 #include "../src/Utils.hpp"
 
 static int failures = 0;
