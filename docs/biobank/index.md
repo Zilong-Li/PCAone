@@ -19,7 +19,7 @@ PCAone -b cohort.pruned -P pcs -k 10 --evaladmix --evaladmix-kin 0.0442 -m 64 -o
 plink2 --bfile cohort.pruned --keep rel.unrelated --make-bed --out unrel
 plink2 --bfile cohort.pruned --remove rel.unrelated --make-bed --out related
 PCAone -b unrel -k 20 -m 16 -o ref
-PCAone -b related -P ref --project 2 -o proj
+PCAone -b related -P ref --project 2 -m 16 -o proj
 ```
 
 The numbers of PCs above are placeholders: choose them from the data, e.g. from

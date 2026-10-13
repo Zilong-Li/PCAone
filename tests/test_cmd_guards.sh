@@ -101,6 +101,7 @@ bad "--emu with --bgen" -g x --emu -m 1
 bad "--project supports only" -g x -P p --project 1
 bad "--project supports only" -c x -P p --project 1
 bad "--project 3 requires" -b x -P p --project 3
+bad "-m (out-of-core) supports --project 1 and 2" -G x -P p --project 3 -m 1
 bad "--evaladmix supports only" -g x --evaladmix
 bad "--evaladmix supports only" -c x --evaladmix
 bad "--inbreed supports only" -g x -P p --inbreed 1

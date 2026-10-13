@@ -43,6 +43,17 @@ void Data::prepare() {
     return;
   }
 
+  if (params.project > 0) {
+    // out-of-core --project 1/2 reads only the sites matched to the reference,
+    // in .bim/.pvar order (keepSNPs; all of them when identical), and sizes its
+    // blocks itself from -m, K and N (run_projection_blockwise -> set_blocks)
+    if (!keepSNPs.empty()) {
+      nsnps_all = nsnps;
+      nsnps = keepSNPs.size();
+    }
+    return;
+  }
+
   // LD and evalAdmix keep dopca on to estimate F, but run no PCA.
   // Size their blocks like any other non-PCA run.
   const bool pca_blocks = params.dopca && !params.ld && !params.evaladmix;
@@ -126,6 +137,17 @@ void Data::prepare() {
     start[i] = i * blocksize;
     stop[i] = start[i] + blocksize - 1;
     stop[i] = stop[i] >= nsnps ? nsnps - 1 : stop[i];
+  }
+}
+
+void Data::set_blocks(uint b) {
+  blocksize = std::max(1u, std::min(b, std::max(1u, nsnps)));
+  nblocks = (nsnps + blocksize - 1) / blocksize;
+  start.resize(nblocks);
+  stop.resize(nblocks);
+  for (uint i = 0; i < nblocks; i++) {
+    start[i] = i * blocksize;
+    stop[i] = std::min<uint64>((uint64)start[i] + blocksize, nsnps) - 1;
   }
 }
 

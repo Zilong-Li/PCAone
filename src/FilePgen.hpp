@@ -76,6 +76,16 @@ class FilePgen : public Data {
   std::vector<uint32_t> block_variants, next_variants;
   uint64 last_end = 0, first_count = 0;
   void begin_block(uint64 start_idx, uint64 stop_idx);
+  // out-of-core with the allele frequencies of a reference (!params.dopca):
+  // centre with F; the logical SNPs are keepSNPs when a projection matched a subset
+  void use_reference_af();
+  // the PGEN variant of logical SNP idx: shuffled for the winSVD, or the SNPs
+  // matched by --project (keepSNPs is filled out-of-core only by the projection,
+  // as -m refuses --maf)
+  uint32_t source_variant(uint64 idx) const {
+    if (params.perm) return (uint32_t)perm.indices()(idx);
+    return keepSNPs.empty() ? (uint32_t)idx : (uint32_t)keepSNPs[idx];
+  }
   void variants_of(uint64 first, uint64 count, std::vector<uint32_t>& out) const;
   void read_variant(int thr, uint64 pgen_idx, double* buf) {
     if (block_reader) {

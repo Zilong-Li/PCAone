@@ -8,6 +8,8 @@
 
 #include <omp.h>
 
+#include <limits>
+
 #include "Common.hpp"
 #include "Utils.hpp"
 
@@ -203,15 +205,14 @@ FilePgen::~FilePgen() {
 // the file indices of the logical SNPs [first, first + count), sorted
 void FilePgen::variants_of(uint64 first, uint64 count, std::vector<uint32_t>& out) const {
   out.resize(count);
-  for (uint64 j = 0; j < count; ++j) out[j] = params.perm ? (uint32_t)perm.indices()(first + j) : (uint32_t)(first + j);
-  if (params.perm) std::sort(out.begin(), out.end());
+  for (uint64 j = 0; j < count; ++j) out[j] = source_variant(first + j);
+  if (params.perm) std::sort(out.begin(), out.end());  // keepSNPs is in file order
 }
 
 void FilePgen::begin_block(uint64 start_idx, uint64 stop_idx) {
   const uint64 count = stop_idx - start_idx + 1;
   requests.resize(count);
-  for (uint64 j = 0; j < count; ++j)
-    requests[j] = {params.perm ? (uint32_t)perm.indices()(start_idx + j) : (uint32_t)(start_idx + j), (uint32_t)j};
+  for (uint64 j = 0; j < count; ++j) requests[j] = {source_variant(start_idx + j), (uint32_t)j};
   if (params.perm)
     std::sort(requests.begin(), requests.end(),
               [](const ReadRequest& a, const ReadRequest& b) { return a.variant < b.variant; });
@@ -242,16 +243,32 @@ void FilePgen::begin_block(uint64 start_idx, uint64 stop_idx) {
   }
 }
 
+void FilePgen::use_reference_af() {
+  frequency_was_estimated = true;
+  if (!params.center) return;
+  // rows 0=HomRef, 1=Het, 2=HomAlt, 3=missing, as pgen_code()
+  centered_geno_lookup.resize(4, F.size());
+  for (Eigen::Index s = 0; s < F.size(); ++s) {
+    centered_geno_lookup(0, s) = 0.0 - F(s);
+    centered_geno_lookup(1, s) = 0.5 - F(s);
+    centered_geno_lookup(2, s) = 1.0 - F(s);
+    centered_geno_lookup(3, s) = mark_missing ? std::numeric_limits<double>::quiet_NaN() : 0.0;
+  }
+}
+
 void FilePgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize) {
   uint actual_block_size = stop_idx - start_idx + 1;
   if (G.cols() < blocksize || actual_block_size < blocksize) G = Mat2D::Zero(nsamples, actual_block_size);
 
+  if (!params.dopca && !frequency_was_estimated) use_reference_af();  // read AF from external
   begin_block(start_idx, stop_idx);
   uint i, j, r;
   uint64 snp_idx;
 
-  if (!params.dopca) frequency_was_estimated = true;
   if (frequency_was_estimated) {
+    // a missing call is the mean, 0 once centred, or NaN for the projection (mark_missing)
+    const double miss = mark_missing ? std::numeric_limits<double>::quiet_NaN() : 0.0;
+    auto centered = [miss](double v, double af) { return v == PGEN_MISSING ? miss : v / 2.0 - af; };
     // centred: the 2-bit calls through the SNP's 4 values, straight into G, then
     // the dosages over them, with the arithmetic of the loop below
     const bool lookup = block_reader && params.center;
@@ -281,7 +298,7 @@ void FilePgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standa
         const uint16_t* dmain;
         uint32_t dosage_ct = 0;
         const uintptr_t* geno = block_reader->genovec_dosages(thr, (uint32_t)pgen_idx, &present, &dmain, &dosage_ct);
-        for (int c = 0; c < 4; ++c) table[2 * c] = centered_pgen_value(c == 3 ? PGEN_MISSING : c, f) * scale_factor;
+        for (int c = 0; c < 4; ++c) table[2 * c] = centered(c == 3 ? PGEN_MISSING : c, f) * scale_factor;
         plink2::InitLookup16x8bx2(table);
         plink2::GenoarrLookup16x8bx2(geno, table, nsamples, g);
         // as Dosage16ToDoubles: the d-th dosage belongs to the d-th set bit
@@ -299,7 +316,7 @@ void FilePgen::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standa
         if (!params.center) {
           G(j, i) = pgen2dosage(buf[j]);
         } else if (dosage_mode) {
-          G(j, i) = centered_pgen_value(buf[j], f);
+          G(j, i) = centered(buf[j], f);
         } else {
           G(j, i) = centered_geno_lookup(pgen_code(buf[j]), snp_idx);
         }

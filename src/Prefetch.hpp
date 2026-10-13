@@ -118,10 +118,12 @@ class RecordPrefetcher {
   RecordPrefetcher(const RecordPrefetcher&) = delete;
   RecordPrefetcher& operator=(const RecordPrefetcher&) = delete;
 
-  // Read record order[r] of the file for record r (a logical permutation),
-  // instead of record r. Consecutive file records are read together, and the
-  // runs of a block are requested from the kernel first, so that a disk can
-  // serve them in its own order.
+  // Read record order[r] of the file for record r (a logical permutation, or
+  // a subset of the records in any order, e.g. the SNPs a projection matched),
+  // instead of record r. There are then order.size() logical records.
+  // Consecutive file records are read together, and the runs of a block are
+  // requested from the kernel first, so that a disk can serve them in its own
+  // order.
   void set_order(std::vector<uint32_t> order) {
     cancel();
     for (auto r : order)
@@ -137,7 +139,8 @@ class RecordPrefetcher {
   // The records [first, first + count), valid until the next call.
   const unsigned char* get(uint64_t first, uint64_t count) {
     using clock = std::chrono::steady_clock;
-    if (first + count > n_) throw std::out_of_range("RecordPrefetcher: records beyond the end of the file");
+    const uint64_t n = order_.empty() ? n_ : order_.size();  // logical records
+    if (first + count > n) throw std::out_of_range("RecordPrefetcher: records beyond the end of the file");
     const auto t0 = clock::now();
     // the caller's work on the previous block, which a read ahead can hide
     const double work = returned_ ? std::chrono::duration<double>(t0 - last_return_).count() : 0.0;
@@ -160,11 +163,11 @@ class RecordPrefetcher {
     const bool sequential = first == 0 || first == last_end_;
     last_end_ = first + count;
     if (first == 0) first_count_ = count;
-    if (allow_ahead_ && ahead_ && sequential && count < n_) {
-      uint64_t nf = first + count, nc = std::min(count, n_ - nf);
-      if (nf >= n_) {  // the first block of the next pass
+    if (allow_ahead_ && ahead_ && sequential && count < n) {
+      uint64_t nf = first + count, nc = std::min(count, n - std::min(nf, n));
+      if (nf >= n) {  // the first block of the next pass
         nf = 0;
-        nc = std::min(first_count_ ? first_count_ : count, n_);
+        nc = std::min(first_count_ ? first_count_ : count, n);
       }
       next_first_ = nf;
       next_count_ = nc;

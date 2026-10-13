@@ -23,6 +23,9 @@ class Data {
       uint64 start, uint64 stop, const Mat2D& U, const Mat1D& svals, const Mat2D& VT, bool standardize) = 0;
 
   void prepare();
+  // blocks of b sites over the nsnps sites, for a caller that sizes its own
+  // blocks: out-of-core --project (run_projection_blockwise)
+  void set_blocks(uint b);
   // one warning for all sites with MAF=0. The readers count them inside their
   // OpenMP loops and call this afterwards, because cao is not thread-safe.
   void warn_monomorphic(uint64 n) const {
@@ -89,6 +92,10 @@ class Data {
   Mat1D Dc;                        // diagnal vector of covariance matrix
   ArrBool C;                       // nsnps x nsample, if there is missing value
   Arr2D centered_geno_lookup;      // lookup table for centering genotypes
+  // out-of-core --project: read_block_initial() returns a missing call as NaN
+  // instead of 0 (the reference mean), so the caller can tell it from a called
+  // genotype. Only with frequencies taken from the reference (!params.dopca).
+  bool mark_missing = false;
   int svd_scale = SCALE_STANDARDIZE_GENETIC;  // scaling applied to the decomposed matrix; 0 = none
   int svd_gscale = 1;                         // 1: genotypes coded 0..1; 2: dosages coded 0..2
   Int1D keepSNPs;                             // store index of SNPs to keep

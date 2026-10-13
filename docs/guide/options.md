@@ -7,7 +7,7 @@ advanced ones, or `PCAone --groff > pcaone.1 && man ./pcaone.1` for a man page.
 General options:
   -h, --help                     print all options, including the advanced ones
   -m, --memory arg (=0)          memory in GB for out-of-core mode; 0 runs in-core. also sets the blocks
-                                 of --svd 3 and the stripes of --evaladmix-kin
+                                 of --svd 3 and --project 1/2, and the stripes of --evaladmix-kin
   -n, --threads arg (=12)        number of threads
   -v, --verbose arg (=1)         verbosity: 0 silent, 1 concise, 2 verbose, 3 debug
 

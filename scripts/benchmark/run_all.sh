@@ -67,6 +67,11 @@ echo "==> evalPopStructure R reference fetched"
       -n "$THREADS" -o "$WORK/out/pcaone_k4" >/dev/null 2>&1
 "$PCAONE" -b "$DATA/smallPlink" -P "$WORK/out/pcaone_k4" --evaladmix -k 1 --maf 0.05 \
       -n "$THREADS" -o "$WORK/out/pcaone_k4" >/dev/null 2>&1
+# 2-4 PCs, more than the K-1 = 1 that is correct: the PC-number table
+for npc in 2 3 4; do
+  "$PCAONE" -b "$DATA/smallPlink" -P "$WORK/out/pcaone_k4" --evaladmix -k "$npc" --maf 0.05 \
+        -n "$THREADS" -o "$WORK/out/pcaone_k4_pc$npc" >/dev/null 2>&1
+done
 # out-of-core (PCAone rejects --maf out-of-core, so this one runs on all sites)
 "$PCAONE" -b "$DATA/smallPlink" -k 1 -d 0 -m 0.002 \
       -n "$THREADS" -o "$WORK/out/pcaone_ooc" >/dev/null 2>&1

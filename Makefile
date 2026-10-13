@@ -156,7 +156,7 @@ SLIBS += ./external/bgen/bgenlib.a ./external/zstd/lib/libzstd.a  ./external/pge
 
 LIBS += $(SLIBS) $(DLIBS) -lpthread -ldl -lm
 
-.PHONY: all clean docs serve-docs projection hwe ld_matrix ld_r2 ld_prune ld_clump ld_tests test_full test_aarch64 test_pgen_plink_equivalence test_em_snp_order test_projection_bootstrap test_cmd_guards test_crash_regressions test_review_fixes test_ref_k test_exact_streaming test_inbreed_samples test_evaladmix test_evaladmix_pairs test_evaladmix_ibd test_em_k test_bgen_formats
+.PHONY: all clean docs serve-docs projection hwe ld_matrix ld_r2 ld_prune ld_clump ld_tests test_full test_aarch64 test_pgen_plink_equivalence test_em_snp_order test_projection_bootstrap test_cmd_guards test_crash_regressions test_review_fixes test_ref_k test_project_out_of_core test_exact_streaming test_inbreed_samples test_evaladmix test_evaladmix_pairs test_evaladmix_ibd test_em_k test_bgen_formats
 
 all: ${program}
 
@@ -197,6 +197,9 @@ test_review_fixes: ${program}
 
 test_ref_k: ${program}
 	python3 tests/test_ref_k.py
+
+test_project_out_of_core: ${program}
+	python3 tests/test_project_out_of_core.py
 
 test_exact_streaming: ${program}
 	python3 tests/test_exact_streaming.py
@@ -271,6 +274,9 @@ example_tests:
 projection:
 	./PCAone -b example/ref -k 3 -o ref -v3
 	./PCAone -b example/new --USV ref -k 3 --project 2 --project-bootstrap 100 -o new -v3
+	./PCAone -b example/new --USV ref -k 3 --project 2 --project-bootstrap 100 -o new_m -m 0.2 -v3
+	diff new.eigvecs new_m.eigvecs
+	diff new.proj.bootstrap.tsv new_m.proj.bootstrap.tsv
 
 hwe:
 	./PCAone -b example/plink -k 3 -m 1

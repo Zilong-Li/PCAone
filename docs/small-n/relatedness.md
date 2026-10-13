@@ -58,28 +58,45 @@ with more sites.
 Use `K-1` PCs for `K` ancestral groups: with the intercept that the projection
 includes, they span the same space as the admixture proportions of a
 `K`-population model. Getting this number right matters far more than the
-choice of method. On the benchmark pedigree, with `K=2` and one PC correct, the
-RMSE of the related pairs against their true kinship is:
+choice of method. On the benchmark pedigree, with `K=2` and one PC correct:
 
 | PCs used | 1 (correct) | 2 | 3 | 4 |
 |---|---|---|---|---|
-| `--evaladmix` / PCA + projection | **0.00443** | 0.03035 | 0.05001 | 0.06917 |
-| PC-Relate, for comparison | **0.00358** | 0.03474 | 0.06011 | 0.09459 |
+| `--evaladmix`, RMSE of the related pairs | **0.00251** | 0.00251 | 0.00251 | 0.00251 |
+| `--evaladmix`, unrelated pairs called 1st degree or closer | **0** | 4 | 4 | 16 |
+| `--evaladmix`, unrelated pairs called 5th degree or closer | **0** | 20 | 36 | 32 |
+| before the clip, RMSE of the related pairs | **0.00443** | 0.03035 | 0.05001 | 0.06917 |
+| before the clip, mean at duplicates | **0.5083** | 0.5412 | 0.5786 | 0.6203 |
+| PC-Relate, RMSE of the related pairs | **0.00358** | 0.03474 | 0.06011 | 0.09459 |
 | PC-Relate, mean at duplicates | **0.4972** | 0.5395 | 0.5880 | 0.6561 |
 
-One PC too many costs a factor of seven to ten — two orders of magnitude more
-than any difference between methods. With `K` real populations the later PCs fit
-*relatedness* rather than ancestry, and projecting them out distorts the very
-residual structure the estimator depends on.
+There are 7,815 unrelated pairs. "Before the clip" is the same statistic from
+the R reference, `evalPCA()`, which does not clip the correlation of residuals
+to `[-1, 1]` as `--evaladmix` does (see
+[How it compares with the other evalAdmix routes](#how-it-compares-with-the-other-evaladmix-routes)).
+
+With `K` real populations the later PCs fit *relatedness* rather than ancestry.
+Here each of PCs 2–4 is dominated by three duplicate pairs: their six samples
+carry 93% of the sum of squares of PC2, and 73–78% of PCs 3 and 4. Projecting
+such a PC out distorts the residuals the estimator depends on, in two ways:
+
+- **The duplicates inflate** past 0.5: to 0.62 on average with 4 PCs,
+  before the clip. `--evaladmix` clips them back to 0.5, and every other class
+  stays where it was (parent–offspring 0.2496 and first cousins 0.0622 at every
+  number of PCs). So the related pairs look fine.
+- **Members of different duplicate pairs look related.** These unrelated pairs
+  read 0.23 with 2 PCs and up to 0.34 with 4, which are first-degree calls.
+
+So the failure will not announce itself in the related pairs. Look instead for
+unrelated pairs that read as close relatives, and for PCs whose scores are
+concentrated on a few samples. On this pedigree, the top six samples carry 10%
+of the sum of squares of PC1, which fits ancestry, against 73–93% of PCs 2–4.
 
 Note that PC-Relate is **not** more robust to this, despite needing no explicit
-`K`: choosing the number of PCs is the same decision in different clothes, and it
-degrades slightly faster. The genuine advantage of a PC front-end is that it does
-not assume *discrete* ancestral populations, not that it saves you a decision.
-
-Note also how it fails: the damage concentrates in the closest pairs — duplicates
-inflate to 0.66 while parent–offspring stays at 0.251 and first cousins at 0.066
-— so it will not announce itself in a summary statistic.
+`K`: choosing the number of PCs is the same decision in different clothes, and
+against the same statistic before the clip it degrades slightly faster. The
+genuine advantage of a PC front-end is that it does not assume *discrete*
+ancestral populations, not that it saves you a decision.
 
 ## Missing genotypes
 
@@ -646,6 +663,9 @@ PCAone -b smallPlink -k 1 -d 0 --maf 0.05 -o pcaone
 PCAone -b smallPlink -P pcaone --evaladmix --maf 0.05 -o pcaone
 PCAone -b smallPlink -k 4 -d 0 --maf 0.05 -o pcaone_k4
 PCAone -b smallPlink -P pcaone_k4 --evaladmix -k 1 --maf 0.05 -o pcaone_k4
+for k in 2 3 4; do   # too many PCs, for the PC-number table
+  PCAone -b smallPlink -P pcaone_k4 --evaladmix -k $k --maf 0.05 -o pcaone_k4_pc$k
+done
 PCAone -b smallPlink -k 1 -d 0 -m 0.002 -o pcaone_ooc   # out-of-core
 PCAone -b smallPlink -P pcaone_ooc --evaladmix -m 0.002 -o pcaone_ooc   # out-of-core
 PCAone -b smallPlink -k 1 -d 0          -o pcaone_ic    # in-core
@@ -675,6 +695,9 @@ by `benchmark.R`:
 pca <- makePCA(g, method = "standard", center = TRUE, scale = FALSE)
 evalPCA(pca, k = K - 1)$corres
 ```
+
+It is also run at one to four PCs, unclipped, for the "before the clip" rows of
+the PC-number table.
 
 **PC-Relate** — optional, and the only step needing a package install:
 
@@ -768,5 +791,4 @@ pairs per class, detection is saturated on complete data: every method calls
 every degree right down to first cousins. The differences between methods here
 are in the third or fourth decimal — see
 [Choosing the number of PCs](#choosing-the-number-of-pcs)
-for the one choice that is worth two orders of magnitude more than the choice of
-method.
+for the one choice that matters far more than the choice of method.

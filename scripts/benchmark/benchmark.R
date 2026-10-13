@@ -27,6 +27,10 @@ read_bed <- function(prefix) {                    # -> n x m matrix of {0,1,2}
   G
 }
 rmse <- function(x, y) sqrt(mean((x - y)^2))
+# KING degree bins (Manichaikul et al. 2010): degree d spans
+# (2^-(d+1.5), 2^-(d+0.5)], extended here to 5th degree for second cousins
+cut_deg <- 2^-(seq(0, 5) + 1.5)                      # 0.354 0.177 0.0884 0.0442 0.0221 0.0110
+degree  <- function(v) findInterval(-v, -cut_deg)    # 0 = dup/MZ ... 5 = 5th, 6 = unrelated
 
 ## ------------------------------------------------------------------ truth ---
 # The pedigree is visible in the data: individuals are ordered so that relatives
@@ -129,14 +133,31 @@ clipped <- t(sapply(est, function(v) c(`as is` = rmse(v[!u], truth[!u]),
                                        clipped = rmse(pmin(v[!u], 0.5), truth[!u]))))
 print(round(clipped, 5))
 
-if (!is.null(pcrelate_npc)) {
-  cat("\n=== sensitivity to the number of PCs (K=2, so 1 is correct) ===\n")
-  sens <- sapply(1:4, function(d) c(
-    `RMSE related` = rmse(pcrelate_npc[[d]][!u], truth[!u]),
-    duplicates = mean(pcrelate_npc[[d]][cls == "duplicate"]),
-    `cor with truth` = cor(pcrelate_npc[[d]], truth)))
-  colnames(sens) <- paste(1:4, "PC"); cat("PC-Relate:\n"); print(round(sens, 5))
+cat("\n=== sensitivity to the number of PCs (K=2, so 1 is correct) ===\n")
+# PCAone writes .kinship clipped to [-1,1] on the correlation scale (0.5 in kinship),
+# so its duplicates cannot exceed 0.5. The R reference is the same statistic
+# before the clip. Extra PCs show in PCAone's output as unrelated pairs that
+# read as close relatives, not in the RMSE of the related pairs.
+sens_tab <- function(lst) {
+  s <- sapply(lst, function(v) c(
+    `RMSE related` = rmse(v[!u], truth[!u]),
+    duplicates = mean(v[cls == "duplicate"]),
+    `parent-offspring` = mean(v[cls == "parent-offspring"]),
+    `first cousin` = mean(v[cls == "first cousin"]),
+    `unrelated >= 1st degree` = sum(v[u] > cut_deg[2]),
+    `unrelated >= 5th degree` = sum(v[u] > cut_deg[6]),
+    `max unrelated` = max(v[u])))
+  colnames(s) <- paste(seq_along(lst), "PC"); round(s, 5)
 }
+rk <- function(f) gp(as.matrix(read.table(f, header = TRUE, check.names = FALSE)))
+pcaone_npc <- c(list(rk(file.path(OUT, "pcaone_k4.kinship"))),
+                lapply(2:4, function(d) rk(file.path(OUT, sprintf("pcaone_k4_pc%d.kinship", d)))))
+cat("PCAone --evaladmix (.kinship, as written):\n"); print(sens_tab(pcaone_npc))
+if ("PCA + projection (R)" %in% names(est)) {
+  cat("PCA + projection, R reference (the same statistic before the clip):\n")
+  print(sens_tab(lapply(1:4, function(d) gp(evalPCA(pcaR, k = d)$corres) / 2)))
+}
+if (!is.null(pcrelate_npc)) { cat("PC-Relate:\n"); print(sens_tab(pcrelate_npc)) }
 
 cat("\n=== implementation cross-checks (all should be 0) ===\n")
 chk <- function(a, b) max(abs(a - b))
@@ -154,10 +175,7 @@ if ("PCA + projection (R)" %in% names(est))
 # a relatedness screen asks: is the pair related, and to what degree?
 saveRDS(list(est = est, cls = cls, truth = truth), file.path(OUT, "estimates.rds"))
 
-# KING degree bins (Manichaikul et al. 2010): degree d spans
-# (2^-(d+1.5), 2^-(d+0.5)], extended here to 5th degree for second cousins
-cut_deg <- 2^-(seq(0, 5) + 1.5)                      # 0.354 0.177 0.0884 0.0442 0.0221 0.0110
-degree  <- function(v) findInterval(-v, -cut_deg)    # 0 = dup/MZ ... 5 = 5th, 6 = unrelated
+# cut_deg and degree() are defined with the helpers at the top
 true_deg <- c(unrelated = 6, duplicate = 0, "parent-offspring" = 1, "full sib" = 1,
               "half sib" = 2, "first cousin" = 3, "second cousin" = 5)[cls]
 

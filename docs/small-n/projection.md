@@ -47,6 +47,11 @@ or a different array. `--project 1` is the classic projection and suits a
 target with few missing calls; it warns when there are some. A sample with
 fewer called sites than PCs gets NA with `--project 2`, with a warning.
 
+The target is read in-core, `9 x N x M` bytes. For a target too large for
+that, add `-m` to `--project 1` or `2`: the genotypes are then streamed in
+blocks within `-m` GB, with the same results; see
+[Projection at biobank scale](../biobank/projection.md#memory-stream-the-target-in-blocks).
+
 ## Uncertainty of projected samples
 
 A sample with few called sites has an uncertain position. `--project-bootstrap`
@@ -74,7 +79,10 @@ used to draw uncertainty ellipses around the baseline estimates. Add
 | `.proj.bootstrap.eigvecs` | `replicate sample PC1 PC2 ...` |
 
 `sample` is the 1-based position of the sample in the target, and `rmsd` is
-the root mean square distance of the replicates from the baseline.
+the root mean square distance of the replicates from the baseline. A replicate
+in which a sample has fewer distinct called sites than PCs has no unique
+solution, so its scores are NA, and with them the sample's `mean`,
+`bootstrap_se`, `rmsd` and covariances.
 
 ## Genotype likelihoods
 
@@ -140,6 +148,7 @@ coordinates.
 
 **Bootstrap.** Each replicate draws as many sites as were matched, with
 replacement, and solves the least squares problem of `--project 2` on them,
-weighted by how often each site was drawn. The design `V S` is fixed, so a
+weighted by how often each site was drawn. A sample needs at least as many
+distinct called sites among the draws as PCs; a site drawn twice counts once. The design `V S` is fixed, so a
 replicate has no arbitrary sign and is not flipped towards the baseline. The
 draws follow `--seed` and are the same on every platform.

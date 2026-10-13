@@ -10,6 +10,7 @@
 
 #include <climits>
 #include <fstream>
+#include <limits>
 
 #include "BedShuffle.hpp"
 #ifdef __linux__
@@ -47,7 +48,7 @@ const uchar* FileBed::read_records(uint64 start_idx, uint64 count) {
   if (!params.noprefetch || !bed_order.empty()) {
     try {
       if (!prefetcher) {
-        prefetcher = std::make_unique<PCAone::RecordPrefetcher>(bed_path, 3, bed_bytes_per_snp, nsnps);
+        prefetcher = std::make_unique<PCAone::RecordPrefetcher>(bed_path, 3, bed_bytes_per_snp, bed_nrecords);
         if (!bed_order.empty()) prefetcher->set_order(bed_order);
         if (params.noprefetch) prefetcher->set_read_ahead(false);
       }
@@ -159,6 +160,24 @@ void FileBed::read_all() {
   inbed.shrink_to_fit();
 }
 
+void FileBed::use_reference_af() {
+  frequency_was_estimated = true;
+  // --project keeps the SNPs matched to the reference .mbim (Data::prepare)
+  if (!keepSNPs.empty() && bed_order.empty()) {
+    prefetcher.reset();  // set_order() is applied when the prefetcher is made
+    bed_order.assign(keepSNPs.begin(), keepSNPs.end());
+  }
+  if (!params.center) return;
+  centered_geno_lookup.resize(4, F.size());
+  const double missing = mark_missing ? std::numeric_limits<double>::quiet_NaN() : 0.0;
+  for (Eigen::Index s = 0; s < F.size(); ++s) {
+    centered_geno_lookup(0, s) = BED2GENO[0] - F(s);  // minor hom
+    centered_geno_lookup(1, s) = missing;             // missing
+    centered_geno_lookup(2, s) = BED2GENO[2] - F(s);  // het
+    centered_geno_lookup(3, s) = BED2GENO[3] - F(s);  // major hom
+  }
+}
+
 void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize) {
   uint actual_block_size = stop_idx - start_idx + 1;
   // if G is not initial then initial it
@@ -168,8 +187,8 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
   }
   uint64 c, b, i, j, k, snp_idx;
   uchar buf;
+  if (!params.dopca && !frequency_was_estimated) use_reference_af();  // read AF from external
   const uchar* bed = read_records(start_idx, actual_block_size);
-  if (!params.dopca) frequency_was_estimated = true;  // read AF from external
   if (frequency_was_estimated) {
 #pragma omp parallel for private(i, j, b, k, snp_idx, buf)
     for (i = 0; i < actual_block_size; ++i) {

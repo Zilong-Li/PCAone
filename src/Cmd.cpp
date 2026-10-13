@@ -82,7 +82,7 @@ Param::Param(int argc, char** argv) {
   opts.add<Value<std::string>, Attribute::headline>("","PCAone","General options:");
   auto help_opt = opts.add<Switch>("h", "help", "print all options, including the advanced ones");
   opts.add<Value<double>>("m", "memory", "memory in GB for out-of-core mode; 0 runs in-core. also sets the blocks\n"
-                                        "of --svd 3 and the stripes of --evaladmix-kin", memory, &memory);
+                                        "of --svd 3 and --project 1/2, and the stripes of --evaladmix-kin", memory, &memory);
   opts.add<Unsigned>("n", "threads", "number of threads", threads, &threads);
   opts.add<Unsigned>("v", "verbose", "verbosity: 0 silent, 1 concise, 2 verbose, 3 debug", verbose, &verbose);
 
@@ -398,8 +398,14 @@ Param::Param(int argc, char** argv) {
       if (fileV.empty() || fileS.empty()) throw std::invalid_argument("please use --USV together with --project");
       if (project_bootstrap > 0 && project != 2)
         throw std::invalid_argument("--project-bootstrap currently supports only --project 2");
-      dopca = false, missme = true, out_of_core = false;
-      memory = 0;
+      // with -m, --project 1 and 2 stream the target in blocks of sites and hold
+      // per-sample sums instead of the N x M genotypes (run_projection_blockwise).
+      // --project 3 iterates over the whole matrix of genotype likelihoods.
+      require(memory == 0 || plink_or_pgen,
+              "-m (out-of-core) supports --project 1 and 2 on --bfile/--pgen input only; "
+              "--project 3 runs in-core. please remove -m");
+      dopca = false, missme = true;
+      out_of_core = memory > 0;
     } else if (project_bootstrap > 0 || project_bootstrap_save) {
       throw std::invalid_argument("--project-bootstrap requires --project 2");
     }

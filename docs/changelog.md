@@ -40,6 +40,18 @@ so that sum no longer covers all the variance.
 
 ### Unreleased
 
+**New**
+
+- `-m` with `--project 1` and `2` streams the target from PLINK or PGEN a block of variants at
+  a time and holds sums per sample instead of the `N x M` genotypes, so a target of any size is
+  projected in one run within `-m`, without splitting it into batches of samples. The scores and
+  the `--project-bootstrap` files are those of the in-core run up to rounding. On 60,000 samples
+  and 20,000 simulated variants, which need 10 GB in-core, `--project 2 -m 2` took 8 s on 2
+  threads and 2 GB. See
+  [Projection at biobank scale](biobank/projection.md#memory-stream-the-target-in-blocks).
+  `--project` ignored `-m` before; `--project 3` still runs in-core, and now stops with an
+  error when given `-m`.
+
 **Faster**
 
 - Every large text output is formatted on all threads (`-n`) and written while the next block
@@ -58,6 +70,10 @@ so that sum no longer covers all the variance.
 - The `.eigvecs2` of a PGEN whose `.psam` has no header line had no samples.
 - LD and `--evaladmix` read a value of the `-P/--USV` `.eigvecs` that is not a number, such as
   the `NA` of a projected sample, as 0. They now stop with an error naming the row.
+- `--project-bootstrap` counted a site drawn several times once per draw towards the `K` sites a
+  sample needs, so e.g. 2 called sites drawn twice each passed with 4 PCs, and the replicate was
+  solved from a singular system with arbitrary scores. Such a replicate is now NA. Only samples
+  with very few called sites are affected.
 
 ### v0.8.0
 

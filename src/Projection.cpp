@@ -6,9 +6,15 @@
 
 #include "Projection.hpp"
 
+#include <omp.h>
+
+#include <algorithm>
+#include <cmath>
+#include <cstdio>
 #include <cstring>
 #include <initializer_list>
 #include <limits>
+#include <memory>
 
 #include "Cmd.hpp"
 #include "Common.hpp"
@@ -24,12 +30,16 @@ Mat2D solve_bootstrap_projection_no_missing(const Mat2D& design, const Mat2D& G,
   const int N = G.rows();
   Mat2D ata = Mat2D::Zero(K, K);
   Mat2D atg = Mat2D::Zero(K, N);
+  int distinct = 0;
   for (int j = 0; j < M; ++j) {
     const uint w = counts[j];
     if (w == 0) continue;
+    ++distinct;
     ata.noalias() += (double)w * design.row(j).transpose() * design.row(j);
     atg.noalias() += (double)w * design.row(j).transpose() * G.col(j).transpose();
   }
+  // fewer distinct sites than PCs: no unique solution, see below
+  if (distinct < K) return Mat2D::Constant(N, K, std::numeric_limits<double>::quiet_NaN());
   return ata.ldlt().solve(atg).transpose();
 }
 
@@ -45,13 +55,16 @@ Mat2D solve_bootstrap_projection_missing(const Mat2D& design,
   for (int i = 0; i < N; ++i) {
     Mat2D ata = Mat2D::Zero(K, K);
     Mat1D atg = Mat1D::Zero(K);
+    // the called sites drawn, each counted once: a site drawn twice adds no
+    // rank, and counting the draws let a replicate of 2 sites drawn twice each
+    // through for K = 4, with a singular system and arbitrary scores
     int observed = 0;
     for (int j = 0; j < M; ++j) {
       const uint w = counts[j];
       if (w == 0 || C((Eigen::Index)j * N + i)) continue;
       ata.noalias() += (double)w * design.row(j).transpose() * design.row(j);
       atg.noalias() += (double)w * design.row(j).transpose() * G(i, j);
-      observed += w;
+      ++observed;
     }
     if (observed < K) {
       U.row(i).setConstant(std::numeric_limits<double>::quiet_NaN());
@@ -61,6 +74,143 @@ Mat2D solve_bootstrap_projection_missing(const Mat2D& design,
   }
   return U;
 }
+
+namespace {
+
+std::vector<std::pair<int, int>> pc_pairs(int K) {
+  std::vector<std::pair<int, int>> pairs;
+  pairs.reserve(static_cast<size_t>(K) * (K - 1) / 2);
+  for (int a = 0; a < K; ++a) {
+    for (int b = a + 1; b < K; ++b) pairs.emplace_back(a, b);
+  }
+  return pairs;
+}
+
+// "<i>\tPC<a>" then the values, each after a tab
+void put_row(TextBuf& buf, Eigen::Index i, std::initializer_list<int> pcs, std::initializer_list<double> vals) {
+  char* p = buf.reserve(21 + pcs.size() * 24 + vals.size() * (TEXT_NUM_MAX + 1) + 1);
+  p = put_uint(i + 1, p);
+  for (int pc : pcs) std::memcpy(p, "\tPC", 3), p = put_uint(pc + 1, p + 3);
+  for (double v : vals) *p++ = '\t', p = put_g6(v, p);
+  *p++ = '\n';
+  buf.commit(p);
+}
+
+const char* const BOOT_TSV_HEADER = "sample\tpc\tbaseline\tmean\tbootstrap_se\tmin\tmax\trmsd\n";
+const char* const BOOT_COV_HEADER =
+    "sample\tpc_x\tpc_y\tbaseline_x\tbaseline_y\tmean_x\tmean_y\tvar_x\tvar_y\tcov\tcorr\n";
+const char* const BOOT_RAW_HEADER = "replicate\tsample";
+
+// the replicate r (0-based) of the samples first, first + 1, ... as rows of
+// .proj.bootstrap.eigvecs
+void write_bootstrap_replicate(std::ostream& raw, uint r, const Eigen::Ref<const Mat2D>& Ub, Eigen::Index first) {
+  const int K = Ub.cols();
+  write_lines(raw, Ub.rows(), 24 + 12 * K, [&](Eigen::Index i, TextBuf& buf) {
+    char* p = buf.reserve(42 + K * (TEXT_NUM_MAX + 1) + 1);
+    p = put_uint(r + 1, p);
+    *p++ = '\t';
+    p = put_uint(first + i + 1, p);
+    for (int k = 0; k < K; ++k) *p++ = '\t', p = put_g6(Ub(i, k), p);
+    *p++ = '\n';
+    buf.commit(p);
+  });
+}
+
+// The per-sample summaries of the bootstrap replicates of n samples, which
+// write() appends to .proj.bootstrap.tsv and .proj.bootstrap.cov.tsv. The
+// out-of-core projection keeps one per group of samples.
+class BootstrapSummary {
+ public:
+  BootstrapSummary(Eigen::Index n, int K)
+      : pairs(pc_pairs(K)),
+        sum(Mat2D::Zero(n, K)),
+        sumsq(Mat2D::Zero(n, K)),
+        diff_sumsq(Mat2D::Zero(n, K)),
+        minv(Mat2D::Constant(n, K, std::numeric_limits<double>::infinity())),
+        maxv(Mat2D::Constant(n, K, -std::numeric_limits<double>::infinity())),
+        cross_sum(Mat2D::Zero(n, pairs.size())) {}
+
+  void add(const Eigen::Ref<const Mat2D>& Ub, const Eigen::Ref<const Mat2D>& U0) {
+    // no sign alignment: the design V*S is fixed, so Ub is an ordinary
+    // least-squares estimate with no arbitrary sign. Flipping it towards U0
+    // would fold the replicates onto the baseline's side and bias the mean,
+    // variance and covariance.
+    sum += Ub;
+    sumsq += Ub.array().square().matrix();
+    diff_sumsq += (Ub - U0).array().square().matrix();
+    minv = minv.cwiseMin(Ub);
+    maxv = maxv.cwiseMax(Ub);
+    for (int p = 0; p < (int)pairs.size(); ++p) {
+      cross_sum.col(p).array() += Ub.col(pairs[p].first).array() * Ub.col(pairs[p].second).array();
+    }
+  }
+
+  // the rows of these samples, the first of them being sample `first` (0-based)
+  void write(std::ostream& out,
+             std::ostream& covout,
+             const Eigen::Ref<const Mat2D>& U0,
+             uint nreps,
+             Eigen::Index first) const {
+    const Eigen::Index N = sum.rows();
+    const int K = sum.cols();
+    const double R = (double)nreps;
+    Mat2D mean = sum / R;
+    Mat2D variance = (sumsq.array() - (sum.array().square() / R)).max(0.0) / std::max(1.0, R - 1.0);
+    Mat2D sd = variance.array().sqrt().matrix();
+    Mat2D rmsd = (diff_sumsq.array() / R).sqrt().matrix();
+
+    write_lines(out, N * K, 96, [&](Eigen::Index l, TextBuf& buf) {
+      const Eigen::Index i = l / K, k = l % K;
+      put_row(buf, first + i, {(int)k}, {U0(i, k), mean(i, k), sd(i, k), minv(i, k), maxv(i, k), rmsd(i, k)});
+    });
+    const Eigen::Index np = (Eigen::Index)pairs.size();
+    write_lines(covout, N * np, 160, [&](Eigen::Index l, TextBuf& buf) {
+      const Eigen::Index i = l / np;
+      const int a = pairs[l % np].first, b = pairs[l % np].second;
+      const double cov = (cross_sum(i, l % np) - R * mean(i, a) * mean(i, b)) / std::max(1.0, R - 1.0);
+      const double denom = std::sqrt(variance(i, a) * variance(i, b));
+      const double corr = denom > 0.0 ? cov / denom : std::numeric_limits<double>::quiet_NaN();
+      put_row(buf, first + i, {a, b},
+              {U0(i, a), U0(i, b), mean(i, a), mean(i, b), variance(i, a), variance(i, b), cov, corr});
+    });
+  }
+
+ private:
+  std::vector<std::pair<int, int>> pairs;
+  Mat2D sum, sumsq, diff_sumsq, minv, maxv, cross_sum;
+};
+
+// the files of the bootstrap: .proj.bootstrap.tsv and .cov.tsv, each with its header
+struct BootstrapFiles {
+  std::string ftsv, fcov;
+  std::ofstream out, covout;
+  explicit BootstrapFiles(const Param& params)
+      : ftsv(params.fileout + ".proj.bootstrap.tsv"),
+        fcov(params.fileout + ".proj.bootstrap.cov.tsv") {
+    out.open(ftsv, std::ios::binary);
+    if (!out.is_open()) cao.error("can not open " + ftsv);
+    covout.open(fcov, std::ios::binary);
+    if (!covout.is_open()) cao.error("can not open " + fcov);
+    out << BOOT_TSV_HEADER;
+    covout << BOOT_COV_HEADER;
+  }
+  void close() {
+    out.close();
+    if (!out) cao.error("error writing " + ftsv);
+    covout.close();
+    if (!covout) cao.error("error writing " + fcov);
+  }
+};
+
+void open_bootstrap_raw(std::ofstream& raw, const std::string& path, int K) {
+  raw.open(path, std::ios::binary);
+  if (!raw.is_open()) cao.error("can not open " + path);
+  raw << BOOT_RAW_HEADER;
+  for (int k = 0; k < K; ++k) raw << "\tPC" << k + 1;
+  raw << '\n';
+}
+
+}  // namespace
 
 void write_projection_bootstrap_stats(
     const Mat2D& design, const ArrBool& C, const Mat2D& G, const Mat2D& U0, uint nreps, const Param& params) {
@@ -74,27 +224,9 @@ void write_projection_bootstrap_stats(
   const bool has_missing = C.size() && C.count() > 0;
   PortableRng rng(params.seed);  // uniform_int_distribution differs between standard libraries
 
-  Mat2D sum = Mat2D::Zero(N, K);
-  Mat2D sumsq = Mat2D::Zero(N, K);
-  Mat2D diff_sumsq = Mat2D::Zero(N, K);
-  Mat2D minv = Mat2D::Constant(N, K, std::numeric_limits<double>::infinity());
-  Mat2D maxv = Mat2D::Constant(N, K, -std::numeric_limits<double>::infinity());
-
-  std::vector<std::pair<int, int>> pairs;
-  pairs.reserve(static_cast<size_t>(K) * (K - 1) / 2);
-  for (int a = 0; a < K; ++a) {
-    for (int b = a + 1; b < K; ++b) pairs.emplace_back(a, b);
-  }
-  Mat2D cross_sum = Mat2D::Zero(N, pairs.size());
-
+  BootstrapSummary summary(N, K);
   std::ofstream raw;
-  if (params.project_bootstrap_save) {
-    raw.open(params.fileout + ".proj.bootstrap.eigvecs");
-    if (!raw.is_open()) cao.error("can not open " + params.fileout + ".proj.bootstrap.eigvecs");
-    raw << "replicate\tsample";
-    for (int k = 0; k < K; ++k) raw << "\tPC" << k + 1;
-    raw << '\n';
-  }
+  if (params.project_bootstrap_save) open_bootstrap_raw(raw, params.fileout + ".proj.bootstrap.eigvecs", K);
 
   std::vector<uint> counts(M);
   for (uint r = 0; r < nreps; ++r) {
@@ -103,75 +235,17 @@ void write_projection_bootstrap_stats(
 
     Mat2D Ub = has_missing ? solve_bootstrap_projection_missing(design, C, G, counts)
                            : solve_bootstrap_projection_no_missing(design, G, counts);
-
-    // no sign alignment: the design V*S is fixed, so Ub is an ordinary
-    // least-squares estimate with no arbitrary sign. Flipping it towards U0
-    // would fold the replicates onto the baseline's side and bias the mean,
-    // variance and covariance.
-
-    sum += Ub;
-    sumsq += Ub.array().square().matrix();
-    diff_sumsq += (Ub - U0).array().square().matrix();
-    minv = minv.cwiseMin(Ub);
-    maxv = maxv.cwiseMax(Ub);
-    for (int p = 0; p < (int)pairs.size(); ++p) {
-      cross_sum.col(p).array() += Ub.col(pairs[p].first).array() * Ub.col(pairs[p].second).array();
-    }
-
-    if (raw.is_open())
-      write_lines(raw, N, 24 + 12 * K, [&](Eigen::Index i, TextBuf& buf) {
-        char* p = buf.reserve(42 + K * (TEXT_NUM_MAX + 1) + 1);
-        p = put_uint(r + 1, p);
-        *p++ = '\t';
-        p = put_uint(i + 1, p);
-        for (int k = 0; k < K; ++k) *p++ = '\t', p = put_g6(Ub(i, k), p);
-        *p++ = '\n';
-        buf.commit(p);
-      });
+    summary.add(Ub, U0);
+    if (raw.is_open()) write_bootstrap_replicate(raw, r, Ub, 0);
+  }
+  if (raw.is_open()) {
+    raw.close();
+    if (!raw) cao.error("error writing " + params.fileout + ".proj.bootstrap.eigvecs");
   }
 
-  const double R = (double)nreps;
-  Mat2D mean = sum / R;
-  Mat2D variance = (sumsq.array() - (sum.array().square() / R)).max(0.0) / std::max(1.0, R - 1.0);
-  Mat2D sd = variance.array().sqrt().matrix();
-  Mat2D rmsd = (diff_sumsq.array() / R).sqrt().matrix();
-
-  // "<i>\tPC<a>" then the values, each after a tab
-  auto put_row = [](TextBuf& buf, Eigen::Index i, std::initializer_list<int> pcs, std::initializer_list<double> vals) {
-    char* p = buf.reserve(21 + pcs.size() * 24 + vals.size() * (TEXT_NUM_MAX + 1) + 1);
-    p = put_uint(i + 1, p);
-    for (int pc : pcs) std::memcpy(p, "\tPC", 3), p = put_uint(pc + 1, p + 3);
-    for (double v : vals) *p++ = '\t', p = put_g6(v, p);
-    *p++ = '\n';
-    buf.commit(p);
-  };
-
-  const std::string ftsv = params.fileout + ".proj.bootstrap.tsv";
-  std::ofstream out(ftsv, std::ios::binary);
-  if (!out.is_open()) cao.error("can not open " + ftsv);
-  out << "sample\tpc\tbaseline\tmean\tbootstrap_se\tmin\tmax\trmsd\n";
-  write_lines(out, (Eigen::Index)N * K, 96, [&](Eigen::Index l, TextBuf& buf) {
-    const Eigen::Index i = l / K, k = l % K;
-    put_row(buf, i, {(int)k}, {U0(i, k), mean(i, k), sd(i, k), minv(i, k), maxv(i, k), rmsd(i, k)});
-  });
-  out.close();
-  if (!out) cao.error("error writing " + ftsv);
-
-  const std::string fcov = params.fileout + ".proj.bootstrap.cov.tsv";
-  std::ofstream covout(fcov, std::ios::binary);
-  if (!covout.is_open()) cao.error("can not open " + fcov);
-  covout << "sample\tpc_x\tpc_y\tbaseline_x\tbaseline_y\tmean_x\tmean_y\tvar_x\tvar_y\tcov\tcorr\n";
-  const Eigen::Index np = (Eigen::Index)pairs.size();
-  write_lines(covout, (Eigen::Index)N * np, 160, [&](Eigen::Index l, TextBuf& buf) {
-    const Eigen::Index i = l / np;
-    const int a = pairs[l % np].first, b = pairs[l % np].second;
-    const double cov = (cross_sum(i, l % np) - R * mean(i, a) * mean(i, b)) / std::max(1.0, R - 1.0);
-    const double denom = std::sqrt(variance(i, a) * variance(i, b));
-    const double corr = denom > 0.0 ? cov / denom : std::numeric_limits<double>::quiet_NaN();
-    put_row(buf, i, {a, b}, {U0(i, a), U0(i, b), mean(i, a), mean(i, b), variance(i, a), variance(i, b), cov, corr});
-  });
-  covout.close();
-  if (!covout) cao.error("error writing " + fcov);
+  BootstrapFiles files(params);
+  summary.write(files.out, files.covout, U0, nreps, 0);
+  files.close();
   cao.print(tick.date(), "projection bootstrap diagnostics saved to", params.fileout + ".proj.bootstrap.tsv");
 }
 
@@ -227,13 +301,340 @@ static Mat1D gl_site_scale(const Mat1D& F, bool standardize, const UsvTransform&
   return a;
 }
 
+namespace {
+
+using RowMat = Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+
+// the K x K symmetric matrix packed by rows of its upper triangle, (a, b) with a <= b
+void unpack_sym(const double* p, int K, Mat2D& A) {
+  for (int a = 0; a < K; ++a)
+    for (int b = a; b < K; ++b) A(a, b) = A(b, a) = *p++;
+}
+
+// least squares from its normal equations A z = b, with A packed; u = z / S
+template <typename Out>
+void solve_packed(const double* a, const double* b, const Mat1D& S, Mat2D& A, Eigen::LDLT<Mat2D>& ldlt, Out&& u) {
+  const int K = S.size();
+  unpack_sym(a, K, A);
+  ldlt.compute(A);
+  u = ldlt.solve(Eigen::Map<const Mat1D>(b, K));
+  u.array() /= S.array();
+}
+
+// out += X * Y, for a block X of the target (samples x sites) and a thin Y, in
+// row panels of about 8 MB of X, one thread each. Eigen's GEMM (and so
+// mul_X_Y) packs up to half the rows of such an X at once when Y is thin: a
+// copy of half the block, outside -m. The panels depend on X.cols() only, so
+// the sums do not depend on the number of threads.
+void add_X_Y_panels(const Eigen::Ref<const Mat2D>& X, const Eigen::Ref<const Mat2D>& Y, Eigen::Ref<Mat2D> out) {
+  const Eigen::Index n = X.rows();
+  const Eigen::Index h =
+      std::max<Eigen::Index>(48, (Eigen::Index(1) << 20) / std::max<Eigen::Index>(1, X.cols()) / 48 * 48);
+  const Eigen::Index np = (n + h - 1) / h;
+#pragma omp parallel for schedule(static)
+  for (Eigen::Index p = 0; p < np; ++p) {
+    const Eigen::Index r = p * h, w = std::min(h, n - r);
+    out.middleRows(r, w).noalias() += X.middleRows(r, w) * Y;
+  }
+}
+
+}  // namespace
+
+/**
+ * Out-of-core --project 1 and 2 (-m), on PLINK and PGEN input: one pass over
+ * the matched sites, block by block, holding sums per sample instead of the
+ * N x M genotypes, so a target of any size is projected in one run.
+ *
+ * --project 1 is the product u = g V S^-1, summed over the blocks.
+ *
+ * --project 2 solves the least squares (V S) u = g over the called sites of
+ * each sample as V z = g, u = S^-1 z, from its normal equations
+ *     A_i = sum over the called sites j of v_j v_j',  b_i = sum over j of g_ij v_j
+ * (v_j the row of V of site j), and z_i = A_i^-1 b_i. b is a product of the
+ * block with V. A_i, packed to K(K+1)/2 values, is the sum over all the sites
+ * of the block less those the sample misses, or the sum over the called ones
+ * when it misses most of the block, so the work is in the fewer of the two. In
+ * exact arithmetic this is the in-core solution, which takes the pivoted QR of
+ * the called rows of V S; the two agree to rounding.
+ *
+ * --project-bootstrap does the same with the sites weighted by the number of
+ * times each replicate drew them, all replicates in the same pass. The draws
+ * are those of the in-core bootstrap, from --seed.
+ *
+ * When the sums of all samples do not fit in -m with a block, the samples are
+ * taken in groups, one pass over the genotypes each.
+ */
+static Mat2D run_projection_blockwise(
+    Data* data, const Param& params, const Mat2D& V, const Mat1D& S, const UsvTransform& usv, bool standardize) {
+  const Eigen::Index N = data->nsamples, M = data->nsnps;
+  const int K = V.cols(), KK = K * (K + 1) / 2;
+  const bool lsq = params.project == 2;
+  const uint R = lsq ? params.project_bootstrap : 0;
+  if (V.rows() != M) cao.error("the loadings have", V.rows(), "rows for", M, "matched sites");
+  if (R > 0 && M < K) cao.error("projection bootstrap requires at least as many matched SNPs as PCs");
+
+  // --- memory, in doubles of -m: what is held whatever the blocks are, per
+  // sample of a group, and per site of a block
+  const double D = 134217728.0;  // doubles per GB, as Data::prepare()
+  const double budget = params.memory * D;
+  const double npairs = K * (K - 1) / 2.0;
+  // U, V and its copy, F with the lookup table of the reader, the draws, and
+  // the panels packed by each thread in add_X_Y_panels()
+  const int nthreads = std::max(1, omp_get_max_threads());
+  const double fixed =
+      (double)N * K + 2.0 * M * K + 5.0 * M + (R ? (double)M * R / 8.0 : 0.0) + nthreads * (double)(1 << 20);
+  // the count of missing calls, A and b, then for each replicate A, b (then u) and
+  // the number of called sites drawn, and the summaries of BootstrapSummary
+  const double per_sample = 1.0 + (lsq ? KK + K : 0) + (R ? R * (KK + K + 1.0) + 5.0 * K + npairs : 0);
+  // the block (N rows) and the raw records read ahead, W, V * draws
+  auto per_site = [&](double ng) { return 1.0625 * N + ng / 8.0 + (lsq ? KK : 0) + (double)R * K + K; };
+  const double avail = budget - fixed;
+  double ng = (double)N;  // --project 1 keeps no sums besides U: all samples in one pass
+  if (lsq && per_sample * N > avail / 2) ng = std::floor(std::max(0.0, avail / 2) / per_sample);
+  double b = std::floor((avail - per_sample * ng) / per_site(ng));
+  const double ng_min = std::min<double>(N, 256), b_min = std::min<double>(M, 64);
+  if (ng < ng_min || b < b_min) {
+    ng = std::max(ng, ng_min);
+    b = std::max(b, b_min);
+    cao.warn("-m is too small for the out-of-core projection, which needs about",
+             (fixed + per_sample * ng + per_site(ng) * b) / D, "GB with groups of", (uint64)ng, "samples and",
+             (uint64)b, "sites per block");
+  }
+  const Eigen::Index gmax = (Eigen::Index)std::min<double>(ng, N);
+  data->set_blocks((uint)std::min<double>(b, M));
+  const Eigen::Index npass = (N + gmax - 1) / gmax;
+  cao.print(tick.date(), "out-of-core projection by -m/--memory: blocksize =", data->blocksize,
+            ", nblocks =", data->nblocks, ", samples per pass =", gmax, ", passes =", npass);
+
+  // the design: --project 1 multiplies by V S^-1, --project 2 solves V z = g
+  const Mat2D Vd = lsq ? V : Mat2D(V * S.cwiseInverse().asDiagonal());
+  // the draws of the bootstrap, as write_projection_bootstrap_stats() makes
+  // them, site-major: counts[j * R + r] is the weight of site j in replicate r.
+  // A byte each: M draws over M sites put 256 on one site with probability
+  // about M / 256!, i.e. never, but it is checked.
+  std::vector<uint8_t> counts;
+  if (R > 0) {
+    cao.print(tick.date(), "run projection SNP bootstrap with", R, "replicates");
+    counts.assign((size_t)M * R, 0);
+    PortableRng rng(params.seed);
+    for (uint r = 0; r < R; ++r)
+      for (Eigen::Index draw = 0; draw < M; ++draw)
+        if (++counts[rng.below(M) * R + r] == 0) cao.error("a site was drawn 256 times in one bootstrap replicate");
+  }
+
+  data->mark_missing = true;  // a missing call is read as NaN
+  Mat2D U = Mat2D::Zero(N, K);
+  uint64 nmiss_all = 0, nunder = 0;
+
+  std::unique_ptr<BootstrapFiles> bfiles;
+  std::ofstream raw;
+  std::vector<std::string> raw_parts;  // with more than one pass, the replicates of each, merged at the end
+  if (R > 0) bfiles = std::make_unique<BootstrapFiles>(params);
+  const std::string fraw = params.fileout + ".proj.bootstrap.eigvecs";
+
+  for (Eigen::Index pass = 0; pass < npass; ++pass) {
+    const Eigen::Index g0 = pass * gmax, gn = std::min(gmax, N - g0);
+    if (npass > 1) cao.print(tick.date(), "projection pass", pass + 1, "of", npass, ": samples", g0 + 1, "to", g0 + gn);
+    // the sums of the group
+    RowMat A0, Ab, od;
+    Mat2D b0, bb;
+    if (lsq) {
+      A0 = RowMat::Zero(gn, KK);
+      b0 = Mat2D::Zero(gn, K);
+    }
+    if (R > 0) {
+      Ab = RowMat::Zero(gn, (Eigen::Index)R * KK);
+      bb = Mat2D::Zero(gn, (Eigen::Index)R * K);
+      od = RowMat::Zero(gn, R);
+    }
+    std::vector<uint64> nmiss(gn, 0);
+    std::vector<uint32_t> mb(gn);  // missing calls of the sample in the block
+    std::vector<uint8_t> sub(gn);  // A_i from the block's sum less the missing sites
+    std::vector<uint8_t> miss;     // the block's missing calls of the group, column-major
+    RowMat W, WcSum;               // v_j v_j' packed, per site; their sums per replicate
+    Eigen::Matrix<double, 1, Eigen::Dynamic> Wsum, dsum;
+    Mat2D Vc;  // V weighted by the draws, [replicate][PC] columns
+    // chunks of samples, each worked by one thread: they own the rows of A
+    const Eigen::Index nchunk = std::min<Eigen::Index>(gn, 8 * nthreads), csz = (gn + nchunk - 1) / nchunk;
+
+    data->check_file_offset_first_var();
+    for (uint bi = 0; bi < data->nblocks; ++bi) {
+      const uint64 start = data->start[bi];
+      const Eigen::Index cols = data->stop[bi] - start + 1;
+      data->read_block_initial(start, data->stop[bi], false);
+      if (standardize) data->standardize_block_ref(usv, start, cols);  // NaN stays NaN
+      auto Gg = data->G.block(g0, 0, gn, cols);
+      const auto Vb = Vd.middleRows(start, cols);
+      miss.resize((size_t)gn * cols);
+      if (lsq) {
+        W.resize(cols, KK);
+        for (Eigen::Index j = 0; j < cols; ++j)
+          for (int a = 0, q = 0; a < K; ++a)
+            for (int c = a; c < K; ++c) W(j, q++) = Vb(j, a) * Vb(j, c);
+        Wsum = W.colwise().sum();
+      }
+      const uint8_t* cb = R ? counts.data() + start * R : nullptr;
+      if (R > 0) {
+        Vc.resize(cols, (Eigen::Index)R * K);
+        for (uint r = 0; r < R; ++r)
+          for (int k = 0; k < K; ++k)
+            for (Eigen::Index j = 0; j < cols; ++j) Vc(j, r * K + k) = cb[j * R + r] * Vb(j, k);
+        WcSum = RowMat::Zero(R, KK);
+        dsum = Eigen::Matrix<double, 1, Eigen::Dynamic>::Zero(R);
+        for (Eigen::Index j = 0; j < cols; ++j)
+          for (uint r = 0; r < R; ++r)
+            if (cb[j * R + r]) {
+              WcSum.row(r) += cb[j * R + r] * W.row(j);
+              dsum(r) += 1;
+            }
+      }
+
+      uint64 nmiss_block = 0;
+#pragma omp parallel for schedule(static) reduction(+ : nmiss_block)
+      for (Eigen::Index ch = 0; ch < nchunk; ++ch) {
+        const Eigen::Index i0 = ch * csz, i1 = std::min(gn, i0 + csz);
+        if (i0 >= i1) continue;
+        // the missing calls: NaN to 0, the mean, and marked
+        for (Eigen::Index j = 0; j < cols; ++j) {
+          double* g = &Gg(0, j);
+          uint8_t* m = &miss[(size_t)j * gn];
+          for (Eigen::Index i = i0; i < i1; ++i) {
+            m[i] = std::isnan(g[i]);
+            if (m[i]) g[i] = 0.0, ++mb[i];
+          }
+        }
+        if (lsq) {
+          for (Eigen::Index i = i0; i < i1; ++i) {
+            sub[i] = 2 * (Eigen::Index)mb[i] <= cols;
+            if (!sub[i]) continue;
+            A0.row(i) += Wsum;
+            if (R > 0) {
+              Ab.row(i) += Eigen::Map<const Eigen::Matrix<double, 1, Eigen::Dynamic>>(WcSum.data(), WcSum.size());
+              od.row(i) += dsum;
+            }
+          }
+          // subtract the missing sites, or add the called ones
+          for (Eigen::Index j = 0; j < cols; ++j) {
+            const uint8_t* m = &miss[(size_t)j * gn];
+            for (Eigen::Index i = i0; i < i1; ++i) {
+              if (m[i] != sub[i]) continue;
+              const double sign = sub[i] ? -1.0 : 1.0;
+              A0.row(i) += sign * W.row(j);
+              for (uint r = 0; r < R; ++r) {
+                const double c = cb[j * R + r];
+                if (!c) continue;
+                Ab.row(i).segment(r * KK, KK) += (sign * c) * W.row(j);
+                od(i, r) += sign;
+              }
+            }
+          }
+        }
+        for (Eigen::Index i = i0; i < i1; ++i) nmiss[i] += mb[i], nmiss_block += mb[i], mb[i] = 0;
+      }
+      nmiss_all += nmiss_block;
+
+      auto Ug = U.middleRows(g0, gn);
+      add_X_Y_panels(Gg, Vb, lsq ? Eigen::Ref<Mat2D>(b0) : Eigen::Ref<Mat2D>(Ug));
+      if (R > 0) add_X_Y_panels(Gg, Vc, bb);
+    }
+
+    if (!lsq) continue;
+    // solve each sample of the group, then each of its replicates
+    uint64 under = 0;
+#pragma omp parallel reduction(+ : under)
+    {
+      Mat2D A(K, K);
+      Eigen::LDLT<Mat2D> ldlt(K);
+      Mat1D z(K);
+#pragma omp for schedule(static)
+      for (Eigen::Index i = 0; i < gn; ++i) {
+        // with fewer called sites than PCs there is no unique solution
+        if ((uint64)M - nmiss[i] < (uint64)K) {
+          U.row(g0 + i).setConstant(std::numeric_limits<double>::quiet_NaN());
+          ++under;
+        } else {
+          solve_packed(&A0(i, 0), b0.row(i).eval().data(), S, A, ldlt, z);
+          U.row(g0 + i) = z.transpose();
+        }
+        for (uint r = 0; r < R; ++r) {
+          auto ub = bb.row(i).segment(r * K, K);
+          if (od(i, r) < K) {  // as solve_bootstrap_projection_missing()
+            ub.setConstant(std::numeric_limits<double>::quiet_NaN());
+          } else {
+            const Mat1D rhs = ub.transpose();
+            solve_packed(&Ab(i, r * KK), rhs.data(), S, A, ldlt, z);
+            ub = z.transpose();
+          }
+        }
+      }
+    }
+    nunder += under;
+
+    if (R == 0) continue;
+    const auto U0 = U.middleRows(g0, gn);
+    BootstrapSummary summary(gn, K);
+    for (uint r = 0; r < R; ++r) summary.add(bb.middleCols(r * K, K), U0);
+    summary.write(bfiles->out, bfiles->covout, U0, R, g0);
+    if (params.project_bootstrap_save) {
+      std::string path = fraw;
+      if (npass > 1) {
+        path = fraw + ".part" + std::to_string(pass);
+        raw_parts.push_back(path);
+        raw.open(path, std::ios::binary);
+        if (!raw.is_open()) cao.error("can not open " + path);
+      } else {
+        open_bootstrap_raw(raw, path, K);
+      }
+      for (uint r = 0; r < R; ++r) write_bootstrap_replicate(raw, r, bb.middleCols(r * K, K), g0);
+      raw.close();
+      if (!raw) cao.error("error writing " + path);
+    }
+  }
+
+  const double p_miss = (double)nmiss_all / ((double)N * M);
+  cao.print(tick.date(), "the proportion of missingness  is", p_miss);
+  if (!lsq && p_miss > 0) cao.warn("there are missing genotypes. recommend using --project 2 or 3.");
+  if (lsq && p_miss == 0.0) cao.warn("there is no missing genotypes");
+  if (nunder > 0)
+    cao.warn(std::to_string(nunder) + " sample(s) have fewer called sites than PCs and are written as NA");
+
+  if (R > 0) {
+    bfiles->close();
+    if (!raw_parts.empty()) {
+      // the replicates in the order of the in-core run: replicate by replicate,
+      // each with all the samples, so the parts of the passes are interleaved
+      open_bootstrap_raw(raw, fraw, K);
+      std::vector<std::ifstream> parts(raw_parts.size());
+      for (size_t p = 0; p < parts.size(); ++p) {
+        parts[p].open(raw_parts[p], std::ios::binary);
+        if (!parts[p].is_open()) cao.error("can not open " + raw_parts[p]);
+      }
+      std::string line;
+      for (uint r = 0; r < R; ++r)
+        for (size_t p = 0; p < parts.size(); ++p) {
+          const Eigen::Index gn = std::min(gmax, N - (Eigen::Index)p * gmax);
+          for (Eigen::Index i = 0; i < gn; ++i) {
+            if (!std::getline(parts[p], line)) cao.error("can not read " + raw_parts[p]);
+            raw << line << '\n';
+          }
+        }
+      raw.close();
+      if (!raw) cao.error("error writing " + fraw);
+      for (auto& part : parts) part.close();
+      for (const auto& path : raw_parts) std::remove(path.c_str());
+    }
+    cao.print(tick.date(), "projection bootstrap diagnostics saved to", params.fileout + ".proj.bootstrap.tsv");
+  }
+  return U;
+}
+
 /**
  * options:
  * 1: simple, assume no missingness
  * 2: like smartPCA, solving g=Vx, can take missing genotypes
  * 3: iterative GL-aware projection (EM): alternates between updating individual allele frequencies
  *    from current PC scores and re-solving for PC scores with updated expected genotypes (BEAGLE only)
-   // NOTE: we don't support out-of-core for projection.
+   // out-of-core (-m): --project 1 and 2 only, see run_projection_blockwise()
  */
 void run_projection(Data* data, const Param& params) {
   const BimMatch match = match_variants_to_mbim(params);
@@ -260,9 +661,16 @@ void run_projection(Data* data, const Param& params) {
   // inside its EM (gl_site_scale) rather than to G up front.
   UsvTransform usv;
   read_sigvals(params.fileS, nsamples, nsnps, S, &usv);
-  data->prepare();  // read AF and resize F to matched size
+  if (!params.out_of_core && params.project != 3) {
+    // a double and a missing flag (ArrBool) per genotype
+    const double gb = 9.0 * data->nsamples * (match.identical ? data->nsnps : match.bim_indices.size()) / 1073741824.0;
+    if (gb >= 1.0)
+      cao.print(tick.date(), "projection in-core: the genotypes take", gb,
+                "GB. -m/--memory streams them in blocks instead");
+  }
+  data->prepare();  // read AF and resize F to matched size; in-core, read G
   const bool standardize = data->resolve_ref_scaling(usv, params.fileS, params.project == 3);
-  if (params.project != 3 && standardize) data->standardize_E_ref(usv);
+  if (params.project != 3 && standardize && !params.out_of_core) data->standardize_E_ref(usv);
   // target number of PCs for getting individual allele frequency
   const int K = ref_pcs(params, S.size(), params.fileS);  // -k: the leading PCs, else all
   cao.print(tick.date(), "projection: using", K, "of the", S.size(), "PCs in the reference");
@@ -277,6 +685,13 @@ void run_projection(Data* data, const Param& params) {
       if (match.flip[i]) V_overlap.row(i) = -V_overlap.row(i);
     }
     V = V_overlap;
+  }
+  TextFormat fmt;
+  fmt.na = "NA";  // a sample without a score
+  if (params.out_of_core) {
+    // -m: --project 1 and 2 on PLINK or PGEN (Cmd.cpp)
+    write_matrix(params.fileout + ".eigvecs", run_projection_blockwise(data, params, V, S, usv, standardize), fmt);
+    return;
   }
   Mat2D U(data->nsamples, K);
   double p_miss = data->C.size() ? (double)data->C.count() / (double)data->C.size() : data->p_miss;
@@ -351,7 +766,5 @@ void run_projection(Data* data, const Param& params) {
     cao.error("unsupported --project mode: " + std::to_string(params.project));
   }
 
-  TextFormat fmt;
-  fmt.na = "NA";  // a sample without a score
   write_matrix(params.fileout + ".eigvecs", U, fmt);
 }

@@ -20,6 +20,7 @@ class FileBed : public Data {
     cao.print(tick.date(), "N (# samples):", nsamples, ", M (# SNPs):", nsnps);
     if (!nsamples || !nsnps) cao.error("BED input must contain at least one sample and one SNP.");
     snpmajor = true;
+    bed_nrecords = nsnps;
     bed_bytes_per_snp = (nsamples + 3) >> 2;
     std::string fbed = params.filein + ".bed";
     bed_path = fbed;
@@ -52,6 +53,7 @@ class FileBed : public Data {
  private:
   std::ifstream bed_ifstream;
   uint64 bed_bytes_per_snp;
+  uint64 bed_nrecords = 0;  // SNPs in the BED, whatever nsnps a projection keeps
   bool frequency_was_estimated = false;
   uint64 nmono_seen = 0;  // sites with MAF=0 met while estimating F block by block
   std::vector<uchar> inbed;
@@ -62,6 +64,9 @@ class FileBed : public Data {
   std::unique_ptr<PCAone::RecordPrefetcher> prefetcher;
   // the packed records of SNPs [start_idx, start_idx + count), valid until the next call
   const uchar* read_records(uint64 start_idx, uint64 count);
+  // out-of-core with the allele frequencies of a reference (!params.dopca):
+  // read only the SNPs of keepSNPs, and centre with F
+  void use_reference_af();
 };
 
 // Shuffles the SNPs into random buckets of `bucket` SNPs, source order kept

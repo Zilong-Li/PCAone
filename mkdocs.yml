@@ -112,6 +112,7 @@ nav:
       - HWE and inbreeding: small-n/hwe.md
       - Relatedness: small-n/relatedness.md
       - Ancestry-adjusted LD: small-n/ld.md
+      - Admixture with a reference: small-n/admixture.md
   - Biobank analysis:
       - biobank/index.md
       - Out-of-core PCA: biobank/pca.md
