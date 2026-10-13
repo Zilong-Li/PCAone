@@ -50,9 +50,10 @@ sequencing:
 - **Bootstrap (`--project-bootstrap`):** resamples the matched SNPs to give
   each projected sample a standard error and PC covariances for uncertainty
   ellipses (with `--project 2`).
-- **Biobank-size targets (`-m`):** `--project 1` and `2` stream the target in
-  blocks within the memory given, so any number of samples is projected in one
-  run.
+- **Biobank-size targets:** `--project 1` and `2` stream the target in blocks,
+  within 2 GB or the `-m` given, straight from its 2-bit PLINK/PGEN calls, so
+  any number of samples is projected in one run, several times faster than
+  plink2 `--score`.
 
 Also included: selection scans, and PCA of other data such as zstd-compressed
 CSV counts.

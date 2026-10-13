@@ -277,6 +277,11 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
   }
 }
 
+const uint8_t* FileBed::read_block_packed(uint64 start_idx, uint64 stop_idx) {
+  if (!params.dopca && !frequency_was_estimated) use_reference_af();  // read AF from external
+  return read_records(start_idx, stop_idx - start_idx + 1);
+}
+
 void FileBed::read_block_update(
     uint64 start_idx, uint64 stop_idx, const Mat2D& U, const Mat1D& svals, const Mat2D& VT, bool standardize) {
   uint actual_block_size = stop_idx - start_idx + 1;

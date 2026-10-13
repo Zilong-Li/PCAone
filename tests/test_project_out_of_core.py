@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Out-of-core --project 1 and 2 (-m) must give the in-core coordinates.
+"""Out-of-core --project 1 and 2 (-m, and the default) must give the in-core coordinates (-m 0).
 
 With -m, the projection streams the target in blocks of sites and keeps sums
 per sample (run_projection_blockwise), instead of reading the N x M genotypes.
@@ -174,11 +174,17 @@ def main() -> int:
             for mode in ("1", "2"):
                 base = ["-b", str(tmp / "tgt"), "-P", str(tmp / ref), "--project", mode]
                 incore, ooc = tmp / f"{ref}.p{mode}.in", tmp / f"{ref}.p{mode}.m"
-                pcaone([*base, "-o", str(incore)])
+                pcaone([*base, "-m", "0", "-o", str(incore)])
                 log = pcaone([*base, "-m", "0.001", "-o", str(ooc)])
                 if "out-of-core projection" not in log:
                     failures.append(f"{ref} --project {mode}: -m did not stream the target")
                 same_numbers(f"{ref} --project {mode}", Path(f"{incore}.eigvecs"), Path(f"{ooc}.eigvecs"))
+                # without -m, the target is streamed from its 2-bit calls as well
+                dflt = tmp / f"{ref}.p{mode}.default"
+                log = pcaone([*base, "-o", str(dflt)])
+                if "from the 2-bit calls" not in log:
+                    failures.append(f"{ref} --project {mode}: without -m, the target was not streamed")
+                same_numbers(f"{ref} --project {mode} default", Path(f"{incore}.eigvecs"), Path(f"{dflt}.eigvecs"))
                 for tag, out in (("in-core", incore), ("-m", ooc)):
                     check_ids(f"{ref} --project {mode} {tag}", out, tmp / "tgt.fam")
                 if mode == "2":
@@ -194,7 +200,7 @@ def main() -> int:
         base = ["-b", str(tmp / "tgt"), "-P", str(tmp / "std"), "--project", "2", "--project-bootstrap", "20",
                 "--project-bootstrap-save", "--seed", "7"]
         incore, ooc = tmp / "boot.in", tmp / "boot.m"
-        pcaone([*base, "-o", str(incore)])
+        pcaone([*base, "-m", "0", "-o", str(incore)])
         log = pcaone([*base, "-m", "0.001", "-o", str(ooc)])
         if "passes = 1\n" in log or "passes =" not in log:
             failures.append("--project-bootstrap: -m 0.001 should take the samples in several passes")

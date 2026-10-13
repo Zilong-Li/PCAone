@@ -6,6 +6,7 @@
 #ifndef PCAONE_FILEPGEN_
 #define PCAONE_FILEPGEN_
 
+#include <limits>
 #include <memory>
 
 #include "Data.hpp"
@@ -55,6 +56,11 @@ class FilePgen : public Data {
   void read_block_initial(uint64, uint64, bool) final;
   void read_block_update(uint64, uint64, const Mat2D&, const Mat1D&, const Mat2D&, bool) final;
 
+  // the hard calls of the block reader; not with dosages, or --no-prefetch
+  bool packed_calls() final { return params.center && !dosage_mode && init_block_reader(); }
+  const uint8_t* read_block_packed(uint64 start_idx, uint64 stop_idx) final;
+  PackedCoding packed_coding() const final { return {{0.0, 0.5, 1.0, std::numeric_limits<double>::quiet_NaN()}, 3}; }
+
  private:
   PgenReader reader;
   uint reader_threads = 1;
@@ -67,6 +73,8 @@ class FilePgen : public Data {
   // if the block reader cannot be set up.
   std::unique_ptr<PCAone::PgenBlockReader> block_reader;
   bool block_reader_tried = false;
+  bool init_block_reader();          // true if block_reader is there
+  std::vector<uint8_t> packed;       // the calls of read_block_packed()
   // A block's reads, sorted by file position: OpenMP's static schedule then gives
   // each thread a run of nearby records. column is the logical column in G.
   struct ReadRequest {

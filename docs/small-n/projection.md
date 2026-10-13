@@ -50,9 +50,10 @@ or a different array. `--project 1` is the classic projection and suits a
 target with few missing calls; it warns when there are some. A sample with
 fewer called sites than PCs gets NA with `--project 2`, with a warning.
 
-The target is read in-core, `9 x N x M` bytes. For a target too large for
-that, add `-m` to `--project 1` or `2`: the genotypes are then streamed in
-blocks within `-m` GB, with the same results; see
+With PLINK or PGEN input, `--project 1` and `2` stream the target in blocks
+from its 2-bit calls, within 2 GB or the `-m` GB given; `-m 0` reads it
+in-core instead, `9 x N x M` bytes, with the same results. BEAGLE input and
+`--project 3` are read in-core. See
 [Projection at biobank scale](../biobank/projection.md#memory-stream-the-target-in-blocks).
 
 ## Uncertainty of projected samples

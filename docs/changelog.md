@@ -58,6 +58,16 @@ so that sum no longer covers all the variance.
 
 **Faster**
 
+- `--project 1` and `2` on PLINK or PGEN hard calls work on the 2-bit calls, without decoding
+  them: the sites are taken 4 at a time and the 256 sums of their loadings for the codes they
+  can have are tabulated, so each sample adds one row per 4 sites. They also stream the target
+  by default, within 2 GB unless `-m` is given (`-m 0` runs in-core). The scores are those of
+  before. On 200,000 samples, 98,000 variants and 20 PCs, `--project 1` took 12 s and now
+  takes 2.8 s, `--project 2` 16 s and now 4.0 s (11 threads, Apple M3 Pro), against 11 s for
+  plink2 `--score`; on a shared Xeon E5-2699 v4 (16 threads), 37 s and 42 s, now 3 to 4.4 s and 5 to 6.7 s,
+  against 44 to 72 s for plink2. See
+  [Projection at biobank scale](biobank/projection.md#speed-the-2-bit-calls).
+  `--project-bootstrap` and PGEN dosages still decode the blocks.
 - Every large text output is formatted on all threads (`-n`) and written while the next block
   is formatted, with the same bytes as before (but a NaN is always `nan`, never `-nan`):
   `.loadings`, `.eigvecs`, `.mbim`, the PCAngsd

@@ -16,8 +16,8 @@ plink2 --bfile cohort --keep rel.unrelated --make-bed --out unrel
 plink2 --bfile cohort --remove rel.unrelated --make-bed --out related
 # PCs of the unrelated samples, out-of-core; writes the loadings by default
 PCAone -b unrel -k 20 -m 16 -o ref
-# project the relatives, out-of-core
-PCAone -b related -P ref --project 2 -m 16 -o proj
+# project the relatives, streamed (within 2 GB unless -m is given)
+PCAone -b related -P ref --project 2 -o proj
 ```
 
 `proj.eigvecs2` then holds the coordinates of the relatives on the axes of
@@ -30,11 +30,11 @@ there applies here.
 
 In-core, projection reads the genotypes of the matched variants into memory:
 `9 x N x M` bytes (a value and a missing flag per genotype), e.g. 45 GB for
-50,000 samples and 100,000 variants. With `-m`, `--project 1` and
-`--project 2` read the target from the PLINK or PGEN files a block of variants
-at a time and keep only sums per sample, so a target of any size is projected
-in one run, within `-m` GB. There is no need to split it into batches of
-samples.
+50,000 samples and 100,000 variants. Instead, `--project 1` and `--project 2`
+read the target from the PLINK or PGEN files a block of variants at a time and
+keep only sums per sample, so a target of any size is projected in one run,
+within `-m` GB, or 2 GB when `-m` is not given. There is no need to split it
+into batches of samples. `-m 0` reads the whole target in-core, as before.
 
 | | held per sample, `K` PCs | passes over the genotypes |
 |---|---|---|
@@ -54,6 +54,36 @@ The scores, the bootstrap files and the order of their rows are those of the
 in-core run, up to rounding (in the tests, every digit written agrees).
 `--project 3` reads genotype likelihoods and runs in-core only. LD-pruned
 variants, which the PCs need anyway, keep `M` small and each pass short.
+
+## Speed: the 2-bit calls
+
+`--project 1` and `--project 2` work on the 2-bit calls of the PLINK file, or
+of the hard calls of a PGEN, without decoding them to numbers. The product of
+the target with the loadings is taken 4 variants at a time: the 4 calls of a
+sample at 4 variants are one of 256 combinations, and the sum of the 4 rows of
+the loadings for each, centred and scaled as the reference was, is tabulated
+once for all the samples. Each sample then adds one row of the table per 4
+variants: a quarter of the arithmetic of the product, reading 2 bits per
+genotype instead of the 8 bytes of a decoded one. For `--project 2`, the
+missing calls of a sample are found from the 2-bit codes, 32 samples at a time,
+and only they change its least squares.
+
+On 200,000 simulated samples, 98,000 variants with 1% missing calls and 20 PCs
+(a 4.6 GB BED, read from the page cache), the scores identical to before:
+
+| | Apple M3 Pro, 11 threads | Xeon E5-2699 v4, 16 threads (a shared server) |
+|---|---|---|
+| plink2 `--score` (`variance-standardize`) | 11 s | 44 to 72 s |
+| PCAone v0.8.1 `--project 1 -m 4` | 12 s | 37 s |
+| PCAone v0.8.1 `--project 2 -m 4` | 16 s | 42 s |
+| `--project 1` now | 2.8 s, 0.5 GB | 3 to 4.4 s, 0.4 GB |
+| `--project 2` now | 4.0 s, 1.9 GB | 5 to 6.7 s, 1.8 GB |
+
+The times on the server, shared with other jobs, are the range of several
+runs. PGEN input takes about as long. `--project-bootstrap` and the dosages of
+a PGEN decode the blocks as before.
+[scripts/benchmark/projection_vs_plink2.sh](https://github.com/Zilong-Li/PCAone/blob/main/scripts/benchmark/projection_vs_plink2.sh)
+reproduces it.
 
 ## Shrinkage of projected samples
 

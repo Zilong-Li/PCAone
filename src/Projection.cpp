@@ -9,6 +9,7 @@
 #include <omp.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -20,6 +21,7 @@
 #include "Common.hpp"
 #include "Data.hpp"
 #include "LinAlg.hpp"
+#include "PackedScore.hpp"
 #include "TextIO.hpp"
 #include "Utils.hpp"
 #include "Variants.hpp"
@@ -374,6 +376,149 @@ void add_X_Y_panels(const Eigen::Ref<const Mat2D>& X, const Eigen::Ref<const Mat
   }
 }
 
+
+// the upper triangle of the K x K row-major sq, by rows, added to out
+inline void add_packed(const double* sq, int K, double* out) {
+  for (int a = 0, q = 0; a < K; ++a)
+    for (int c = a; c < K; ++c) out[q++] += sq[a * K + c];
+}
+
+// One pass of the out-of-core projection over the 2-bit calls (packed_calls())
+// of the samples [g0, g0 + gn): sums(i - g0, :) += the calls of sample i,
+// centred and scaled as the reference was, times the design Vd. That is the
+// product of the decoded blocks with Vd. For --project 2 (A0 not empty), A_i
+// and the missing calls as from the decoded blocks: A_i is the block's sum of
+// v_j v_j' less the sites the sample misses, or the sum over its called sites
+// when it misses most of the block. Returns the missing calls of the group.
+uint64 project_packed_pass(Data* data,
+                           const Mat2D& Vd,
+                           bool standardize,
+                           const UsvTransform& usv,
+                           Eigen::Index g0,
+                           Eigen::Index gn,
+                           RowMat& sums,
+                           RowMat& A0,
+                           std::vector<uint64>& nmiss) {
+  const int K = Vd.cols();
+  const bool lsq = A0.size() > 0;
+  const Eigen::Index g1 = g0 + gn, kp = sums.cols();
+  const PackedCoding coding = data->packed_coding();
+  const double rploidy = std::sqrt((double)usv.ploidy);
+  const uint64 bytes = ((uint64)data->nsamples + 3) / 4;
+  const int nthreads = std::max(1, omp_get_max_threads());
+  // chunks of whole words of the calls (32 samples), up to 4096 samples so
+  // that their sums and calls stay in the cache. A chunk tabulates each group
+  // of 4 sites (packed_product_add), so with fewer chunks than threads the
+  // sites are split in parts as well, each part of a chunk with its own sums.
+  const Eigen::Index csz =
+      std::min<Eigen::Index>(4096, std::max<Eigen::Index>(1024, gn / (4 * nthreads))) / 32 * 32;
+  const Eigen::Index nchunk = (gn + csz - 1) / csz;
+  const int nparts = (int)std::max<Eigen::Index>(1, (nthreads + nchunk - 1) / nchunk);
+  std::vector<RowMat> part_sums(nparts - 1, RowMat::Zero(gn, kp));
+  std::vector<double> value;
+  RowMat Vr;            // the rows of V of the block, padded to kp
+  Mat1D Asum;           // their sum of v_j v_j', packed
+  uint64 nmiss_group = 0;
+  using clock = std::chrono::steady_clock;
+  double t_read = 0, t_work = 0, t_miss = 0, t_prod = 0;
+  auto since = [](clock::time_point t) { return std::chrono::duration<double>(clock::now() - t).count(); };
+
+  for (uint bi = 0; bi < data->nblocks; ++bi) {
+    const uint64 start = data->start[bi];
+    const Eigen::Index cols = data->stop[bi] - start + 1;
+    auto t0 = clock::now();
+    const PCAone::PackedBlock blk{data->read_block_packed(start, data->stop[bi]), bytes, cols, coding.missing};
+    t_read += since(t0);
+    t0 = clock::now();
+    // the value of each code at each site: the frequency of the code less F,
+    // scaled as standardize_block_ref(), and 0 for a missing call
+    value.resize(4 * cols);
+    for (Eigen::Index j = 0; j < cols; ++j) {
+      const double f = data->F(start + j), sd = std::sqrt(f * (1.0 - f));
+      const double scale = standardize && sd > VAR_TOL ? rploidy / sd : 1.0;
+      for (int c = 0; c < 4; ++c) value[4 * j + c] = c == coding.missing ? 0.0 : scale * (coding.value[c] - f);
+    }
+    const auto Vb = Vd.middleRows(start, cols);
+    if (lsq) {
+      Vr = RowMat::Zero(cols, kp);  // padded as add_gram() takes it
+      Vr.leftCols(K) = Vb;
+      const Mat2D VtV = Vb.transpose() * Vb;
+      Asum = Mat1D::Zero(K * (K + 1) / 2);
+      add_packed(Mat2D(VtV.transpose()).data(), K, Asum.data());  // row-major from column-major
+    }
+    const Eigen::Index ngroups = (cols + 3) / 4;
+
+    uint64 nmiss_block = 0;
+#pragma omp parallel for collapse(2) schedule(dynamic) reduction(+ : nmiss_block, t_miss, t_prod)
+    for (Eigen::Index ch = 0; ch < nchunk; ++ch) {
+      for (int p = 0; p < nparts; ++p) {
+        double tm = omp_get_wtime();
+        const Eigen::Index i0 = g0 + ch * csz, i1 = std::min(g1, i0 + csz);
+        const uint64 w0 = (uint64)i0 / 32, w1 = ((uint64)i1 + 31) / 32;
+        // the missing calls of the chunk, by its first part, site by site
+        // through the calls, which are then in the cache for the sums
+        if (p == 0 && !lsq) {
+          for (Eigen::Index j = 0; j < cols; ++j)
+            for (uint64 w = w0; w < w1; ++w)
+              nmiss_block += __builtin_popcountll(PCAone::missing_word(blk, j, w, i1));
+        } else if (p == 0) {
+          // the missing calls (sample, site) in one pass, then their sites by
+          // sample, in site order (a counting sort)
+          static thread_local std::vector<uint64> miss;  // sample << 32 | site
+          static thread_local std::vector<uint32_t> sites;
+          miss.clear();
+          for (Eigen::Index j = 0; j < cols; ++j)
+            for (uint64 w = w0; w < w1; ++w)
+              for (uint64 m = PCAone::missing_word(blk, j, w, i1); m; m &= m - 1)
+                miss.push_back((w * 32 + (__builtin_ctzll(m) >> 1) - i0) << 32 | (uint64)j);
+          std::vector<uint32_t> mb(i1 - i0 + 1, 0);
+          for (uint64 e : miss) ++mb[(e >> 32) + 1];
+          for (Eigen::Index i = 0; i < i1 - i0; ++i) mb[i + 1] += mb[i];  // the first of each sample
+          sites.resize(miss.size());
+          {
+            std::vector<uint32_t> at(mb.begin(), mb.end() - 1);
+            for (uint64 e : miss) sites[at[e >> 32]++] = (uint32_t)e;
+          }
+          std::vector<double> sq((size_t)kp * kp);
+          std::vector<uint32_t> called;
+          for (Eigen::Index i = 0; i < i1 - i0; ++i) {
+            const uint32_t n = mb[i + 1] - mb[i];
+            const Eigen::Index li = i0 + i - g0;
+            nmiss[li] += n, nmiss_block += n;
+            std::fill(sq.begin(), sq.end(), 0.0);
+            if (2 * (Eigen::Index)n <= cols) {
+              for (Eigen::Index q = 0; q < Asum.size(); ++q) A0(li, q) += Asum(q);
+              if (n == 0) continue;
+              PCAone::add_gram(Vr.data(), &sites[mb[i]], n, kp, -1.0, sq.data());  // less the missing sites
+            } else {
+              // most of the block missing: the sum over the called sites
+              called.clear();
+              for (Eigen::Index j = 0; j < cols; ++j)
+                if (PCAone::packed_code(blk, j, i0 + i) != coding.missing) called.push_back((uint32_t)j);
+              PCAone::add_gram(Vr.data(), called.data(), called.size(), kp, 1.0, sq.data());
+            }
+            for (int a = 0, q = 0; a < K; ++a)
+              for (int c = a; c < K; ++c) A0(li, q++) += sq[a * kp + c];
+          }
+        }
+        const Eigen::Index j0 = 4 * (ngroups * p / nparts), j1 = std::min(cols, 4 * (ngroups * (p + 1) / nparts));
+        RowMat& out = p == 0 ? sums : part_sums[p - 1];
+        t_miss += omp_get_wtime() - tm;
+        tm = omp_get_wtime();
+        PCAone::packed_product_add(blk, j0, j1, value.data(), Vb, i0, i1, &out(i0 - g0, 0), kp);
+        t_prod += omp_get_wtime() - tm;
+      }
+    }
+    nmiss_group += nmiss_block;
+    t_work += since(t0);
+  }
+  for (const auto& ps : part_sums) sums += ps;
+  if (data->params.verbose > 1)
+    cao.print(tick.date(), "out-of-core projection: waited", t_read, "s for the calls, worked", t_work,
+              "s; thread seconds: missing calls", t_miss, ", sums", t_prod);
+  return nmiss_group;
+}
+
 }  // namespace
 
 /**
@@ -414,25 +559,43 @@ static Mat2D run_projection_blockwise(Data* data,
   if (V.rows() != M) cao.error("the loadings have", V.rows(), "rows for", M, "matched sites");
   if (R > 0 && M < K) cao.error("projection bootstrap requires at least as many matched SNPs as PCs");
 
+  // the 2-bit calls of the block straight into the sums (PackedScore.hpp),
+  // instead of decoding the block to doubles and multiplying: PLINK, and PGEN
+  // hard calls. The bootstrap's sums per replicate still take the product.
+  const bool packed = R == 0 && data->packed_calls();
+  const int kp = (K + 3) / 4 * 4;  // the sums of the 2-bit calls, padded as their tables
+  const uint64 bytes = ((uint64)N + 3) / 4;
+
   // --- memory, in doubles of -m: what is held whatever the blocks are, per
   // sample of a group, and per site of a block
   const double D = 134217728.0;  // doubles per GB, as Data::prepare()
   const double budget = params.memory * D;
   const double npairs = K * (K - 1) / 2.0;
   // U, V and its copy, F with the lookup table of the reader, the draws, and
-  // the panels packed by each thread in add_X_Y_panels()
+  // the panels packed by each thread in add_X_Y_panels() (the tables of the
+  // 2-bit calls, a quarter of that); --project 1 sums the 2-bit calls apart from U
   const int nthreads = std::max(1, omp_get_max_threads());
-  const double fixed =
-      (double)N * K + 2.0 * M * K + 5.0 * M + (R ? (double)M * R / 8.0 : 0.0) + nthreads * (double)(1 << 20);
+  const double fixed = (double)N * K + 2.0 * M * K + 5.0 * M + (R ? (double)M * R / 8.0 : 0.0) +
+                       nthreads * (double)(packed ? 1 << 18 : 1 << 20) + (packed && !lsq ? (double)N * kp : 0.0);
   // the count of missing calls, A and b, then for each replicate A, b (then u) and
   // the number of called sites drawn, and the summaries of BootstrapSummary
-  const double per_sample = 1.0 + (lsq ? KK + K : 0) + (R ? R * (KK + K + 1.0) + 5.0 * K + npairs : 0);
-  // the block (N rows) and the raw records read ahead, W, V * draws
-  auto per_site = [&](double ng) { return 1.0625 * N + ng / 8.0 + (lsq ? KK : 0) + (double)R * K + K; };
+  const double per_sample =
+      1.0 + (lsq ? KK + (packed ? kp : K) : 0) + (R ? R * (KK + K + 1.0) + 5.0 * K + npairs : 0);
+  // the block (N rows) and the raw records read ahead, W, V * draws; or the
+  // 2-bit calls (twice, as read ahead), W and the values of the 4 codes
+  auto per_site = [&](double ng) {
+    if (packed) return N / 16.0 + (lsq ? kp : 0) + 4.0;
+    return 1.0625 * N + ng / 8.0 + (lsq ? KK : 0) + (double)R * K + K;
+  };
   const double avail = budget - fixed;
   double ng = (double)N;  // --project 1 keeps no sums besides U: all samples in one pass
   if (lsq && per_sample * N > avail / 2) ng = std::floor(std::max(0.0, avail / 2) / per_sample);
+  if (packed && ng < N && ng >= 32) ng = std::floor(ng / 32) * 32;  // groups start at a word of the calls
   double b = std::floor((avail - per_sample * ng) / per_site(ng));
+  // blocks of up to 128 MB of 2-bit calls, so that reading the next one
+  // overlaps this one; for --project 2 up to twice the A_i of the group, which
+  // each block reads and writes once
+  if (packed) b = std::min(b, std::max(64.0, std::floor(std::max(134217728.0, lsq ? 16.0 * KK * ng : 0.0) / bytes)));
   const double ng_min = std::min<double>(N, 256), b_min = std::min<double>(M, 64);
   if (ng < ng_min || b < b_min) {
     ng = std::max(ng, ng_min);
@@ -445,7 +608,8 @@ static Mat2D run_projection_blockwise(Data* data,
   data->set_blocks((uint)std::min<double>(b, M));
   const Eigen::Index npass = (N + gmax - 1) / gmax;
   cao.print(tick.date(), "out-of-core projection by -m/--memory: blocksize =", data->blocksize,
-            ", nblocks =", data->nblocks, ", samples per pass =", gmax, ", passes =", npass);
+            ", nblocks =", data->nblocks, ", samples per pass =", gmax, ", passes =", npass,
+            packed ? ", from the 2-bit calls" : "");
 
   // the design: --project 1 multiplies by V S^-1, --project 2 solves V z = g
   const Mat2D Vd = lsq ? V : Mat2D(V * S.cwiseInverse().asDiagonal());
@@ -465,6 +629,8 @@ static Mat2D run_projection_blockwise(Data* data,
 
   data->mark_missing = true;  // a missing call is read as NaN
   Mat2D U = Mat2D::Zero(N, K);
+  RowMat Usum, bsum;  // the sums of the 2-bit calls: --project 1 of all samples, b of the group
+  if (packed && !lsq) Usum = RowMat::Zero(N, kp);
   uint64 nmiss_all = 0, nunder = 0;
 
   std::unique_ptr<BootstrapFiles> bfiles;
@@ -481,7 +647,10 @@ static Mat2D run_projection_blockwise(Data* data,
     Mat2D b0, bb;
     if (lsq) {
       A0 = RowMat::Zero(gn, KK);
-      b0 = Mat2D::Zero(gn, K);
+      if (packed)
+        bsum = RowMat::Zero(gn, kp);
+      else
+        b0 = Mat2D::Zero(gn, K);
     }
     if (R > 0) {
       Ab = RowMat::Zero(gn, (Eigen::Index)R * KK);
@@ -499,7 +668,8 @@ static Mat2D run_projection_blockwise(Data* data,
     const Eigen::Index nchunk = std::min<Eigen::Index>(gn, 8 * nthreads), csz = (gn + nchunk - 1) / nchunk;
 
     data->check_file_offset_first_var();
-    for (uint bi = 0; bi < data->nblocks; ++bi) {
+    if (packed) nmiss_all += project_packed_pass(data, Vd, standardize, usv, g0, gn, lsq ? bsum : Usum, A0, nmiss);
+    for (uint bi = 0; bi < (packed ? 0u : data->nblocks); ++bi) {
       const uint64 start = data->start[bi];
       const Eigen::Index cols = data->stop[bi] - start + 1;
       data->read_block_initial(start, data->stop[bi], false);
@@ -594,7 +764,8 @@ static Mat2D run_projection_blockwise(Data* data,
           U.row(g0 + i).setConstant(std::numeric_limits<double>::quiet_NaN());
           ++under;
         } else {
-          solve_packed(&A0(i, 0), b0.row(i).eval().data(), S, A, ldlt, z);
+          const Mat1D bi = packed ? Mat1D(Eigen::Map<const Mat1D>(&bsum(i, 0), K)) : Mat1D(b0.row(i).transpose());
+          solve_packed(&A0(i, 0), bi.data(), S, A, ldlt, z);
           U.row(g0 + i) = z.transpose();
         }
         for (uint r = 0; r < R; ++r) {
@@ -632,6 +803,7 @@ static Mat2D run_projection_blockwise(Data* data,
     }
   }
 
+  if (packed && !lsq) U = Usum.leftCols(K);
   const double p_miss = (double)nmiss_all / ((double)N * M);
   cao.print(tick.date(), "the proportion of missingness  is", p_miss);
   if (!lsq && p_miss > 0) cao.warn("there are missing genotypes. recommend using --project 2 or 3.");

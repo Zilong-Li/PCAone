@@ -8,6 +8,13 @@
 
 const double VAR_TOL = 1e-9;
 
+// the 2-bit codes of read_block_packed(): the allele frequency (0..1) each
+// stands for, and the code of a missing call
+struct PackedCoding {
+  double value[4];
+  int missing;
+};
+
 class Data {
  public:
   Data(const Param& params_)
@@ -21,6 +28,15 @@ class Data {
   virtual void read_block_initial(uint64 start_idx, uint64 stop_idx, bool standardize) = 0;
   virtual void read_block_update(
       uint64 start, uint64 stop, const Mat2D& U, const Mat1D& svals, const Mat2D& VT, bool standardize) = 0;
+
+  // out-of-core --project: the 2-bit calls of the sites [start_idx, stop_idx],
+  // a record of (nsamples + 3) / 4 bytes each, 4 samples a byte, the first in
+  // the low bits, valid until the next read. The caller centres and scales
+  // them, by packed_coding() and F. Only if packed_calls(), else the blocks are
+  // read by read_block_initial().
+  virtual bool packed_calls() { return false; }
+  virtual const uint8_t* read_block_packed(uint64 start_idx, uint64 stop_idx) { return nullptr; }
+  virtual PackedCoding packed_coding() const { return {}; }
 
   void prepare();
   // blocks of b sites over the nsnps sites, for a caller that sizes its own

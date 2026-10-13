@@ -1,6 +1,7 @@
 #ifndef PCAONE_FILEPLINK_
 #define PCAONE_FILEPLINK_
 
+#include <limits>
 #include <memory>
 
 #include "Data.hpp"
@@ -49,6 +50,12 @@ class FileBed : public Data {
   void read_block_initial(uint64, uint64, bool) final;
 
   void read_block_update(uint64, uint64, const Mat2D&, const Mat1D&, const Mat2D&, bool) final;
+
+  bool packed_calls() final { return params.center; }
+  const uint8_t* read_block_packed(uint64 start_idx, uint64 stop_idx) final;
+  PackedCoding packed_coding() const final {
+    return {{BED2GENO[0], std::numeric_limits<double>::quiet_NaN(), BED2GENO[2], BED2GENO[3]}, 1};
+  }
 
  private:
   std::ifstream bed_ifstream;

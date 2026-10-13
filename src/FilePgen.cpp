@@ -209,14 +209,7 @@ void FilePgen::variants_of(uint64 first, uint64 count, std::vector<uint32_t>& ou
   if (params.perm) std::sort(out.begin(), out.end());  // keepSNPs is in file order
 }
 
-void FilePgen::begin_block(uint64 start_idx, uint64 stop_idx) {
-  const uint64 count = stop_idx - start_idx + 1;
-  requests.resize(count);
-  for (uint64 j = 0; j < count; ++j) requests[j] = {source_variant(start_idx + j), (uint32_t)j};
-  if (params.perm)
-    std::sort(requests.begin(), requests.end(),
-              [](const ReadRequest& a, const ReadRequest& b) { return a.variant < b.variant; });
-
+bool FilePgen::init_block_reader() {
   if (!block_reader_tried) {
     block_reader_tried = true;
     if (!params.noprefetch) {
@@ -227,7 +220,31 @@ void FilePgen::begin_block(uint64 start_idx, uint64 stop_idx) {
       }
     }
   }
-  if (!block_reader) return;
+  return block_reader != nullptr;
+}
+
+const uint8_t* FilePgen::read_block_packed(uint64 start_idx, uint64 stop_idx) {
+  if (!params.dopca && !frequency_was_estimated) use_reference_af();  // read AF from external
+  begin_block(start_idx, stop_idx);
+  const uint64 count = stop_idx - start_idx + 1, bytes = ((uint64)nsamples + 3) / 4;
+  packed.resize(count * bytes);
+#pragma omp parallel for schedule(static)
+  for (uint64 r = 0; r < count; ++r) {
+    const uintptr_t* geno = block_reader->genovec(omp_get_thread_num(), requests[r].variant);
+    std::memcpy(packed.data() + (uint64)requests[r].column * bytes, geno, bytes);
+  }
+  return packed.data();
+}
+
+void FilePgen::begin_block(uint64 start_idx, uint64 stop_idx) {
+  const uint64 count = stop_idx - start_idx + 1;
+  requests.resize(count);
+  for (uint64 j = 0; j < count; ++j) requests[j] = {source_variant(start_idx + j), (uint32_t)j};
+  if (params.perm)
+    std::sort(requests.begin(), requests.end(),
+              [](const ReadRequest& a, const ReadRequest& b) { return a.variant < b.variant; });
+
+  if (!init_block_reader()) return;
   block_variants.resize(count);
   for (uint64 j = 0; j < count; ++j) block_variants[j] = requests[j].variant;
   block_reader->load(block_variants);

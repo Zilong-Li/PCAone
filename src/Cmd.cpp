@@ -81,8 +81,9 @@ Param::Param(int argc, char** argv) {
   OptionParser opts(copyr);
   opts.add<Value<std::string>, Attribute::headline>("","PCAone","General options:");
   auto help_opt = opts.add<Switch>("h", "help", "print all options, including the advanced ones");
-  opts.add<Value<double>>("m", "memory", "memory in GB for out-of-core mode; 0 runs in-core. also sets the blocks\n"
-                                        "of --svd 3 and --project 1/2, and the stripes of --evaladmix-kin", memory, &memory);
+  auto memory_opt = opts.add<Value<double>>("m", "memory", "memory in GB for out-of-core mode; 0 runs in-core. also sets the blocks\n"
+                                        "of --svd 3 and --project 1/2, and the stripes of --evaladmix-kin.\n"
+                                        "--project 1/2 on --bfile/--pgen streams within 2 GB unless -m is given", memory, &memory);
   opts.add<Unsigned>("n", "threads", "number of threads", threads, &threads);
   opts.add<Unsigned>("v", "verbose", "verbosity: 0 silent, 1 concise, 2 verbose, 3 debug", verbose, &verbose);
 
@@ -405,6 +406,10 @@ Param::Param(int argc, char** argv) {
               "-m (out-of-core) supports --project 1 and 2 on --bfile/--pgen input only; "
               "--project 3 runs in-core. please remove -m");
       dopca = false, missme = true;
+      // --project 1 and 2 on PLINK or PGEN stream the target by default, from
+      // its 2-bit calls (run_projection_blockwise): the scores are those of the
+      // in-core run, which held 9 bytes per genotype. -m 0 runs in-core.
+      if (!memory_opt->is_set() && plink_or_pgen && project != 3) memory = 2;
       out_of_core = memory > 0;
     } else if (project_bootstrap > 0 || project_bootstrap_save) {
       throw std::invalid_argument("--project-bootstrap requires --project 2");
