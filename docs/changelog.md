@@ -51,6 +51,10 @@ so that sum no longer covers all the variance.
   [Projection at biobank scale](biobank/projection.md#memory-stream-the-target-in-blocks).
   `--project` ignored `-m` before; `--project 3` still runs in-core, and now stops with an
   error when given `-m`.
+- `--project` also writes `.eigvecs2`: the scores with a `#FID IID PC1 ...` header and the FID
+  and IID of each sample, as a PCA run writes them. The bootstrap files (`.proj.bootstrap.tsv`,
+  `.cov.tsv`, `.eigvecs`) have `FID` and `IID` columns after `sample`, so a script that reads
+  their columns by position needs updating; the `.eigvecs` is unchanged.
 
 **Faster**
 

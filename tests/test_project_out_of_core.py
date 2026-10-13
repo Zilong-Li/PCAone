@@ -13,6 +13,10 @@ for a standardized and an unscaled reference, with blocks of a few dozen sites,
 the --project-bootstrap with its replicates in several passes over the
 samples, and --no-prefetch. The scores agree to the 6 digits written.
 
+Both also write .eigvecs2, the scores with a #FID IID PC1 .. header and the
+FID and IID of the .fam, and the bootstrap files have FID and IID after the
+sample index.
+
 Only the standard library is needed: the PLINK files are written here.
 
     python3 tests/test_project_out_of_core.py
@@ -50,7 +54,7 @@ def write_plink(prefix: Path, geno: list[list[int]], bim: list[tuple[str, int, s
             f.write(f"{chrom}\t{chrom}_{bp}\t0\t{bp}\t{a1}\t{a2}\n")
     with open(f"{prefix}.fam", "w") as f:
         for i in range(n):
-            f.write(f"ind{i} ind{i} 0 0 0 -9\n")
+            f.write(f"fam{i // 3} ind{i} 0 0 0 -9\n")
 
 
 def simulate(tmp: Path) -> None:
@@ -136,6 +140,31 @@ def same_numbers(name: str, a: Path, b: Path, header: bool = False, rtol: float 
         print(f"ok  {name} ({len(ra)} rows, max rel diff {worst:.2g})")
 
 
+def check_ids(name: str, out: Path, fam: Path, bootstrap: bool = False) -> None:
+    """.eigvecs2: the .eigvecs with the FID and IID of the .fam; the bootstrap files: FID IID after sample"""
+    ids = [line.split()[:2] for line in fam.read_text().splitlines()]
+    plain = read_rows(Path(f"{out}.eigvecs"))
+    lines = Path(f"{out}.eigvecs2").read_text().splitlines()
+    want = ["#FID", "IID"] + [f"PC{k + 1}" for k in range(len(plain[0]))]
+    rows = [line.split("\t") for line in lines[1:]]
+    if lines[0].split("\t") != want:
+        failures.append(f"{name}: .eigvecs2 header {lines[0]!r}")
+    elif [r[:2] for r in rows] != ids or [r[2:] for r in rows] != plain:
+        failures.append(f"{name}: .eigvecs2 is not the .eigvecs with the IDs of the .fam")
+    else:
+        print(f"ok  {name} .eigvecs2")
+    if not bootstrap:
+        return
+    for ext, first in ((".proj.bootstrap.tsv", 0), (".proj.bootstrap.cov.tsv", 0), (".proj.bootstrap.eigvecs", 1)):
+        rows = read_rows(Path(f"{out}{ext}"))
+        if rows[0][first : first + 3] != ["sample", "FID", "IID"]:
+            failures.append(f"{name} {ext}: header {rows[0]}")
+        elif any(r[first + 1 : first + 3] != ids[int(r[first]) - 1] for r in rows[1:]):
+            failures.append(f"{name} {ext}: FID IID do not match the sample index")
+        else:
+            print(f"ok  {name} {ext} IDs")
+
+
 def main() -> int:
     with tempfile.TemporaryDirectory() as d:
         tmp = Path(d)
@@ -150,6 +179,8 @@ def main() -> int:
                 if "out-of-core projection" not in log:
                     failures.append(f"{ref} --project {mode}: -m did not stream the target")
                 same_numbers(f"{ref} --project {mode}", Path(f"{incore}.eigvecs"), Path(f"{ooc}.eigvecs"))
+                for tag, out in (("in-core", incore), ("-m", ooc)):
+                    check_ids(f"{ref} --project {mode} {tag}", out, tmp / "tgt.fam")
                 if mode == "2":
                     na = sum(r[0] == "NA" for r in read_rows(Path(f"{ooc}.eigvecs")))
                     if na == 0:
@@ -168,6 +199,8 @@ def main() -> int:
         if "passes = 1\n" in log or "passes =" not in log:
             failures.append("--project-bootstrap: -m 0.001 should take the samples in several passes")
         same_numbers("bootstrap .eigvecs", Path(f"{incore}.eigvecs"), Path(f"{ooc}.eigvecs"))
+        for tag, out in (("in-core", incore), ("-m", ooc)):
+            check_ids(f"bootstrap {tag}", out, tmp / "tgt.fam", bootstrap=True)
         for ext in (".proj.bootstrap.tsv", ".proj.bootstrap.cov.tsv", ".proj.bootstrap.eigvecs"):
             # the variance of nearly flat replicates is a difference of sums
             same_numbers(f"bootstrap {ext}", Path(f"{incore}{ext}"), Path(f"{ooc}{ext}"), header=True, rtol=1e-3)

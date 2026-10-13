@@ -253,8 +253,9 @@ struct SampleIds {
 SampleIds read_sample_ids(const Param& params);
 
 // .eigvecs2, the PCs as plink2's .eigenvec: #FID IID PC1 .. PCk, then the FID,
-// IID and PCs of each sample, tab-separated
-void write_eigvecs2(const std::string& path, const Mat2D& U, const SampleIds& ids);
+// IID and PCs of each sample, tab-separated. A non-finite PC is written as na
+// unless it is nullptr (then nan, inf or -inf)
+void write_eigvecs2(const std::string& path, const Mat2D& U, const SampleIds& ids, const char* na = nullptr);
 
 // ---------------------------------------------------------------------------
 // the files of a reference PCA (-P/--USV)

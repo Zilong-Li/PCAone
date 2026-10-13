@@ -86,30 +86,48 @@ std::vector<std::pair<int, int>> pc_pairs(int K) {
   return pairs;
 }
 
-// "<i>\tPC<a>" then the values, each after a tab
-void put_row(TextBuf& buf, Eigen::Index i, std::initializer_list<int> pcs, std::initializer_list<double> vals) {
-  char* p = buf.reserve(21 + pcs.size() * 24 + vals.size() * (TEXT_NUM_MAX + 1) + 1);
+// "<i + 1>\t<FID>\t<IID>": the first columns of the row of sample i in the bootstrap files
+void put_sample(TextBuf& buf, Eigen::Index i, const SampleIds& ids) {
+  char* p = buf.reserve(22);
   p = put_uint(i + 1, p);
+  *p++ = '\t';
+  buf.commit(p);
+  buf.append(ids.fid[i]);
+  buf.append("\t", 1);
+  buf.append(ids.iid[i]);
+}
+
+// "<i + 1>\t<FID>\t<IID>\tPC<a>" then the values, each after a tab
+void put_row(TextBuf& buf,
+             Eigen::Index i,
+             const SampleIds& ids,
+             std::initializer_list<int> pcs,
+             std::initializer_list<double> vals) {
+  put_sample(buf, i, ids);
+  char* p = buf.reserve(pcs.size() * 24 + vals.size() * (TEXT_NUM_MAX + 1) + 1);
   for (int pc : pcs) std::memcpy(p, "\tPC", 3), p = put_uint(pc + 1, p + 3);
   for (double v : vals) *p++ = '\t', p = put_g6(v, p);
   *p++ = '\n';
   buf.commit(p);
 }
 
-const char* const BOOT_TSV_HEADER = "sample\tpc\tbaseline\tmean\tbootstrap_se\tmin\tmax\trmsd\n";
+const char* const BOOT_TSV_HEADER = "sample\tFID\tIID\tpc\tbaseline\tmean\tbootstrap_se\tmin\tmax\trmsd\n";
 const char* const BOOT_COV_HEADER =
-    "sample\tpc_x\tpc_y\tbaseline_x\tbaseline_y\tmean_x\tmean_y\tvar_x\tvar_y\tcov\tcorr\n";
-const char* const BOOT_RAW_HEADER = "replicate\tsample";
+    "sample\tFID\tIID\tpc_x\tpc_y\tbaseline_x\tbaseline_y\tmean_x\tmean_y\tvar_x\tvar_y\tcov\tcorr\n";
+const char* const BOOT_RAW_HEADER = "replicate\tsample\tFID\tIID";
 
 // the replicate r (0-based) of the samples first, first + 1, ... as rows of
 // .proj.bootstrap.eigvecs
-void write_bootstrap_replicate(std::ostream& raw, uint r, const Eigen::Ref<const Mat2D>& Ub, Eigen::Index first) {
+void write_bootstrap_replicate(
+    std::ostream& raw, uint r, const Eigen::Ref<const Mat2D>& Ub, Eigen::Index first, const SampleIds& ids) {
   const int K = Ub.cols();
-  write_lines(raw, Ub.rows(), 24 + 12 * K, [&](Eigen::Index i, TextBuf& buf) {
-    char* p = buf.reserve(42 + K * (TEXT_NUM_MAX + 1) + 1);
+  write_lines(raw, Ub.rows(), 48 + 12 * K, [&](Eigen::Index i, TextBuf& buf) {
+    char* p = buf.reserve(22);
     p = put_uint(r + 1, p);
     *p++ = '\t';
-    p = put_uint(first + i + 1, p);
+    buf.commit(p);
+    put_sample(buf, first + i, ids);
+    p = buf.reserve(K * (TEXT_NUM_MAX + 1) + 1);
     for (int k = 0; k < K; ++k) *p++ = '\t', p = put_g6(Ub(i, k), p);
     *p++ = '\n';
     buf.commit(p);
@@ -150,7 +168,8 @@ class BootstrapSummary {
              std::ostream& covout,
              const Eigen::Ref<const Mat2D>& U0,
              uint nreps,
-             Eigen::Index first) const {
+             Eigen::Index first,
+             const SampleIds& ids) const {
     const Eigen::Index N = sum.rows();
     const int K = sum.cols();
     const double R = (double)nreps;
@@ -161,7 +180,7 @@ class BootstrapSummary {
 
     write_lines(out, N * K, 96, [&](Eigen::Index l, TextBuf& buf) {
       const Eigen::Index i = l / K, k = l % K;
-      put_row(buf, first + i, {(int)k}, {U0(i, k), mean(i, k), sd(i, k), minv(i, k), maxv(i, k), rmsd(i, k)});
+      put_row(buf, first + i, ids, {(int)k}, {U0(i, k), mean(i, k), sd(i, k), minv(i, k), maxv(i, k), rmsd(i, k)});
     });
     const Eigen::Index np = (Eigen::Index)pairs.size();
     write_lines(covout, N * np, 160, [&](Eigen::Index l, TextBuf& buf) {
@@ -170,7 +189,7 @@ class BootstrapSummary {
       const double cov = (cross_sum(i, l % np) - R * mean(i, a) * mean(i, b)) / std::max(1.0, R - 1.0);
       const double denom = std::sqrt(variance(i, a) * variance(i, b));
       const double corr = denom > 0.0 ? cov / denom : std::numeric_limits<double>::quiet_NaN();
-      put_row(buf, first + i, {a, b},
+      put_row(buf, first + i, ids, {a, b},
               {U0(i, a), U0(i, b), mean(i, a), mean(i, b), variance(i, a), variance(i, b), cov, corr});
     });
   }
@@ -202,6 +221,18 @@ struct BootstrapFiles {
   }
 };
 
+// the IDs of the n target samples, or NA for each if they could not be read
+SampleIds ids_or_na(SampleIds ids, Eigen::Index n) {
+  if (ids.error.empty() && (Eigen::Index)ids.size() == n) return ids;
+  cao.warn(
+      "the FID and IID of the bootstrap files are NA:",
+      ids.error.empty() ? std::to_string(ids.size()) + " sample IDs for " + std::to_string(n) + " samples" : ids.error);
+  ids.fid.assign(n, "NA");
+  ids.iid.assign(n, "NA");
+  ids.error.clear();
+  return ids;
+}
+
 void open_bootstrap_raw(std::ofstream& raw, const std::string& path, int K) {
   raw.open(path, std::ios::binary);
   if (!raw.is_open()) cao.error("can not open " + path);
@@ -212,8 +243,13 @@ void open_bootstrap_raw(std::ofstream& raw, const std::string& path, int K) {
 
 }  // namespace
 
-void write_projection_bootstrap_stats(
-    const Mat2D& design, const ArrBool& C, const Mat2D& G, const Mat2D& U0, uint nreps, const Param& params) {
+void write_projection_bootstrap_stats(const Mat2D& design,
+                                      const ArrBool& C,
+                                      const Mat2D& G,
+                                      const Mat2D& U0,
+                                      uint nreps,
+                                      const Param& params,
+                                      const SampleIds& ids) {
   const int M = design.rows();
   const int N = G.rows();
   const int K = design.cols();
@@ -236,7 +272,7 @@ void write_projection_bootstrap_stats(
     Mat2D Ub = has_missing ? solve_bootstrap_projection_missing(design, C, G, counts)
                            : solve_bootstrap_projection_no_missing(design, G, counts);
     summary.add(Ub, U0);
-    if (raw.is_open()) write_bootstrap_replicate(raw, r, Ub, 0);
+    if (raw.is_open()) write_bootstrap_replicate(raw, r, Ub, 0, ids);
   }
   if (raw.is_open()) {
     raw.close();
@@ -244,7 +280,7 @@ void write_projection_bootstrap_stats(
   }
 
   BootstrapFiles files(params);
-  summary.write(files.out, files.covout, U0, nreps, 0);
+  summary.write(files.out, files.covout, U0, nreps, 0, ids);
   files.close();
   cao.print(tick.date(), "projection bootstrap diagnostics saved to", params.fileout + ".proj.bootstrap.tsv");
 }
@@ -364,8 +400,13 @@ void add_X_Y_panels(const Eigen::Ref<const Mat2D>& X, const Eigen::Ref<const Mat
  * When the sums of all samples do not fit in -m with a block, the samples are
  * taken in groups, one pass over the genotypes each.
  */
-static Mat2D run_projection_blockwise(
-    Data* data, const Param& params, const Mat2D& V, const Mat1D& S, const UsvTransform& usv, bool standardize) {
+static Mat2D run_projection_blockwise(Data* data,
+                                      const Param& params,
+                                      const Mat2D& V,
+                                      const Mat1D& S,
+                                      const UsvTransform& usv,
+                                      bool standardize,
+                                      const SampleIds& ids) {
   const Eigen::Index N = data->nsamples, M = data->nsnps;
   const int K = V.cols(), KK = K * (K + 1) / 2;
   const bool lsq = params.project == 2;
@@ -574,7 +615,7 @@ static Mat2D run_projection_blockwise(
     const auto U0 = U.middleRows(g0, gn);
     BootstrapSummary summary(gn, K);
     for (uint r = 0; r < R; ++r) summary.add(bb.middleCols(r * K, K), U0);
-    summary.write(bfiles->out, bfiles->covout, U0, R, g0);
+    summary.write(bfiles->out, bfiles->covout, U0, R, g0, ids);
     if (params.project_bootstrap_save) {
       std::string path = fraw;
       if (npass > 1) {
@@ -585,7 +626,7 @@ static Mat2D run_projection_blockwise(
       } else {
         open_bootstrap_raw(raw, path, K);
       }
-      for (uint r = 0; r < R; ++r) write_bootstrap_replicate(raw, r, bb.middleCols(r * K, K), g0);
+      for (uint r = 0; r < R; ++r) write_bootstrap_replicate(raw, r, bb.middleCols(r * K, K), g0, ids);
       raw.close();
       if (!raw) cao.error("error writing " + path);
     }
@@ -651,6 +692,10 @@ void run_projection(Data* data, const Param& params) {
       cao.warn(data->flipSNPs.size(), " SNPs have flipped ref/alt alleles and will be corrected");
   }
   cao.print(tick.date(), "run projection");
+  // the FID and IID of the target (.fam, .psam or the BEAGLE header), for
+  // .eigvecs2 and the first columns of the bootstrap files
+  const SampleIds ids = read_sample_ids(params);
+  const SampleIds boot_ids = params.project_bootstrap > 0 ? ids_or_na(ids, data->nsamples) : SampleIds{};
   cao.print(tick.date(), "start parsing V:", params.fileV, ", S:", params.fileS);
   uint nsamples, nsnps;
   Mat1D S;
@@ -690,7 +735,9 @@ void run_projection(Data* data, const Param& params) {
   fmt.na = "NA";  // a sample without a score
   if (params.out_of_core) {
     // -m: --project 1 and 2 on PLINK or PGEN (Cmd.cpp)
-    write_matrix(params.fileout + ".eigvecs", run_projection_blockwise(data, params, V, S, usv, standardize), fmt);
+    const Mat2D U = run_projection_blockwise(data, params, V, S, usv, standardize, boot_ids);
+    write_matrix(params.fileout + ".eigvecs", U, fmt);
+    write_eigvecs2(params.fileout + ".eigvecs2", U, ids, fmt.na);
     return;
   }
   Mat2D U(data->nsamples, K);
@@ -707,7 +754,7 @@ void run_projection(Data* data, const Param& params) {
     if (p_miss == 0.0) cao.warn("there is no missing genotypes");
     solve_projection_scores(V, data->C, data->G, U);
     if (params.project_bootstrap > 0)
-      write_projection_bootstrap_stats(V, data->C, data->G, U, params.project_bootstrap, params);
+      write_projection_bootstrap_stats(V, data->C, data->G, U, params.project_bootstrap, params, boot_ids);
   } else if (params.project == 3) {
     // project == 3: iterative GL-aware projection (EM)
     // E-step: update expected G using individual allele frequencies PI
@@ -767,4 +814,6 @@ void run_projection(Data* data, const Param& params) {
   }
 
   write_matrix(params.fileout + ".eigvecs", U, fmt);
+  // the scores again, with the FID and IID of each sample, as a PCA writes them
+  write_eigvecs2(params.fileout + ".eigvecs2", U, ids, fmt.na);
 }

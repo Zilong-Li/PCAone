@@ -26,8 +26,11 @@ PCAone -b example/new \
 ```
 
 The target's PC scores are written to `new.eigvecs`, in the order of its
-`.fam`. Plot them over the reference's `ref.eigvecs` to see where the new
-samples fall.
+`.fam`, and again to `new.eigvecs2` with a `#FID IID PC1 PC2 ...` header and
+the FID and IID of each sample, as a PCA writes them. The IDs come from the
+`.fam` or `.psam` (FID `0` for a `.psam` without one), or from the header of a
+BEAGLE file. A sample without a score is `NA` in both. Plot them over the
+reference's `ref.eigvecs2` to see where the new samples fall.
 
 The projection uses every PC in the reference; add `-k` to use only the leading
 ones (e.g. `-k 3`). This holds for every analysis that reads a reference with
@@ -74,11 +77,12 @@ used to draw uncertainty ellipses around the baseline estimates. Add
 
 | file | columns |
 |---|---|
-| `.proj.bootstrap.tsv` | `sample pc baseline mean bootstrap_se min max rmsd` |
-| `.proj.bootstrap.cov.tsv` | `sample pc_x pc_y baseline_x baseline_y mean_x mean_y var_x var_y cov corr` |
-| `.proj.bootstrap.eigvecs` | `replicate sample PC1 PC2 ...` |
+| `.proj.bootstrap.tsv` | `sample FID IID pc baseline mean bootstrap_se min max rmsd` |
+| `.proj.bootstrap.cov.tsv` | `sample FID IID pc_x pc_y baseline_x baseline_y mean_x mean_y var_x var_y cov corr` |
+| `.proj.bootstrap.eigvecs` | `replicate sample FID IID PC1 PC2 ...` |
 
-`sample` is the 1-based position of the sample in the target, and `rmsd` is
+`sample` is the 1-based position of the sample in the target, `FID` and `IID`
+are its IDs as in `.eigvecs2`, and `rmsd` is
 the root mean square distance of the replicates from the baseline. A replicate
 in which a sample has fewer distinct called sites than PCs has no unique
 solution, so its scores are NA, and with them the sample's `mean`,

@@ -489,7 +489,7 @@ SampleIds read_sample_ids(const Param& params) {
   return ids;
 }
 
-void write_eigvecs2(const std::string& path, const Mat2D& U, const SampleIds& ids) {
+void write_eigvecs2(const std::string& path, const Mat2D& U, const SampleIds& ids, const char* na) {
   if (!ids.error.empty() || (Eigen::Index)ids.size() != U.rows()) {
     cao.warn("no .eigvecs2 written:",
              ids.error.empty() ? std::to_string(ids.size()) + " sample IDs for " + std::to_string(U.rows()) + " samples"
@@ -502,14 +502,20 @@ void write_eigvecs2(const std::string& path, const Mat2D& U, const SampleIds& id
   for (Eigen::Index k = 0; k < U.cols(); ++k) ofs << "\tPC" << k + 1;
   ofs << '\n';
   const Eigen::Index K = U.cols();
+  const size_t nalen = na ? std::strlen(na) : 0;
   write_lines(ofs, U.rows(), 32 + 10 * K, [&](Eigen::Index i, TextBuf& buf) {
     buf.append(ids.fid[i]);
     buf.append("\t", 1);
     buf.append(ids.iid[i]);
-    char* p = buf.reserve(K * (TEXT_NUM_MAX + 1) + 1);
+    char* p = buf.reserve(K * (std::max(TEXT_NUM_MAX, nalen) + 1) + 1);
     for (Eigen::Index k = 0; k < K; ++k) {
       *p++ = '\t';
-      p = put_g6(U(i, k), p);
+      if (na && !std::isfinite(U(i, k))) {
+        std::memcpy(p, na, nalen);
+        p += nalen;
+      } else {
+        p = put_g6(U(i, k), p);
+      }
     }
     *p++ = '\n';
     buf.commit(p);

@@ -23,7 +23,6 @@ PCs each analysis needs with `-k`:
 | [HWE and inbreeding](hwe.md) | per-site HWE tests and per-sample F under population structure (`--inbreed`) |
 | [Relatedness](relatedness.md) | kinship and IBD sharing from the residuals of the PCs (`--evaladmix`) |
 | [Ancestry-adjusted LD](ld.md) | LD on the residuals of the PCs: R2, pruning and clumping |
-| [Admixture with a reference](admixture.md) | admixture proportions of new samples given a panel and its ADMIXTURE `.Q` (`--admix-q`, `--admix-ref`) |
 
 Each guide ends with **Method details**: the model, how PCAone computes it, and
 how it was checked. The commands use the [example data](../guide/input-output.md#example-data).

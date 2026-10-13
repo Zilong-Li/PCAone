@@ -20,8 +20,9 @@ PCAone -b unrel -k 20 -m 16 -o ref
 PCAone -b related -P ref --project 2 -m 16 -o proj
 ```
 
-`proj.eigvecs` then holds the coordinates of the relatives on the axes of
-`ref.eigvecs`. The projection methods, the matching of variants and the
+`proj.eigvecs2` then holds the coordinates of the relatives on the axes of
+`ref.eigvecs2`, with their FID and IID (`proj.eigvecs` has the same numbers
+without them). The projection methods, the matching of variants and the
 bootstrap are described in [Projection](../small-n/projection.md); everything
 there applies here.
 
