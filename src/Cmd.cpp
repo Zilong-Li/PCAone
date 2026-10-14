@@ -107,6 +107,8 @@ Param::Param(int argc, char** argv) {
   opts.add<Unsigned, Attribute::advanced>("w", "batches", "number of mini-batches of --svd 2", bands, &bands);
   opts.add<Value<int>>("", "seed", "random seed", seed, &seed);
   opts.add<Switch>("", "emu", "EM-PCA of EMU, for genotypes with missing calls", &emu);
+  opts.add<Switch, Attribute::advanced>("", "winem", "--emu with --svd 2: fit the EM within the window updates of winSVD,\n"
+                                                     "with no RSVD per EM iteration (winEM)", &winem);
   opts.add<Switch>("", "pcangsd", "EM-PCA of PCAngsd, for genotype likelihoods; implied by -G", &pcangsd);
   auto em_k_opt = opts.add<Unsigned>("", "em-k", "number of PCs that model the allele frequencies in --emu and --pcangsd\n");
   opts.add<Unsigned, Attribute::advanced>("", "M", "number of features (e.g. SNPs), if known", 0, &nsnps);
@@ -125,7 +127,7 @@ Param::Param(int argc, char** argv) {
   opts.add<Unsigned, Attribute::advanced>("", "rand", "random matrix of the RSVD: 0 uniform, 1 Gaussian", rand, &rand);
   opts.add<Unsigned, Attribute::advanced>("", "maxiter", "maximum number of EM iterations", maxiter, &maxiter);
   opts.add<Value<double>, Attribute::advanced>("", "tol-rsvd", "tolerance of the RSVD", tol, &tol);
-  opts.add<Value<double>, Attribute::advanced>("", "tol-em", "tolerance of the EM iterations", tolem, &tolem);
+  auto tolem_opt = opts.add<Value<double>, Attribute::advanced>("", "tol-em", "tolerance of the EM iterations", tolem, &tolem);
   opts.add<Value<double>, Attribute::advanced>("", "tol-maf", "tolerance of the EM for allele frequencies", tolmaf, &tolmaf);
 
   opts.add<Value<std::string>, Attribute::headline>("","INPUT","Input options:");
@@ -458,6 +460,14 @@ Param::Param(int argc, char** argv) {
     if (dopca && file_t == FileType::BEAGLE) pcangsd = true;
     // both would run their own EM update on the same matrix (Data::fit_with_pi)
     require(!(emu && pcangsd), "--emu cannot be used with --pcangsd or BEAGLE input (which implies --pcangsd)");
+    if (winem) {
+      require(emu, "--winem requires --emu");
+      require(svd_t == SvdType::PCAoneAlg2, "--winem requires --svd 2 (winSVD)");
+      require(!out_of_core || file_t == FileType::PLINK, "--winem with -m (out-of-core) supports only --bfile input");
+      // winEM tests the em_k PCs of the samples between passes, which move less
+      // per pass than the SNP loadings the EM iterations of --emu test
+      if (!tolem_opt->is_set()) tolem = 1e-7;
+    }
     if (emu || pcangsd) {
       missme = true;
     } else if (dopca) {

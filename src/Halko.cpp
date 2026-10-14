@@ -102,6 +102,14 @@ void RsvdOpData::add_block(uint64 start_idx, uint64 stop_idx, Mat2D& G, Mat2D& H
     data->packed->mul_X_Y(start_idx, G.middleRows(start_idx, n), Hb, true, rec);
     return;
   }
+  if (winem) {
+    data->read_block_initial(start_idx, stop_idx, false);  // missing calls are NaN
+    data->readtime += tick.reltime();
+    estep_block(start_idx, data->G.leftCols(n));
+    mul_Xt_Y(data->G, Omg, G.middleRows(start_idx, n));
+    mul_X_Y(data->G, G.middleRows(start_idx, n), Hb, true);
+    return;
+  }
   if (!update) {
     data->read_block_initial(start_idx, stop_idx, standardize);
   } else {
@@ -110,6 +118,49 @@ void RsvdOpData::add_block(uint64 start_idx, uint64 stop_idx, Mat2D& G, Mat2D& H
   data->readtime += tick.reltime();
   mul_Xt_Y(data->G, Omg, G.middleRows(start_idx, n));
   mul_X_Y(data->G, G.middleRows(start_idx, n), Hb, true);
+}
+
+void RsvdOpData::update_em_basis(const TallQR& qr) {
+  Eigen::JacobiSVD<Mat2D> svd(qr.matrixR(), Eigen::ComputeThinU);
+  Uem.resize(cols(), ranks());
+  qr.applyQ(svd.matrixU().leftCols(ranks()), Uem);
+}
+
+void RsvdOpData::estep_block(uint64 start_idx, Eigen::Ref<Mat2D> Z) {
+  data->estep_reg(Uem, Z, start_idx);
+  if (!standardize || data->params.scale != SCALE_STANDARDIZE_GENETIC) return;
+#pragma omp parallel for
+  for (Eigen::Index i = 0; i < Z.cols(); ++i) {
+    const double f = data->F(start_idx + i), sd = sqrt(f * (1.0 - f));
+    if (sd > VAR_TOL) Z.col(i) *= sqrt((double)data->params.ploidy) / sd;
+  }
+}
+
+void RsvdOpData::runWinEM(uint maxpass, double tol) {
+  winem = 1;
+  setFlags(false, false);
+  pi_offset = 0;
+  Uem.resize(0, 0);
+  // the doubling phase of the band, then two passes of the full band
+  const uint minpass = (uint)std::ceil(std::log2((double)data->params.bands)) + 3;
+  Mat2D G(rows(), size()), H(cols(), size()), Upre;
+  double diff = 1.0;
+  uint pi = 0;
+  for (; pi < maxpass; ++pi) {
+    computeGandH(G, H, pi);
+    if (pi > 0) diff = 1.0 - mev(Uem, Upre);
+    char d[32];  // the log may be in std::fixed by now, which shows 1e-7 as 0.000000
+    snprintf(d, sizeof d, "%.3g", diff);
+    cao.print(tick.date(), "winEM pass =", pi + 1, ", diff =", d);
+    if (pi + 1 >= minpass && diff < tol) break;
+    Upre = Uem;
+  }
+  if (pi < maxpass)
+    cao.print(tick.date(), "winEM came to convergence after", pi + 1, "passes; E-step", data->esteptime, "seconds");
+  else
+    warn_em_not_converged(data->params, diff);
+  U = Uem;
+  winem = 2;
 }
 
 void NormalRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
@@ -184,7 +235,9 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
   }
   if (!data->params.out_of_core) {
     if (pi == 0 && !data->packed) {
-      if (update) {
+      if (winem == 2) {
+        data->estep_reg(Uem, data->G, 0);
+      } else if (update) {
         data->fit_with_pi(U, S, V.transpose());
       }
       if (standardize) {
@@ -243,6 +296,9 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
       stop_idx = std::min<uint64>((uint64)b1 * blocksize, data->nsnps);
       actual_block_size = stop_idx - start_idx;
       Mat2D& Hb = plan[b0].h1 ? H1 : H2;
+      // winEM: the E-step of the run, from the PCs of the last update
+      if (winem == 1 && Uem.cols() > 0)
+        data->estep_reg(Uem, data->G.middleCols(start_idx, actual_block_size), start_idx);
       if (data->packed) {
         data->packed->mul_Xt_Y(start_idx, Omg, G.middleRows(start_idx, actual_block_size));
         data->packed->mul_X_Y(start_idx, G.middleRows(start_idx, actual_block_size), Hb, true);
@@ -257,6 +313,7 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
       TallQR qr(Hq);
       qr.applyQ(Mat2D::Identity(size, size), Omg);
       PCAone::flipOmg(Omg2, Omg);
+      if (winem == 1) update_em_basis(qr);
       if (last.full)
         H1.setZero();
       else
@@ -286,6 +343,7 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
     TallQR qr(Hq);
     qr.applyQ(Mat2D::Identity(size, size), Omg);
     PCAone::flipOmg(Omg2, Omg);
+    if (winem == 1) update_em_basis(qr);
     if (i == bandsize) {
       H1.setZero();
       i = 0;
@@ -321,6 +379,34 @@ void run_pca_with_halko(Data* data, const Param& params) {
     flip_UV(rsvd->U, rsvd->V);
   } else {
     if (data->p_miss == 0.0 && !params.out_of_core) cao.warn("there is no missing values");
+  }
+  if (params.missme && params.winem) {
+    // winEM: the passes give the em_k PCs, and the final matrix is imputed from
+    // them, standardized and decomposed for -k PCs from there, as below
+    cao.print(tick.date(), "run winEM. maximum passes =", params.maxiter);
+    if (params.out_of_core) {
+      // the blocks hold the missing calls as NaN (BED only: Cmd.cpp), also if
+      // the lookup of the centred calls was built before, with them at 0
+      data->mark_missing = true;
+      if (data->centered_geno_lookup.cols() > 0)
+        data->centered_geno_lookup.row(1).setConstant(std::numeric_limits<double>::quiet_NaN());
+    }
+    rsvd->runWinEM(params.maxiter, params.tolem);
+    if (params.em_k != params.k) {
+      cao.print(tick.date(), "decompose the final matrix for", params.k, "PCs (-k), imputed from the", params.em_k,
+                "PCs of winEM (--em-k)");
+      RsvdOpData* out = new_rsvd(data, params, params.k, params.oversamples);
+      out->U = rsvd->U;
+      out->Uem = std::move(rsvd->Uem);
+      out->winem = 2;
+      delete rsvd;
+      rsvd = out;
+    }
+    cao.print(tick.date(), "standardize the final matrix for EMU");
+    rsvd->setFlags(true, true);  // update: warm-start from U
+    rsvd->computeUSV(params.maxp, params.tol);
+    flip_UV(rsvd->U, rsvd->V, false);
+  } else if (params.missme) {
     // for EM iteration
     rsvd->setFlags(false, false);
     rsvd->computeUSV(params.maxp, params.tol);

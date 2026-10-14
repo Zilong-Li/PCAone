@@ -94,12 +94,21 @@ class Data {
   // may be VT itself: each block of VT is read before it is overwritten.
   void calcu_vt_update(
       const Mat2D& T, const Mat2D& U, const Mat1D& svals, const Mat2D& VT, Mat2D& VTout, bool standardize);
+  // winEM's E-step (--winem): impute the missing calls of the columns of Z, the
+  // sites [j0, j0 + Z.cols()) of G, by least squares of each site's observed
+  // calls on the rows of U (nsamples x k, orthonormal) that observe them, then
+  // clipped to [-f, 1 - f] and refined by EMU's step until its fixed point.
+  // Stateless: it reads only U and the observed calls, not the old imputations.
+  // In-core the missing calls are those of C; out-of-core they are read as NaN
+  // (mark_missing). With an empty U the missing calls are set to the mean, 0.
+  void estep_reg(const Mat2D& U, Eigen::Ref<Mat2D> Z, uint64 j0);
   // given PCs, predict the missing values, then update in place by block
   void predict_missing_E(const Mat2D& U, uint64 start_idx, uint64 stop_idx);
 
  public:
   const Param& params;
   double readtime = 0;
+  double esteptime = 0;  // seconds in estep_reg(), winEM's E-step
   bool snpmajor = true;
   bool nsamples_ge_nsnps = false;  // if nsamples greater than or equal to nsnps
   uint blocksize = 0, nsamples = 0, nsnps = 0;
@@ -121,6 +130,10 @@ class Data {
   Mat1D F;                         // observed or estimated population allele frequency
   Mat1D Dc;                        // diagnal vector of covariance matrix
   ArrBool C;                       // nsnps x nsample, if there is missing value
+  // --winem in-core: the missing samples of each column of G, in G's (shuffled)
+  // order: those of column j are miss_idx[miss_ptr[j] .. miss_ptr[j + 1])
+  std::vector<uint64> miss_ptr;
+  std::vector<uint> miss_idx;
   Arr2D centered_geno_lookup;      // lookup table for centering genotypes
   // out-of-core --project: read_block_initial() returns a missing call as NaN
   // instead of 0 (the reference mean), so the caller can tell it from a called

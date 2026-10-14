@@ -67,6 +67,25 @@ iterations, with a warning if they did not converge. `--emu` reads PLINK, PGEN
 and BGEN input, and runs out-of-core with `-m` except for BGEN. BEAGLE input
 runs in-core only.
 
+`--winem` (with `--emu` and the default `--svd 2`) fits the same model in
+fewer passes over the data. EMU runs a whole RSVD for each EM iteration;
+winEM instead imputes each block of SNPs from the newest PCs as winSVD reads
+it, so every window update of winSVD is also an EM step. Its E-step is a
+regression on each SNP's observed calls, which needs no imputations from the
+previous pass. winEM stops when the `--em-k` PCs of two passes agree to
+`--tol-em` (default `1e-7` with `--winem`); `--maxiter` caps the passes.
+
+```shell
+./PCAone --bfile example/plink --emu --winem -k 3
+```
+
+It gives EMU's answer (EMU's fixed point). The gain is largest when missing
+calls are concentrated in some samples, such as ancient or low-coverage
+samples, or a population typed on another array. There, `--emu` with its
+default tolerance can stop well before it converges. With missing calls at
+random, both take about the same time. Out-of-core (`-m`), winEM reads PLINK
+input only.
+
 ## Method details
 
 ### Exact PCA

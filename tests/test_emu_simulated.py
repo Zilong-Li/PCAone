@@ -18,6 +18,7 @@ out-of-core variants of the paths that have one:
   -d 2        window-based RSVD (the default)
   -d 2 -S     the same, without the column shuffle
   -d 2 -m     window-based RSVD, out-of-core
+  --winem     winEM: the EM inside winSVD's window updates, in-core and -m
   -d 1        single-pass RSVD
   -d 1 -m     single-pass RSVD, out-of-core
 
@@ -88,6 +89,8 @@ SOLVERS = (
     ("winsvd", ["-d", "2"]),
     ("winsvd-noshuffle", ["-d", "2", "-S"]),
     ("winsvd-ooc", ["-d", "2", *OUT_OF_CORE]),
+    ("winem", ["-d", "2", "--winem"]),
+    ("winem-ooc", ["-d", "2", "--winem", *OUT_OF_CORE]),
     ("ssvd", ["-d", "1"]),
     ("ssvd-ooc", ["-d", "1", *OUT_OF_CORE]),
 )

@@ -345,6 +345,7 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
     }
   } else {
     // estimate allele frequencies
+    const double missing = mark_missing ? std::numeric_limits<double>::quiet_NaN() : 0.0;
     if (start_idx == 0) nmono_seen = 0;  // a pass over the blocks restarted before F was complete
     uint64 nmono = 0;
 #pragma omp parallel for private(c, i, j, b, k, snp_idx, buf) reduction(+ : nmono)
@@ -376,7 +377,7 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
       // should remove sites with F=0 and 1.0
       if (F(snp_idx) == 0.0 || F(snp_idx) == 1.0) ++nmono;
       // do centering and initialing
-      centered_geno_lookup(1, snp_idx) = 0.0;                       // missing
+      centered_geno_lookup(1, snp_idx) = missing;                   // missing: 0, or NaN (mark_missing)
       centered_geno_lookup(0, snp_idx) = BED2GENO[0] - F(snp_idx);  // minor hom
       centered_geno_lookup(2, snp_idx) = BED2GENO[2] - F(snp_idx);  // het
       centered_geno_lookup(3, snp_idx) = BED2GENO[3] - F(snp_idx);  // major hom

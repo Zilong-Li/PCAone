@@ -95,6 +95,9 @@ class Param {
   bool nopacked = false;    // --svd 1/2 of a BED: decode the calls to doubles (PackedPca.hpp)
   bool bedcopy = false;     // out-of-core winSVD: rewrite the BED shuffled to <out>.perm.* first
   bool emu = false;
+  // --winem: EMU's EM fused into the window updates of winSVD (Halko.cpp,
+  // RsvdOpData::runWinEM): a regression E-step on each block as it is read
+  bool winem = false;
   bool pcangsd = false;  // enable pcangsd procedure
   // bool fancyem = false;  // true if emu/pcangsd + svd 2
   bool mev = true;

@@ -42,6 +42,14 @@ so that sum no longer covers all the variance.
 
 **New**
 
+- `--winem`, with `--emu`: winEM, EMU's EM-PCA run inside the window updates of winSVD, in place
+  of one RSVD per EM iteration. It reaches EMU's fixed point, in-core and with `-m` (PLINK input).
+  On the 3,202 1KGP samples (363,251 LD-pruned SNPs, 5 PCs, 20 threads), where 20% of the samples
+  miss 90% of their calls, it took 40 s against 106 s for `--emu` run to convergence. `--emu` with
+  its defaults stopped after 38 s, 9 times further from the PCs of the complete data. With missing
+  calls at random, the times are about the same. See
+  [EM-PCA](small-n/pca.md#em-pca-emu-and-pcangsd).
+
 - `-m` with `--project 1` and `2` streams the target from PLINK or PGEN a block of variants at
   a time and holds sums per sample instead of the `N x M` genotypes, so a target of any size is
   projected in one run within `-m`, without splitting it into batches of samples. The scores and

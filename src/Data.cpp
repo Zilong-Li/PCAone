@@ -604,3 +604,111 @@ void Data::predict_missing_E(const Mat2D& U, uint64 start_idx, uint64 stop_idx) 
     }
   }
 }
+
+void Data::estep_reg(const Mat2D& U, Eigen::Ref<Mat2D> Z, uint64 j0) {
+  const double t0 = omp_get_wtime();
+  struct AddTime {
+    double t0;
+    double& total;
+    ~AddTime() { total += omp_get_wtime() - t0; }
+  } add_time{t0, esteptime};
+  const Eigen::Index n = Z.cols(), N = Z.rows(), k = U.cols();
+  // the missing samples of each column, as a CSR: in-core from C, built once in
+  // G's column order; out-of-core from the NaN of this block
+  std::vector<uint64> lptr;
+  std::vector<uint> lidx;
+  auto build = [&](std::vector<uint64>& ptr, std::vector<uint>& idx, Eigen::Index ncol, auto is_missing) {
+    ptr.assign(ncol + 1, 0);
+#pragma omp parallel for
+    for (Eigen::Index j = 0; j < ncol; ++j) {
+      uint64 c = 0;
+      for (Eigen::Index i = 0; i < N; ++i) c += is_missing(i, j);
+      ptr[j + 1] = c;
+    }
+    for (Eigen::Index j = 0; j < ncol; ++j) ptr[j + 1] += ptr[j];
+    idx.resize(ptr[ncol]);
+#pragma omp parallel for
+    for (Eigen::Index j = 0; j < ncol; ++j) {
+      uint64 t = ptr[j];
+      for (Eigen::Index i = 0; i < N; ++i)
+        if (is_missing(i, j)) idx[t++] = (uint)i;
+    }
+  };
+  const uint64* ptr;
+  const uint* idx;
+  if (!params.out_of_core) {
+    if (miss_ptr.empty())
+      build(miss_ptr, miss_idx, nsnps,
+            [&](Eigen::Index i, Eigen::Index j) { return C[(uint64)unpermuted_snp_index(j) * nsamples + i]; });
+    ptr = miss_ptr.data() + j0;
+    idx = miss_idx.data();
+  } else {
+    build(lptr, lidx, n, [&](Eigen::Index i, Eigen::Index j) { return std::isnan(Z(i, j)); });
+    ptr = lptr.data();
+    idx = lidx.data();
+  }
+  // per thread, buffers of the largest size, sliced per site: a heap
+  // allocation per site in this loop cost more than the arithmetic
+#pragma omp parallel
+  {
+    Mat2D Urows(N, k), A(k, k), Aclip(k, k);  // rows [0, nm): the missing samples
+    Mat1D beta(k), c(k), y(k), zm(N), znew(N);
+    Eigen::LLT<Mat2D> llt(k);
+#pragma omp for schedule(dynamic, 256)
+    for (Eigen::Index j = 0; j < n; ++j) {
+      const uint64 nm = ptr[j + 1] - ptr[j];
+      if (nm == 0) continue;
+      const uint* m = idx + ptr[j];
+      auto z = Z.col(j);
+      for (uint64 t = 0; t < nm; ++t) z(m[t]) = 0.0;
+      if (k == 0) continue;
+      // the products of this loop are k wide: as dots and axpys of columns,
+      // which vectorize. A BLAS call per site (GEMV), or one GEMM for the
+      // block, cost more, and Eigen's lazy products did not vectorize
+      for (Eigen::Index kk = 0; kk < k; ++kk) beta(kk) = U.col(kk).dot(z);  // U'x, the observed calls only
+      const double lo = -F(unpermuted_snp_index(j0 + j)), hi = 1.0 + lo;
+      auto Um = Urows.topRows(nm);
+      for (Eigen::Index kk = 0; kk < k; ++kk)
+        for (uint64 t = 0; t < nm; ++t) Um(t, kk) = U(m[t], kk);
+      // A = U_o'U_o = I - U_m'U_m. (From U_o when most calls are missing cost
+      // more: a branch per sample. The cancellation loses ~1e-16 / rho of the
+      // observed fraction rho, harmless for any site with calls.)
+      A.setIdentity();  // the lower triangle is what LLT reads
+      for (Eigen::Index a = 0; a < k; ++a)
+        for (Eigen::Index b = 0; b <= a; ++b) A(a, b) -= Um.col(a).dot(Um.col(b));
+      // fewer calls than PCs leave A singular: the tiny ridge picks the
+      // solution with no component the observed calls cannot see
+      A.diagonal().array() += 1e-10;
+      // EMU's fixed point z_m = clip(U_m U'z) by an active set: the calls at a
+      // bound count as observed there, the others are fitted by least squares
+      // on all the rest, and a call moves to or off its bound until none does.
+      // (EMU's own step contracts by the missing fraction per step.)
+      auto v = zm.head(nm);
+      auto state = znew.head(nm);  // 0 free, -1 at lo, 1 at hi
+      state.setZero();
+      Mat2D& Ac = Aclip;
+      for (int it = 0; it < 10; ++it) {
+        Ac = A;
+        y = beta;
+        for (uint64 t = 0; t < nm; ++t) {
+          if (state(t) == 0) continue;
+          for (Eigen::Index a = 0; a < k; ++a)
+            for (Eigen::Index b = 0; b <= a; ++b) Ac(a, b) += Um(t, a) * Um(t, b);
+          y.noalias() += (state(t) < 0 ? lo : hi) * Um.row(t).transpose();
+        }
+        c = llt.compute(Ac).solve(y);
+        v = c(0) * Um.col(0);
+        for (Eigen::Index kk = 1; kk < k; ++kk) v += c(kk) * Um.col(kk);
+        bool changed = false;
+        for (uint64 t = 0; t < nm; ++t) {
+          const double st = state(t);
+          if (st == 0 && v(t) < lo) state(t) = -1, changed = true;
+          else if (st == 0 && v(t) > hi) state(t) = 1, changed = true;
+          else if ((st < 0 && v(t) > lo) || (st > 0 && v(t) < hi)) state(t) = 0, changed = true;
+        }
+        if (!changed) break;
+      }
+      for (uint64 t = 0; t < nm; ++t) z(m[t]) = std::fmin(std::fmax(v(t), lo), hi);
+    }
+  }
+}
