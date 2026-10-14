@@ -47,7 +47,9 @@ so that sum no longer covers all the variance.
   On the 3,202 1KGP samples (363,251 LD-pruned SNPs, 5 PCs, 20 threads), where 20% of the samples
   miss 90% of their calls, it took 40 s against 106 s for `--emu` run to convergence. `--emu` with
   its defaults stopped after 38 s, 9 times further from the PCs of the complete data. With missing
-  calls at random, the times are about the same. See
+  calls at random, the times are about the same. `--winem` also fits PCAngsd's EM-PCA (`--pcangsd`,
+  BEAGLE input) in-core, where it reaches the fixed point of the EM in about half the iterations
+  of PCAngsd run to convergence, for a smaller saving in time. See
   [EM-PCA](small-n/pca.md#em-pca-emu-and-pcangsd).
 
 - `-m` with `--project 1` and `2` streams the target from PLINK or PGEN a block of variants at

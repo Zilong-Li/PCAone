@@ -102,6 +102,20 @@ class Data {
   // In-core the missing calls are those of C; out-of-core they are read as NaN
   // (mark_missing). With an empty U the missing calls are set to the mean, 0.
   void estep_reg(const Mat2D& U, Eigen::Ref<Mat2D> Z, uint64 j0);
+  // winEM's E-step for --pcangsd (in-core): the expected genotypes of the
+  // columns [j0, j0 + Z.cols()) of G, given their genotype likelihoods P and
+  // the individual allele frequencies of the fit U U'e of each site's own
+  // expected genotypes e. That fit depends on e, so each site iterates
+  // e = E[g | P, pi(U U'e)] - 2f from its expectations in G towards its fixed
+  // point under U, a few steps per pass, where the EM of --pcangsd takes one.
+  void estep_pcangsd(const Mat2D& U, Eigen::Ref<Mat2D> Z, uint64 j0);
+  // estep_pcangsd() for --pcangsd, else estep_reg()
+  void estep(const Mat2D& U, Eigen::Ref<Mat2D> Z, uint64 j0) {
+    if (params.pcangsd)
+      estep_pcangsd(U, Z, j0);
+    else
+      estep_reg(U, Z, j0);
+  }
   // given PCs, predict the missing values, then update in place by block
   void predict_missing_E(const Mat2D& U, uint64 start_idx, uint64 stop_idx);
 

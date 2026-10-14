@@ -236,7 +236,7 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
   if (!data->params.out_of_core) {
     if (pi == 0 && !data->packed) {
       if (winem == 2) {
-        data->estep_reg(Uem, data->G, 0);
+        data->estep(Uem, data->G, 0);
       } else if (update) {
         data->fit_with_pi(U, S, V.transpose());
       }
@@ -298,7 +298,7 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
       Mat2D& Hb = plan[b0].h1 ? H1 : H2;
       // winEM: the E-step of the run, from the PCs of the last update
       if (winem == 1 && Uem.cols() > 0)
-        data->estep_reg(Uem, data->G.middleCols(start_idx, actual_block_size), start_idx);
+        data->estep(Uem, data->G.middleCols(start_idx, actual_block_size), start_idx);
       if (data->packed) {
         data->packed->mul_Xt_Y(start_idx, Omg, G.middleRows(start_idx, actual_block_size));
         data->packed->mul_X_Y(start_idx, G.middleRows(start_idx, actual_block_size), Hb, true);
@@ -402,10 +402,21 @@ void run_pca_with_halko(Data* data, const Param& params) {
       delete rsvd;
       rsvd = out;
     }
-    cao.print(tick.date(), "standardize the final matrix for EMU");
-    rsvd->setFlags(true, true);  // update: warm-start from U
+    if (params.emu) cao.print(tick.date(), "standardize the final matrix for EMU");
+    // update: warm-start from U. EMU decomposes its final matrix standardized,
+    // PCAngsd its expected genotypes
+    rsvd->setFlags(true, params.emu);
     rsvd->computeUSV(params.maxp, params.tol);
     flip_UV(rsvd->U, rsvd->V, false);
+    if (params.pcangsd && params.file_t == FileType::BEAGLE) {
+      // the individual allele frequencies of the em_k PCs: U U'E, with E the
+      // expected genotypes the final decomposition imputed from them
+      cao.print(tick.date(), "estimate GRM for pcangsd");
+      const Mat2D& Uem = rsvd->Uem;
+      const Mat2D Wt = Uem.transpose() * data->G;  // em_k x nsnps
+      data->pcangsd_standardize_E(Uem, Mat1D::Ones(Uem.cols()), Wt);
+      data->write_pcangsd_cov();
+    }
   } else if (params.missme) {
     // for EM iteration
     rsvd->setFlags(false, false);

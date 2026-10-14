@@ -107,8 +107,8 @@ Param::Param(int argc, char** argv) {
   opts.add<Unsigned, Attribute::advanced>("w", "batches", "number of mini-batches of --svd 2", bands, &bands);
   opts.add<Value<int>>("", "seed", "random seed", seed, &seed);
   opts.add<Switch>("", "emu", "EM-PCA of EMU, for genotypes with missing calls", &emu);
-  opts.add<Switch, Attribute::advanced>("", "winem", "--emu with --svd 2: fit the EM within the window updates of winSVD,\n"
-                                                     "with no RSVD per EM iteration (winEM)", &winem);
+  opts.add<Switch, Attribute::advanced>("", "winem", "--emu or --pcangsd with --svd 2: fit the EM within the window updates\n"
+                                                     "of winSVD, with no RSVD per EM iteration (winEM)", &winem);
   opts.add<Switch>("", "pcangsd", "EM-PCA of PCAngsd, for genotype likelihoods; implied by -G", &pcangsd);
   auto em_k_opt = opts.add<Unsigned>("", "em-k", "number of PCs that model the allele frequencies in --emu and --pcangsd\n");
   opts.add<Unsigned, Attribute::advanced>("", "M", "number of features (e.g. SNPs), if known", 0, &nsnps);
@@ -461,9 +461,10 @@ Param::Param(int argc, char** argv) {
     // both would run their own EM update on the same matrix (Data::fit_with_pi)
     require(!(emu && pcangsd), "--emu cannot be used with --pcangsd or BEAGLE input (which implies --pcangsd)");
     if (winem) {
-      require(emu, "--winem requires --emu");
+      require(emu || pcangsd, "--winem requires --emu or --pcangsd (or BEAGLE input)");
       require(svd_t == SvdType::PCAoneAlg2, "--winem requires --svd 2 (winSVD)");
-      require(!out_of_core || file_t == FileType::PLINK, "--winem with -m (out-of-core) supports only --bfile input");
+      require(!out_of_core || (emu && file_t == FileType::PLINK),
+              "--winem with -m (out-of-core) supports only --emu with --bfile input");
       // winEM tests the em_k PCs of the samples between passes, which move less
       // per pass than the SNP loadings the EM iterations of --emu test
       if (!tolem_opt->is_set()) tolem = 1e-7;

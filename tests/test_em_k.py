@@ -51,6 +51,7 @@ SOLVERS = (
     ("iram-ooc", ["-d", "0", *OUT_OF_CORE]),
     ("winsvd", ["-d", "2"]),
     ("winsvd-ooc", ["-d", "2", *OUT_OF_CORE]),
+    ("winem", ["-d", "2", "--winem"]),  # EMU and PCAngsd fused into winSVD; in-core only for PCAngsd
     ("ssvd", ["-d", "1"]),
     ("ssvd-ooc", ["-d", "1", *OUT_OF_CORE]),
 )

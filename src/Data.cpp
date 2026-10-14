@@ -712,3 +712,42 @@ void Data::estep_reg(const Mat2D& U, Eigen::Ref<Mat2D> Z, uint64 j0) {
     }
   }
 }
+
+void Data::estep_pcangsd(const Mat2D& U, Eigen::Ref<Mat2D> Z, uint64 j0) {
+  const double t0 = omp_get_wtime();
+  const Eigen::Index n = Z.cols(), N = Z.rows(), k = U.cols();
+  if (k == 0) return;
+  // inner steps per site and pass: on 1,000 simulated samples at low depth,
+  // 1 step took 18 passes to converge, 3 steps 12, and 10 steps 12 too, at
+  // the same EM time as 1 and about 1.7 times that of 3
+  const int inner = 3;
+#pragma omp parallel
+  {
+    Mat1D c(k), r(N);
+#pragma omp for schedule(dynamic, 64)
+    for (Eigen::Index j = 0; j < n; ++j) {
+      const uint original = unpermuted_snp_index(j0 + j);
+      const double f = F(original);
+      const uint s = params.filterSNP ? keepSNPs[original] : original;
+      auto e = Z.col(j);
+      for (int it = 0; it < inner; ++it) {
+        // r = U U'e as dots and axpys of the k columns, as in estep_reg()
+        for (Eigen::Index kk = 0; kk < k; ++kk) c(kk) = U.col(kk).dot(e);
+        r = c(0) * U.col(0);
+        for (Eigen::Index kk = 1; kk < k; ++kk) r += c(kk) * U.col(kk);
+        double delta = 0;
+        for (Eigen::Index i = 0; i < N; ++i) {
+          const double pt = fmin(fmax((r(i) + 2.0 * f) / 2.0, 1e-4), 1.0 - 1e-4);
+          const double p0 = P(2 * i + 0, s) * (1.0 - pt) * (1.0 - pt);
+          const double p1 = P(2 * i + 1, s) * 2 * pt * (1.0 - pt);
+          const double p2 = (1 - P(2 * i + 0, s) - P(2 * i + 1, s)) * pt * pt;
+          const double ei = (p1 + 2.0 * p2) / (p0 + p1 + p2) - 2.0 * f;
+          delta = fmax(delta, fabs(ei - e(i)));
+          e(i) = ei;
+        }
+        if (delta < 1e-6) break;
+      }
+    }
+  }
+  esteptime += omp_get_wtime() - t0;
+}

@@ -67,24 +67,26 @@ iterations, with a warning if they did not converge. `--emu` reads PLINK, PGEN
 and BGEN input, and runs out-of-core with `-m` except for BGEN. BEAGLE input
 runs in-core only.
 
-`--winem` (with `--emu` and the default `--svd 2`) fits the same model in
-fewer passes over the data. EMU runs a whole RSVD for each EM iteration;
+`--winem` (with `--emu`, `--pcangsd` or BEAGLE input, and the default
+`--svd 2`) fits the same model in fewer passes over the data. EMU runs a whole RSVD for each EM iteration;
 winEM instead imputes each block of SNPs from the newest PCs as winSVD reads
-it, so every window update of winSVD is also an EM step. Its E-step is a
+it, so every window update of winSVD is also an EM step. For EMU, its E-step is a
 regression on each SNP's observed calls, which needs no imputations from the
-previous pass. winEM stops when the `--em-k` PCs of two passes agree to
+previous pass. For PCAngsd, each SNP's expected genotypes take a few steps
+towards their fixed point under the newest PCs, where PCAngsd's EM takes one. winEM stops when the `--em-k` PCs of two passes agree to
 `--tol-em` (default `1e-7` with `--winem`); `--maxiter` caps the passes.
 
 ```shell
 ./PCAone --bfile example/plink --emu --winem -k 3
+./PCAone --beagle example/beagle.gz --winem -k 3
 ```
 
-It gives EMU's answer (EMU's fixed point). The gain is largest when missing
+It gives EMU's or PCAngsd's answer (the fixed point of their EM). The gain is largest when missing
 calls are concentrated in some samples, such as ancient or low-coverage
 samples, or a population typed on another array. There, `--emu` with its
 default tolerance can stop well before it converges. With missing calls at
-random, both take about the same time. Out-of-core (`-m`), winEM reads PLINK
-input only.
+random, both take about the same time. Out-of-core (`-m`), winEM runs with
+`--emu` on PLINK input only; with `--pcangsd` it runs in-core.
 
 ## Method details
 
