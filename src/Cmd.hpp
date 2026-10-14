@@ -92,6 +92,7 @@ class Param {
   bool missme = false;  // keep track of missing information
   bool noshuffle = false;
   bool noprefetch = false;  // out-of-core: no background read of the next block
+  bool nopacked = false;    // --svd 1/2 of a BED: decode the calls to doubles (PackedPca.hpp)
   bool bedcopy = false;     // out-of-core winSVD: rewrite the BED shuffled to <out>.perm.* first
   bool emu = false;
   bool pcangsd = false;  // enable pcangsd procedure

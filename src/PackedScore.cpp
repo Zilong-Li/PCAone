@@ -142,6 +142,68 @@ void product_add(const PackedBlock& blk,
   }
 }
 
+// the table of the 4 samples of one byte: T[x] = sum over q of h[(x >> 2 q) & 3]
+// * y_q, y_q the row of Yr of sample q of the byte, kp doubles each
+void build_sample_table(const double* h, const double* y, int kp, double* pair, double* T) {
+  for (int p = 0; p < 2; ++p)  // the pairs of samples (0, 1) and (2, 3)
+    for (int x = 0; x < 16; ++x) {
+      const double *a = y + (2 * p) * kp, *b = y + (2 * p + 1) * kp;
+      const double ha = h[x & 3], hb = h[x >> 2];
+      double* o = pair + (16 * p + x) * kp;
+      for (int k = 0; k < kp; ++k) o[k] = ha * a[k] + hb * b[k];
+    }
+  for (int x = 0; x < 256; ++x) {
+    const double* a = pair + (x & 15) * kp;
+    const double* b = pair + (16 + (x >> 4)) * kp;
+    double* t = T + x * kp;
+    for (int k = 0; k < kp; ++k) t[k] = a[k] + b[k];
+  }
+}
+
+template <int KP>
+void tproduct_add(const PackedBlock& blk,
+                  Eigen::Index j0,
+                  Eigen::Index j1,
+                  const double* h,
+                  const double* Yr,
+                  int kp,
+                  uint64_t g0,
+                  uint64_t g1,
+                  double* acc) {
+  const uint64_t tile = (uint64_t)std::max<Eigen::Index>(1, kTableBytes / (256 * 8 * kp));
+  std::vector<double> tables(tile * 256 * kp), pair(32 * kp);
+  for (uint64_t gt = g0; gt < g1; gt += tile) {
+    const int nt = (int)std::min<uint64_t>(tile, g1 - gt);
+    for (int t = 0; t < nt; ++t)
+      build_sample_table(h, Yr + (gt + t - g0) * 4 * kp, kp, pair.data(), tables.data() + (size_t)t * 256 * kp);
+    const double* tab = tables.data();
+    for (Eigen::Index j = j0; j < j1; ++j) {
+      const uint8_t* r = blk.site(j) + gt;
+      // a site is a record of its own, a cache line further on: ask for it early
+      if (j + 16 < j1) __builtin_prefetch(blk.site(j + 16) + gt);
+      double* __restrict a = acc + (j - j0) * kp;
+      if constexpr (KP > 0) {
+        constexpr int NV = KP / VW;
+        vd sum[NV];
+#pragma GCC unroll 16
+        for (int v = 0; v < NV; ++v) sum[v] = loadu(a + v * VW);
+        for (int t = 0; t < nt; ++t) {
+          const double* e = tab + ((size_t)t * 256 + r[t]) * KP;
+#pragma GCC unroll 16
+          for (int v = 0; v < NV; ++v) sum[v] += loadu(e + v * VW);
+        }
+#pragma GCC unroll 16
+        for (int v = 0; v < NV; ++v) storeu(a + v * VW, sum[v]);
+      } else {
+        for (int t = 0; t < nt; ++t) {
+          const double* __restrict e = tab + ((size_t)t * 256 + r[t]) * kp;
+          for (int k = 0; k < kp; ++k) a[k] += e[k];
+        }
+      }
+    }
+  }
+}
+
 template <int KP>
 void gram(const double* base, const uint32_t* idx, uint32_t n, int, double sign, double* out) {
   constexpr int NV = KP / VW;
@@ -222,6 +284,29 @@ void packed_product_add(const PackedBlock& blk,
     case 28: return product_add<28>(blk, j0, j1, value, D, i0, i1, acc, ld, kp);
     case 32: return product_add<32>(blk, j0, j1, value, D, i0, i1, acc, ld, kp);
     default: return product_add<0>(blk, j0, j1, value, D, i0, i1, acc, ld, kp);
+  }
+}
+
+void packed_tproduct_add(const PackedBlock& blk,
+                         Eigen::Index j0,
+                         Eigen::Index j1,
+                         const double* h,
+                         const double* Yr,
+                         int kp,
+                         uint64_t g0,
+                         uint64_t g1,
+                         double* acc) {
+  if (j1 <= j0 || g1 <= g0) return;
+  switch (kp) {
+    case 4: return tproduct_add<4>(blk, j0, j1, h, Yr, kp, g0, g1, acc);
+    case 8: return tproduct_add<8>(blk, j0, j1, h, Yr, kp, g0, g1, acc);
+    case 12: return tproduct_add<12>(blk, j0, j1, h, Yr, kp, g0, g1, acc);
+    case 16: return tproduct_add<16>(blk, j0, j1, h, Yr, kp, g0, g1, acc);
+    case 20: return tproduct_add<20>(blk, j0, j1, h, Yr, kp, g0, g1, acc);
+    case 24: return tproduct_add<24>(blk, j0, j1, h, Yr, kp, g0, g1, acc);
+    case 28: return tproduct_add<28>(blk, j0, j1, h, Yr, kp, g0, g1, acc);
+    case 32: return tproduct_add<32>(blk, j0, j1, h, Yr, kp, g0, g1, acc);
+    default: return tproduct_add<0>(blk, j0, j1, h, Yr, kp, g0, g1, acc);
   }
 }
 

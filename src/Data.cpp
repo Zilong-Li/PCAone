@@ -200,6 +200,57 @@ void Data::save_snps_in_mbim() {
   const bool metadata_is_permuted = metadata_permuted && perm.indices().size() == nsnps;
   const bool frequency_is_permuted = params.perm && params.out_of_core && perm.indices().size() == nsnps;
 
+  // the logical site whose frequency goes with each line
+  std::vector<Eigen::Index> original_to_logical(nsnps);
+  for (Eigen::Index logical_idx = 0; logical_idx < nsnps; ++logical_idx) {
+    Eigen::Index original_idx = frequency_is_permuted ? perm.indices()[logical_idx] : logical_idx;
+    original_to_logical[original_idx] = logical_idx;
+  }
+
+  if (!pvar) {
+    // the .bim at once, its lines found in the buffer, and the .mbim written
+    // from it on every thread: reading it a line at a time into strings took
+    // as long as an epoch of the winSVD
+    ifs_bim.seekg(0, std::ios::end);
+    std::string text((size_t)ifs_bim.tellg(), '\0');
+    ifs_bim.seekg(0);
+    ifs_bim.read(text.data(), (std::streamsize)text.size());
+    if (!ifs_bim) cao.error("cannot read " + bim_path);
+    std::vector<size_t> start{0};  // the lines as std::getline splits them
+    for (const char *p = text.data(), *e = p + text.size(); (p = (const char*)std::memchr(p, '\n', e - p)); ++p)
+      start.push_back((size_t)(p - text.data()) + 1);
+    if (start.back() < text.size()) start.push_back(text.size() + 1);  // a last line without '\n'
+    const Eigen::Index nlines = (Eigen::Index)start.size() - 1;
+    // the source line of each site, by the order the metadata was read in
+    std::vector<Eigen::Index> src(nsnps, -1);
+    for (Eigen::Index j = 0; j < nsnps; ++j) {
+      Eigen::Index s = j;
+      if (metadata_is_permuted) {
+        src[perm.indices()[j]] = j;
+        continue;
+      }
+      if (params.filterSNP) s = keepSNPs[j];
+      src[j] = s;
+    }
+    // with the streamed read, only as many lines as F has
+    const Eigen::Index nout =
+        (!params.filterSNP && !params.perm) ? std::min<Eigen::Index>(nsnps, nlines) : (Eigen::Index)nsnps;
+    write_lines(ofs_bim, nout, 64, [&](Eigen::Index i, TextBuf& buf) {
+      const Eigen::Index s = src[i];
+      if (s >= 0 && s < nlines) buf.append(text.data() + start[s], start[s + 1] - 1 - start[s]);
+      char* p = buf.reserve(TEXT_NUM_MAX + 2);
+      *p++ = '\t';
+      p = put_g6(F(original_to_logical[i]), p);
+      *p++ = '\n';
+      buf.commit(p);
+    });
+    ofs_bim.close();
+    if (!ofs_bim) cao.error("error writing " + fout);
+    if (params.filterSNP || params.perm)
+      cao.print(tick.date(), "save matched sites in .mbim file and permutation mode is", params.perm);
+    return;
+  }
+
   if (!params.filterSNP && !params.perm) {  // the variants are in the order of F: stream them
     TextBuf buf;
     for (Eigen::Index j = 0; j < F.size() && read_bim_line(ifs_bim, pvar, bim_path, line); ++j) {
@@ -230,12 +281,6 @@ void Data::save_snps_in_mbim() {
     for (Eigen::Index j = 0; j < nsnps && read_bim_line(ifs_bim, pvar, bim_path, line); ++j) {
       metadata[j] = line;
     }
-  }
-
-  std::vector<Eigen::Index> original_to_logical(nsnps);
-  for (Eigen::Index logical_idx = 0; logical_idx < nsnps; ++logical_idx) {
-    Eigen::Index original_idx = frequency_is_permuted ? perm.indices()[logical_idx] : logical_idx;
-    original_to_logical[original_idx] = logical_idx;
   }
 
   write_lines(ofs_bim, nsnps, 64,
@@ -386,6 +431,35 @@ void Data::fit_with_pi(const Mat2D& U, const Mat1D& svals, const Mat2D& VT) {
       }
     }
   }
+}
+
+bool Data::packed_pca() const {
+  return params.file_t == FileType::PLINK && params.dopca && !params.nopacked &&
+         (params.svd_t == SvdType::PCAoneAlg1 || params.svd_t == SvdType::PCAoneAlg2) && !params.missme &&
+         !params.pcangsd && params.center && !params.ld && !params.evaladmix && params.project == 0 &&
+         params.selection == 0 && params.inbreed == 0 &&
+         (params.scale == SCALE_STANDARDIZE_GENETIC || params.scale == 0);
+}
+
+void Data::set_packed_sites(bool standardize, uint64 j0, uint64 n) {
+  if (!packed) {  // out-of-core: the records come with each block
+    const PackedCoding coding = packed_coding();
+    packed = std::make_unique<PCAone::PackedGenotypes>(nullptr, nsamples, nsnps, coding.value, coding.missing);
+  }
+  if (n == (uint64)-1) n = nsnps - j0;
+  Mat1D a(n), b(n);
+#pragma omp parallel for
+  for (uint64 i = 0; i < n; ++i) {
+    const uint64 j = j0 + i;
+    const double f = F(unpermuted_snp_index(j));
+    double s = 1.0;
+    if (standardize && params.scale == SCALE_STANDARDIZE_GENETIC) {
+      const double sd = sqrt(f * (1.0 - f));
+      if (sd > VAR_TOL) s = sqrt((double)params.ploidy) / sd;
+    }
+    a(i) = -s * f, b(i) = s;
+  }
+  packed->set_sites(j0, a, b, Mat1D::Zero(n));
 }
 
 void Data::standardize_E() {

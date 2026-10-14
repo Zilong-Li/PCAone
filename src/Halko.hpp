@@ -40,13 +40,16 @@ class RsvdOpData {
   void warmOmg();  // EM updates: start from the previous U instead of at random
 
  protected:
+  // out-of-core: read the block of sites [start_idx, stop_idx], and add its
+  // products: G's rows of the block = X_b' * Omg, then Hb += X_b * those rows
+  void add_block(uint64 start_idx, uint64 stop_idx, Mat2D& G, Mat2D& Hb);
+
   int pi_offset = 0;  // > 0: a warm-started winSVD runs full bands from the first epoch
 };
 
 class NormalRsvdOpData : public RsvdOpData {
  private:
   const Index nk, os, size;
-  uint64 actual_block_size, start_idx, stop_idx;
 
  public:
   NormalRsvdOpData(Data* data_, int k_, int os_ = 10)

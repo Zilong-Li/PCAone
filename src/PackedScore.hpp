@@ -45,6 +45,28 @@ void packed_product_add(const PackedBlock& blk,
                         double* acc,
                         Eigen::Index ld);
 
+// The transposed product: acc(j - j0, :) += sum over the samples i in
+// [4 g0, 4 g1) of h[c_ij] * Yr(i, :) for the sites j in [j0, j1), with c_ij the
+// code of sample i at site j. Yr is row-major, kp doubles a row (a multiple of
+// 4, its columns past K zero), and has a row for every sample of the bytes
+// [g0, g1), its rows past the last sample zero. acc is row-major, kp doubles a
+// site.
+//
+// h holds one number per code, the same at every site: the centring and the
+// scaling of a site, and its missing calls, are applied by the caller to these
+// sums. The samples are taken 4 at a time, the byte of their codes at a site,
+// and the 256 sums of their rows of Yr for the 4^4 codes they can have are
+// tabulated once for all the sites, so each site adds one row per 4 samples.
+void packed_tproduct_add(const PackedBlock& blk,
+                         Eigen::Index j0,
+                         Eigen::Index j1,
+                         const double* h,
+                         const double* Yr,
+                         int kp,
+                         uint64_t g0,
+                         uint64_t g1,
+                         double* acc);
+
 // out (kp x kp, row-major) += sign * sum over e < n of v_e v_e', with v_e the
 // row of kp doubles at base + idx[e] * kp, in its upper triangle (out(a, c),
 // c >= a; the rest of out is not to be read). For the missing calls of

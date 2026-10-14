@@ -10,6 +10,9 @@
 #ifndef PCAONE_LINALG_
 #define PCAONE_LINALG_
 
+#include <memory>
+#include <vector>
+
 #include "Common.hpp"
 
 // out = X' * Y for a wide X (samples x sites) and a thin Y, so out is tall.
@@ -35,6 +38,29 @@ void mul_X_Y(const Eigen::Ref<const Mat2D>& X,
              bool add = false);
 // the number of row panels mul_X_Y uses for X with this many rows, here
 Eigen::Index mul_X_Y_panels(Eigen::Index rows);
+
+// The QR of a tall G (m x s, m >= s), in place, by row panels (TSQR): each
+// panel is factored on its own, in parallel, and the stacked R of the panels
+// once more. Eigen's HouseholderQR of a matrix of a few columns runs on one
+// thread, and took as long as an epoch of the RSVD over a million sites. The
+// panels have the same height whatever -n is, so the result does not depend
+// on the number of threads; with one panel this is the HouseholderQR of G.
+// G is overwritten by the reflectors and must outlive the object.
+class TallQR {
+ public:
+  explicit TallQR(Eigen::Ref<Mat2D> G);
+  // the s x s upper triangular R of G = QR
+  const Mat2D& matrixR() const { return R; }
+  // out = Q * W, Q the m x s orthonormal factor and W s x c
+  void applyQ(const Mat2D& W, Eigen::Ref<Mat2D> out) const;
+
+ private:
+  using PanelQR = Eigen::HouseholderQR<Eigen::Ref<Mat2D>>;
+  std::vector<std::unique_ptr<PanelQR>> panel;
+  std::vector<Eigen::Index> first;  // the first row of each panel, and m
+  Eigen::HouseholderQR<Mat2D> top;  // of the stacked R of the panels
+  Mat2D R;
+};
 
 // K += X * X' on the lower triangle of the square K (the strict upper triangle
 // is left untouched), for X of K.rows() x b. Eigen's rankUpdate runs on one

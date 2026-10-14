@@ -3,6 +3,7 @@
 
 #include "Cmd.hpp"
 #include "Common.hpp"
+#include "PackedPca.hpp"
 #include "TextIO.hpp"  // UsvTransform
 #include "Utils.hpp"
 
@@ -48,6 +49,15 @@ class Data {
     if (params.maf == 0 && n > 0) cao.warn(std::to_string(n) + " sites with MAF=0 found! remove them first!");
   }
   void standardize_E();
+  // whether the RSVD of this run works on the 2-bit calls (packed): a PCA by
+  // --svd 1 or 2 of a BED, centred, and standardized or not, with no EM and no
+  // --no-packed. In-core, read_all() keeps them; out-of-core, the blocks are
+  // read by read_block_packed().
+  bool packed_pca() const;
+  // the centring and scaling of the sites [j0, j0 + n) of packed (all from j0
+  // by default), as read_all() and standardize_E() give G, with the missing
+  // calls at the mean. Out-of-core, packed is made here, without records.
+  void set_packed_sites(bool standardize, uint64 j0 = 0, uint64 n = (uint64)-1);
   void filter_snps_resize_F();  // filter first, then update nsnps
   void save_snps_in_mbim();
   void pcangsd_standardize_E(const Mat2D& U, const Mat1D& svals, const Mat2D& VT);
@@ -102,6 +112,10 @@ class Data {
   PermMat perm;                    // permuation order of SNPs
   bool in_core_permuted = false;   // true only after G has actually been shuffled
   bool metadata_permuted = false;  // the .bim read is the permuted copy's (BED rewritten out-of-core)
+  // --svd 1 and 2 of a BED: the 2-bit calls in place of G (PackedPca.hpp), its
+  // sites in the order of G's columns. In-core read_all() makes it when
+  // packed_pca(); out-of-core set_packed_sites(), without the calls.
+  std::unique_ptr<PCAone::PackedGenotypes> packed;
   Mat2D G;                         // genotype matrix, can be initial E or centered E, which is nsamples x nsnps;
   Mat2D P;                         // normalized genotype likelihoods, (nsamples x 2) x nsnps.
   Mat1D F;                         // observed or estimated population allele frequency

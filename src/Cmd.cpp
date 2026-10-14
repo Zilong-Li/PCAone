@@ -113,6 +113,8 @@ Param::Param(int argc, char** argv) {
   opts.add<Unsigned, Attribute::advanced>("", "N", "number of samples, if known", 0, &nsamples);
   opts.add<Value<double>, Attribute::advanced>("", "scale-factor", "multiply the normalized counts of each sample by this value", 1.0, &scaleFactor);
   opts.add<Switch, Attribute::advanced>("", "no-prefetch", "out-of-core: do not read the next block during the computation", &noprefetch);
+  opts.add<Switch, Attribute::advanced>("", "no-packed", "--svd 1 and 2 of a BED: decode the genotypes to doubles,\n"
+                                                         "instead of computing on their 2-bit calls", &nopacked);
   opts.add<Switch, Attribute::advanced>("", "bed-copy", "out-of-core --svd 2 on BED: write and read a shuffled copy, <out>.perm.*;\n"
                                                         "faster for a BED larger than the memory on a spinning disk", &bedcopy);
   opts.add<Unsigned, Attribute::advanced>("", "buffer", "memory in GiB for the genotypes when shuffling to a copy", buffer, &buffer);

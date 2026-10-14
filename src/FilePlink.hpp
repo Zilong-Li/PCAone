@@ -39,6 +39,7 @@ class FileBed : public Data {
   ~FileBed() override;
 
   void read_all() final;
+  void read_all_packed();
   // Called after prepare(), before any genotype reads or frequency estimates.
   // Shuffles the SNPs for out-of-core winSVD. By default the blocks read the
   // shuffled SNPs from the input; with --bed-copy they are written to

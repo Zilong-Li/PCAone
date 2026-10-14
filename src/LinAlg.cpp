@@ -67,6 +67,47 @@ void mul_Xt_Y(const Eigen::Ref<const Mat2D>& X, const Eigen::Ref<const Mat2D>& Y
   }
 }
 
+TallQR::TallQR(Eigen::Ref<Mat2D> G) {
+  const Eigen::Index m = G.rows(), s = G.cols();
+  // panels of at least 8192 rows, and of 4 s
+  const Eigen::Index P = std::max<Eigen::Index>(1, std::min<Eigen::Index>(1024, m / std::max<Eigen::Index>(8192, 4 * s)));
+  first.resize(P + 1);
+  for (Eigen::Index p = 0; p <= P; ++p) first[p] = m * p / P;
+  panel.resize(P);
+#pragma omp parallel for schedule(dynamic, 1)
+  for (Eigen::Index p = 0; p < P; ++p) {
+    Eigen::Ref<Mat2D> rows = G.middleRows(first[p], first[p + 1] - first[p]);
+    panel[p] = std::make_unique<PanelQR>(rows);  // in place: the reflectors overwrite the rows of G
+  }
+  if (P == 1) {
+    R = panel[0]->matrixQR().topRows(s).triangularView<Eigen::Upper>();
+    return;
+  }
+  Mat2D Rs(P * s, s);
+  for (Eigen::Index p = 0; p < P; ++p)
+    Rs.middleRows(p * s, s) = panel[p]->matrixQR().topRows(s).triangularView<Eigen::Upper>();
+  top.compute(Rs);
+  R = top.matrixQR().topRows(s).triangularView<Eigen::Upper>();
+}
+
+void TallQR::applyQ(const Mat2D& W, Eigen::Ref<Mat2D> out) const {
+  const Eigen::Index P = panel.size(), s = W.rows(), c = W.cols();
+  // Q = diag(Q_p) * Q_top: the rows of Q_top * W for each panel
+  Mat2D Z;
+  if (P > 1) {
+    Mat2D Wp = Mat2D::Zero(P * s, c);
+    Wp.topRows(s) = W;
+    Z.noalias() = top.householderQ() * Wp;
+  }
+#pragma omp parallel for schedule(dynamic, 1)
+  for (Eigen::Index p = 0; p < P; ++p) {
+    const Eigen::Index h = first[p + 1] - first[p];
+    Mat2D Wp = Mat2D::Zero(h, c);
+    Wp.topRows(s) = P > 1 ? Mat2D(Z.middleRows(p * s, s)) : W;
+    out.middleRows(first[p], h).noalias() = panel[p]->householderQ() * Wp;
+  }
+}
+
 void syrk_lower_add(Eigen::Ref<Mat2D> K, const Eigen::Ref<const Mat2D>& X) {
   const Eigen::Index n = K.rows(), m = X.cols();
   if (n == 0 || m == 0) return;

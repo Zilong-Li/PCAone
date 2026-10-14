@@ -139,7 +139,7 @@ endif
 
 OBJ = src/Arnoldi.o src/Halko.o src/Data.o src/Utils.o src/LinAlg.o src/Stats.o src/TextIO.o src/Variants.o src/Cmd.o \
 		src/FileBeagle.o src/FileCsv.o src/FileBgen.o src/BgenBlock.o src/FilePlink.o src/FilePgen.o src/PgenBlock.o \
-		src/FileBinary.o src/FileUSV.o src/LD.o src/Projection.o src/PackedScore.o \
+		src/FileBinary.o src/FileUSV.o src/LD.o src/Projection.o src/PackedScore.o src/PackedPca.o \
 		src/InbredSites.o src/InbredSamples.o src/Selection.o src/EvalAdmix.o src/Exact.o \
 		src/kfunc.o
 
@@ -374,8 +374,8 @@ test_aarch64: test_cmd_guards test_bed_permutation test_prefetch data example_te
 test_full: test_cmd_guards test_bed_permutation test_prefetch data example_tests projection hwe ld_matrix ld_r2 ld_prune ld_clump ld_tests
 	@echo "SUCCESS: Full test suite completed."
 
-.PHONY: test_prefetch test_mul_x_y test_pgen_block test_textio
-test_prefetch: ${program} test_mul_x_y test_pgen_block test_textio
+.PHONY: test_prefetch test_mul_x_y test_pgen_block test_textio test_packed_pca
+test_prefetch: ${program} test_mul_x_y test_pgen_block test_textio test_packed_pca
 	$(CXX) -std=c++17 -Wall -Wextra -pthread tests/test_prefetch.cpp -o tests/test_prefetch
 	./tests/test_prefetch
 	python3 tests/test_prefetch.py
@@ -388,6 +388,11 @@ test_textio: zstdlib bgenlib pgenlib $(PCALIB) tests/test_textio.o
 
 # the row-panel product of the RSVD, H = X * G and H += X * G
 test_mul_x_y: zstdlib bgenlib pgenlib $(PCALIB) tests/test_mul_x_y.o
+	$(CXX) $(CXXFLAGS) -o tests/$@ tests/$@.o $(PCALIB) $(LPATHS) $(LIBS) $(LDFLAGS)
+	./tests/$@
+
+# the products of the in-core RSVD on the 2-bit calls of a BED
+test_packed_pca: zstdlib bgenlib pgenlib $(PCALIB) tests/test_packed_pca.o
 	$(CXX) $(CXXFLAGS) -o tests/$@ tests/$@.o $(PCALIB) $(LPATHS) $(LIBS) $(LDFLAGS)
 	./tests/$@
 

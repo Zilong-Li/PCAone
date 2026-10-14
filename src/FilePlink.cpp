@@ -6,9 +6,12 @@
 
 #include "FilePlink.hpp"
 
+#include <fcntl.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include <climits>
+#include <cstring>
 #include <fstream>
 #include <limits>
 
@@ -65,6 +68,10 @@ const uchar* FileBed::read_records(uint64 start_idx, uint64 count) {
 }
 
 void FileBed::read_all() {
+  if (packed_pca()) {
+    read_all_packed();
+    return;
+  }
   check_file_offset_first_var();
   // Begin to decode the plink bed
   inbed.resize(bed_bytes_per_snp * nsnps);
@@ -158,6 +165,128 @@ void FileBed::read_all() {
   // read bed to matrix G done and close bed_ifstream
   inbed.clear();
   inbed.shrink_to_fit();
+}
+
+namespace {
+// the sum of the genotypes of the 4 samples of a byte, in halves (2, 1, 0),
+// and their number of calls
+struct ByteCalls {
+  uint32_t sum2[256], cnt[256];
+  ByteCalls() {
+    for (int x = 0; x < 256; ++x) {
+      sum2[x] = cnt[x] = 0;
+      for (int q = 0; q < 4; ++q) {
+        const int code = (x >> (2 * q)) & 3;
+        if (code != 1) ++cnt[x], sum2[x] += (uint32_t)(2 * BED2GENO[code]);
+      }
+    }
+  }
+};
+const ByteCalls BYTE_CALLS;
+}  // namespace
+
+// the allele frequency of a BED record, as read_all() and read_block_initial()
+// estimate it: the mean of BED2GENO over the called genotypes, 0 if none
+static double bed_frequency(const uchar* r, uint64 nsamples) {
+  const uint64 full = nsamples / 4, rem = nsamples % 4;
+  uint64 s = 0, c = 0;
+  for (uint64 b = 0; b < full; ++b) s += BYTE_CALLS.sum2[r[b]], c += BYTE_CALLS.cnt[r[b]];
+  for (uint64 q = 0; q < rem; ++q) {
+    const int code = (r[full] >> (2 * q)) & 3;
+    if (code != 1) ++c, s += (uint64)(2 * BED2GENO[code]);
+  }
+  return c == 0 ? 0.0 : s / (2.0 * c);
+}
+
+// The RSVD of the 2-bit calls (Data::packed_pca()): F, the --maf filter, and
+// the records kept as they are, G is not formed. The BED is read in chunks on
+// every thread, and each record kept is copied to its place in the order of
+// the winSVD's shuffle, drawn here as permute_matrix() draws it, so that the
+// records are held once. With --maf a first pass finds F, and so the sites kept.
+void FileBed::read_all_packed() {
+  const uint64 B = bed_bytes_per_snp;
+  const uint64 nrec = nsnps;  // the records of the BED
+  auto frequency = [&](const uchar* r) { return bed_frequency(r, nsamples); };
+  // f(i, record) for every record i of the BED, on every thread
+  auto for_each_record = [&](auto&& f) {
+    const int fd = ::open(bed_path.c_str(), O_RDONLY);
+    if (fd < 0) cao.error("cannot open " + bed_path);
+    const uint64 per = std::max<uint64>(1, (uint64(16) << 20) / B), nchunks = (nrec + per - 1) / per;
+    bool ok = true;
+#pragma omp parallel reduction(&& : ok)
+    {
+      std::vector<uchar> buf(per * B);
+#pragma omp for schedule(dynamic, 1)
+      for (uint64 c = 0; c < nchunks; ++c) {
+        const uint64 i0 = c * per, n = std::min(per, nrec - i0), bytes = n * B;
+        bool got_all = true;
+        for (uint64 off = 0; off < bytes;) {
+          const ssize_t got = ::pread(fd, buf.data() + off, bytes - off, (off_t)(3 + i0 * B + off));
+          if (got <= 0) {
+            got_all = false;
+            break;
+          }
+          off += got;
+        }
+        if (!got_all) {
+          ok = false;
+          continue;
+        }
+        for (uint64 i = 0; i < n; ++i) f(i0 + i, buf.data() + i * B);
+      }
+    }
+    ::close(fd);
+    if (!ok) cao.error("cannot read " + bed_path);
+  };
+
+  const bool estimate = !frequency_was_estimated;
+  const bool filter = estimate ? params.filterSNP : !keepSNPs.empty();
+  if (estimate && filter) {  // the first pass: F, then the sites kept
+    uint64 nmono = 0;
+    for_each_record([&](uint64 i, const uchar* r) {
+      F(i) = frequency(r);
+      if (F(i) == 0.0 || F(i) == 1.0) {
+#pragma omp atomic
+        ++nmono;
+      }
+    });
+    warn_monomorphic(nmono);
+    filter_snps_resize_F();
+  }
+  if (!keepSNPs.empty()) nsnps = keepSNPs.size();
+  const bool shuffle = params.perm && params.svd_t == SvdType::PCAoneAlg2;
+  if (shuffle) {
+    cao.print(tick.date(), "permuting data matrix by columns in place");
+    perm = PermMat(nsnps);
+    perm.setIdentity();
+    PortableRng rng(params.seed);
+    portable_shuffle(perm.indices().data(), perm.indices().data() + nsnps, rng);
+    in_core_permuted = true;
+  }
+  // the place of each record of the BED, -1 if it is not kept
+  std::vector<int64_t> dest(nrec, -1);
+  for (uint64 j = 0; j < nsnps; ++j) {
+    uint64 s = shuffle ? (uint64)perm.indices()[j] : j;
+    if (!keepSNPs.empty()) s = keepSNPs[s];
+    dest[s] = (int64_t)j;
+  }
+  auto rec = PCAone::PackedGenotypes::allocate(nsamples, nsnps);
+  uint64 nmono = 0;
+  const bool estimate_now = estimate && !filter;
+  for_each_record([&](uint64 i, const uchar* r) {
+    if (estimate_now) {
+      F(i) = frequency(r);
+      if (F(i) == 0.0 || F(i) == 1.0) {
+#pragma omp atomic
+        ++nmono;
+      }
+    }
+    if (dest[i] >= 0) std::memcpy(rec.get() + (uint64)dest[i] * B, r, B);
+  });
+  if (estimate_now) warn_monomorphic(nmono);
+  packed = std::make_unique<PCAone::PackedGenotypes>(std::move(rec), nsamples, nsnps, BED2GENO, 1);
+  cao.print(tick.date(), "keep the genotypes as 2-bit calls:", (double)B * nsnps / 1073741824.0, "GB",
+            shuffle ? "(shuffled)" : "");
 }
 
 void FileBed::use_reference_af() {
@@ -279,7 +408,24 @@ void FileBed::read_block_initial(uint64 start_idx, uint64 stop_idx, bool standar
 
 const uint8_t* FileBed::read_block_packed(uint64 start_idx, uint64 stop_idx) {
   if (!params.dopca && !frequency_was_estimated) use_reference_af();  // read AF from external
-  return read_records(start_idx, stop_idx - start_idx + 1);
+  const uint64 n = stop_idx - start_idx + 1;
+  const uint8_t* bed = read_records(start_idx, n);
+  if (params.dopca && !frequency_was_estimated) {
+    // the out-of-core RSVD of the 2-bit calls: F as read_block_initial() estimates it
+    if (start_idx == 0) nmono_seen = 0;
+    uint64 nmono = 0;
+#pragma omp parallel for reduction(+ : nmono)
+    for (uint64 i = 0; i < n; ++i) {
+      F(start_idx + i) = bed_frequency(bed + i * bed_bytes_per_snp, nsamples);
+      if (F(start_idx + i) == 0.0 || F(start_idx + i) == 1.0) ++nmono;
+    }
+    nmono_seen += nmono;
+    if (stop_idx + 1 == nsnps) {
+      frequency_was_estimated = true;
+      warn_monomorphic(nmono_seen);
+    }
+  }
+  return bed;
 }
 
 void FileBed::read_block_update(
