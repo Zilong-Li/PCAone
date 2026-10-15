@@ -38,7 +38,15 @@ so that sum no longer covers all the variance.
 
 ## Release history
 
-### Unreleased
+### v0.9.0
+
+**Breaking changes**
+
+- The `--project-bootstrap` files (`.proj.bootstrap.tsv`, `.proj.bootstrap.cov.tsv` and
+  `.proj.bootstrap.eigvecs`) have `FID` and `IID` columns after `sample`, so a script that reads
+  their columns by position needs updating. The `.eigvecs` of `--project` is unchanged.
+- `--project 3` stops with an error when given `-m`. It ignored `-m` before, and still runs
+  in-core.
 
 **New**
 
@@ -47,25 +55,38 @@ so that sum no longer covers all the variance.
   projected in one run within `-m`, without splitting it into batches of samples. The scores and
   the `--project-bootstrap` files are those of the in-core run up to rounding. On 60,000 samples
   and 20,000 simulated variants, which need 10 GB in-core, `--project 2 -m 2` took 8 s on 2
-  threads and 2 GB. See
+  threads and 2 GB. Without `-m`, they stream within 2 GB; `-m 0` runs in-core. See
   [Projection at biobank scale](biobank/projection.md#memory-stream-the-target-in-blocks).
-  `--project` ignored `-m` before; `--project 3` still runs in-core, and now stops with an
-  error when given `-m`.
 - `--project` also writes `.eigvecs2`: the scores with a `#FID IID PC1 ...` header and the FID
-  and IID of each sample, as a PCA run writes them. The bootstrap files (`.proj.bootstrap.tsv`,
-  `.cov.tsv`, `.eigvecs`) have `FID` and `IID` columns after `sample`, so a script that reads
-  their columns by position needs updating; the `.eigvecs` is unchanged.
+  and IID of each sample, as a PCA run writes them.
+- `--no-packed` (advanced) decodes the genotypes of a BED for `--svd 1` and `2`, as before
+  v0.9.0, e.g. to compare.
 
 **Faster**
 
+- winSVD (`--svd 2`, the default) and sSVD (`--svd 1`) of a PLINK BED compute on its 2-bit
+  calls, in-core and with `-m`, without decoding them to numbers. In-core the calls take 2 bits
+  a genotype instead of 8 bytes, and both products of each pass add tabulated sums of 4 calls at
+  a time, as `--project` does. On `example/plink` the `.eigvecs` and `.eigvals` are those of
+  v0.8.0 byte for byte, in-core and with `-m`, and they do not depend on `-n`. On 1000 Genomes
+  (3,202 samples, 6.84M variants), in-core took 347 s and 177 GB and now takes 24 s and 8.2 GB;
+  with `-m 16`, 244 s and now 119 s. On `example/plink` (400 x 656,281, 2 threads), 9.6 s and
+  2.3 GB, now 3.6 s and 0.35 GB. EM-PCA (`--emu`, `--pcangsd`), `--scale 1` to `4`, IRAM and the
+  exact PCA decode the genotypes as before. See
+  [Out-of-core PCA](biobank/pca.md#speed-the-2-bit-calls-of-a-bed).
+- The QR of each pass of `--svd 1` and `2` runs over panels of rows on all threads, for every
+  input. It ran on one thread and took as long as a pass over a million variants. The panels
+  have the same height whatever `-n` is, so the PCs do not depend on it.
+- The `.mbim` of a BED is written from the `.bim` read at once, on all threads; reading it a line
+  at a time took as long as a pass of winSVD.
 - `--project 1` and `2` on PLINK or PGEN hard calls work on the 2-bit calls, without decoding
   them: the sites are taken 4 at a time and the 256 sums of their loadings for the codes they
-  can have are tabulated, so each sample adds one row per 4 sites. They also stream the target
-  by default, within 2 GB unless `-m` is given (`-m 0` runs in-core). The scores are those of
-  before. On 200,000 samples, 98,000 variants and 20 PCs, `--project 1` took 12 s and now
-  takes 2.8 s, `--project 2` 16 s and now 4.0 s (11 threads, Apple M3 Pro), against 11 s for
-  plink2 `--score`; on a shared Xeon E5-2699 v4 (16 threads), 37 s and 42 s, now 3 to 4.4 s and 5 to 6.7 s,
-  against 44 to 72 s for plink2. See
+  can have are tabulated, so each sample adds one row per 4 sites. The scores are those of the
+  decoded calls. On 200,000 samples, 98,000 variants and 20 PCs, `--project 1` takes 2.8 s and
+  `--project 2` 4.0 s (11 threads, Apple M3 Pro), against 12 s and 16 s decoding the calls block
+  by block and 11 s for plink2 `--score`; on a shared Xeon E5-2699 v4 (16 threads), 3 to 4.4 s
+  and 5 to 6.7 s, against 37 s and 42 s decoding and 44 to 72 s for plink2. v0.8.0 needed
+  9 bytes per genotype in-core, 176 GB for this target. See
   [Projection at biobank scale](biobank/projection.md#speed-the-2-bit-calls).
   `--project-bootstrap` and PGEN dosages still decode the blocks.
 - Every large text output is formatted on all threads (`-n`) and written while the next block
@@ -88,6 +109,9 @@ so that sum no longer covers all the variance.
   sample needs, so e.g. 2 called sites drawn twice each passed with 4 PCs, and the replicate was
   solved from a singular system with arbitrary scores. Such a replicate is now NA. Only samples
   with very few called sites are affected.
+
+The full notes, with measurements, are in
+[`dev/changes-v0.9.0.md`](https://github.com/Zilong-Li/PCAone/blob/main/dev/changes-v0.9.0.md).
 
 ### v0.8.0
 

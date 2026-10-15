@@ -1,4 +1,4 @@
-# Principal Component Analysis All in One (v0.8.0)
+# Principal Component Analysis All in One (v0.9.0)
 
 <a href="https://github.com/Zilong-Li/PCAone/actions/workflows/linux.yml"><img src="https://github.com/Zilong-Li/PCAone/actions/workflows/linux.yml/badge.svg" alt="Linux build"></a>
 <a href="https://github.com/Zilong-Li/PCAone/actions/workflows/mac.yml"><img src="https://github.com/Zilong-Li/PCAone/actions/workflows/mac.yml/badge.svg" alt="macOS build"></a>

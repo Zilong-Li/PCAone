@@ -31,7 +31,10 @@ IRAM (`--svd 0`), sSVD (`--svd 1`) and winSVD (`--svd 2`) each run in-core or
 out-of-core, and the exact PCA (`--svd 3`) streams the data into the GRM, so
 there are 7 ways to compute the PCs.
 
-In-core is the default and the fastest, as long as the data fit in memory. You
+In-core is the default and the fastest, as long as the data fit in memory. A
+PLINK BED takes only 2 bits a genotype in-core with winSVD and sSVD, which
+compute on its 2-bit calls; see
+[Out-of-core PCA](../biobank/pca.md#speed-the-2-bit-calls-of-a-bed). You
 can gain some speed in-core by limiting `-n` to half of the available threads.
 If the data do not fit, give `-m/--memory` a value in GB greater than 0 to read
 them block by block. `-m 1` or `-m 2` is usually enough for large datasets;

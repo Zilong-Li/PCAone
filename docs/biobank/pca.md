@@ -18,10 +18,17 @@ PCAone -g cohort.bgen -k 20 -m 16 -o pcs
 passes (epochs) over the data. IRAM (`--svd 0`) and sSVD (`--svd 1`) also run
 out-of-core; see [Choosing a PCA method](../guide/pca.md).
 
+A BED may well fit in memory, though: winSVD holds its genotypes as the 2-bit
+calls, `N x M / 4` bytes, 25 GB for 100,000 samples and 1M variants. If they fit,
+leave out `-m`: in-core is faster. See
+[Speed: the 2-bit calls of a BED](#speed-the-2-bit-calls-of-a-bed).
+
 What to know:
 
 - **Threads.** `-n` sets the threads. Build PCAone with MKL or OpenBLAS (see
-  [Install](../installation.md)) for the fastest products on many cores.
+  [Install](../installation.md)) for the fastest products on many cores, for
+  PGEN, BGEN and EM-PCA. The PCA of a BED computes on its 2-bit calls with its
+  own code, so the build matters less there.
 - **Variant filters.** `--maf` is not available out-of-core. Filter rare
   variants, and LD-prune if you like, beforehand, e.g. with
   `plink2 --maf 0.01 --make-bed`, or with
@@ -37,6 +44,35 @@ What to know:
   counts as missing. `--emu` with BGEN runs in-core only.
 - **Reproducibility.** The shuffle and every other random draw follow
   `--seed`, on every platform and thread count.
+
+## Speed: the 2-bit calls of a BED
+
+winSVD (`--svd 2`) and sSVD (`--svd 1`) compute on the 2-bit calls of a PLINK
+BED, in-core and with `-m`, without decoding them to numbers. In-core the calls
+take 2 bits a genotype instead of the 8 bytes of a decoded one: `N x M / 4`
+bytes, 5.5 GB for the 1000 Genomes data below. The log says so:
+
+```text
+initialize window-based RSVD (winSVD) with in-core on the 2-bit calls
+```
+
+| | decoded, before v0.9.0 | 2-bit calls, v0.9.0 |
+|---|---|---|
+| 1000 Genomes, 3,202 x 6.84M variants, in-core | 347 s, 177 GB | 24 s, 8.2 GB |
+| the same with `-m 16` | 244 s | 119 s |
+| `example/plink`, 400 x 656,281, in-core, `-n 2` | 9.6 s, 2.3 GB | 3.6 s, 0.35 GB |
+
+The PCs are those of the decoded genotypes: on `example/plink` the `.eigvecs`
+and `.eigvals` are byte-identical to those of v0.8.0, in-core and with `-m`, and
+a handful of the 6.6M `.loadings` differ in the last digit. They do not depend
+on `-n`.
+
+This applies to the PCA of a BED with the default scaling or `--scale 0`,
+`--maf` included. The genotypes are decoded as before for EM-PCA (`--emu`,
+`--pcangsd`), `--scale 1` to `4`, IRAM (`--svd 0`), the exact PCA (`--svd 3`),
+PGEN and BGEN input, and the analyses that read a previous PCA with
+`-P/--USV`; [projection](projection.md#speed-the-2-bit-calls) has a 2-bit path
+of its own. `--no-packed` decodes them too, e.g. to compare.
 
 ## The shuffle and the disk
 
@@ -114,6 +150,32 @@ the same; `--no-prefetch` reads in the foreground. BED 10,000 x 200,000, `-S
 -n 2`, on an emulated 200 / 100 MB/s disk: 53.8 / 67.6 s, against 89.6 / 122.6 s
 with `--no-prefetch`.
 
+### Products on the 2-bit calls
+
+Each pass of the RSVD takes two products with the centred and scaled genotype
+matrix `X` (samples x variants): `G = X' Ω`, with `Ω` the test matrix or the
+previous estimate, and `H = X G`. An entry of `X` is `b_j (g - f_j)` for a call
+`g` at variant `j`, `f_j` its allele frequency and `b_j` its scaling, and 0 for
+a missing call (the mean). PCAone forms neither `X` nor its blocks:
+
+- **`X G`.** The variants are taken 4 at a time. The 4 calls of a sample at 4
+  variants are one of 256 combinations; the sum of the 4 rows of `G` for each,
+  with the value of each call at each variant, is tabulated once for all the
+  samples, and each sample adds one row of the table per 4 variants. This is
+  the product of [projection](projection.md#speed-the-2-bit-calls).
+- **`X' Ω`.** The samples are taken 4 at a time, one byte of the calls at a
+  variant. The 256 sums of their 4 rows of `Ω` are tabulated once for all the
+  variants, and each variant adds one row of the table per 4 samples. The
+  centring, `-b_j f_j` times the column sums of `Ω`, and the missing calls of
+  each variant, found 32 samples at a time from the 2-bit codes, are added
+  afterwards.
+
+The products are split into about 64 tasks whatever `-n` is, and their partial
+sums added in the same order, so the PCs do not depend on the threads. In-core,
+the BED is read on all threads, each record straight to its place in the
+shuffled order, and the blocks of a band, which share the test matrix, are
+multiplied in one call.
+
 ### Decoding
 
 - **PGEN.** Each thread reads a run of nearby records of the block, in file
@@ -132,7 +194,15 @@ with `--no-prefetch`.
 
 ### Threading the products
 
-The product of each block with the test matrix is threaded over panels of rows
-of the block, on all of `-n`. With 192 samples or more, the PCs are those of
-one thread whatever `-n` is. BED 10,000 x 200,000, `-n 2`, in the page cache:
-52-54 s. Builds with MKL, OpenBLAS or Accelerate use the BLAS product instead.
+The product of each decoded block with the test matrix is threaded over panels
+of rows of the block, on all of `-n`. With 192 samples or more, the PCs are
+those of one thread whatever `-n` is. BED 10,000 x 200,000, decoded, `-n 2`, in
+the page cache: 52-54 s. Builds with MKL, OpenBLAS or Accelerate use the BLAS
+product instead.
+
+The QRs of each pass, of matrices with `M` or `N` rows and `k + oversamples`
+columns, are taken over panels of at least 8,192 rows, each factored on a
+thread of its own, and then the stacked `R` of the panels once more (TSQR).
+Eigen's QR of a matrix of a few columns runs on one thread, and took as long as
+a pass over a million variants. The panels have the same height whatever `-n`
+is, so the result does not depend on it.

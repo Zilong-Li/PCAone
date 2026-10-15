@@ -69,19 +69,22 @@ missing calls of a sample are found from the 2-bit codes, 32 samples at a time,
 and only they change its least squares.
 
 On 200,000 simulated samples, 98,000 variants with 1% missing calls and 20 PCs
-(a 4.6 GB BED, read from the page cache), the scores identical to before:
+(a 4.6 GB BED, read from the page cache), with the same scores whether the calls
+are decoded or not:
 
 | | Apple M3 Pro, 11 threads | Xeon E5-2699 v4, 16 threads (a shared server) |
 |---|---|---|
 | plink2 `--score` (`variance-standardize`) | 11 s | 44 to 72 s |
-| PCAone v0.8.1 `--project 1 -m 4` | 12 s | 37 s |
-| PCAone v0.8.1 `--project 2 -m 4` | 16 s | 42 s |
-| `--project 1` now | 2.8 s, 0.5 GB | 3 to 4.4 s, 0.4 GB |
-| `--project 2` now | 4.0 s, 1.9 GB | 5 to 6.7 s, 1.8 GB |
+| PCAone `--project 1 -m 4`, decoding the calls | 12 s | 37 s |
+| PCAone `--project 2 -m 4`, decoding the calls | 16 s | 42 s |
+| PCAone v0.9.0 `--project 1` | 2.8 s, 0.5 GB | 3 to 4.4 s, 0.4 GB |
+| PCAone v0.9.0 `--project 2` | 4.0 s, 1.9 GB | 5 to 6.7 s, 1.8 GB |
 
 The times on the server, shared with other jobs, are the range of several
-runs. PGEN input takes about as long. `--project-bootstrap` and the dosages of
-a PGEN decode the blocks as before.
+runs. The rows that decode the calls stream the target without the 2-bit
+path, as `--project-bootstrap` and the dosages of a PGEN still do; v0.8.0
+projected in-core only, which needs 176 GB here. PGEN hard calls take about as
+long as the BED.
 [scripts/benchmark/projection_vs_plink2.sh](https://github.com/Zilong-Li/PCAone/blob/main/scripts/benchmark/projection_vs_plink2.sh)
 reproduces it.
 
