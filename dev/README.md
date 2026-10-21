@@ -9,3 +9,4 @@ whose sources are in [`docs/`](../docs).
 - [LD robustness fixes](ld-robustness-fixes.md): NaN R2 and a segfault on a missing `.mbim`.
 - [`read_usv()` fix](read-usv-fix.md): multi-column `.eigvecs` were transposed.
 - [v0.8.0 change notes](changes-v0.8.0.md): the full notes behind the v0.8.0 change log entry.
+- [v0.9.0 change notes](changes-v0.9.0.md): the full notes behind the v0.9.0 change log entry.
