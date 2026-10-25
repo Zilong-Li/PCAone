@@ -109,6 +109,10 @@ Param::Param(int argc, char** argv) {
   opts.add<Switch>("", "emu", "EM-PCA of EMU, for genotypes with missing calls", &emu);
   opts.add<Switch, Attribute::advanced>("", "winem", "--emu or --pcangsd with --svd 2: fit the EM within the window updates\n"
                                                      "of winSVD, with no RSVD per EM iteration (winEM)", &winem);
+  opts.add<Value<double>, Attribute::advanced>("", "winem-relax",
+                                               "--winem: cap of the per-sample over-relaxation of the EM basis in the\n"
+                                               "full-band passes, 1/(1 - missing fraction) at most this; 1 turns it off",
+                                               winem_relax, &winem_relax);
   opts.add<Switch>("", "pcangsd", "EM-PCA of PCAngsd, for genotype likelihoods; implied by -G", &pcangsd);
   auto em_k_opt = opts.add<Unsigned>("", "em-k", "number of PCs that model the allele frequencies in --emu and --pcangsd\n");
   opts.add<Unsigned, Attribute::advanced>("", "M", "number of features (e.g. SNPs), if known", 0, &nsnps);
@@ -468,6 +472,7 @@ Param::Param(int argc, char** argv) {
       // winEM tests the em_k PCs of the samples between passes, which move less
       // per pass than the SNP loadings the EM iterations of --emu test
       if (!tolem_opt->is_set()) tolem = 1e-7;
+      require(winem_relax >= 1, "--winem-relax must be at least 1");
     }
     if (emu || pcangsd) {
       missme = true;

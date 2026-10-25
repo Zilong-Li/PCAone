@@ -123,6 +123,23 @@ class Data {
   const Param& params;
   double readtime = 0;
   double esteptime = 0;  // seconds in estep_reg(), winEM's E-step
+  uint64 estep_unconverged = 0;  // sites whose fixed point estep_reg() did not reach
+  // winEM's over-relaxation: the missing information of each sample, as a
+  // fraction of its sites. EMU: the missing calls, counted by estep_reg() in
+  // the first pass (in-core from C, out-of-core from the NaN). PCAngsd: the
+  // sum over sites of Var(g | GL, pi) / (2 pi (1 - pi)) of the last pass,
+  // accumulated by estep_pcangsd() and read by rbar_pass().
+  Mat1D miss_count, rbar_sum;
+  bool miss_counted = false;
+  // the change of the expectations over the pass, sum of (e_new - e_old)^2,
+  // and their size, sum of e_new^2: PCAngsd's E-step lags behind the basis,
+  // so winEM also tests their relative change per pass before it stops
+  double de_sum = 0, e_sum = 0;
+  void reset_pass_sums() {
+    rbar_sum.setZero();
+    de_sum = e_sum = 0;
+  }
+  Mat1D rbar_pass() const { return rbar_sum / (double)nsnps; }
   bool snpmajor = true;
   bool nsamples_ge_nsnps = false;  // if nsamples greater than or equal to nsnps
   uint blocksize = 0, nsamples = 0, nsnps = 0;

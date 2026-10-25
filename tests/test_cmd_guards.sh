@@ -60,6 +60,7 @@ bad "--em-k must be at least 1" -b x --emu --em-k 0
 bad "--ncv must be greater than --em-k" -b x --emu -k 2 --em-k 10 --ncv 8
 bad "--winem requires --emu" -b x --winem
 bad "--winem requires --svd 2" -b x --emu --winem -d 1
+bad "--winem-relax must be at least 1" -b x --emu --winem --winem-relax 0
 bad "--winem with -m (out-of-core) supports only --emu with --bfile" -p x --emu --winem -m 1
 bad "--winem with -m (out-of-core) supports only --emu with --bfile" -b x --pcangsd --winem -m 1
 bad "--ncv must be greater than -k/--pc" -b x --emu -k 10 --em-k 2 --ncv 8

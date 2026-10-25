@@ -98,6 +98,9 @@ class Param {
   // --winem: EMU's EM fused into the window updates of winSVD (Halko.cpp,
   // RsvdOpData::runWinEM): a regression E-step on each block as it is read
   bool winem = false;
+  // --winem-relax: omega_max of winEM's per-sample over-relaxation (Halko.cpp,
+  // RsvdOpData::update_em_basis); 1 turns it off
+  double winem_relax = 8;
   bool pcangsd = false;  // enable pcangsd procedure
   // bool fancyem = false;  // true if emu/pcangsd + svd 2
   bool mev = true;

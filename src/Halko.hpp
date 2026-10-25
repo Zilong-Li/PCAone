@@ -50,6 +50,16 @@ class RsvdOpData {
   Mat2D Uem;  // nsamples x em_k, orthonormal; empty before the first update
 
   void initOmg();
+  // winEM, full-band passes: damped per-sample over-relaxation of the EM
+  // basis after the M-step of a pass. Row i of Uem moves 1 - r_i of the way
+  // per M-step, r_i the sample's missing information, so it is extrapolated:
+  // u_i <- u_i,prev + w_i (u_i,new - u_i,prev), w_i = min(1/(1 - r_i), omega_max),
+  // after a Procrustes rotation of the new basis onto the previous one; Omg
+  // then restarts from the extrapolated basis. The fixed point is unchanged.
+  double omega_max = 1;    // --winem-relax; 1: off
+  bool relax_pass = false; // a full-band pass of winEM
+  bool relax_now = false;  // this M-step ends the pass
+  Mat2D Urel_prev;
   void warmOmg();  // EM updates: start from the previous U instead of at random
 
  protected:

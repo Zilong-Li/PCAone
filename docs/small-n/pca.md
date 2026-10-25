@@ -75,6 +75,12 @@ regression on each SNP's observed calls, which needs no imputations from the
 previous pass. For PCAngsd, each SNP's expected genotypes take a few steps
 towards their fixed point under the newest PCs, where PCAngsd's EM takes one. winEM stops when the `--em-k` PCs of two passes agree to
 `--tol-em` (default `1e-7` with `--winem`); `--maxiter` caps the passes.
+Once the band is full, each pass is one EM step, and a sample typed at a
+fraction 1 - r of the sites moves only that fraction of the way per step. winEM
+therefore over-relaxes the PCs of each sample by min(1/(1 - r), `--winem-relax`)
+(default 8) after each pass, which leaves the fixed point unchanged; `--winem-relax 1`
+turns it off. On 20% of samples missing 90% of their calls it cuts the passes
+by about 3 times.
 
 ```shell
 ./PCAone --bfile example/plink --emu --winem -k 3

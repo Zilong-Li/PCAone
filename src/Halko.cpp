@@ -124,6 +124,24 @@ void RsvdOpData::update_em_basis(const TallQR& qr) {
   Eigen::JacobiSVD<Mat2D> svd(qr.matrixR(), Eigen::ComputeThinU);
   Uem.resize(cols(), ranks());
   qr.applyQ(svd.matrixU().leftCols(ranks()), Uem);
+  if (omega_max <= 1.0 || !relax_pass || !relax_now) return;
+  if (Urel_prev.cols() != Uem.cols()) {  // the first full-band pass: nothing to extrapolate from
+    Urel_prev = Uem;
+    return;
+  }
+  Mat1D r = data->params.pcangsd ? data->rbar_pass() : (data->miss_count / (double)data->nsnps).eval();
+  if (r.size() != Uem.rows()) return;  // no missing call seen: nothing to relax
+  const Mat1D w = (1.0 / (1.0 - r.array().min(1.0 - 1e-6))).min(omega_max).matrix();
+  Eigen::JacobiSVD<Mat2D> ps(Uem.transpose() * Urel_prev, Eigen::ComputeFullU | Eigen::ComputeFullV);
+  const Mat2D Ua = Uem * (ps.matrixU() * ps.matrixV().transpose());
+  const Mat2D Ur = Urel_prev + w.asDiagonal() * (Ua - Urel_prev);
+  Eigen::HouseholderQR<Mat2D> q(Ur);
+  Uem = q.householderQ() * Mat2D::Identity(Ur.rows(), Ur.cols());
+  Urel_prev = Uem;
+  Omg.leftCols(Uem.cols()) = Uem;
+  Eigen::HouseholderQR<Mat2D> q2(Omg);
+  Omg = q2.householderQ() * Mat2D::Identity(Omg.rows(), Omg.cols());
+  Omg2 = Omg;
 }
 
 void RsvdOpData::estep_block(uint64 start_idx, Eigen::Ref<Mat2D> Z) {
@@ -141,24 +159,50 @@ void RsvdOpData::runWinEM(uint maxpass, double tol) {
   setFlags(false, false);
   pi_offset = 0;
   Uem.resize(0, 0);
+  omega_max = data->params.winem_relax;
+  Urel_prev.resize(0, 0);
+  data->miss_counted = false;
+  data->rbar_sum.resize(0);
+  const bool pcangsd = data->params.pcangsd;
   // the doubling phase of the band, then two passes of the full band
   const uint minpass = (uint)std::ceil(std::log2((double)data->params.bands)) + 3;
   Mat2D G(rows(), size()), H(cols(), size()), Upre;
-  double diff = 1.0;
+  double diff = 1.0, diff_prev = 1.0;
   uint pi = 0;
+  // PCAngsd: the expectations take a few fixed-point steps a pass towards
+  // their own fixed point under the basis, so they can still move while the
+  // basis is still. Their relative change over a pass, squared to be on the
+  // scale of 1 - mev, must also be below tol.
+  double diff_e = pcangsd ? 1.0 : 0.0;
   for (; pi < maxpass; ++pi) {
+    data->reset_pass_sums();
     computeGandH(G, H, pi);
+    data->miss_counted = true;  // every block has been read once
     if (pi > 0) diff = 1.0 - mev(Uem, Upre);
-    char d[32];  // the log may be in std::fixed by now, which shows 1e-7 as 0.000000
+    if (pcangsd) diff_e = data->e_sum > 0 ? data->de_sum / data->e_sum : 0.0;
+    char d[32], de[32];  // the log may be in std::fixed by now, which shows 1e-7 as 0.000000
     snprintf(d, sizeof d, "%.3g", diff);
-    cao.print(tick.date(), "winEM pass =", pi + 1, ", diff =", d);
-    if (pi + 1 >= minpass && diff < tol) break;
+    snprintf(de, sizeof de, "%.3g", diff_e);
+    if (pcangsd)
+      cao.print(tick.date(), "winEM pass =", pi + 1, ", diff =", d, ", diff of the expectations =", de);
+    else
+      cao.print(tick.date(), "winEM pass =", pi + 1, ", diff =", d);
+    if (pi + 1 >= minpass && diff < tol && diff_e < tol) break;
+    // safeguard: an extrapolation that overshot shows as a rising diff
+    if (relax_pass && omega_max > 1.0 && pi + 1 > minpass - 1 && diff > diff_prev) {
+      omega_max = std::max(1.0, omega_max / 2);
+      cao.print(tick.date(), "winEM: the diff rose, over-relaxation capped at", omega_max);
+    }
+    diff_prev = diff;
     Upre = Uem;
   }
+  if (data->estep_unconverged > 0)
+    cao.warn("the E-step did not reach its fixed point at " + std::to_string(data->estep_unconverged) +
+             " sites (summed over passes); their imputations are approximate");
   if (pi < maxpass)
     cao.print(tick.date(), "winEM came to convergence after", pi + 1, "passes; E-step", data->esteptime, "seconds");
   else
-    warn_em_not_converged(data->params, diff);
+    warn_em_not_converged(data->params, std::max(diff, diff_e));
   U = Uem;
   winem = 2;
 }
@@ -228,6 +272,7 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
     warmOmg();
   }
   const int pe = pi + pi_offset;  // position in the band schedule
+  relax_pass = winem == 1 && std::pow(2, pe) >= data->params.bands;
   if (std::pow(2, pe) >= data->params.bands) {
     // init H1, H2 to zero
     H1.setZero();
@@ -313,6 +358,7 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
       TallQR qr(Hq);
       qr.applyQ(Mat2D::Identity(size, size), Omg);
       PCAone::flipOmg(Omg2, Omg);
+      relax_now = last.full;
       if (winem == 1) update_em_basis(qr);
       if (last.full)
         H1.setZero();
@@ -343,6 +389,7 @@ void FancyRsvdOpData::computeGandH(Mat2D& G, Mat2D& H, int pi) {
     TallQR qr(Hq);
     qr.applyQ(Mat2D::Identity(size, size), Omg);
     PCAone::flipOmg(Omg2, Omg);
+    relax_now = i == bandsize;
     if (winem == 1) update_em_basis(qr);
     if (i == bandsize) {
       H1.setZero();

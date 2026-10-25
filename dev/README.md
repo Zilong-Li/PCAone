@@ -5,6 +5,7 @@ They are kept in the repository but are not part of the documentation website,
 whose sources are in [`docs/`](../docs).
 
 - [Architecture](architecture.md): class diagram of the readers and PCA methods.
+- [winEM mathematics](winem-mathematics.md): conditional SNP updates, window products, over-relaxation, stopping rules, and final decompositions for `--winem`.
 - [HWE test fixes](hwe-lrt-fix.md): two bugs in `--inbreed 1`, fixed in v0.8.0.
 - [LD robustness fixes](ld-robustness-fixes.md): NaN R2 and a segfault on a missing `.mbim`.
 - [`read_usv()` fix](read-usv-fix.md): multi-column `.eigvecs` were transposed.

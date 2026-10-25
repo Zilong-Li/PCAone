@@ -647,6 +647,12 @@ void Data::estep_reg(const Mat2D& U, Eigen::Ref<Mat2D> Z, uint64 j0) {
     ptr = lptr.data();
     idx = lidx.data();
   }
+  if (!miss_counted) {  // the missing calls of each sample: of every site in-core, of this block out-of-core
+    if (miss_count.size() != N) miss_count = Mat1D::Zero(N);
+    const uint64 t0 = params.out_of_core ? ptr[0] : 0, t1 = params.out_of_core ? ptr[n] : miss_ptr[nsnps];
+    for (uint64 t = t0; t < t1; ++t) miss_count(idx[t]) += 1.0;
+    if (!params.out_of_core) miss_counted = true;
+  }
   // per thread, buffers of the largest size, sliced per site: a heap
   // allocation per site in this loop cost more than the arithmetic
 #pragma omp parallel
@@ -678,35 +684,72 @@ void Data::estep_reg(const Mat2D& U, Eigen::Ref<Mat2D> Z, uint64 j0) {
         for (Eigen::Index b = 0; b <= a; ++b) A(a, b) -= Um.col(a).dot(Um.col(b));
       // fewer calls than PCs leave A singular: the tiny ridge picks the
       // solution with no component the observed calls cannot see
-      A.diagonal().array() += 1e-10;
-      // EMU's fixed point z_m = clip(U_m U'z) by an active set: the calls at a
-      // bound count as observed there, the others are fitted by least squares
-      // on all the rest, and a call moves to or off its bound until none does.
-      // (EMU's own step contracts by the missing fraction per step.)
+      const double ridge = 1e-10;
+      A.diagonal().array() += ridge;
+      // EMU's fixed point z_m = clip(U_m c), c = U'z = beta + U_m' clip(U_m c).
+      // c minimizes the convex g(c) = |c|^2/2 - beta'c - sum_t psi(u_t'c), psi
+      // the integral of the clip, whose gradient is the fixed-point residual
+      // r(c) = c - beta - U_m' clip(U_m c). Newton on g: the calls at a bound
+      // count as observed there and the free ones are fitted by least squares
+      // (the active set), with a backtracking line search on g so that the
+      // iteration cannot cycle; it stops at a residual of 1e-8 relative. The
+      // ridge of A is part of g, so the Newton point is its exact minimizer.
       auto v = zm.head(nm);
-      auto state = znew.head(nm);  // 0 free, -1 at lo, 1 at hi
-      state.setZero();
+      auto w = znew.head(nm);  // clip(v)
       Mat2D& Ac = Aclip;
-      for (int it = 0; it < 10; ++it) {
+      Mat1D& r = y;            // the residual
+      Mat1D d(k), cn(k);
+      auto psi = [&](double x) {  // integral of clip(x, lo, hi)
+        if (x < lo) return lo * x - 0.5 * lo * lo;
+        if (x > hi) return hi * x - 0.5 * hi * hi;
+        return 0.5 * x * x;
+      };
+      auto eval = [&](const Mat1D& cc, Eigen::Ref<Mat1D> vv) {  // v = U_m c and g(c)
+        vv = cc(0) * Um.col(0);
+        for (Eigen::Index kk = 1; kk < k; ++kk) vv += cc(kk) * Um.col(kk);
+        double g = 0.5 * (1.0 + ridge) * cc.squaredNorm() - beta.dot(cc);
+        for (uint64 t = 0; t < nm; ++t) g -= psi(vv(t));
+        return g;
+      };
+      c = llt.compute(A).solve(beta);  // all calls free
+      double g = eval(c, v);
+      bool converged = false;
+      for (int it = 0; it < 50; ++it) {
+        for (uint64 t = 0; t < nm; ++t) w(t) = std::fmin(std::fmax(v(t), lo), hi);
+        r = (1.0 + ridge) * c - beta;  // the gradient of g, with the ridge
+        for (Eigen::Index kk = 0; kk < k; ++kk) r(kk) -= Um.col(kk).dot(w);
+        // relative to c: with fewer calls than PCs, c is of order beta / ridge
+        if (r.norm() <= 1e-8 * (1.0 + c.norm())) {
+          converged = true;
+          break;
+        }
+        // Newton step: the active set of the current v
         Ac = A;
-        y = beta;
+        cn = beta;
         for (uint64 t = 0; t < nm; ++t) {
-          if (state(t) == 0) continue;
+          if (v(t) >= lo && v(t) <= hi) continue;
           for (Eigen::Index a = 0; a < k; ++a)
             for (Eigen::Index b = 0; b <= a; ++b) Ac(a, b) += Um(t, a) * Um(t, b);
-          y.noalias() += (state(t) < 0 ? lo : hi) * Um.row(t).transpose();
+          cn.noalias() += w(t) * Um.row(t).transpose();
         }
-        c = llt.compute(Ac).solve(y);
-        v = c(0) * Um.col(0);
-        for (Eigen::Index kk = 1; kk < k; ++kk) v += c(kk) * Um.col(kk);
-        bool changed = false;
-        for (uint64 t = 0; t < nm; ++t) {
-          const double st = state(t);
-          if (st == 0 && v(t) < lo) state(t) = -1, changed = true;
-          else if (st == 0 && v(t) > hi) state(t) = 1, changed = true;
-          else if ((st < 0 && v(t) > lo) || (st > 0 && v(t) < hi)) state(t) = 0, changed = true;
+        cn = llt.compute(Ac).solve(cn);
+        d = cn - c;
+        const double slope = r.dot(d);  // < 0: a descent direction of g
+        double step = 1.0;
+        for (int ls = 0; ls < 30; ++ls, step *= 0.5) {
+          cn = c + step * d;
+          const double gn = eval(cn, w);
+          if (gn <= g + 1e-4 * step * slope || step < 1e-9) {
+            c = cn;
+            v = w;
+            g = gn;
+            break;
+          }
         }
-        if (!changed) break;
+      }
+      if (!converged) {
+#pragma omp atomic
+        ++estep_unconverged;
       }
       for (uint64 t = 0; t < nm; ++t) z(m[t]) = std::fmin(std::fmax(v(t), lo), hi);
     }
@@ -721,15 +764,18 @@ void Data::estep_pcangsd(const Mat2D& U, Eigen::Ref<Mat2D> Z, uint64 j0) {
   // 1 step took 18 passes to converge, 3 steps 12, and 10 steps 12 too, at
   // the same EM time as 1 and about 1.7 times that of 3
   const int inner = 3;
+  if (rbar_sum.size() != N) rbar_sum = Mat1D::Zero(N);
 #pragma omp parallel
   {
-    Mat1D c(k), r(N);
+    Mat1D c(k), r(N), rr(N), e0(N), rsum = Mat1D::Zero(N);
+    double de = 0, ee = 0;
 #pragma omp for schedule(dynamic, 64)
     for (Eigen::Index j = 0; j < n; ++j) {
       const uint original = unpermuted_snp_index(j0 + j);
       const double f = F(original);
       const uint s = params.filterSNP ? keepSNPs[original] : original;
       auto e = Z.col(j);
+      e0 = e;
       for (int it = 0; it < inner; ++it) {
         // r = U U'e as dots and axpys of the k columns, as in estep_reg()
         for (Eigen::Index kk = 0; kk < k; ++kk) c(kk) = U.col(kk).dot(e);
@@ -744,9 +790,21 @@ void Data::estep_pcangsd(const Mat2D& U, Eigen::Ref<Mat2D> Z, uint64 j0) {
           const double ei = (p1 + 2.0 * p2) / (p0 + p1 + p2) - 2.0 * f;
           delta = fmax(delta, fabs(ei - e(i)));
           e(i) = ei;
+          // the missing information of the call at this step, Var(g | GL, pi) / (2 pi (1 - pi))
+          const double mu = ei + 2.0 * f, var = (p1 + 4.0 * p2) / (p0 + p1 + p2) - mu * mu;
+          rr(i) = fmin(fmax(var / (2.0 * pt * (1.0 - pt)), 0.0), 1.0);
         }
         if (delta < 1e-6) break;
       }
+      rsum += rr;  // of the last step taken, once per call
+      de += (e - e0).squaredNorm();
+      ee += e.squaredNorm();
+    }
+#pragma omp critical
+    {
+      rbar_sum += rsum;
+      de_sum += de;
+      e_sum += ee;
     }
   }
   esteptime += omp_get_wtime() - t0;
